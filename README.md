@@ -1,86 +1,119 @@
 # Local-First Trading Ledger
 
-Day 4 output for the Week 1 project shell.
+这是 Week 1 / Day 4 的网页项目空壳产出。
 
-This is the runnable browser project for a local-first personal trading ledger.
-The first milestone is not a full financial app yet. It is the empty shell that
-lets the project open in VS Code, start in a browser, and keep the core
-directories separated before real logic is added.
+当前项目不是完整金融软件，也不是正式账本功能版本。它的作用是先让项目能在浏览器里跑起来，让首页有基本结构，并让后续开发可以在 VS Code 里继续往下写。
 
-## Current Status
+## 当前状态
 
-Completed in Day 4:
+Day 4 已完成：
 
-- Created a Next.js 14 + TypeScript + Tailwind CSS project.
-- Built the home page shell for `Local-First Trading Ledger`.
-- Added the four core homepage areas:
+- 创建了 Next.js 14 + TypeScript + Tailwind CSS 项目。
+- 搭好了 `Local-First Trading Ledger` 首页空壳。
+- 首页已经包含四个核心区域：
   - 资产汇总
   - 新增交易
   - 交易列表
   - 价格输入
-- Added a future chart placeholder for asset net worth and K-line views.
-- Kept the code scope intentionally small so the first VS Code view is not
-  overwhelming.
+- 额外保留了一个资产走势占位区，未来可以放净值曲线或 K 线。
+- 目前代码范围已经刻意保持很小，避免第一天打开 VS Code 就看到太多文件夹。
 
-Not implemented yet:
+当前还没有实现：
 
-- No real trade saving.
-- No position or P&L calculation.
-- No IndexedDB/localStorage repository implementation.
-- No encryption.
-- No API price feed.
-- No chart engine.
-- No NLP or Agent workflow.
+- 没有真正保存交易。
+- 没有计算持仓、平均成本和盈亏。
+- 没有接入 localStorage 或 IndexedDB。
+- 没有加密。
+- 没有实时价格 API。
+- 没有图表引擎。
+- 没有 NLP 输入或 Agent 问答。
 
-## Run Locally
+## 如何启动
+
+第一次拿到项目后，如果没有 `node_modules`，先安装依赖：
 
 ```bash
 npm install
+```
+
+启动本地开发服务器：
+
+```bash
 npm run dev
 ```
 
-Then open:
+然后在浏览器打开：
 
 ```text
 http://localhost:3000
 ```
 
-Useful checks:
+如果 3000 端口被占用，终端会提示新的端口，例如 `http://localhost:3001`。
+
+## 常用检查命令
+
+检查代码规范：
 
 ```bash
 npm run lint
+```
+
+检查项目是否能正式构建：
+
+```bash
 npm run build
 ```
 
-## Project Structure
+## 当前目录结构
+
+目前只需要重点看这两个目录：
 
 ```text
 src/
-  app/              Next.js pages, layout, and global CSS
-  components/       UI components used by the page
+  app/              Next.js 页面入口、布局和全局样式
+  components/       页面用到的 UI 组件
 ```
 
-## Design Rule
-
-The page should only display UI and collect input.
+当前最重要的文件：
 
 ```text
-UI page
+src/app/page.tsx
+src/components/dashboard/DashboardShell.tsx
+src/app/layout.tsx
+src/app/globals.css
+```
+
+其他根目录配置文件可以暂时不用深看。
+
+## 设计原则
+
+页面现在只负责展示空壳和收集输入。
+
+未来正式写功能时，应该保持这个方向：
+
+```text
+页面
 -> service
 -> repository
 -> storage adapter
 ```
 
-Calculations belong in calculators/services. Saving belongs in repositories and
-adapters. Data shape belongs in models.
+也就是说：
 
-## Next Step
+- 页面负责输入和展示。
+- 计算逻辑以后放到 service 或 calculator。
+- 保存逻辑以后放到 repository。
+- localStorage、IndexedDB、加密这些底层细节以后再接。
 
-Day 5 should design the saving and encryption route:
+## 下一步
+
+Day 5 再开始设计保存层和加密路线。
+
+到时候再逐步加入：
 
 - `LedgerRepository`
 - `StorageAdapter`
 - `EncryptionService`
-- data flow from page to local storage
+- 页面到本地保存的数据流
 
-Those folders should be added only when we start Day 5, not before.
+这些目录和文件不要提前一次性全建出来，等真正开始 Day 5 时再加。
