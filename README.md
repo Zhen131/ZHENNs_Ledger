@@ -19,9 +19,8 @@ Completed in Day 4:
   - 交易列表
   - 价格输入
 - Added a future chart placeholder for asset net worth and K-line views.
-- Added the initial project directories for models, services, repositories,
-  adapters, providers, calculators, validators, components, and utils.
-- Added first TypeScript model and interface placeholders.
+- Kept the code scope intentionally small so the first VS Code view is not
+  overwhelming.
 
 Not implemented yet:
 
@@ -57,16 +56,8 @@ npm run build
 
 ```text
 src/
-  app/              Next.js App Router pages and layout
-  components/       UI components
-  models/           Core data shapes: Trade, Asset, PriceSnapshot, Position
-  services/         Business workflow boundaries
-  repositories/     Data access interfaces
-  adapters/         Future localStorage, IndexedDB, import/export adapters
-  providers/        Future price, market data, and AI providers
-  calculators/      Future DCA, holdings, P&L, and report calculations
-  validators/       Future trade and price validation rules
-  utils/            Small shared constants and helpers
+  app/              Next.js pages, layout, and global CSS
+  components/       UI components used by the page
 ```
 
 ## Design Rule
@@ -92,3 +83,4 @@ Day 5 should design the saving and encryption route:
 - `EncryptionService`
 - data flow from page to local storage
 
+Those folders should be added only when we start Day 5, not before.
