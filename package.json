@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:decimal": "node -e \"require('node:fs').rmSync('.tmp-tests',{recursive:true,force:true})\" && tsc --target es2020 --module commonjs --moduleResolution node --esModuleInterop --strict --skipLibCheck --rootDir src --outDir .tmp-tests src/utils/decimalMath.test.ts && node .tmp-tests/utils/decimalMath.test.js"
+    "test:decimal": "node -e \"require('node:fs').rmSync('.tmp-tests',{recursive:true,force:true})\" && tsc --target es2020 --module commonjs --moduleResolution node --esModuleInterop --strict --skipLibCheck --rootDir src --outDir .tmp-tests src/utils/decimalMath.test.ts && node .tmp-tests/utils/decimalMath.test.js",
+    "test:positions": "node -e \"require('node:fs').rmSync('.tmp-tests',{recursive:true,force:true})\" && tsc --target es2020 --module commonjs --moduleResolution node --esModuleInterop --strict --skipLibCheck --rootDir src --outDir .tmp-tests src/calculators/positionCalculator.test.ts && node .tmp-tests/calculators/positionCalculator.test.js"
   },
   "dependencies": {
     "decimal.js": "^10.6.0",
