@@ -1,6 +1,6 @@
 # tradeValidator v1 接口设计
 
-状态：Step 3 基础字段校验完成，成交金额与超卖规则待 Step 4–5。
+状态：Step 4 成交金额校验完成，超卖规则待 Step 5。
 
 ## 结论
 
@@ -81,6 +81,9 @@ abs(quantity × price − totalValue) <= 0.01
 四舍五入误差。调用方可通过 `totalValueTolerance` 覆盖默认值；Validator 不做
 多币种换算。
 
+实现严格复用 `decimalMath.multiply()` 和 `decimalMath.isWithinTolerance()`。
+容差内以及恰好等于容差时通过，超过容差时返回 `TOTAL_VALUE_MISMATCH`。
+
 ## 非法小数
 
 `quantity`、`price`、`totalValue`、`fee` 或容差无法解析为有限 Decimal 时，统一返回
@@ -106,8 +109,8 @@ Calculator：
 
 - 已实现交易类型、资产、数量、价格、总额和手续费校验。
 - 已实现 `unknown` 对象守卫、错误累积和手续费缺省为 `"0"`。
+- 已实现成交金额绝对误差校验和可覆盖容差。
 - 已有当前临时测试脚本，Vitest 将在后续统一迁移。
-- 尚未实现成交金额误差。
 - 尚未实现卖出超持仓。
 - 不安装 Vitest。
 - 不修改 `positionCalculator`。
