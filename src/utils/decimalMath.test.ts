@@ -42,7 +42,7 @@ test("multiplies trade quantity and price with decimal arithmetic", () => {
 });
 
 test("divides cost basis by quantity for average cost", () => {
-  assert.equal(formatDecimal(divide("62", "251.2006"), { decimalPlaces: 4 }), "0.2468");
+  assert.equal(formatDecimal(divide("42", "168.2625"), { decimalPlaces: 4 }), "0.2496");
 });
 
 test("compares numeric meaning instead of string ordering", () => {
