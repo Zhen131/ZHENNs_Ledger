@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:decimal": "node -e \"require('node:fs').rmSync('.tmp-tests',{recursive:true,force:true})\" && tsc --target es2020 --module commonjs --moduleResolution node --esModuleInterop --strict --skipLibCheck --rootDir src --outDir .tmp-tests src/utils/decimalMath.test.ts && node .tmp-tests/utils/decimalMath.test.js",
-    "test:positions": "node -e \"require('node:fs').rmSync('.tmp-tests',{recursive:true,force:true})\" && tsc --target es2020 --module commonjs --moduleResolution node --esModuleInterop --strict --skipLibCheck --rootDir src --outDir .tmp-tests src/calculators/positionCalculator.test.ts && node .tmp-tests/calculators/positionCalculator.test.js"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "decimal.js": "^10.6.0",
@@ -24,6 +24,7 @@
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }

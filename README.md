@@ -1,119 +1,216 @@
-# Local-First Trading Ledger
+# Local-First Personal Trading Ledger
 
-这是 Week 1 / Day 4 的网页项目空壳产出。
+一个使用 Next.js 和 TypeScript 构建的本地优先个人交易账本原型。
 
-当前项目不是完整金融软件，也不是正式账本功能版本。它的作用是先让项目能在浏览器里跑起来，让首页有基本结构，并让后续开发可以在 VS Code 里继续往下写。
+项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-## 当前状态
+> 当前进度：Week 2 / Day 6（2026-06-24）
+>
+> 当前里程碑：核心账本能够计算、校验并通过自动化测试证明结果正确。
 
-Day 4 已完成：
+## 项目目标
 
-- 创建了 Next.js 14 + TypeScript + Tailwind CSS 项目。
-- 搭好了 `Local-First Trading Ledger` 首页空壳。
-- 首页已经包含四个核心区域：
-  - 资产汇总
-  - 新增交易
-  - 交易列表
-  - 价格输入
-- 额外保留了一个资产走势占位区，未来可以放净值曲线或 K 线。
-- 目前代码范围已经刻意保持很小，避免第一天打开 VS Code 就看到太多文件夹。
+长期目标是实现一个完全运行在浏览器中的个人交易账本：
 
-当前还没有实现：
+- 数据保存在本地，不依赖远端服务。
+- 金额和数量使用高精度十进制计算。
+- 交易记录是唯一事实来源，持仓结果可以重新计算。
+- 后续通过 IndexedDB 保存数据，并使用 Web Crypto API 加密。
+- 支持 JSON 导入导出、资产汇总、图表和性能 benchmark。
 
-- 没有真正保存交易。
-- 没有计算持仓、平均成本和盈亏。
-- 没有接入 localStorage 或 IndexedDB。
-- 没有加密。
-- 没有实时价格 API。
-- 没有图表引擎。
-- 没有 NLP 输入或 Agent 问答。
+当前仍是学习和论文验证原型，不是正式金融产品。
 
-## 如何启动
+## Week 1–2 已完成
 
-第一次拿到项目后，如果没有 `node_modules`，先安装依赖：
+### Week 1：确定边界和架构
+
+- 明确第一版只处理买入、卖出和基础持仓盈亏。
+- 设计 `Trade`、`Asset`、`PriceSnapshot`、`FeeRule`、`Position` 和 `LedgerData`。
+- 确定 `Trade` 保存、`Position` 不保存的事实与派生数据边界。
+- 完成页面空壳和写入、读取、保存、加密的数据流设计。
+- 锁定后续保存链路：
+
+```text
+UI
+→ Service
+→ Repository
+→ StorageAdapter
+→ EncryptionService
+→ IndexedDB
+```
+
+### Week 2：让账本算得对
+
+- 使用 `DecimalString → decimal.js → 展示格式化` 处理数值精度。
+- 实现 `decimalMath`，统一封装加、减、乘、除、比较和容差判断。
+- 实现 `positionCalculator`：
+  - 按交易时间排序。
+  - 按资产聚合仓位。
+  - 计算持仓数量、剩余成本和加权平均成本。
+  - 卖出时按卖出前平均成本结转成本。
+  - 计算 `realizedPnl`。
+  - 保留超卖和零仓位卖出的防御性检查。
+- 实现 `tradeValidator`：
+  - 非法交易类型。
+  - 资产不存在。
+  - 数量、价格或总金额不是合法正数。
+  - 手续费非法或小于零。
+  - `quantity × price` 与 `totalValue` 明显冲突。
+  - 卖出超过当前持仓。
+- 将测试统一迁移到 Vitest。
+
+## 当前数据流
+
+```text
+不可信输入
+→ TradeDraft
+→ tradeValidator
+→ ValidatedTradeDraft
+→ Trade
+→ positionCalculator
+→ Position[]
+```
+
+模块职责：
+
+- `validators`：判断输入是否合法，不保存数据，不生成持仓。
+- `calculators`：计算持仓和盈亏，不读取或写入存储。
+- `decimalMath`：项目内 Decimal 运算的统一入口。
+- `services`：后续负责组织校验、生成交易和保存流程。
+
+## Golden test 基准
+
+Week 2 使用 5 条固定交易作为标准答案：
+
+```text
+BTC buy
+ETH buy
+ADA buy
+ADA buy
+ADA sell
+```
+
+计算结果：
+
+| 资产 | 剩余数量 | 剩余成本 | 平均成本 | 已实现盈亏 |
+| --- | ---: | ---: | ---: | ---: |
+| BTC | `0.00016388` | `11` | `67122.28459848669` | `0` |
+| ETH | `0.004854` | `10` | `2060.1565718994643` | `0` |
+| ADA | `85.3244` | `21.297822152886115445` | `0.24960998439937597504` | `-0.702177847113884555` |
+
+这组数据同时验证 ADA 多次买入、部分卖出、成本结转和已实现盈亏。
+
+## 自动化验证
+
+当前测试包括：
+
+- DecimalMath 精度与容差。
+- 5 条交易 golden test。
+- BTC、ETH、ADA 持仓与平均成本。
+- ADA 多次买入和部分卖出。
+- `realizedPnl`。
+- Validator 全部基础规则。
+- 成交金额容差边界。
+- 无持仓卖出、超卖、等量清仓和剩余持仓判断。
+- 非法交易不会进入 Calculator。
+
+当前结果：
+
+```text
+Test Files  3 passed
+Tests       36 passed
+```
+
+运行全部测试：
+
+```bash
+npm test
+```
+
+监听测试文件：
+
+```bash
+npm run test:watch
+```
+
+## 本地运行
+
+环境建议：
+
+- Node.js 20、22 或 24+
+- npm
+
+安装依赖：
 
 ```bash
 npm install
 ```
 
-启动本地开发服务器：
+启动开发服务器：
 
 ```bash
 npm run dev
 ```
 
-然后在浏览器打开：
+浏览器访问：
 
 ```text
 http://localhost:3000
 ```
 
-如果 3000 端口被占用，终端会提示新的端口，例如 `http://localhost:3001`。
-
-## 常用检查命令
-
-检查代码规范：
+完整检查：
 
 ```bash
+npm test
 npm run lint
-```
-
-检查项目是否能正式构建：
-
-```bash
 npm run build
 ```
 
-## 当前目录结构
-
-目前只需要重点看这两个目录：
+## 目录结构
 
 ```text
 src/
-  app/              Next.js 页面入口、布局和全局样式
-  components/       页面用到的 UI 组件
+  app/              Next.js 页面入口
+  components/       UI 组件和当前页面空壳
+  models/           核心账本类型
+  utils/            DecimalMath
+  calculators/      持仓和盈亏纯计算
+  validators/       TradeDraft 校验
+  test/             共享 golden fixtures
+  services/         后续业务流程编排
+  repositories/     后续账本读写接口
+  adapters/         后续 IndexedDB 等外部适配
 ```
 
-当前最重要的文件：
+关键文件：
 
 ```text
-src/app/page.tsx
-src/components/dashboard/DashboardShell.tsx
-src/app/layout.tsx
-src/app/globals.css
+src/models/types.ts
+src/utils/decimalMath.ts
+src/calculators/positionCalculator.ts
+src/validators/tradeValidator.ts
+src/test/fixtures.ts
+vitest.config.ts
 ```
 
-其他根目录配置文件可以暂时不用深看。
+## 当前尚未实现
 
-## 设计原则
+- 最新价格、当前市值和未实现盈亏。
+- 页面真实交易状态和表单接入。
+- IndexedDB 持久化。
+- AES-256-GCM 本地加密。
+- JSON 导入导出。
+- 图表和性能 benchmark。
+- 实时行情 API、NLP 输入和 Agent。
 
-页面现在只负责展示空壳和收集输入。
-
-未来正式写功能时，应该保持这个方向：
-
-```text
-页面
--> service
--> repository
--> storage adapter
-```
-
-也就是说：
-
-- 页面负责输入和展示。
-- 计算逻辑以后放到 service 或 calculator。
-- 保存逻辑以后放到 repository。
-- localStorage、IndexedDB、加密这些底层细节以后再接。
+页面中现有资产和交易数据仍是 UI 占位，不能视为真实账本状态。
 
 ## 下一步
 
-Day 5 再开始设计保存层和加密路线。
+Week 2 剩余入口：
 
-到时候再逐步加入：
+1. 根据最新 `PriceSnapshot` 计算 `latestPrice`。
+2. 计算 `marketValue` 和 `unrealizedPnl`。
+3. 为无快照、多快照和市值盈亏补充测试。
 
-- `LedgerRepository`
-- `StorageAdapter`
-- `EncryptionService`
-- 页面到本地保存的数据流
-
-这些目录和文件不要提前一次性全建出来，等真正开始 Day 5 时再加。
+随后进入 Week 3：把 Validator 和 Calculator 接入页面内存状态，打通“新增交易 → 校验 → 更新列表 → 查看持仓”的完整流程。
