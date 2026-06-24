@@ -1,32 +1,28 @@
 # Local-First Trading Ledger
 
-这是 Week 1 / Day 4 的网页项目空壳产出。
+这是一个本地优先的个人交易账本原型，用来验证交易记录、持仓计算、平均成本和盈亏计算的核心流程。
 
-当前项目不是完整金融软件，也不是正式账本功能版本。它的作用是先让项目能在浏览器里跑起来，让首页有基本结构，并让后续开发可以在 VS Code 里继续往下写。
+当前项目还不是完整金融软件，也不是正式可用的记账产品。它的阶段目标是先把账本核心算对，再逐步接入页面、IndexedDB、导入导出和加密链路。
 
 ## 当前状态
 
-Day 4 已完成：
+截至 Week 2 / Day 5，已完成：
 
-- 创建了 Next.js 14 + TypeScript + Tailwind CSS 项目。
-- 搭好了 `Local-First Trading Ledger` 首页空壳。
-- 首页已经包含四个核心区域：
-  - 资产汇总
-  - 新增交易
-  - 交易列表
-  - 价格输入
-- 额外保留了一个资产走势占位区，未来可以放净值曲线或 K 线。
-- 目前代码范围已经刻意保持很小，避免第一天打开 VS Code 就看到太多文件夹。
+- Next.js 14 + TypeScript + Tailwind CSS 项目骨架。
+- `src/models` 账本核心类型：`Trade`、`Asset`、`PriceSnapshot`、`FeeRule`、`Position`、`LedgerData` 等。
+- `src/utils/decimalMath.ts` 十进制计算入口，统一处理加减乘除、比较和格式化。
+- `src/calculators/positionCalculator.ts` 第一版持仓计算器。
+- `positionCalculator` 已支持买入、卖出、平均成本、成本结转和已实现盈亏。
+- `test:decimal` 和 `test:positions` 已覆盖当前核心计算。
 
 当前还没有实现：
 
-- 没有真正保存交易。
-- 没有计算持仓、平均成本和盈亏。
-- 没有接入 localStorage 或 IndexedDB。
+- 没有把计算器接入页面。
+- 没有 IndexedDB 保存层。
 - 没有加密。
 - 没有实时价格 API。
-- 没有图表引擎。
 - 没有 NLP 输入或 Agent 问答。
+- 没有未实现盈亏和最新价格快照计算。
 
 ## 如何启动
 
@@ -64,56 +60,63 @@ npm run lint
 npm run build
 ```
 
+检查 DecimalMath：
+
+```bash
+npm run test:decimal
+```
+
+检查持仓计算器：
+
+```bash
+npm run test:positions
+```
+
 ## 当前目录结构
 
-目前只需要重点看这两个目录：
+目前重点看这些目录：
 
 ```text
 src/
   app/              Next.js 页面入口、布局和全局样式
   components/       页面用到的 UI 组件
+  models/           账本核心类型
+  utils/            DecimalMath 等通用工具
+  calculators/      持仓、均价、盈亏等纯计算逻辑
 ```
 
 当前最重要的文件：
 
 ```text
+src/models/types.ts
+src/utils/decimalMath.ts
+src/calculators/positionCalculator.ts
+src/calculators/positionCalculator.test.ts
 src/app/page.tsx
 src/components/dashboard/DashboardShell.tsx
-src/app/layout.tsx
-src/app/globals.css
 ```
-
-其他根目录配置文件可以暂时不用深看。
 
 ## 设计原则
 
-页面现在只负责展示空壳和收集输入。
+当前核心规则：
 
-未来正式写功能时，应该保持这个方向：
+- `Trade` 是原始交易事实，要保存。
+- `Position` 是计算结果，不保存，需要时由 `Trade[]` 推导。
+- 小数保存使用 `DecimalString`。
+- 小数计算必须走 `decimalMath`，不要在业务代码里裸写 `quantity * price`。
+- `positionCalculator` 是 pure calculator，不读写 storage，不调用 repository，不处理 UI。
 
 ```text
-页面
--> service
--> repository
--> storage adapter
+Trade[] -> positionCalculator -> Position[]
 ```
-
-也就是说：
-
-- 页面负责输入和展示。
-- 计算逻辑以后放到 service 或 calculator。
-- 保存逻辑以后放到 repository。
-- localStorage、IndexedDB、加密这些底层细节以后再接。
 
 ## 下一步
 
-Day 5 再开始设计保存层和加密路线。
+短期下一步：
 
-到时候再逐步加入：
+- 合并 `positionCalculator v1` PR。
+- 继续学习 `positionCalculator.ts` 和 `positionCalculator.test.ts`。
+- 补 `tradeValidator`，包括数量、价格、手续费和超卖校验。
+- 后续再接页面展示和 IndexedDB 保存层。
 
-- `LedgerRepository`
-- `StorageAdapter`
-- `EncryptionService`
-- 页面到本地保存的数据流
-
-这些目录和文件不要提前一次性全建出来，等真正开始 Day 5 时再加。
+保存层、导入导出和加密链路仍然按后续 Week 计划推进，不混进当前 calculator v1。
