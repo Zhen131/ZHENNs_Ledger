@@ -1,6 +1,7 @@
 export {
   DEFAULT_TOTAL_VALUE_TOLERANCE,
   TRADE_VALIDATION_ERROR_CODES,
+  validateTradeDraft,
 } from "./tradeValidator";
 
 export type {

@@ -1,6 +1,6 @@
 # tradeValidator v1 接口设计
 
-状态：Step 2 设计完成，规则实现待 Step 3–5。
+状态：Step 3 基础字段校验完成，成交金额与超卖规则待 Step 4–5。
 
 ## 结论
 
@@ -14,8 +14,7 @@ type TradeDraftValidator = (
 ) => TradeValidationResult;
 ```
 
-本步骤只锁定公开契约，不提供半成品运行时函数。后续
-`validateTradeDraft` 实现必须满足 `TradeDraftValidator`。
+`validateTradeDraft` 已实现基础字段校验，并满足 `TradeDraftValidator` 契约。
 
 ## 为什么校验 TradeDraft
 
@@ -103,9 +102,12 @@ Calculator：
 - 计算持仓、成本和盈亏。
 - 保留超卖异常作为防御性保护，不能替代 Validator。
 
-## 本步骤不包含
+## 当前实现边界
 
-- 不实现具体校验规则。
-- 不写测试。
+- 已实现交易类型、资产、数量、价格、总额和手续费校验。
+- 已实现 `unknown` 对象守卫、错误累积和手续费缺省为 `"0"`。
+- 已有当前临时测试脚本，Vitest 将在后续统一迁移。
+- 尚未实现成交金额误差。
+- 尚未实现卖出超持仓。
 - 不安装 Vitest。
 - 不修改 `positionCalculator`。
