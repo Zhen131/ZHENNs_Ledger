@@ -90,6 +90,106 @@ test("accepts all five fixed trade drafts", () => {
   }
 });
 
+test("accepts a total value difference within the default tolerance", () => {
+  assert.equal(
+    validateTradeDraft(
+      {
+        ...validDraft,
+        quantity: "1",
+        price: "10",
+        totalValue: "9.991",
+      },
+      context,
+    ).ok,
+    true,
+  );
+});
+
+test("accepts a total value difference exactly at the tolerance boundary", () => {
+  assert.equal(
+    validateTradeDraft(
+      {
+        ...validDraft,
+        quantity: "1",
+        price: "10",
+        totalValue: "9.99",
+      },
+      context,
+    ).ok,
+    true,
+  );
+});
+
+test("rejects a total value difference above the tolerance boundary", () => {
+  expectError(
+    validateTradeDraft(
+      {
+        ...validDraft,
+        quantity: "1",
+        price: "10",
+        totalValue: "9.989",
+      },
+      context,
+    ),
+    TRADE_VALIDATION_ERROR_CODES.TOTAL_VALUE_MISMATCH,
+    "totalValue",
+  );
+});
+
+test("includes calculated values in a total value mismatch message", () => {
+  const result = validateTradeDraft(
+    {
+      ...validDraft,
+      quantity: "2",
+      price: "5",
+      totalValue: "9.5",
+    },
+    context,
+  );
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    const mismatch = result.errors.find(
+      (error) =>
+        error.code === TRADE_VALIDATION_ERROR_CODES.TOTAL_VALUE_MISMATCH,
+    );
+
+    assert.ok(mismatch);
+    assert.match(mismatch.message, /10/);
+    assert.match(mismatch.message, /9\.5/);
+    assert.match(mismatch.message, /0\.01/);
+  }
+});
+
+test("supports a caller-provided total value tolerance", () => {
+  assert.equal(
+    validateTradeDraft(
+      {
+        ...validDraft,
+        quantity: "1",
+        price: "10",
+        totalValue: "9.98",
+      },
+      {
+        ...context,
+        totalValueTolerance: "0.02",
+      },
+    ).ok,
+    true,
+  );
+});
+
+test("rejects an invalid total value tolerance without throwing", () => {
+  expectError(
+    validateTradeDraft(validDraft, {
+      ...context,
+      totalValueTolerance: "-0.01",
+    }),
+    TRADE_VALIDATION_ERROR_CODES.INVALID_DECIMAL,
+    "totalValueTolerance",
+  );
+});
+
 test("defaults an omitted fee to zero", () => {
   const result = validateTradeDraft(validDraft, context);
 

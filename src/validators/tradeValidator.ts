@@ -6,7 +6,12 @@ import type {
   TradeDraft,
   TradeType,
 } from "../models";
-import { isNegative, isPositive } from "../utils/decimalMath";
+import {
+  isNegative,
+  isPositive,
+  isWithinTolerance,
+  multiply,
+} from "../utils/decimalMath";
 
 /**
  * USD 第一版允许 quantity * price 与 totalValue 相差 1 美分。
@@ -34,7 +39,10 @@ export const TRADE_VALIDATION_ERROR_CODES = {
 export type TradeValidationErrorCode =
   (typeof TRADE_VALIDATION_ERROR_CODES)[keyof typeof TRADE_VALIDATION_ERROR_CODES];
 
-export type TradeValidationField = "input" | keyof TradeDraft;
+export type TradeValidationField =
+  | "input"
+  | "totalValueTolerance"
+  | keyof TradeDraft;
 
 export type TradeValidationError = {
   code: TradeValidationErrorCode;
@@ -115,6 +123,20 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   const feeRuleId = readOptionalString(input, "feeRuleId", errors);
   const note = readOptionalString(input, "note", errors);
   const rawText = readOptionalString(input, "rawText", errors);
+
+  if (
+    quantity !== undefined &&
+    price !== undefined &&
+    totalValue !== undefined
+  ) {
+    validateTotalValueConsistency(
+      quantity,
+      price,
+      totalValue,
+      context.totalValueTolerance ?? DEFAULT_TOTAL_VALUE_TOLERANCE,
+      errors,
+    );
+  }
 
   if (
     errors.length > 0 ||
@@ -318,6 +340,36 @@ function readOptionalString(
     ),
   );
   return undefined;
+}
+
+function validateTotalValueConsistency(
+  quantity: DecimalString,
+  price: DecimalString,
+  totalValue: DecimalString,
+  tolerance: DecimalString,
+  errors: TradeValidationError[],
+): void {
+  try {
+    const calculatedTotalValue = multiply(quantity, price);
+
+    if (!isWithinTolerance(calculatedTotalValue, totalValue, tolerance)) {
+      errors.push(
+        createError(
+          TRADE_VALIDATION_ERROR_CODES.TOTAL_VALUE_MISMATCH,
+          "totalValue",
+          `quantity × price is ${calculatedTotalValue}, but totalValue is ${totalValue}; allowed difference is ${tolerance}`,
+        ),
+      );
+    }
+  } catch {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.INVALID_DECIMAL,
+        "totalValueTolerance",
+        "totalValueTolerance must be a valid non-negative finite decimal string",
+      ),
+    );
+  }
 }
 
 function invalidDecimalError(
