@@ -1,6 +1,6 @@
 # tradeValidator v1 接口设计
 
-状态：Step 5 超卖校验完成，规则测试整理待 Step 6。
+状态：Step 6 Validator 全规则测试完成，Vitest 迁移待 Step 7–8。
 
 ## 结论
 
@@ -111,6 +111,8 @@ Calculator：
 - 已实现 `unknown` 对象守卫、错误累积和手续费缺省为 `"0"`。
 - 已实现成交金额绝对误差校验和可覆盖容差。
 - 已按 `occurredAt + 原输入序号` 推导历史数量余额并拦截超卖。
-- 已有当前临时测试脚本，Vitest 将在后续统一迁移。
+- 已覆盖全部 Validator 规则，并证明失败数据不会进入 Calculator。
+- Validator 与 Calculator 共用唯一的 5 条交易 golden fixture。
+- 当前仍使用临时测试脚本，Vitest 将在后续统一迁移。
 - 不安装 Vitest。
 - 不修改 `positionCalculator`。
