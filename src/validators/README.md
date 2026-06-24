@@ -1,6 +1,6 @@
 # tradeValidator v1 接口设计
 
-状态：Step 6 Validator 全规则测试完成，Vitest 迁移待 Step 7–8。
+状态：Step 8 核心测试已统一迁移到 Vitest。
 
 ## 结论
 
@@ -113,6 +113,6 @@ Calculator：
 - 已按 `occurredAt + 原输入序号` 推导历史数量余额并拦截超卖。
 - 已覆盖全部 Validator 规则，并证明失败数据不会进入 Calculator。
 - Validator 与 Calculator 共用唯一的 5 条交易 golden fixture。
-- 当前仍使用临时测试脚本，Vitest 将在后续统一迁移。
-- 不安装 Vitest。
+- `npm test` 一次运行 DecimalMath、Calculator 和 Validator 全部测试。
+- 不再依赖 `node:assert`、临时 `tsc` 编译或 `.tmp-tests`。
 - 不修改 `positionCalculator`。

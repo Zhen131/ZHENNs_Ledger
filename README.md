@@ -13,7 +13,8 @@
 - `src/utils/decimalMath.ts` 十进制计算入口，统一处理加减乘除、比较和格式化。
 - `src/calculators/positionCalculator.ts` 第一版持仓计算器。
 - `positionCalculator` 已支持买入、卖出、平均成本、成本结转和已实现盈亏。
-- `test:decimal` 和 `test:positions` 已覆盖当前核心计算。
+- `src/validators/tradeValidator.ts` 已拦截基础字段错误、成交金额冲突和超卖。
+- Vitest 已统一覆盖 DecimalMath、仓位计算、golden 样例和 Validator 规则。
 
 当前还没有实现：
 
@@ -60,16 +61,16 @@ npm run lint
 npm run build
 ```
 
-检查 DecimalMath：
+一次运行全部核心测试：
 
 ```bash
-npm run test:decimal
+npm test
 ```
 
-检查持仓计算器：
+持续监听测试文件：
 
 ```bash
-npm run test:positions
+npm run test:watch
 ```
 
 ## 当前目录结构
@@ -83,6 +84,8 @@ src/
   models/           账本核心类型
   utils/            DecimalMath 等通用工具
   calculators/      持仓、均价、盈亏等纯计算逻辑
+  validators/       交易草稿合法性校验
+  test/             共享 golden fixtures
 ```
 
 当前最重要的文件：
@@ -92,6 +95,8 @@ src/models/types.ts
 src/utils/decimalMath.ts
 src/calculators/positionCalculator.ts
 src/calculators/positionCalculator.test.ts
+src/validators/tradeValidator.ts
+src/validators/tradeValidator.test.ts
 src/app/page.tsx
 src/components/dashboard/DashboardShell.tsx
 ```

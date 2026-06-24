@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import { expect, test } from "vitest";
 
 import type { Trade, TradeDraft } from "../models";
 import { calculatePositions } from "../calculators/positionCalculator";
@@ -15,16 +15,6 @@ import {
   type TradeValidationResult,
   validateTradeDraft,
 } from "./tradeValidator";
-
-function test(name: string, run: () => void) {
-  try {
-    run();
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    console.error(`FAIL ${name}`);
-    throw error;
-  }
-}
 
 const validDraft = sampleTradeDrafts[0];
 
@@ -50,7 +40,7 @@ test("accepts all five fixed trade drafts", () => {
       priorTrades,
     });
 
-    assert.equal(result.ok, true);
+    expect(result.ok).toBe(true);
     if (result.ok) {
       priorTrades.push(
         createTradeFromDraft(result.value, `sample-${index + 1}`),
@@ -60,7 +50,7 @@ test("accepts all five fixed trade drafts", () => {
 });
 
 test("does not apply an oversell check to buy trades", () => {
-  assert.equal(validateTradeDraft(validDraft, context).ok, true);
+  expect(validateTradeDraft(validDraft, context).ok).toBe(true);
 });
 
 test("rejects a sell when there is no holding", () => {
@@ -83,17 +73,16 @@ test("rejects a sell quantity greater than the current holding", () => {
 });
 
 test("allows selling exactly the current holding", () => {
-  assert.equal(
+  expect(
     validateTradeDraft(createSimpleDraft("sell", "ADA", "10"), {
       ...context,
       priorTrades: [createSimpleTrade("buy-ada", "buy", "ADA", "10")],
     }).ok,
-    true,
-  );
+  ).toBe(true);
 });
 
 test("allows a partial sell after multiple buys", () => {
-  assert.equal(
+  expect(
     validateTradeDraft(createSimpleDraft("sell", "ADA", "12"), {
       ...context,
       priorTrades: [
@@ -101,8 +90,7 @@ test("allows a partial sell after multiple buys", () => {
         createSimpleTrade("buy-ada-2", "buy", "ADA", "10"),
       ],
     }).ok,
-    true,
-  );
+  ).toBe(true);
 });
 
 test("uses the remaining holding after an earlier sell", () => {
@@ -111,13 +99,12 @@ test("uses the remaining holding after an earlier sell", () => {
     createSimpleTrade("sell-ada", "sell", "ADA", "6", "2026-04-02"),
   ];
 
-  assert.equal(
+  expect(
     validateTradeDraft(createSimpleDraft("sell", "ADA", "4"), {
       ...context,
       priorTrades,
     }).ok,
-    true,
-  );
+  ).toBe(true);
   expectError(
     validateTradeDraft(createSimpleDraft("sell", "ADA", "4.1"), {
       ...context,
@@ -145,13 +132,12 @@ test("sorts prior trades chronologically before checking holdings", () => {
     createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
   ];
 
-  assert.equal(
+  expect(
     validateTradeDraft(createSimpleDraft("sell", "ADA", "6"), {
       ...context,
       priorTrades,
     }).ok,
-    true,
-  );
+  ).toBe(true);
 });
 
 test("keeps input order stable for prior trades at the same time", () => {
@@ -160,17 +146,16 @@ test("keeps input order stable for prior trades at the same time", () => {
     createSimpleTrade("sell-ada", "sell", "ADA", "4", "2026-04-01"),
   ];
 
-  assert.equal(
+  expect(
     validateTradeDraft(createSimpleDraft("sell", "ADA", "6"), {
       ...context,
       priorTrades,
     }).ok,
-    true,
-  );
+  ).toBe(true);
 });
 
 test("accepts a total value difference within the default tolerance", () => {
-  assert.equal(
+  expect(
     validateTradeDraft(
       {
         ...validDraft,
@@ -180,12 +165,11 @@ test("accepts a total value difference within the default tolerance", () => {
       },
       context,
     ).ok,
-    true,
-  );
+  ).toBe(true);
 });
 
 test("accepts a total value difference exactly at the tolerance boundary", () => {
-  assert.equal(
+  expect(
     validateTradeDraft(
       {
         ...validDraft,
@@ -195,8 +179,7 @@ test("accepts a total value difference exactly at the tolerance boundary", () =>
       },
       context,
     ).ok,
-    true,
-  );
+  ).toBe(true);
 });
 
 test("rejects a total value difference above the tolerance boundary", () => {
@@ -226,22 +209,22 @@ test("includes calculated values in a total value mismatch message", () => {
     context,
   );
 
-  assert.equal(result.ok, false);
+  expect(result.ok).toBe(false);
   if (!result.ok) {
     const mismatch = result.errors.find(
       (error) =>
         error.code === TRADE_VALIDATION_ERROR_CODES.TOTAL_VALUE_MISMATCH,
     );
 
-    assert.ok(mismatch);
-    assert.match(mismatch.message, /10/);
-    assert.match(mismatch.message, /9\.5/);
-    assert.match(mismatch.message, /0\.01/);
+    expect(mismatch).toBeDefined();
+    expect(mismatch?.message).toMatch(/10/);
+    expect(mismatch?.message).toMatch(/9\.5/);
+    expect(mismatch?.message).toMatch(/0\.01/);
   }
 });
 
 test("supports a caller-provided total value tolerance", () => {
-  assert.equal(
+  expect(
     validateTradeDraft(
       {
         ...validDraft,
@@ -254,8 +237,7 @@ test("supports a caller-provided total value tolerance", () => {
         totalValueTolerance: "0.02",
       },
     ).ok,
-    true,
-  );
+  ).toBe(true);
 });
 
 test("rejects an invalid total value tolerance without throwing", () => {
@@ -272,9 +254,9 @@ test("rejects an invalid total value tolerance without throwing", () => {
 test("defaults an omitted fee to zero", () => {
   const result = validateTradeDraft(validDraft, context);
 
-  assert.equal(result.ok, true);
+  expect(result.ok).toBe(true);
   if (result.ok) {
-    assert.equal(result.value.fee, "0");
+    expect(result.value.fee).toBe("0");
   }
 });
 
@@ -331,9 +313,9 @@ test("returns multiple field errors in one result", () => {
     context,
   );
 
-  assert.equal(result.ok, false);
+  expect(result.ok).toBe(false);
   if (!result.ok) {
-    assert.equal(result.errors.length, 4);
+    expect(result.errors).toHaveLength(4);
   }
 });
 
@@ -354,10 +336,10 @@ test("does not call the calculator or change positions after validation fails", 
     ]);
   }
 
-  assert.equal(result.ok, false);
-  assert.equal(calculatorCalls, 0);
-  assert.deepEqual(calculatePositions(priorTrades), positionsBefore);
-  assert.equal(priorTrades.length, 1);
+  expect(result.ok).toBe(false);
+  expect(calculatorCalls).toBe(0);
+  expect(calculatePositions(priorTrades)).toEqual(positionsBefore);
+  expect(priorTrades).toHaveLength(1);
 });
 
 function createSimpleDraft(
@@ -398,14 +380,14 @@ function expectError(
   code: TradeValidationErrorCode,
   field: TradeValidationField,
 ) {
-  assert.equal(result.ok, false);
+  expect(result.ok).toBe(false);
 
   if (!result.ok) {
-    assert.ok(
+    expect(
       result.errors.some(
         (error) => error.code === code && error.field === field,
       ),
       `Expected ${code} for ${field}`,
-    );
+    ).toBe(true);
   }
 }
