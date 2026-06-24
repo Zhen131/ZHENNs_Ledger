@@ -7,10 +7,13 @@ import type {
   TradeType,
 } from "../models";
 import {
+  add,
+  isGreaterThan,
   isNegative,
   isPositive,
   isWithinTolerance,
   multiply,
+  subtract,
 } from "../utils/decimalMath";
 
 /**
@@ -82,8 +85,8 @@ export type TradeValidationResult =
  * tradeValidator 的公开函数契约。
  *
  * 输入使用 unknown，因为表单和 JSON 导入在运行时都不可信。
- * Step 3 起实现 validateTradeDraft 时，应满足该签名并返回结构化结果，
- * 普通校验失败不应通过 throw 表达。
+ * validateTradeDraft 满足该签名并返回结构化结果，普通校验失败不通过
+ * throw 表达。
  */
 export type TradeDraftValidator = (
   input: unknown,
@@ -93,7 +96,7 @@ export type TradeDraftValidator = (
 /**
  * 校验来自表单或导入流程的不可信交易草稿。
  *
- * Step 3 只处理基础字段规则；成交金额误差和超卖规则会在后续步骤加入。
+ * 当前覆盖基础字段、成交金额容差和卖出持仓规则。
  */
 export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   if (!isRecord(input)) {
@@ -134,6 +137,19 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
       price,
       totalValue,
       context.totalValueTolerance ?? DEFAULT_TOTAL_VALUE_TOLERANCE,
+      errors,
+    );
+  }
+
+  if (
+    type === "sell" &&
+    assetSymbol !== undefined &&
+    quantity !== undefined
+  ) {
+    validateSufficientHoldings(
+      assetSymbol,
+      quantity,
+      context.priorTrades,
       errors,
     );
   }
@@ -370,6 +386,66 @@ function validateTotalValueConsistency(
       ),
     );
   }
+}
+
+function validateSufficientHoldings(
+  assetSymbol: string,
+  sellQuantity: DecimalString,
+  priorTrades: readonly Trade[],
+  errors: TradeValidationError[],
+): void {
+  const availableQuantity = calculateAvailableQuantity(
+    assetSymbol,
+    priorTrades,
+  );
+
+  if (isGreaterThan(sellQuantity, availableQuantity)) {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+        "quantity",
+        `Cannot sell ${sellQuantity} ${assetSymbol}; available quantity is ${availableQuantity}`,
+      ),
+    );
+  }
+}
+
+/**
+ * 只推导超卖判断所需的数量余额，不生成 Position，也不计算成本或盈亏。
+ *
+ * 排序规则与 positionCalculator 保持一致：先按 occurredAt，再以原输入序号作为
+ * 同一时间的稳定顺序。
+ */
+function calculateAvailableQuantity(
+  assetSymbol: string,
+  priorTrades: readonly Trade[],
+): DecimalString {
+  let availableQuantity: DecimalString = "0";
+
+  for (const trade of sortTradesByOccurredAt(priorTrades)) {
+    if (trade.assetSymbol !== assetSymbol) {
+      continue;
+    }
+
+    availableQuantity =
+      trade.type === "buy"
+        ? add(availableQuantity, trade.quantity)
+        : subtract(availableQuantity, trade.quantity);
+  }
+
+  return availableQuantity;
+}
+
+function sortTradesByOccurredAt(trades: readonly Trade[]): Trade[] {
+  return trades
+    .map((trade, index) => ({ trade, index }))
+    .sort((left, right) => {
+      const dateOrder = left.trade.occurredAt.localeCompare(
+        right.trade.occurredAt,
+      );
+      return dateOrder === 0 ? left.index - right.index : dateOrder;
+    })
+    .map(({ trade }) => trade);
 }
 
 function invalidDecimalError(

@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 
-import type { Asset, TradeDraft } from "../models";
+import type { Asset, Trade, TradeDraft } from "../models";
 import {
   TRADE_VALIDATION_ERROR_CODES,
   type TradeValidationErrorCode,
   type TradeValidationField,
   type TradeValidationResult,
+  type ValidatedTradeDraft,
   validateTradeDraft,
 } from "./tradeValidator";
 
@@ -85,9 +86,129 @@ test("rejects a non-object input before reading fields", () => {
 });
 
 test("accepts all five fixed trade drafts", () => {
-  for (const draft of sampleDrafts) {
-    assert.equal(validateTradeDraft(draft, context).ok, true);
+  const priorTrades: Trade[] = [];
+
+  for (const [index, draft] of sampleDrafts.entries()) {
+    const result = validateTradeDraft(draft, {
+      ...context,
+      priorTrades,
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      priorTrades.push(toTrade(result.value, `sample-${index + 1}`));
+    }
   }
+});
+
+test("does not apply an oversell check to buy trades", () => {
+  assert.equal(validateTradeDraft(validDraft, context).ok, true);
+});
+
+test("rejects a sell when there is no holding", () => {
+  expectError(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "1"), context),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("rejects a sell quantity greater than the current holding", () => {
+  expectError(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "11"), {
+      ...context,
+      priorTrades: [createSimpleTrade("buy-ada", "buy", "ADA", "10")],
+    }),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("allows selling exactly the current holding", () => {
+  assert.equal(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "10"), {
+      ...context,
+      priorTrades: [createSimpleTrade("buy-ada", "buy", "ADA", "10")],
+    }).ok,
+    true,
+  );
+});
+
+test("allows a partial sell after multiple buys", () => {
+  assert.equal(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "12"), {
+      ...context,
+      priorTrades: [
+        createSimpleTrade("buy-ada-1", "buy", "ADA", "5"),
+        createSimpleTrade("buy-ada-2", "buy", "ADA", "10"),
+      ],
+    }).ok,
+    true,
+  );
+});
+
+test("uses the remaining holding after an earlier sell", () => {
+  const priorTrades = [
+    createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+    createSimpleTrade("sell-ada", "sell", "ADA", "6", "2026-04-02"),
+  ];
+
+  assert.equal(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "4"), {
+      ...context,
+      priorTrades,
+    }).ok,
+    true,
+  );
+  expectError(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "4.1"), {
+      ...context,
+      priorTrades,
+    }),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("does not use another asset holding to support a sell", () => {
+  expectError(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "1"), {
+      ...context,
+      priorTrades: [createSimpleTrade("buy-btc", "buy", "BTC", "10")],
+    }),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("sorts prior trades chronologically before checking holdings", () => {
+  const priorTrades = [
+    createSimpleTrade("sell-ada", "sell", "ADA", "4", "2026-04-02"),
+    createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+  ];
+
+  assert.equal(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "6"), {
+      ...context,
+      priorTrades,
+    }).ok,
+    true,
+  );
+});
+
+test("keeps input order stable for prior trades at the same time", () => {
+  const priorTrades = [
+    createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+    createSimpleTrade("sell-ada", "sell", "ADA", "4", "2026-04-01"),
+  ];
+
+  assert.equal(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "6"), {
+      ...context,
+      priorTrades,
+    }).ok,
+    true,
+  );
 });
 
 test("accepts a total value difference within the default tolerance", () => {
@@ -266,6 +387,48 @@ function createAsset(symbol: string, name: string): Asset {
     quoteCurrency: "USD",
     createdAt: "2026-06-22T00:00:00Z",
     updatedAt: "2026-06-22T00:00:00Z",
+  };
+}
+
+function createSimpleDraft(
+  type: "buy" | "sell",
+  assetSymbol: string,
+  quantity: string,
+): TradeDraft {
+  return {
+    ...validDraft,
+    type,
+    assetSymbol,
+    quantity,
+    price: "1",
+    totalValue: quantity,
+  };
+}
+
+function createSimpleTrade(
+  id: string,
+  type: "buy" | "sell",
+  assetSymbol: string,
+  quantity: string,
+  occurredAt = "2026-04-01",
+): Trade {
+  return toTrade(
+    {
+      ...createSimpleDraft(type, assetSymbol, quantity),
+      fee: "0",
+      occurredAt,
+    },
+    id,
+  );
+}
+
+function toTrade(draft: ValidatedTradeDraft, id: string): Trade {
+  return {
+    ...draft,
+    id,
+    feeCurrency: draft.feeCurrency ?? draft.currency,
+    createdAt: "2026-06-24T00:00:00Z",
+    updatedAt: "2026-06-24T00:00:00Z",
   };
 }
 
