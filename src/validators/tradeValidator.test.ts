@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 
-import type { Asset, Trade, TradeDraft } from "../models";
+import type { Trade, TradeDraft } from "../models";
+import { calculatePositions } from "../calculators/positionCalculator";
+import {
+  createSimpleTrade,
+  createTradeFromDraft,
+  sampleAssets,
+  sampleTradeDrafts,
+} from "../test/fixtures";
 import {
   TRADE_VALIDATION_ERROR_CODES,
   type TradeValidationErrorCode,
   type TradeValidationField,
   type TradeValidationResult,
-  type ValidatedTradeDraft,
   validateTradeDraft,
 } from "./tradeValidator";
 
@@ -20,60 +26,10 @@ function test(name: string, run: () => void) {
   }
 }
 
-const assets: Asset[] = [
-  createAsset("BTC", "Bitcoin"),
-  createAsset("ETH", "Ethereum"),
-  createAsset("ADA", "Cardano"),
-];
-
-const validDraft: TradeDraft = {
-  occurredAt: "2026-04-02",
-  timePrecision: "day",
-  type: "buy",
-  assetSymbol: "BTC",
-  quantity: "0.00016388",
-  price: "67121.7",
-  totalValue: "11",
-  currency: "USD",
-};
-
-const sampleDrafts: TradeDraft[] = [
-  validDraft,
-  {
-    ...validDraft,
-    assetSymbol: "ETH",
-    quantity: "0.004854",
-    price: "2059.99",
-    totalValue: "10",
-  },
-  {
-    ...validDraft,
-    assetSymbol: "ADA",
-    quantity: "41.58",
-    price: "0.2405",
-    totalValue: "10",
-  },
-  {
-    ...validDraft,
-    occurredAt: "2026-04-09",
-    assetSymbol: "ADA",
-    quantity: "126.6825",
-    price: "0.2526",
-    totalValue: "32",
-  },
-  {
-    ...validDraft,
-    occurredAt: "2026-04-14",
-    type: "sell",
-    assetSymbol: "ADA",
-    quantity: "82.9381",
-    price: "0.2412",
-    totalValue: "20",
-  },
-];
+const validDraft = sampleTradeDrafts[0];
 
 const context = {
-  assets,
+  assets: sampleAssets,
   priorTrades: [],
 };
 
@@ -88,7 +44,7 @@ test("rejects a non-object input before reading fields", () => {
 test("accepts all five fixed trade drafts", () => {
   const priorTrades: Trade[] = [];
 
-  for (const [index, draft] of sampleDrafts.entries()) {
+  for (const [index, draft] of sampleTradeDrafts.entries()) {
     const result = validateTradeDraft(draft, {
       ...context,
       priorTrades,
@@ -96,7 +52,9 @@ test("accepts all five fixed trade drafts", () => {
 
     assert.equal(result.ok, true);
     if (result.ok) {
-      priorTrades.push(toTrade(result.value, `sample-${index + 1}`));
+      priorTrades.push(
+        createTradeFromDraft(result.value, `sample-${index + 1}`),
+      );
     }
   }
 });
@@ -379,16 +337,28 @@ test("returns multiple field errors in one result", () => {
   }
 });
 
-function createAsset(symbol: string, name: string): Asset {
-  return {
-    id: `asset-${symbol.toLowerCase()}`,
-    symbol,
-    name,
-    quoteCurrency: "USD",
-    createdAt: "2026-06-22T00:00:00Z",
-    updatedAt: "2026-06-22T00:00:00Z",
-  };
-}
+test("does not call the calculator or change positions after validation fails", () => {
+  const priorTrades = [createSimpleTrade("buy-ada", "buy", "ADA", "10")];
+  const positionsBefore = calculatePositions(priorTrades);
+  const result = validateTradeDraft(createSimpleDraft("sell", "ADA", "11"), {
+    ...context,
+    priorTrades,
+  });
+  let calculatorCalls = 0;
+
+  if (result.ok) {
+    calculatorCalls += 1;
+    calculatePositions([
+      ...priorTrades,
+      createTradeFromDraft(result.value, "invalid-sell"),
+    ]);
+  }
+
+  assert.equal(result.ok, false);
+  assert.equal(calculatorCalls, 0);
+  assert.deepEqual(calculatePositions(priorTrades), positionsBefore);
+  assert.equal(priorTrades.length, 1);
+});
 
 function createSimpleDraft(
   type: "buy" | "sell",
@@ -402,33 +372,6 @@ function createSimpleDraft(
     quantity,
     price: "1",
     totalValue: quantity,
-  };
-}
-
-function createSimpleTrade(
-  id: string,
-  type: "buy" | "sell",
-  assetSymbol: string,
-  quantity: string,
-  occurredAt = "2026-04-01",
-): Trade {
-  return toTrade(
-    {
-      ...createSimpleDraft(type, assetSymbol, quantity),
-      fee: "0",
-      occurredAt,
-    },
-    id,
-  );
-}
-
-function toTrade(draft: ValidatedTradeDraft, id: string): Trade {
-  return {
-    ...draft,
-    id,
-    feeCurrency: draft.feeCurrency ?? draft.currency,
-    createdAt: "2026-06-24T00:00:00Z",
-    updatedAt: "2026-06-24T00:00:00Z",
   };
 }
 

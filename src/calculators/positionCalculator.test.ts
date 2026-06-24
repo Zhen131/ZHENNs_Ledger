@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
-import type { Position, Trade } from "../models";
+import type { Position } from "../models";
+import { sampleTrades } from "../test/fixtures";
 import { isWithinTolerance } from "../utils/decimalMath";
 import { calculatePositions } from "./positionCalculator";
 
@@ -13,89 +14,6 @@ function test(name: string, run: () => void) {
     throw error;
   }
 }
-
-const sampleTrades: Trade[] = [
-  {
-    id: "trade-001",
-    occurredAt: "2026-04-02",
-    timePrecision: "day",
-    type: "buy",
-    assetSymbol: "BTC",
-    quantity: "0.00016388",
-    price: "67121.7",
-    totalValue: "11",
-    currency: "USD",
-    fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 67121.7 买入 BTC 0.00016388 个，价值 11 USD，26/04/02",
-    createdAt: "2026-06-22T00:00:00Z",
-    updatedAt: "2026-06-22T00:00:00Z",
-  },
-  {
-    id: "trade-002",
-    occurredAt: "2026-04-02",
-    timePrecision: "day",
-    type: "buy",
-    assetSymbol: "ETH",
-    quantity: "0.004854",
-    price: "2059.99",
-    totalValue: "10",
-    currency: "USD",
-    fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 2059.99 买入 ETH 0.004854 个，价值 10 USD，26/04/02",
-    createdAt: "2026-06-22T00:00:00Z",
-    updatedAt: "2026-06-22T00:00:00Z",
-  },
-  {
-    id: "trade-003",
-    occurredAt: "2026-04-02",
-    timePrecision: "day",
-    type: "buy",
-    assetSymbol: "ADA",
-    quantity: "41.58",
-    price: "0.2405",
-    totalValue: "10",
-    currency: "USD",
-    fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 0.2405 买入 ADA 41.58 个，价值 10 USD，26/04/02",
-    createdAt: "2026-06-22T00:00:00Z",
-    updatedAt: "2026-06-22T00:00:00Z",
-  },
-  {
-    id: "trade-004",
-    occurredAt: "2026-04-09",
-    timePrecision: "day",
-    type: "buy",
-    assetSymbol: "ADA",
-    quantity: "126.6825",
-    price: "0.2526",
-    totalValue: "32",
-    currency: "USD",
-    fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 0.2526 买入 ADA 126.6825 个，价值 32 USD，26/04/09",
-    createdAt: "2026-06-22T00:00:00Z",
-    updatedAt: "2026-06-22T00:00:00Z",
-  },
-  {
-    id: "trade-005",
-    occurredAt: "2026-04-14",
-    timePrecision: "day",
-    type: "sell",
-    assetSymbol: "ADA",
-    quantity: "82.9381",
-    price: "0.2412",
-    totalValue: "20",
-    currency: "USD",
-    fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 0.2412 卖出 ADA 82.9381 个，价值 20 USD，26/04/14",
-    createdAt: "2026-06-22T00:00:00Z",
-    updatedAt: "2026-06-22T00:00:00Z",
-  },
-];
 
 function positionFor(positions: Position[], assetSymbol: string): Position {
   const position = positions.find((item) => item.assetSymbol === assetSymbol);
