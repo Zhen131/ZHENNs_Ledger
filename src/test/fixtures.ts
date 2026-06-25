@@ -1,4 +1,9 @@
-import type { Asset, Trade, TradeDraft } from "../models";
+import type {
+  Asset,
+  PriceSnapshot,
+  Trade,
+  TradeDraft,
+} from "../models";
 
 const FIXTURE_TIMESTAMP = "2026-06-24T00:00:00Z";
 
@@ -127,4 +132,23 @@ export function createSimpleTrade(
     },
     id,
   );
+}
+
+export function createPriceSnapshot(
+  id: string,
+  assetSymbol: string,
+  price: string,
+  recordedAt: string,
+  currency = "USD",
+): PriceSnapshot {
+  return {
+    id,
+    assetSymbol,
+    price,
+    currency,
+    recordedAt,
+    source: "manual",
+    createdAt: FIXTURE_TIMESTAMP,
+    updatedAt: FIXTURE_TIMESTAMP,
+  };
 }
