@@ -4,9 +4,9 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 2 / Day 6（2026-06-24）
+> 当前进度：Week 2 核心计算收尾完成（2026-06-26）
 >
-> 当前里程碑：核心账本能够计算、校验并通过自动化测试证明结果正确。
+> 当前里程碑：核心账本能够根据交易和价格快照计算持仓、成本与盈亏，并通过自动化测试证明结果正确。
 
 ## 项目目标
 
@@ -49,6 +49,9 @@ UI
   - 计算持仓数量、剩余成本和加权平均成本。
   - 卖出时按卖出前平均成本结转成本。
   - 计算 `realizedPnl`。
+  - 按资产、币种和 `recordedAt` 选择最新 `PriceSnapshot`。
+  - 计算 `latestPrice`、`marketValue` 和 `unrealizedPnl`。
+  - 同时间快照以数组中后出现者为准；无匹配快照时不制造零值。
   - 保留超卖和零仓位卖出的防御性检查。
 - 实现 `tradeValidator`：
   - 非法交易类型。
@@ -109,6 +112,8 @@ ADA sell
 - BTC、ETH、ADA 持仓与平均成本。
 - ADA 多次买入和部分卖出。
 - `realizedPnl`。
+- 最新价格选择、市值和未实现盈亏。
+- 无价格快照、同时间快照和币种不匹配边界。
 - Validator 全部基础规则。
 - 成交金额容差边界。
 - 无持仓卖出、超卖、等量清仓和剩余持仓判断。
@@ -118,7 +123,7 @@ ADA sell
 
 ```text
 Test Files  3 passed
-Tests       36 passed
+Tests       40 passed
 ```
 
 运行全部测试：
@@ -195,7 +200,6 @@ vitest.config.ts
 
 ## 当前尚未实现
 
-- 最新价格、当前市值和未实现盈亏。
 - 页面真实交易状态和表单接入。
 - IndexedDB 持久化。
 - AES-256-GCM 本地加密。
@@ -207,10 +211,4 @@ vitest.config.ts
 
 ## 下一步
 
-Week 2 剩余入口：
-
-1. 根据最新 `PriceSnapshot` 计算 `latestPrice`。
-2. 计算 `marketValue` 和 `unrealizedPnl`。
-3. 为无快照、多快照和市值盈亏补充测试。
-
-随后进入 Week 3：把 Validator 和 Calculator 接入页面内存状态，打通“新增交易 → 校验 → 更新列表 → 查看持仓”的完整流程。
+进入 Week 3：设计内存版 `LedgerData` 和 Service 职责，把 Validator 与 Calculator 接入页面状态，打通“新增交易 → 校验 → 更新列表 → 查看持仓”的完整流程。
