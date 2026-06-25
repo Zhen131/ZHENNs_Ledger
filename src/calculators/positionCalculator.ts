@@ -1,4 +1,9 @@
-import type { DecimalString, Position, Trade } from "../models";
+import type {
+  DecimalString,
+  Position,
+  PriceSnapshot,
+  Trade,
+} from "../models";
 import {
   add,
   divide,
@@ -29,12 +34,16 @@ type PositionAccumulator = {
  * Design notes:
  * - 这是 pure calculator：不读写 storage，不调用 repository，不处理 UI 文案。
  * - Position 不保存；每次需要时都可以由 Trade[] 重新计算。
- * - v1 只处理 buy / sell，不处理 PriceSnapshot、unrealizedPnl、转仓或空投。
+ * - v1 只处理 buy / sell 和 PriceSnapshot，不处理转仓或空投。
  *
  * @param trades 原始交易记录。调用方负责传入已结构化、已校验的数据。
+ * @param priceSnapshots 原始价格事实。没有可用快照时不生成价格派生字段。
  * @returns 按 assetSymbol 聚合后的当前仓位结果。
  */
-export function calculatePositions(trades: Trade[]): Position[] {
+export function calculatePositions(
+  trades: Trade[],
+  priceSnapshots: PriceSnapshot[] = [],
+): Position[] {
   const positionsByAsset = new Map<string, PositionAccumulator>();
 
   for (const trade of sortTradesByOccurredAt(trades)) {
@@ -48,7 +57,9 @@ export function calculatePositions(trades: Trade[]): Position[] {
     applySell(current, trade);
   }
 
-  return Array.from(positionsByAsset.values()).map(toPosition);
+  return Array.from(positionsByAsset.values()).map((position) =>
+    toPosition(position, priceSnapshots),
+  );
 }
 
 /**
@@ -153,10 +164,13 @@ function applySell(position: PositionAccumulator, trade: Trade): void {
 /**
  * 把内部 accumulator 转成对外的 Position。
  *
- * latestPrice / marketValue / unrealizedPnl 需要 PriceSnapshot，v1 不在这里填。
+ * 没有同资产、同币种的价格快照时，只返回交易可以推导出的字段。
  */
-function toPosition(position: PositionAccumulator): Position {
-  return {
+function toPosition(
+  position: PositionAccumulator,
+  priceSnapshots: PriceSnapshot[],
+): Position {
+  const result: Position = {
     assetSymbol: position.assetSymbol,
     quantity: position.quantity,
     averageCost: calculateAverageCost(position),
@@ -164,6 +178,49 @@ function toPosition(position: PositionAccumulator): Position {
     realizedPnl: position.realizedPnl,
     currency: position.currency,
   };
+
+  const latestSnapshot = findLatestSnapshot(position, priceSnapshots);
+
+  if (!latestSnapshot) {
+    return result;
+  }
+
+  const marketValue = multiply(position.quantity, latestSnapshot.price);
+
+  return {
+    ...result,
+    latestPrice: latestSnapshot.price,
+    marketValue,
+    unrealizedPnl: subtract(marketValue, position.costBasis),
+  };
+}
+
+/**
+ * 只比较同资产、同币种的价格快照。
+ *
+ * recordedAt 较新的快照获胜；recordedAt 相同时，数组中后出现的快照获胜，
+ * 这样后录入的同时间价格可以作为前一条的更正。
+ */
+function findLatestSnapshot(
+  position: PositionAccumulator,
+  priceSnapshots: PriceSnapshot[],
+): PriceSnapshot | undefined {
+  let latest: PriceSnapshot | undefined;
+
+  for (const snapshot of priceSnapshots) {
+    if (
+      snapshot.assetSymbol !== position.assetSymbol ||
+      snapshot.currency !== position.currency
+    ) {
+      continue;
+    }
+
+    if (!latest || snapshot.recordedAt.localeCompare(latest.recordedAt) >= 0) {
+      latest = snapshot;
+    }
+  }
+
+  return latest;
 }
 
 /**
