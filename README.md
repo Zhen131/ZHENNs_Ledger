@@ -4,9 +4,11 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 2 核心计算收尾完成（2026-06-26）
+> 当前进度：Week 4 React 内存账本状态地基准备中（2026-07-05）
 >
-> 当前里程碑：核心账本能够根据交易和价格快照计算持仓、成本与盈亏，并通过自动化测试证明结果正确。
+> 已完成里程碑：Week 2 核心账本能够根据交易和价格快照计算持仓、成本与盈亏，并通过自动化测试证明结果正确。
+>
+> 当前开发目标：把页面从硬编码展示改成 `useReducer + LedgerData` 内存态账本。刷新丢失数据可以接受，IndexedDB 是 Week 5。
 
 ## 项目目标
 
@@ -20,7 +22,7 @@
 
 当前仍是学习和论文验证原型，不是正式金融产品。
 
-## Week 1–2 已完成
+## Week 1–2 已完成，Week 4 正在接入
 
 ### Week 1：确定边界和架构
 
@@ -62,7 +64,49 @@ UI
   - 卖出超过当前持仓。
 - 将测试统一迁移到 Vitest。
 
+### Week 4：页面状态地基（当前目标）
+
+这一步还不是持久化，也不是加密。它只解决一个问题：
+
+```text
+页面不能再靠硬编码数组展示账本。
+```
+
+计划接入的数据流：
+
+```text
+initialLedgerData
+→ useReducer(ledgerReducer)
+→ LedgerData
+→ positionService
+→ calculatePositions(...)
+→ Position[]
+→ DashboardShell 展示
+```
+
+新增交易计划走：
+
+```text
+表单输入
+→ TradeDraft
+→ tradeService
+→ validateTradeDraft
+→ Trade
+→ dispatch({ type: "trade/add" })
+→ ledgerReducer 写入 LedgerData.trades
+```
+
+Week 4 的边界：
+
+- `ledgerReducer` 只管理账本状态，不做表单校验、不计算持仓、不读写 IndexedDB。
+- `tradeService` 只负责“新增交易”动作，校验失败只返回错误，不改数据。
+- `positionService` 只负责“根据当前账本算持仓”，不碰表单、不保存数据、不自己写计算逻辑。
+- `Position[]` 是派生结果，不进 `LedgerData` 保存。
+- 不使用 `localStorage` 作为临时路线。
+
 ## 当前数据流
+
+已完成的核心计算数据流：
 
 ```text
 不可信输入
@@ -74,12 +118,24 @@ UI
 → Position[]
 ```
 
+Week 4 目标页面数据流：
+
+```text
+DashboardShell
+→ useReducer(ledgerReducer, initialLedgerData)
+→ LedgerData
+→ positionService
+→ calculatePositions(...)
+→ Position[]
+```
+
 模块职责：
 
 - `validators`：判断输入是否合法，不保存数据，不生成持仓。
 - `calculators`：计算持仓和盈亏，不读取或写入存储。
 - `decimalMath`：项目内 Decimal 运算的统一入口。
-- `services`：后续负责组织校验、生成交易和保存流程。
+- `state`：Week 4 新增，管理内存版 `LedgerData` 和账本动作。
+- `services`：组织业务动作；Week 4 先接 `tradeService` 和 `positionService`，Week 5 再接保存层。
 
 ## Golden test 基准
 
@@ -181,8 +237,9 @@ src/
   utils/            DecimalMath
   calculators/      持仓和盈亏纯计算
   validators/       TradeDraft 校验
+  state/            Week 4 计划新增：initialLedgerData 与 ledgerReducer
   test/             共享 golden fixtures
-  services/         后续业务流程编排
+  services/         业务流程编排：tradeService、positionService
   repositories/     后续账本读写接口
   adapters/         后续 IndexedDB 等外部适配
 ```
@@ -194,13 +251,19 @@ src/models/types.ts
 src/utils/decimalMath.ts
 src/calculators/positionCalculator.ts
 src/validators/tradeValidator.ts
+src/state/initialLedgerData.ts        # Week 4 计划新增
+src/state/ledgerReducer.ts            # Week 4 计划新增
+src/services/positionService.ts       # Week 4 计划新增
+src/services/tradeService.ts          # Week 4 计划接入新增交易
 src/test/fixtures.ts
 vitest.config.ts
 ```
 
 ## 当前尚未实现
 
-- 页面真实交易状态和表单接入。
+- 页面真实交易状态和表单接入：`DashboardShell` 仍然使用硬编码资产和交易展示。
+- `initialLedgerData`、`ledgerReducer`、`positionService` 尚未接入页面。
+- `tradeService` 尚未完整负责新增交易动作。
 - IndexedDB 持久化。
 - AES-256-GCM 本地加密。
 - JSON 导入导出。
@@ -211,4 +274,10 @@ vitest.config.ts
 
 ## 下一步
 
-进入 Week 3：设计内存版 `LedgerData` 和 Service 职责，把 Validator 与 Calculator 接入页面状态，打通“新增交易 → 校验 → 更新列表 → 查看持仓”的完整流程。
+执行 Week 4 的 `01B_W4-useReducer状态地基执行与验收标准.md`：
+
+1. 新增 `initialLedgerData` 和 `ledgerReducer`。
+2. 新增 `positionService`，页面资产汇总改为从 `calculatePositions(...)` 派生。
+3. 页面交易列表改为读取 `LedgerData.trades`。
+4. 接入 `tradeService`，打通“新增交易 → 校验 → dispatch → 更新列表 → 查看持仓”。
+5. 通过手动验收后，再进入 Week 5 IndexedDB。
