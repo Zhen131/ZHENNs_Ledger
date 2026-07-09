@@ -63,3 +63,52 @@ test("does not validate trade business rules inside the reducer", () => {
 
   expect(nextLedger.trades).toEqual([impossibleSell]);
 });
+
+test("deletes a trade by id without mutating the previous ledger", () => {
+  const tradeToKeep = createSimpleTrade("trade-keep", "buy", "BTC", "1");
+  const tradeToDelete = createSimpleTrade("trade-delete", "buy", "ETH", "2");
+  const previousLedger = {
+    ...createInitialLedgerData(),
+    trades: [tradeToKeep, tradeToDelete],
+  };
+
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "trade/delete",
+    tradeId: tradeToDelete.id,
+  });
+
+  expect(nextLedger).not.toBe(previousLedger);
+  expect(nextLedger.trades).toEqual([tradeToKeep]);
+  expect(previousLedger.trades).toEqual([tradeToKeep, tradeToDelete]);
+});
+
+test("keeps the same ledger reference when deleting a missing trade id", () => {
+  const existingTrade = createSimpleTrade("trade-existing", "buy", "BTC", "1");
+  const previousLedger = {
+    ...createInitialLedgerData(),
+    trades: [existingTrade],
+  };
+
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "trade/delete",
+    tradeId: "missing-trade",
+  });
+
+  expect(nextLedger).toBe(previousLedger);
+});
+
+test("resets the ledger to a new empty initial state", () => {
+  const existingTrade = createSimpleTrade("trade-existing", "buy", "BTC", "1");
+  const previousLedger = {
+    ...createInitialLedgerData(),
+    trades: [existingTrade],
+  };
+
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "ledger/reset",
+  });
+
+  expect(nextLedger).toEqual(createInitialLedgerData());
+  expect(nextLedger).not.toBe(previousLedger);
+  expect(nextLedger.trades).not.toBe(previousLedger.trades);
+});
