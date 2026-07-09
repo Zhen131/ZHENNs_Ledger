@@ -4,6 +4,8 @@ import {
   createInitialLedgerData,
   initialLedgerData,
 } from "./initialLedgerData";
+import { ledgerReducer } from "./ledgerReducer";
+import { createSimpleTrade } from "../test/fixtures";
 
 test("creates an empty in-memory ledger", () => {
   expect(createInitialLedgerData()).toEqual({
@@ -28,4 +30,36 @@ test("creates independent array references for each initial ledger", () => {
 
 test("exports a default empty initial ledger value", () => {
   expect(initialLedgerData).toEqual(createInitialLedgerData());
+});
+
+test("adds a trade without mutating the previous ledger", () => {
+  const previousLedger = createInitialLedgerData();
+  const trade = createSimpleTrade("trade-001", "buy", "BTC", "1");
+
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "trade/add",
+    trade,
+  });
+
+  expect(nextLedger).not.toBe(previousLedger);
+  expect(nextLedger.trades).toEqual([trade]);
+  expect(nextLedger.trades).not.toBe(previousLedger.trades);
+  expect(previousLedger.trades).toEqual([]);
+});
+
+test("does not validate trade business rules inside the reducer", () => {
+  const previousLedger = createInitialLedgerData();
+  const impossibleSell = createSimpleTrade(
+    "trade-impossible-sell",
+    "sell",
+    "BTC",
+    "999",
+  );
+
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "trade/add",
+    trade: impossibleSell,
+  });
+
+  expect(nextLedger.trades).toEqual([impossibleSell]);
 });
