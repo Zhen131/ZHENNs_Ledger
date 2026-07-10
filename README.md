@@ -114,19 +114,38 @@ Week 4 的边界：
 
 ## 当前数据流
 
-已完成的核心计算数据流：
+当前已经实现的是两段彼此独立的核心能力。
+
+校验能力：
 
 ```text
 不可信输入
 → TradeDraft
 → tradeValidator
 → ValidatedTradeDraft
-→ Trade
+```
+
+计算能力：
+
+```text
+已有 Trade[] + Asset[] + PriceSnapshot[]
 → positionCalculator
 → Position[]
 ```
 
-Week 4 目标页面数据流：
+两段之间的生产 glue 尚未实现。目标端到端数据流是：
+
+```text
+ValidatedTradeDraft
+→ tradeService 生成正式 Trade
+→ dispatch({ type: "trade/add" })
+→ LedgerData.trades
+→ positionService
+→ positionCalculator
+→ Position[]
+```
+
+目标页面数据流：
 
 ```text
 DashboardShell
