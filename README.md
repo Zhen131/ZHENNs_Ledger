@@ -4,11 +4,11 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 4 Gate 1 已合并；Week 5 Day 1 已完成事实盘点与路线重排（2026-07-10）。
+> 当前进度：Week 5 Day 2 `positionService` 已实现，并通过 `12da42b` 合入本地 `main`（2026-07-11）。
 >
-> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的 `initialLedgerData`、`ledgerReducer` 与 reducer 测试。
+> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的 `initialLedgerData`、`ledgerReducer` 与 reducer 测试；Week 5 Day 2 的持仓派生 service 与测试。
 >
-> 下一开发任务：实现 `positionService`，再把 `DashboardShell` 接到 `useReducer + LedgerData`。内存态页面验收通过前不进入 IndexedDB。
+> 下一开发任务：把 `DashboardShell` 接到 `useReducer + LedgerData + positionService`，让资产汇总来自真实内存账本。内存态页面验收通过前不进入 IndexedDB。
 
 ## 项目目标
 
@@ -22,7 +22,7 @@
 
 当前仍是学习和论文验证原型，不是正式金融产品。
 
-## Week 1–2 已完成，Week 4 Gate 1 已完成
+## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2 已完成
 
 ### Week 1：确定边界和架构
 
@@ -80,7 +80,7 @@ Gate 1 已经实现：
 - reducer 保持不可变更新，不承担交易校验、持仓计算或存储读写。
 - `ledgerReducer.test.ts` 覆盖初始状态、引用独立性、新增、删除、缺失 ID 删除和重置。
 
-Gate 2–5 尚未完成，剩余接入数据流：
+Gate 2–5 尚未完整通过。Gate 2 的 `positionService` 已实现，Dashboard 接线仍未完成：
 
 ```text
 initialLedgerData
@@ -108,13 +108,13 @@ Week 4 的边界：
 
 - `ledgerReducer` 只管理账本状态，不做表单校验、不计算持仓、不读写 IndexedDB。
 - 计划中的 `tradeService` 只负责“新增交易”动作，校验失败只返回错误，不改数据。
-- 计划中的 `positionService` 只负责“根据当前账本算持仓”，不碰表单、不保存数据、不自己写计算逻辑。
+- 已实现的 `positionService` 只负责“根据当前账本算持仓”，不碰表单、不保存数据、不自己写计算逻辑。
 - `Position[]` 是派生结果，不进 `LedgerData` 保存。
 - 不使用 `localStorage` 作为临时路线。
 
 ## 当前数据流
 
-当前已经实现的是两段彼此独立的核心能力。
+当前已经实现三段可以独立验证的能力。
 
 校验能力：
 
@@ -128,12 +128,21 @@ Week 4 的边界：
 计算能力：
 
 ```text
-已有 Trade[] + Asset[] + PriceSnapshot[]
+已有 Trade[] + PriceSnapshot[]
 → positionCalculator
 → Position[]
 ```
 
-两段之间的生产 glue 尚未实现。目标端到端数据流是：
+持仓派生 service：
+
+```text
+LedgerData.trades + LedgerData.priceSnapshots
+→ getPositionsFromLedger(...)
+→ calculatePositions(...)
+→ Position[]
+```
+
+交易入账 glue 和页面接线尚未实现。目标端到端数据流是：
 
 ```text
 ValidatedTradeDraft
@@ -162,7 +171,7 @@ DashboardShell
 - `calculators`：计算持仓和盈亏，不读取或写入存储。
 - `decimalMath`：项目内 Decimal 运算的统一入口。
 - `state`：Week 4 新增，管理内存版 `LedgerData` 和账本动作。
-- `services`：组织业务动作；当前尚未实现 `tradeService` 和 `positionService`。
+- `services`：组织业务动作；`positionService` 已实现，`tradeService` 尚未实现。
 - `repositories` / `adapters`：当前只有边界 README，占位不等于保存层已实现。
 
 ## Golden test 基准
@@ -205,15 +214,16 @@ ADA sell
 - 初始账本每次返回独立数组引用。
 - reducer 新增、删除、缺失 ID 删除和重置行为。
 - reducer 不负责交易业务校验。
+- `positionService` 的空账本、无价格快照和有价格快照接线。
 
 当前结果：
 
 ```text
-Test Files  4 passed (4)
-Tests       48 passed (48)
+Test Files  5 passed (5)
+Tests       51 passed (51)
 ```
 
-以上结果于 2026-07-10 重新运行 `npm test -- --run` 获得。
+以上结果于 2026-07-11 在合并后的本地 `main` 重新运行 `npm test -- --run` 获得；同日 lint 和 build 通过。
 
 运行全部测试：
 
@@ -272,7 +282,7 @@ src/
   validators/       TradeDraft 校验
   state/            已实现：initialLedgerData、ledgerReducer 与测试
   test/             共享 golden fixtures
-  services/         当前只有职责说明；业务服务尚未实现
+  services/         已实现 positionService；tradeService 尚未实现
   repositories/     当前只有职责说明；账本读写接口尚未实现
   adapters/         当前只有职责说明；IndexedDB adapter 尚未实现
 ```
@@ -287,7 +297,8 @@ src/validators/tradeValidator.ts
 src/state/initialLedgerData.ts        # 已实现
 src/state/ledgerReducer.ts            # 已实现
 src/state/ledgerReducer.test.ts       # 已实现
-src/services/positionService.ts       # 计划中，尚不存在
+src/services/positionService.ts       # 已实现
+src/services/positionService.test.ts  # 已实现
 src/services/tradeService.ts          # 计划中，尚不存在
 src/test/fixtures.ts
 vitest.config.ts
@@ -297,7 +308,7 @@ vitest.config.ts
 
 - 页面真实交易状态和表单接入：`DashboardShell` 仍然使用硬编码资产和交易展示。
 - `DashboardShell` 尚未接入已经存在的 `initialLedgerData` 和 `ledgerReducer`。
-- `positionService`、`tradeService` 尚未实现。
+- `tradeService` 尚未实现。
 - 生产内存态账本尚未确定 BTC / ETH / ADA 等资产 seed 方案。
 - 真实交易列表、交易录入/删除和价格输入尚未接通。
 - repository / storage adapter 仍为 README 占位。
@@ -313,13 +324,12 @@ vitest.config.ts
 
 按 2026-07-10 重排后的 Gate 顺序继续：
 
-1. 实现 `positionService`，只复用 `calculatePositions(...)`，不重写计算逻辑。
-2. 在 `DashboardShell` 接入 `useReducer(ledgerReducer, initialLedgerData)`，先让资产汇总来自真实内存态账本。
-3. 明确生产资产 seed，避免把测试 fixture 直接当生产状态。
-4. 实现 `tradeService`，复用 `validateTradeDraft(...)` 后再 dispatch。
-5. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
-6. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
-7. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
+1. 在 `DashboardShell` 接入 `useReducer(ledgerReducer, initialLedgerData)`，通过 `positionService` 让资产汇总来自真实内存态账本。
+2. 明确生产资产 seed，避免把测试 fixture 直接当生产状态。
+3. 实现 `tradeService`，复用 `validateTradeDraft(...)` 后再 dispatch。
+4. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
+5. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
+6. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
 
 ## 2026-07-10 后续路线
 
