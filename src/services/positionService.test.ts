@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { LedgerData } from "../models";
-import { sampleTrades } from "../test/fixtures";
+import {
+  createPriceSnapshot,
+  sampleTrades,
+} from "../test/fixtures";
 import { getPositionsFromLedger } from "./positionService";
 
 function createLedgerData(
@@ -40,5 +43,29 @@ describe("getPositionsFromLedger", () => {
     expect(btc?.latestPrice).toBeUndefined();
     expect(btc?.marketValue).toBeUndefined();
     expect(btc?.unrealizedPnl).toBeUndefined();
+  });
+
+  it("passes price snapshots into the position calculation", () => {
+    const positions = getPositionsFromLedger(
+      createLedgerData({
+        trades: sampleTrades,
+        priceSnapshots: [
+          createPriceSnapshot(
+            "price-btc",
+            "BTC",
+            "70000",
+            "2026-07-11",
+          ),
+        ],
+      }),
+    );
+
+    const btc = positions.find(
+      (position) => position.assetSymbol === "BTC",
+    );
+
+    expect(btc?.latestPrice).toBe("70000");
+    expect(btc?.marketValue).toBeDefined();
+    expect(btc?.unrealizedPnl).toBeDefined();
   });
 });
