@@ -1,7 +1,8 @@
+import { calculatePositions } from "../calculators/positionCalculator";
 import type { LedgerData, Position } from "../models";
 
 export function getPositionsFromLedger(
-  _ledgerData: LedgerData,
+  ledgerData: LedgerData,
 ): Position[] {
-  return [];
+  return calculatePositions(ledgerData.trades);
 }
