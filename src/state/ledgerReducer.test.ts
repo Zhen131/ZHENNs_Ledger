@@ -146,3 +146,18 @@ test("resets user data and restores independent built-in assets", () => {
   expect(nextLedger.priceSnapshots).not.toBe(previousLedger.priceSnapshots);
   expect(nextLedger.feeRules).not.toBe(previousLedger.feeRules);
 });
+
+test("creates independent built-in assets across consecutive resets", () => {
+  const firstReset = ledgerReducer(createInitialLedgerData(), {
+    type: "ledger/reset",
+  });
+  const secondReset = ledgerReducer(firstReset, {
+    type: "ledger/reset",
+  });
+
+  expect(firstReset.assets).toEqual(secondReset.assets);
+  expect(firstReset.assets).not.toBe(secondReset.assets);
+  for (const [index, asset] of firstReset.assets.entries()) {
+    expect(asset).not.toBe(secondReset.assets[index]);
+  }
+});

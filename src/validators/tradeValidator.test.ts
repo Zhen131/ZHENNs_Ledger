@@ -2,10 +2,10 @@ import { expect, test } from "vitest";
 
 import type { Trade, TradeDraft } from "../models";
 import { calculatePositions } from "../calculators/positionCalculator";
+import { createInitialLedgerData } from "../state/initialLedgerData";
 import {
   createSimpleTrade,
   createTradeFromDraft,
-  sampleAssets,
   sampleTradeDrafts,
 } from "../test/fixtures";
 import {
@@ -19,7 +19,7 @@ import {
 const validDraft = sampleTradeDrafts[0];
 
 const context = {
-  assets: sampleAssets,
+  assets: createInitialLedgerData().assets,
   priorTrades: [],
 };
 
@@ -31,7 +31,7 @@ test("rejects a non-object input before reading fields", () => {
   );
 });
 
-test("accepts all five fixed trade drafts", () => {
+test("accepts all five fixed trade drafts using production built-in assets", () => {
   const priorTrades: Trade[] = [];
 
   for (const [index, draft] of sampleTradeDrafts.entries()) {
