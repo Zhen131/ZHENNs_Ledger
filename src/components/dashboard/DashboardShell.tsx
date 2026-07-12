@@ -149,36 +149,47 @@ export function DashboardShell() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {positions.map((position) => (
-                        <tr
-                          key={`${position.assetSymbol}-${position.currency}`}
-                        >
-                          <td className="py-3 font-medium">
-                            {position.assetSymbol}
-                          </td>
-                          <td className="py-3 text-slate-600">
-                            {position.quantity}
-                          </td>
-                          <td className="py-3 text-slate-600">
-                            {position.averageCost} {position.currency}
-                          </td>
-                          <td className="py-3 text-slate-500">
-                            {position.latestPrice === undefined
-                              ? "未输入价格"
-                              : `${position.latestPrice} ${position.currency}`}
-                          </td>
-                          <td className="py-3 text-slate-500">
-                            {position.marketValue === undefined
-                              ? "--"
-                              : `${position.marketValue} ${position.currency}`}
-                          </td>
-                          <td className="py-3 text-slate-500">
-                            {position.unrealizedPnl === undefined
-                              ? "--"
-                              : `${position.unrealizedPnl} ${position.currency}`}
+                      {positions.length === 0 ? (
+                        <tr>
+                          <td
+                            className="py-8 text-center text-slate-500"
+                            colSpan={6}
+                          >
+                            暂无持仓。添加交易后，这里会自动汇总。
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        positions.map((position) => (
+                          <tr
+                            key={`${position.assetSymbol}-${position.currency}`}
+                          >
+                            <td className="py-3 font-medium">
+                              {position.assetSymbol}
+                            </td>
+                            <td className="py-3 text-slate-600">
+                              {position.quantity}
+                            </td>
+                            <td className="py-3 text-slate-600">
+                              {position.averageCost} {position.currency}
+                            </td>
+                            <td className="py-3 text-slate-500">
+                              {position.latestPrice === undefined
+                                ? "未输入价格"
+                                : `${position.latestPrice} ${position.currency}`}
+                            </td>
+                            <td className="py-3 text-slate-500">
+                              {position.marketValue === undefined
+                                ? "--"
+                                : `${position.marketValue} ${position.currency}`}
+                            </td>
+                            <td className="py-3 text-slate-500">
+                              {position.unrealizedPnl === undefined
+                                ? "--"
+                                : `${position.unrealizedPnl} ${position.currency}`}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
