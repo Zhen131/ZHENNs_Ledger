@@ -65,4 +65,15 @@ describe("DashboardShell asset summary", () => {
     expect(html).toContain("未输入价格");
     expect(html).toContain("--");
   });
+
+  it("renders a six-column empty state when the ledger has no positions", () => {
+    getPositionsFromLedgerMock.mockReturnValue([]);
+
+    const html = renderToStaticMarkup(createElement(DashboardShell));
+
+    expect(html).toContain(
+      "暂无持仓。添加交易后，这里会自动汇总。",
+    );
+    expect(html).toContain('colSpan="6"');
+  });
 });
