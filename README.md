@@ -4,11 +4,11 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 5 Day 2 `positionService` 已实现，并通过 `12da42b` 合入本地 `main`（2026-07-11）。
+> 当前进度：Week 5 Day 3 Dashboard 真实持仓接线已在 `zhennn/week5-day3-dashboard-positions` 完成并验证（2026-07-12），尚未合入本地 `main`。
 >
-> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的 `initialLedgerData`、`ledgerReducer` 与 reducer 测试；Week 5 Day 2 的持仓派生 service 与测试。
+> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 `useReducer + LedgerData + positionService` Dashboard 持仓切片。
 >
-> 下一开发任务：把 `DashboardShell` 接到 `useReducer + LedgerData + positionService`，让资产汇总来自真实内存账本。内存态页面验收通过前不进入 IndexedDB。
+> 下一开发任务：Week 5 Day 4 建立独立生产资产目录，解决 `initialLedgerData.assets` 为空导致 Validator 无法放行真实交易的问题。内存态 Gate 2-5 全绿前不进入 IndexedDB。
 
 ## 项目目标
 
@@ -22,7 +22,7 @@
 
 当前仍是学习和论文验证原型，不是正式金融产品。
 
-## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2 已完成
+## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2–3 已完成
 
 ### Week 1：确定边界和架构
 
@@ -80,7 +80,7 @@ Gate 1 已经实现：
 - reducer 保持不可变更新，不承担交易校验、持仓计算或存储读写。
 - `ledgerReducer.test.ts` 覆盖初始状态、引用独立性、新增、删除、缺失 ID 删除和重置。
 
-Gate 2–5 尚未完整通过。Gate 2 的 `positionService` 已实现，Dashboard 接线仍未完成：
+Gate 2 已完成：`positionService` 与 Dashboard 真实资产汇总已接通。Gate 3–5 仍未完成：
 
 ```text
 initialLedgerData
@@ -114,7 +114,7 @@ Week 4 的边界：
 
 ## 当前数据流
 
-当前已经实现三段可以独立验证的能力。
+当前已经实现四段可以独立验证的能力。
 
 校验能力：
 
@@ -142,7 +142,18 @@ LedgerData.trades + LedgerData.priceSnapshots
 → Position[]
 ```
 
-交易入账 glue 和页面接线尚未实现。目标端到端数据流是：
+页面持仓接线：
+
+```text
+DashboardShell
+→ useReducer(ledgerReducer, initialLedgerData)
+→ LedgerData
+→ getPositionsFromLedger(...)
+→ Position[]
+→ 资产汇总或空持仓状态
+```
+
+交易入账 glue 尚未实现。目标端到端数据流是：
 
 ```text
 ValidatedTradeDraft
@@ -154,7 +165,7 @@ ValidatedTradeDraft
 → Position[]
 ```
 
-目标页面数据流：
+已实现页面持仓数据流：
 
 ```text
 DashboardShell
@@ -215,15 +226,16 @@ ADA sell
 - reducer 新增、删除、缺失 ID 删除和重置行为。
 - reducer 不负责交易业务校验。
 - `positionService` 的空账本、无价格快照和有价格快照接线。
+- Dashboard 持仓渲染、无价格占位和六列空持仓状态。
 
 当前结果：
 
 ```text
-Test Files  5 passed (5)
-Tests       51 passed (51)
+Test Files  6 passed (6)
+Tests       53 passed (53)
 ```
 
-以上结果于 2026-07-11 在合并后的本地 `main` 重新运行 `npm test -- --run` 获得；同日 lint 和 build 通过。
+以上结果于 2026-07-12 在 `zhennn/week5-day3-dashboard-positions` 重新运行 `npm test -- --run` 获得；同日 Dashboard 定向测试、lint、build、边界扫描和本地浏览器冒烟验收通过。
 
 运行全部测试：
 
@@ -275,7 +287,7 @@ npm run build
 ```text
 src/
   app/              Next.js 页面入口
-  components/       UI 组件和当前页面空壳
+  components/       UI 组件；Dashboard 资产汇总已读取真实内存账本
   models/           核心账本类型
   utils/            DecimalMath
   calculators/      持仓和盈亏纯计算
@@ -299,6 +311,8 @@ src/state/ledgerReducer.ts            # 已实现
 src/state/ledgerReducer.test.ts       # 已实现
 src/services/positionService.ts       # 已实现
 src/services/positionService.test.ts  # 已实现
+src/components/dashboard/DashboardShell.tsx       # 已接入真实持仓
+src/components/dashboard/DashboardShell.test.ts   # 已实现
 src/services/tradeService.ts          # 计划中，尚不存在
 src/test/fixtures.ts
 vitest.config.ts
@@ -306,8 +320,7 @@ vitest.config.ts
 
 ## 当前尚未实现
 
-- 页面真实交易状态和表单接入：`DashboardShell` 仍然使用硬编码资产和交易展示。
-- `DashboardShell` 尚未接入已经存在的 `initialLedgerData` 和 `ledgerReducer`。
+- Dashboard 资产汇总已接入真实 `LedgerData`，但交易列表仍使用硬编码 `trades`。
 - `tradeService` 尚未实现。
 - 生产内存态账本尚未确定 BTC / ETH / ADA 等资产 seed 方案。
 - 真实交易列表、交易录入/删除和价格输入尚未接通。
@@ -318,18 +331,17 @@ vitest.config.ts
 - 两张保留图表和性能 benchmark。
 - 实时行情 API、NLP 输入和 Agent。
 
-页面中现有资产和交易数据仍是 UI 占位，不能视为真实账本状态。
+页面资产汇总已来自真实内存账本；交易列表仍是 UI 占位，不能视为真实账本交易。
 
 ## 下一步
 
 按 2026-07-10 重排后的 Gate 顺序继续：
 
-1. 在 `DashboardShell` 接入 `useReducer(ledgerReducer, initialLedgerData)`，通过 `positionService` 让资产汇总来自真实内存态账本。
-2. 明确生产资产 seed，避免把测试 fixture 直接当生产状态。
-3. 实现 `tradeService`，复用 `validateTradeDraft(...)` 后再 dispatch。
-4. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
-5. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
-6. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
+1. 明确生产资产 seed，避免把测试 fixture 直接当生产状态。
+2. 实现 `tradeService`，复用 `validateTradeDraft(...)` 后再 dispatch。
+3. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
+4. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
+5. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
 
 ## 2026-07-10 后续路线
 
