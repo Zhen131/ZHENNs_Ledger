@@ -1,33 +1,12 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useReducer, type ReactNode } from "react";
+
+import { getPositionsFromLedger } from "../../services/positionService";
+import { initialLedgerData } from "../../state/initialLedgerData";
+import { ledgerReducer } from "../../state/ledgerReducer";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
-
-const summaryRows = [
-  {
-    asset: "BTC",
-    quantity: "0.00016388",
-    averageCost: "67121.7",
-    currentPrice: "未输入价格",
-    marketValue: "--",
-    unrealizedPnl: "--",
-  },
-  {
-    asset: "ETH",
-    quantity: "0.004854",
-    averageCost: "2059.99",
-    currentPrice: "未输入价格",
-    marketValue: "--",
-    unrealizedPnl: "--",
-  },
-  {
-    asset: "ADA",
-    quantity: "251.2006",
-    averageCost: "0.2468",
-    currentPrice: "未输入价格",
-    marketValue: "--",
-    unrealizedPnl: "--",
-  },
-];
 
 const trades = [
   {
@@ -83,6 +62,9 @@ function Section({
 }
 
 export function DashboardShell() {
+  const [ledgerData] = useReducer(ledgerReducer, initialLedgerData);
+  const positions = getPositionsFromLedger(ledgerData);
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
@@ -167,21 +149,33 @@ export function DashboardShell() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {summaryRows.map((row) => (
-                        <tr key={row.asset}>
-                          <td className="py-3 font-medium">{row.asset}</td>
-                          <td className="py-3 text-slate-600">{row.quantity}</td>
+                      {positions.map((position) => (
+                        <tr
+                          key={`${position.assetSymbol}-${position.currency}`}
+                        >
+                          <td className="py-3 font-medium">
+                            {position.assetSymbol}
+                          </td>
                           <td className="py-3 text-slate-600">
-                            {row.averageCost}
+                            {position.quantity}
+                          </td>
+                          <td className="py-3 text-slate-600">
+                            {position.averageCost} {position.currency}
                           </td>
                           <td className="py-3 text-slate-500">
-                            {row.currentPrice}
+                            {position.latestPrice === undefined
+                              ? "未输入价格"
+                              : `${position.latestPrice} ${position.currency}`}
                           </td>
                           <td className="py-3 text-slate-500">
-                            {row.marketValue}
+                            {position.marketValue === undefined
+                              ? "--"
+                              : `${position.marketValue} ${position.currency}`}
                           </td>
                           <td className="py-3 text-slate-500">
-                            {row.unrealizedPnl}
+                            {position.unrealizedPnl === undefined
+                              ? "--"
+                              : `${position.unrealizedPnl} ${position.currency}`}
                           </td>
                         </tr>
                       ))}
