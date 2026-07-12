@@ -14,7 +14,7 @@ const getPositionsFromLedgerMock = vi.mocked(getPositionsFromLedger);
 
 const pricedPosition: Position = {
   assetSymbol: "SOL",
-  quantity: "2",
+  quantity: "2.3456789",
   averageCost: "100",
   costBasis: "200",
   latestPrice: "120",
@@ -55,7 +55,7 @@ describe("DashboardShell asset summary", () => {
       feeRules: [],
     });
     expect(html).toContain("SOL");
-    expect(html).toContain("2");
+    expect(html).toContain("2.3456789");
     expect(html).toContain("100 USD");
     expect(html).toContain("120 USD");
     expect(html).toContain("240 USD");
@@ -63,7 +63,7 @@ describe("DashboardShell asset summary", () => {
     expect(html).toContain("DOGE");
     expect(html).toContain("0.1 USD");
     expect(html).toContain("未输入价格");
-    expect(html).toContain("--");
+    expect(html.match(/>--</g)).toHaveLength(2);
   });
 
   it("renders a six-column empty state when the ledger has no positions", () => {
