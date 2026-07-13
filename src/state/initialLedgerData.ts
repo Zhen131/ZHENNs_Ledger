@@ -1,9 +1,10 @@
 import type { LedgerData } from "../models";
+import { createBuiltInAssets } from "../data/builtInAssets";
 
 export function createInitialLedgerData(): LedgerData {
   return {
     schemaVersion: 1,
-    assets: [],
+    assets: createBuiltInAssets(),
     trades: [],
     priceSnapshots: [],
     feeRules: [],

@@ -5,12 +5,13 @@ import {
   initialLedgerData,
 } from "./initialLedgerData";
 import { ledgerReducer } from "./ledgerReducer";
-import { createSimpleTrade } from "../test/fixtures";
+import { createBuiltInAssets } from "../data/builtInAssets";
+import { createPriceSnapshot, createSimpleTrade } from "../test/fixtures";
 
-test("creates an empty in-memory ledger", () => {
+test("creates an in-memory ledger with built-in assets", () => {
   expect(createInitialLedgerData()).toEqual({
     schemaVersion: 1,
-    assets: [],
+    assets: createBuiltInAssets(),
     trades: [],
     priceSnapshots: [],
     feeRules: [],
@@ -23,6 +24,9 @@ test("creates independent array references for each initial ledger", () => {
 
   expect(firstLedger).not.toBe(secondLedger);
   expect(firstLedger.assets).not.toBe(secondLedger.assets);
+  for (const [index, asset] of firstLedger.assets.entries()) {
+    expect(asset).not.toBe(secondLedger.assets[index]);
+  }
   expect(firstLedger.trades).not.toBe(secondLedger.trades);
   expect(firstLedger.priceSnapshots).not.toBe(secondLedger.priceSnapshots);
   expect(firstLedger.feeRules).not.toBe(secondLedger.feeRules);
@@ -97,11 +101,36 @@ test("keeps the same ledger reference when deleting a missing trade id", () => {
   expect(nextLedger).toBe(previousLedger);
 });
 
-test("resets the ledger to a new empty initial state", () => {
+test("resets user data and restores independent built-in assets", () => {
   const existingTrade = createSimpleTrade("trade-existing", "buy", "BTC", "1");
+  const existingPrice = createPriceSnapshot(
+    "price-existing",
+    "BTC",
+    "70000",
+    "2026-07-13",
+  );
   const previousLedger = {
     ...createInitialLedgerData(),
+    assets: [
+      {
+        ...createBuiltInAssets()[0],
+        name: "Changed Bitcoin",
+      },
+    ],
     trades: [existingTrade],
+    priceSnapshots: [existingPrice],
+    feeRules: [
+      {
+        id: "fee-existing",
+        name: "Existing fee",
+        platform: "Existing platform",
+        type: "percentage" as const,
+        rate: "0.001",
+        currency: "USD",
+        createdAt: "2026-07-13T00:00:00Z",
+        updatedAt: "2026-07-13T00:00:00Z",
+      },
+    ],
   };
 
   const nextLedger = ledgerReducer(previousLedger, {
@@ -110,5 +139,25 @@ test("resets the ledger to a new empty initial state", () => {
 
   expect(nextLedger).toEqual(createInitialLedgerData());
   expect(nextLedger).not.toBe(previousLedger);
+  expect(nextLedger.assets).toEqual(createBuiltInAssets());
+  expect(nextLedger.assets).not.toBe(previousLedger.assets);
+  expect(nextLedger.assets[0]).not.toBe(previousLedger.assets[0]);
   expect(nextLedger.trades).not.toBe(previousLedger.trades);
+  expect(nextLedger.priceSnapshots).not.toBe(previousLedger.priceSnapshots);
+  expect(nextLedger.feeRules).not.toBe(previousLedger.feeRules);
+});
+
+test("creates independent built-in assets across consecutive resets", () => {
+  const firstReset = ledgerReducer(createInitialLedgerData(), {
+    type: "ledger/reset",
+  });
+  const secondReset = ledgerReducer(firstReset, {
+    type: "ledger/reset",
+  });
+
+  expect(firstReset.assets).toEqual(secondReset.assets);
+  expect(firstReset.assets).not.toBe(secondReset.assets);
+  for (const [index, asset] of firstReset.assets.entries()) {
+    expect(asset).not.toBe(secondReset.assets[index]);
+  }
 });

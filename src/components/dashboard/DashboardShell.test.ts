@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Position } from "../../models";
 import { getPositionsFromLedger } from "../../services/positionService";
+import { createInitialLedgerData } from "../../state/initialLedgerData";
 import { DashboardShell } from "./DashboardShell";
 
 vi.mock("../../services/positionService", () => ({
@@ -47,13 +48,9 @@ describe("DashboardShell asset summary", () => {
     const html = renderToStaticMarkup(createElement(DashboardShell));
 
     expect(getPositionsFromLedgerMock).toHaveBeenCalledOnce();
-    expect(getPositionsFromLedgerMock).toHaveBeenCalledWith({
-      schemaVersion: 1,
-      assets: [],
-      trades: [],
-      priceSnapshots: [],
-      feeRules: [],
-    });
+    expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
+      createInitialLedgerData(),
+    );
     expect(html).toContain("SOL");
     expect(html).toContain("2.3456789");
     expect(html).toContain("100 USD");
