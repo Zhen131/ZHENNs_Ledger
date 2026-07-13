@@ -37,6 +37,7 @@ export const TRADE_VALIDATION_ERROR_CODES = {
   FEE_MUST_BE_NON_NEGATIVE: "FEE_MUST_BE_NON_NEGATIVE",
   TOTAL_VALUE_MISMATCH: "TOTAL_VALUE_MISMATCH",
   INSUFFICIENT_HOLDINGS: "INSUFFICIENT_HOLDINGS",
+  CURRENCY_MISMATCH: "CURRENCY_MISMATCH",
 } as const;
 
 export type TradeValidationErrorCode =
@@ -61,9 +62,10 @@ export type ValidatedTradeDraft = Omit<TradeDraft, "fee"> & {
 };
 
 /**
- * priorTrades 只包含待校验交易之前已经接受的历史交易。
+ * priorTrades 包含当前账本已经接受的全部交易。
  *
- * Validator 后续使用它判断卖出时的可用持仓，但不会修改该数组。
+ * Validator 会把候选交易插入完整时间线后检查持仓和币种，
+ * 但不会修改该数组。
  */
 export type TradeValidationContext = {
   assets: readonly Asset[];
@@ -141,14 +143,31 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     );
   }
 
-  if (
-    type === "sell" &&
-    assetSymbol !== undefined &&
-    quantity !== undefined
-  ) {
-    validateSufficientHoldings(
+  if (assetSymbol !== undefined && currency !== undefined) {
+    validateCurrencyConsistency(
       assetSymbol,
-      quantity,
+      currency,
+      context.assets,
+      context.priorTrades,
+      errors,
+    );
+  }
+
+  if (
+    occurredAt !== undefined &&
+    type !== undefined &&
+    assetSymbol !== undefined &&
+    quantity !== undefined &&
+    currency !== undefined
+  ) {
+    validateHoldingsTimeline(
+      {
+        occurredAt,
+        type,
+        assetSymbol,
+        quantity,
+        currency,
+      },
       context.priorTrades,
       errors,
     );
@@ -388,64 +407,94 @@ function validateTotalValueConsistency(
   }
 }
 
-function validateSufficientHoldings(
+function validateCurrencyConsistency(
   assetSymbol: string,
-  sellQuantity: DecimalString,
+  currency: string,
+  assets: readonly Asset[],
   priorTrades: readonly Trade[],
   errors: TradeValidationError[],
 ): void {
-  const availableQuantity = calculateAvailableQuantity(
-    assetSymbol,
-    priorTrades,
+  const asset = assets.find((item) => item.symbol === assetSymbol);
+  const hasPriorCurrencyMismatch = priorTrades.some(
+    (trade) =>
+      trade.assetSymbol === assetSymbol && trade.currency !== currency,
   );
 
-  if (isGreaterThan(sellQuantity, availableQuantity)) {
+  if (asset?.quoteCurrency !== currency || hasPriorCurrencyMismatch) {
     errors.push(
       createError(
-        TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
-        "quantity",
-        `Cannot sell ${sellQuantity} ${assetSymbol}; available quantity is ${availableQuantity}`,
+        TRADE_VALIDATION_ERROR_CODES.CURRENCY_MISMATCH,
+        "currency",
+        `currency must match ${assetSymbol} quote currency and existing trades`,
       ),
     );
   }
 }
 
+type HoldingsTimelineEntry = Pick<
+  Trade,
+  "occurredAt" | "type" | "assetSymbol" | "quantity" | "currency"
+> & {
+  originalIndex: number;
+};
+
 /**
- * 只推导超卖判断所需的数量余额，不生成 Position，也不计算成本或盈亏。
+ * 只检查候选交易加入后的数量时间线，不生成 Position，
+ * 也不计算成本或盈亏。
  *
- * 排序规则与 positionCalculator 保持一致：先按 occurredAt，再以原输入序号作为
- * 同一时间的稳定顺序。
+ * 排序规则与 positionCalculator 保持一致：先按 occurredAt，再以
+ * 原数组序号作为同一时间的稳定顺序。候选交易未来会被
+ * reducer 追加，因此同时间下排在所有已有交易之后。
  */
-function calculateAvailableQuantity(
-  assetSymbol: string,
+function validateHoldingsTimeline(
+  candidate: Omit<HoldingsTimelineEntry, "originalIndex">,
   priorTrades: readonly Trade[],
-): DecimalString {
+  errors: TradeValidationError[],
+): void {
+  const timeline: HoldingsTimelineEntry[] = priorTrades
+    .map((trade, originalIndex) => ({
+      occurredAt: trade.occurredAt,
+      type: trade.type,
+      assetSymbol: trade.assetSymbol,
+      quantity: trade.quantity,
+      currency: trade.currency,
+      originalIndex,
+    }))
+    .filter((trade) => trade.assetSymbol === candidate.assetSymbol);
+
+  timeline.push({
+    ...candidate,
+    originalIndex: priorTrades.length,
+  });
+
+  timeline.sort((left, right) => {
+    const dateOrder = left.occurredAt.localeCompare(right.occurredAt);
+    return dateOrder === 0
+      ? left.originalIndex - right.originalIndex
+      : dateOrder;
+  });
+
   let availableQuantity: DecimalString = "0";
 
-  for (const trade of sortTradesByOccurredAt(priorTrades)) {
-    if (trade.assetSymbol !== assetSymbol) {
+  for (const trade of timeline) {
+    if (trade.type === "buy") {
+      availableQuantity = add(availableQuantity, trade.quantity);
       continue;
     }
 
-    availableQuantity =
-      trade.type === "buy"
-        ? add(availableQuantity, trade.quantity)
-        : subtract(availableQuantity, trade.quantity);
-  }
-
-  return availableQuantity;
-}
-
-function sortTradesByOccurredAt(trades: readonly Trade[]): Trade[] {
-  return trades
-    .map((trade, index) => ({ trade, index }))
-    .sort((left, right) => {
-      const dateOrder = left.trade.occurredAt.localeCompare(
-        right.trade.occurredAt,
+    if (isGreaterThan(trade.quantity, availableQuantity)) {
+      errors.push(
+        createError(
+          TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+          "quantity",
+          `Adding this trade would make the ${candidate.assetSymbol} holdings timeline negative`,
+        ),
       );
-      return dateOrder === 0 ? left.index - right.index : dateOrder;
-    })
-    .map(({ trade }) => trade);
+      return;
+    }
+
+    availableQuantity = subtract(availableQuantity, trade.quantity);
+  }
 }
 
 function invalidDecimalError(
