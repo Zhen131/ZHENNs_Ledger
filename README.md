@@ -4,11 +4,11 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 5 Day 3 Dashboard 真实持仓接线已在 `zhennn/week5-day3-dashboard-positions` 完成并验证（2026-07-12），尚未合入本地 `main`。
+> 当前进度：Week 5 Day 4 生产内置资产目录已在 `zhennn/week5-day4-built-in-assets` 完成并验证（2026-07-13），尚未合入本地 `main`。
 >
-> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 `useReducer + LedgerData + positionService` Dashboard 持仓切片。
+> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 Dashboard 真实持仓；Week 5 Day 4 BTC、ETH、ADA 生产资产来源。
 >
-> 下一开发任务：Week 5 Day 4 建立独立生产资产目录，解决 `initialLedgerData.assets` 为空导致 Validator 无法放行真实交易的问题。内存态 Gate 2-5 全绿前不进入 IndexedDB。
+> 下一开发任务：Week 5 Day 5 实现 `tradeService`，复用 `validateTradeDraft(...)` 将合法草稿转换为正式 `Trade`。内存态 Gate 2-5 全绿前不进入 IndexedDB。
 
 ## 项目目标
 
@@ -22,7 +22,7 @@
 
 当前仍是学习和论文验证原型，不是正式金融产品。
 
-## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2–3 已完成
+## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2–4 已完成
 
 ### Week 1：确定边界和架构
 
@@ -74,8 +74,8 @@ UI
 
 Gate 1 已经实现：
 
-- `createInitialLedgerData()` 每次创建独立的空 `LedgerData`。
-- `initialLedgerData` 提供默认空内存账本。
+- `createInitialLedgerData()` 每次创建独立的 `LedgerData` 和独立生产资产对象。
+- `initialLedgerData` 默认包含 BTC、ETH、ADA，用户交易、价格和手续费规则为空。
 - `ledgerReducer` 支持 `trade/add`、`trade/delete`、`ledger/reset`。
 - reducer 保持不可变更新，不承担交易校验、持仓计算或存储读写。
 - `ledgerReducer.test.ts` 覆盖初始状态、引用独立性、新增、删除、缺失 ID 删除和重置。
@@ -111,6 +111,15 @@ Week 4 的边界：
 - 已实现的 `positionService` 只负责“根据当前账本算持仓”，不碰表单、不保存数据、不自己写计算逻辑。
 - `Position[]` 是派生结果，不进 `LedgerData` 保存。
 - 不使用 `localStorage` 作为临时路线。
+
+### Week 5 Day 4：生产内置资产来源
+
+- `src/data/builtInAssets.ts` 提供固定的 BTC、ETH、ADA 生产资产定义。
+- `createBuiltInAssets()` 每次返回新的数组和新的 Asset 对象，避免账本之间共享可变引用。
+- `createInitialLedgerData()` 使用生产资产目录，不从 `src/test/fixtures.ts` 导入。
+- `ledger/reset` 恢复内置资产，同时清空交易、价格快照和手续费规则。
+- Validator golden 样例已改用生产初始化资产；BTC、ETH、ADA 可通过资产存在校验，未知资产仍被拒绝。
+- 内置资产只用于新建账本和 reset；未来 hydrate/import 以保存或导入的完整 `LedgerData.assets` 为准，不自动混入内置资产。
 
 ## 当前数据流
 
@@ -292,6 +301,7 @@ src/
   utils/            DecimalMath
   calculators/      持仓和盈亏纯计算
   validators/       TradeDraft 校验
+  data/             生产内置资产目录与测试
   state/            已实现：initialLedgerData、ledgerReducer 与测试
   test/             共享 golden fixtures
   services/         已实现 positionService；tradeService 尚未实现
@@ -306,6 +316,8 @@ src/models/types.ts
 src/utils/decimalMath.ts
 src/calculators/positionCalculator.ts
 src/validators/tradeValidator.ts
+src/data/builtInAssets.ts             # 已实现
+src/data/builtInAssets.test.ts        # 已实现
 src/state/initialLedgerData.ts        # 已实现
 src/state/ledgerReducer.ts            # 已实现
 src/state/ledgerReducer.test.ts       # 已实现
@@ -322,7 +334,6 @@ vitest.config.ts
 
 - Dashboard 资产汇总已接入真实 `LedgerData`，但交易列表仍使用硬编码 `trades`。
 - `tradeService` 尚未实现。
-- 生产内存态账本尚未确定 BTC / ETH / ADA 等资产 seed 方案。
 - 真实交易列表、交易录入/删除和价格输入尚未接通。
 - repository / storage adapter 仍为 README 占位。
 - IndexedDB 持久化。
@@ -337,11 +348,10 @@ vitest.config.ts
 
 按 2026-07-10 重排后的 Gate 顺序继续：
 
-1. 明确生产资产 seed，避免把测试 fixture 直接当生产状态。
-2. 实现 `tradeService`，复用 `validateTradeDraft(...)` 后再 dispatch。
-3. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
-4. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
-5. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
+1. 实现 `tradeService`，复用 `validateTradeDraft(...)` 后再 dispatch。
+2. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
+3. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
+4. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
 
 ## 2026-07-10 后续路线
 
