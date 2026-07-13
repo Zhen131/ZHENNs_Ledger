@@ -154,6 +154,166 @@ test("keeps input order stable for prior trades at the same time", () => {
   ).toBe(true);
 });
 
+test("does not let a future buy support an earlier candidate sell", () => {
+  expectError(
+    validateTradeDraft(
+      createSimpleDraft("sell", "ADA", "10", "2026-04-01"),
+      {
+        ...context,
+        priorTrades: [
+          createSimpleTrade("future-buy", "buy", "ADA", "10", "2026-04-10"),
+        ],
+      },
+    ),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("rejects a backfilled sell that makes a later accepted sell oversell", () => {
+  const priorTrades = [
+    createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+    createSimpleTrade("sell-ada", "sell", "ADA", "10", "2026-04-03"),
+  ];
+
+  expectError(
+    validateTradeDraft(
+      createSimpleDraft("sell", "ADA", "5", "2026-04-02"),
+      { ...context, priorTrades },
+    ),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("accepts a backfilled sell when the complete timeline stays non-negative", () => {
+  const priorTrades = [
+    createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+    createSimpleTrade("sell-ada", "sell", "ADA", "3", "2026-04-03"),
+  ];
+
+  expect(
+    validateTradeDraft(
+      createSimpleDraft("sell", "ADA", "5", "2026-04-02"),
+      { ...context, priorTrades },
+    ).ok,
+  ).toBe(true);
+});
+
+test("runs an appended candidate after existing trades at the same time", () => {
+  const occurredAt = "2026-04-01";
+
+  expect(
+    validateTradeDraft(
+      createSimpleDraft("sell", "ADA", "10", occurredAt),
+      {
+        ...context,
+        priorTrades: [
+          createSimpleTrade("buy-ada", "buy", "ADA", "10", occurredAt),
+        ],
+      },
+    ).ok,
+  ).toBe(true);
+});
+
+test("rejects an appended sell after existing same-time trades close the position", () => {
+  const occurredAt = "2026-04-01";
+  const priorTrades = [
+    createSimpleTrade("buy-ada", "buy", "ADA", "10", occurredAt),
+    createSimpleTrade("sell-ada", "sell", "ADA", "10", occurredAt),
+  ];
+
+  expectError(
+    validateTradeDraft(
+      createSimpleDraft("sell", "ADA", "1", occurredAt),
+      { ...context, priorTrades },
+    ),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("does not mutate prior trades while sorting the complete timeline", () => {
+  const firstTrade = createSimpleTrade(
+    "sell-ada",
+    "sell",
+    "ADA",
+    "4",
+    "2026-04-02",
+  );
+  const secondTrade = createSimpleTrade(
+    "buy-ada",
+    "buy",
+    "ADA",
+    "10",
+    "2026-04-01",
+  );
+  const priorTrades = [firstTrade, secondTrade];
+  const snapshot = structuredClone(priorTrades);
+
+  deepFreeze(priorTrades);
+
+  expect(
+    validateTradeDraft(
+      createSimpleDraft("sell", "ADA", "6", "2026-04-03"),
+      { ...context, priorTrades },
+    ).ok,
+  ).toBe(true);
+  expect(priorTrades).toEqual(snapshot);
+  expect(priorTrades[0]).toBe(firstTrade);
+  expect(priorTrades[1]).toBe(secondTrade);
+});
+
+test("rejects a candidate currency that differs from the asset quote currency", () => {
+  const input = { ...validDraft, currency: "CNY" };
+
+  expectError(
+    validateTradeDraft(input, context),
+    TRADE_VALIDATION_ERROR_CODES.CURRENCY_MISMATCH,
+    "currency",
+  );
+  expect(input.currency).toBe("CNY");
+});
+
+test("rejects a candidate currency that differs from an existing same-asset trade", () => {
+  const priorTrade = {
+    ...createSimpleTrade("buy-btc", "buy", "BTC", "1"),
+    currency: "CNY",
+  };
+
+  expectError(
+    validateTradeDraft(validDraft, {
+      ...context,
+      priorTrades: [priorTrade],
+    }),
+    TRADE_VALIDATION_ERROR_CODES.CURRENCY_MISMATCH,
+    "currency",
+  );
+});
+
+test("ignores another asset that uses a different currency", () => {
+  const otherAssetTrade = {
+    ...createSimpleTrade("buy-ada", "buy", "ADA", "10"),
+    currency: "CNY",
+  };
+
+  expect(
+    validateTradeDraft(validDraft, {
+      ...context,
+      priorTrades: [otherAssetTrade],
+    }).ok,
+  ).toBe(true);
+});
+
+test("accepts the asset quote currency when same-asset trades match", () => {
+  expect(
+    validateTradeDraft(validDraft, {
+      ...context,
+      priorTrades: [createSimpleTrade("buy-btc", "buy", "BTC", "1")],
+    }).ok,
+  ).toBe(true);
+});
+
 test("accepts a total value difference within the default tolerance", () => {
   expect(
     validateTradeDraft(
@@ -346,15 +506,30 @@ function createSimpleDraft(
   type: "buy" | "sell",
   assetSymbol: string,
   quantity: string,
+  occurredAt = validDraft.occurredAt,
 ): TradeDraft {
   return {
     ...validDraft,
+    occurredAt,
     type,
     assetSymbol,
     quantity,
     price: "1",
     totalValue: quantity,
   };
+}
+
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) {
+    return value;
+  }
+
+  Object.freeze(value);
+  for (const nestedValue of Object.values(value)) {
+    deepFreeze(nestedValue);
+  }
+
+  return value;
 }
 
 function expectDecimalErrors(field: "quantity" | "price" | "totalValue") {
