@@ -4,7 +4,7 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 5 Day 4 生产内置资产目录已在 `zhennn/week5-day4-built-in-assets` 完成并验证（2026-07-13），尚未合入本地 `main`。
+> 当前进度：Week 5 Day 4 生产内置资产目录已完成、验证并进入 `main`（2026-07-13）。
 >
 > 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 Dashboard 真实持仓；Week 5 Day 4 BTC、ETH、ADA 生产资产来源。
 >
