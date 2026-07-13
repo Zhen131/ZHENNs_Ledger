@@ -4,11 +4,11 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 5 Day 4 生产内置资产目录已完成、验证并进入 `main`（2026-07-13）。
+> 当前进度：Week 5 Day 5 安全交易插入与 `tradeService` 已实现并完成工程验证（2026-07-14）。
 >
-> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 Dashboard 真实持仓；Week 5 Day 4 BTC、ETH、ADA 生产资产来源。
+> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 Dashboard 真实持仓；Week 5 Day 4 BTC、ETH、ADA 生产资产来源；Week 5 Day 5 `createValidatedTrade(...)`。
 >
-> 下一开发任务：Week 5 Day 5 实现 `tradeService`，复用 `validateTradeDraft(...)` 将合法草稿转换为正式 `Trade`。内存态 Gate 2-5 全绿前不进入 IndexedDB。
+> 下一开发任务：将 `createValidatedTrade(...)` 接入表单成功后的 dispatch，并让交易列表读取真实 `LedgerData.trades`。内存态 Gate 2-5 全绿前不进入 IndexedDB。
 
 ## 项目目标
 
@@ -22,7 +22,7 @@
 
 当前仍是学习和论文验证原型，不是正式金融产品。
 
-## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2–4 已完成
+## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2–5 已完成
 
 ### Week 1：确定边界和架构
 
@@ -61,7 +61,8 @@ UI
   - 数量、价格或总金额不是合法正数。
   - 手续费非法或小于零。
   - `quantity × price` 与 `totalValue` 明显冲突。
-  - 卖出超过当前持仓。
+  - 候选交易插入完整时间线后任一时点出现负持仓。
+  - 候选币种与 Asset 报价币种或同资产已有交易不一致。
 - 将测试统一迁移到 Vitest。
 
 ### Week 4：页面状态地基
@@ -107,7 +108,7 @@ initialLedgerData
 Week 4 的边界：
 
 - `ledgerReducer` 只管理账本状态，不做表单校验、不计算持仓、不读写 IndexedDB。
-- 计划中的 `tradeService` 只负责“新增交易”动作，校验失败只返回错误，不改数据。
+- 已实现的 `tradeService` 只负责校验草稿、生成唯一 ID 和时间，并返回正式 `Trade`；它不 dispatch、不修改 `LedgerData`。
 - 已实现的 `positionService` 只负责“根据当前账本算持仓”，不碰表单、不保存数据、不自己写计算逻辑。
 - `Position[]` 是派生结果，不进 `LedgerData` 保存。
 - 不使用 `localStorage` 作为临时路线。
@@ -121,9 +122,18 @@ Week 4 的边界：
 - Validator golden 样例已改用生产初始化资产；BTC、ETH、ADA 可通过资产存在校验，未知资产仍被拒绝。
 - 内置资产只用于新建账本和 reset；未来 hydrate/import 以保存或导入的完整 `LedgerData.assets` 为准，不自动混入内置资产。
 
+### Week 5 Day 5：安全交易创建
+
+- `tradeValidator` 现在会把候选交易按 `occurredAt` 插入完整时间线，同时间下保持已有数组顺序并将候选项放在最后。
+- 任一卖出使该资产的时间线出现负持仓时，返回 `INSUFFICIENT_HOLDINGS`。
+- 候选币种必须与 Asset `quoteCurrency` 及同资产已有交易一致；否则返回 `CURRENCY_MISMATCH`。
+- `createValidatedTrade(...)` 复用 Validator，成功时返回新 `Trade`，校验失败与 Service 依赖失败使用不同结果分支。
+- ID 生成和时钟可注入；ID 与已有 Trade 冲突时最多尝试 3 次，只在获得唯一 ID 后读取一次时间。
+- Service 不 dispatch、不调用 Calculator，也不修改输入或 `LedgerData`。
+
 ## 当前数据流
 
-当前已经实现四段可以独立验证的能力。
+当前已经实现五段可以独立验证的能力。
 
 校验能力：
 
@@ -162,7 +172,16 @@ DashboardShell
 → 资产汇总或空持仓状态
 ```
 
-交易入账 glue 尚未实现。目标端到端数据流是：
+安全交易创建：
+
+```text
+不可信输入 + 当前 LedgerData
+→ createValidatedTrade(...)
+→ validateTradeDraft(...)
+→ 正式 Trade / validation failure / service failure
+```
+
+`tradeService` 已实现，UI dispatch 与真实交易列表尚未接线。目标端到端数据流是：
 
 ```text
 ValidatedTradeDraft
@@ -191,7 +210,7 @@ DashboardShell
 - `calculators`：计算持仓和盈亏，不读取或写入存储。
 - `decimalMath`：项目内 Decimal 运算的统一入口。
 - `state`：Week 4 新增，管理内存版 `LedgerData` 和账本动作。
-- `services`：组织业务动作；`positionService` 已实现，`tradeService` 尚未实现。
+- `services`：组织业务动作；`positionService` 与 `tradeService` 已实现。
 - `repositories` / `adapters`：当前只有边界 README，占位不等于保存层已实现。
 
 ## Golden test 基准
@@ -230,7 +249,12 @@ ADA sell
 - Validator 全部基础规则。
 - 成交金额容差边界。
 - 无持仓卖出、超卖、等量清仓和剩余持仓判断。
+- 未来买入不能支撑更早卖出，回填卖出不能破坏后续已有卖出。
+- 同时间稳定顺序、跨资产隔离与 Validator 不可变性。
+- 候选币种与 Asset 报价币种、同资产已有交易的币种一致性。
 - 非法交易不会进入 Calculator。
+- `tradeService` 正式 Trade 构造、错误分层、ID 冲突有限重试和依赖失败。
+- Service 成功/失败路径的深度冻结不可变性，以及追加后可被 `positionService` 安全计算的跨层契约。
 - 初始账本每次返回独立数组引用。
 - reducer 新增、删除、缺失 ID 删除和重置行为。
 - reducer 不负责交易业务校验。
@@ -240,11 +264,11 @@ ADA sell
 当前结果：
 
 ```text
-Test Files  6 passed (6)
-Tests       53 passed (53)
+Test Files  8 passed (8)
+Tests       85 passed (85)
 ```
 
-以上结果于 2026-07-12 在 `zhennn/week5-day3-dashboard-positions` 重新运行 `npm test -- --run` 获得；同日 Dashboard 定向测试、lint、build、边界扫描和本地浏览器冒烟验收通过。
+以上结果于 2026-07-14 重新运行 `npm test -- --run` 获得；同日 `tradeService`、Validator、`positionService` 和 Calculator 定向测试、lint、生产 build、边界扫描与 diff-check 全部通过。
 
 运行全部测试：
 
@@ -300,11 +324,11 @@ src/
   models/           核心账本类型
   utils/            DecimalMath
   calculators/      持仓和盈亏纯计算
-  validators/       TradeDraft 校验
+  validators/       TradeDraft 字段、完整持仓时间线与币种校验
   data/             生产内置资产目录与测试
   state/            已实现：initialLedgerData、ledgerReducer 与测试
   test/             共享 golden fixtures
-  services/         已实现 positionService；tradeService 尚未实现
+  services/         已实现 positionService 与 tradeService
   repositories/     当前只有职责说明；账本读写接口尚未实现
   adapters/         当前只有职责说明；IndexedDB adapter 尚未实现
 ```
@@ -323,9 +347,10 @@ src/state/ledgerReducer.ts            # 已实现
 src/state/ledgerReducer.test.ts       # 已实现
 src/services/positionService.ts       # 已实现
 src/services/positionService.test.ts  # 已实现
+src/services/tradeService.ts          # 已实现
+src/services/tradeService.test.ts     # 已实现
 src/components/dashboard/DashboardShell.tsx       # 已接入真实持仓
 src/components/dashboard/DashboardShell.test.ts   # 已实现
-src/services/tradeService.ts          # 计划中，尚不存在
 src/test/fixtures.ts
 vitest.config.ts
 ```
@@ -333,7 +358,7 @@ vitest.config.ts
 ## 当前尚未实现
 
 - Dashboard 资产汇总已接入真实 `LedgerData`，但交易列表仍使用硬编码 `trades`。
-- `tradeService` 尚未实现。
+- `tradeService` 尚未接入 UI 表单、dispatch 和 reducer。
 - 真实交易列表、交易录入/删除和价格输入尚未接通。
 - repository / storage adapter 仍为 README 占位。
 - IndexedDB 持久化。
@@ -348,7 +373,7 @@ vitest.config.ts
 
 按 2026-07-10 重排后的 Gate 顺序继续：
 
-1. 实现 `tradeService`，复用 `validateTradeDraft(...)` 后再 dispatch。
+1. 将 `createValidatedTrade(...)` 接入表单，成功后再 dispatch，失败时区分字段校验与全局 Service 错误。
 2. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
 3. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
 4. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
