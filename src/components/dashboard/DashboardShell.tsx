@@ -2,38 +2,12 @@
 
 import { useReducer, type ReactNode } from "react";
 
+import type { Trade } from "../../models";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { initialLedgerData } from "../../state/initialLedgerData";
 import { ledgerReducer } from "../../state/ledgerReducer";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
-
-const trades = [
-  {
-    date: "2026-04-02",
-    type: "买入",
-    asset: "BTC",
-    quantity: "0.00016388",
-    price: "67121.7",
-    total: "11 USD",
-  },
-  {
-    date: "2026-04-02",
-    type: "买入",
-    asset: "ETH",
-    quantity: "0.004854",
-    price: "2059.99",
-    total: "10 USD",
-  },
-  {
-    date: "2026-04-09",
-    type: "买入",
-    asset: "ADA",
-    quantity: "126.6825",
-    price: "0.2526",
-    total: "32 USD",
-  },
-];
 
 function Section({
   title,
@@ -58,6 +32,53 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+export function TradeTable({
+  trades,
+}: Readonly<{
+  trades: readonly Trade[];
+}>) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[680px] text-left text-sm">
+        <thead className="border-b border-slate-200 text-slate-500">
+          <tr>
+            <th className="py-2 font-medium">日期</th>
+            <th className="py-2 font-medium">类型</th>
+            <th className="py-2 font-medium">资产</th>
+            <th className="py-2 font-medium">数量</th>
+            <th className="py-2 font-medium">均价</th>
+            <th className="py-2 font-medium">总金额</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {trades.length === 0 ? (
+            <tr>
+              <td className="py-8 text-center text-slate-500" colSpan={6}>
+                暂无交易。添加交易后，这里会自动显示。
+              </td>
+            </tr>
+          ) : (
+            trades.map((trade) => (
+              <tr key={trade.id}>
+                <td className="py-3 text-slate-600">{trade.occurredAt}</td>
+                <td className="py-3 text-slate-600">
+                  {trade.type === "buy" ? "买入" : "卖出"}
+                </td>
+                <td className="py-3 font-medium">{trade.assetSymbol}</td>
+                <td className="py-3 text-slate-600">{trade.quantity}</td>
+                <td className="py-3 text-slate-600">{trade.price}</td>
+                <td className="py-3 text-slate-600">
+                  {trade.totalValue} {trade.currency}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -259,35 +280,8 @@ export function DashboardShell() {
               </form>
             </Section>
 
-            <Section eyebrow="Source of truth later" title="交易列表">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[680px] text-left text-sm">
-                  <thead className="border-b border-slate-200 text-slate-500">
-                    <tr>
-                      <th className="py-2 font-medium">日期</th>
-                      <th className="py-2 font-medium">类型</th>
-                      <th className="py-2 font-medium">资产</th>
-                      <th className="py-2 font-medium">数量</th>
-                      <th className="py-2 font-medium">均价</th>
-                      <th className="py-2 font-medium">总金额</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {trades.map((trade) => (
-                      <tr key={`${trade.date}-${trade.asset}-${trade.total}`}>
-                        <td className="py-3 text-slate-600">{trade.date}</td>
-                        <td className="py-3 text-slate-600">{trade.type}</td>
-                        <td className="py-3 font-medium">{trade.asset}</td>
-                        <td className="py-3 text-slate-600">
-                          {trade.quantity}
-                        </td>
-                        <td className="py-3 text-slate-600">{trade.price}</td>
-                        <td className="py-3 text-slate-600">{trade.total}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <Section eyebrow="LedgerData source" title="交易列表">
+              <TradeTable trades={ledgerData.trades} />
             </Section>
           </div>
         </div>
