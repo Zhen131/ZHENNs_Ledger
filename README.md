@@ -4,11 +4,11 @@
 
 项目当前重点不是完成 UI，而是先建立一套可验证的账本核心：交易作为原始事实保存，持仓、成本和盈亏由纯计算函数推导；非法交易必须在进入计算器和保存流程之前被拒绝。
 
-> 当前进度：Week 5 Day 5 安全交易插入与 `tradeService` 已实现并完成工程验证（2026-07-14）。
+> 当前进度：Week 5 Day 6 已关闭 Gate 3；Dashboard 交易列表已改读当前 `LedgerData.trades`，并完成工程验证与独立复审（2026-07-15 至 2026-07-16）。
 >
-> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 Dashboard 真实持仓；Week 5 Day 4 BTC、ETH、ADA 生产资产来源；Week 5 Day 5 `createValidatedTrade(...)`。
+> 已完成里程碑：Week 2 核心计算/校验；Week 4 Gate 1 的内存账本状态地基；Week 5 Day 2 `positionService`；Week 5 Day 3 Dashboard 真实持仓；Week 5 Day 4 BTC、ETH、ADA 生产资产来源；Week 5 Day 5 `createValidatedTrade(...)`；Week 5 Day 6 真实交易列表。
 >
-> 下一开发任务：将 `createValidatedTrade(...)` 接入表单成功后的 dispatch，并让交易列表读取真实 `LedgerData.trades`。内存态 Gate 2-5 全绿前不进入 IndexedDB。
+> 下一开发任务：进入 Week 6 Gate 4，将 `createValidatedTrade(...)` 接入表单成功后的 dispatch，并建立列表与持仓共同更新的真实交互回归。内存态 Gate 2-5 全绿前不进入 IndexedDB。
 
 ## 项目目标
 
@@ -22,7 +22,7 @@
 
 当前仍是学习和论文验证原型，不是正式金融产品。
 
-## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2–5 已完成
+## Week 1–2、Week 4 Gate 1 与 Week 5 Day 2–6 已完成
 
 ### Week 1：确定边界和架构
 
@@ -81,7 +81,7 @@ Gate 1 已经实现：
 - reducer 保持不可变更新，不承担交易校验、持仓计算或存储读写。
 - `ledgerReducer.test.ts` 覆盖初始状态、引用独立性、新增、删除、缺失 ID 删除和重置。
 
-Gate 2 已完成：`positionService` 与 Dashboard 真实资产汇总已接通。Gate 3–5 仍未完成：
+Gate 2 与 Gate 3 已完成：`positionService`、Dashboard 真实资产汇总和真实交易列表已经接通。Gate 4–5 仍未完成：
 
 ```text
 initialLedgerData
@@ -131,9 +131,19 @@ Week 4 的边界：
 - ID 生成和时钟可注入；ID 与已有 Trade 冲突时最多尝试 3 次，只在获得唯一 ID 后读取一次时间。
 - Service 不 dispatch、不调用 Calculator，也不修改输入或 `LedgerData`。
 
+### Week 5 Day 6：真实交易列表
+
+- 删除 Dashboard 文件级写死交易数组。
+- 新增纯视图 `TradeTable`，只接收 `readonly Trade[]`，不使用 hook、dispatch、Service 或业务计算。
+- Dashboard 明确以 `<TradeTable trades={ledgerData.trades} />` 接通当前内存账本。
+- 空账本在六列表格内显示专属空状态；非空时按正式 `Trade` 字段映射日期、类型、资产、数量、均价和总金额。
+- 列表保持账本保存顺序，不排序、不修改输入数组，也不使用 JavaScript 浮点重算金额。
+- 隔离测试覆盖空状态、六列字段、`buy / sell` 映射、输入顺序、不可变性和 Reducer 输出到纯视图的契约。
+- 当前自动化不证明非空 Dashboard 真实 dispatch；该交互回归属于 Week 6 Gate 4。
+
 ## 当前数据流
 
-当前已经实现五段可以独立验证的能力。
+当前已经实现六段可以独立验证的能力。
 
 校验能力：
 
@@ -181,7 +191,7 @@ DashboardShell
 → 正式 Trade / validation failure / service failure
 ```
 
-`tradeService` 已实现，UI dispatch 与真实交易列表尚未接线。目标端到端数据流是：
+`tradeService` 已实现，真实交易列表已经接线；UI 表单与 dispatch 尚未接线。目标端到端数据流仍是：
 
 ```text
 ValidatedTradeDraft
@@ -202,6 +212,16 @@ DashboardShell
 → positionService
 → calculatePositions(...)
 → Position[]
+```
+
+已实现页面交易列表数据流：
+
+```text
+DashboardShell
+→ 同一份 ledgerData
+→ ledgerData.trades
+→ TradeTable
+→ 交易行或六列空状态
 ```
 
 模块职责：
@@ -260,15 +280,18 @@ ADA sell
 - reducer 不负责交易业务校验。
 - `positionService` 的空账本、无价格快照和有价格快照接线。
 - Dashboard 持仓渲染、无价格占位和六列空持仓状态。
+- TradeTable 六列字段、空状态、`buy / sell` 映射、输入顺序和不可变性。
+- Reducer 输出能够交给纯交易视图渲染的跨层契约。
+- Dashboard 初始账本交易空状态；非空真实 dispatch 留给 Gate 4。
 
 当前结果：
 
 ```text
 Test Files  8 passed (8)
-Tests       85 passed (85)
+Tests       90 passed (90)
 ```
 
-以上结果于 2026-07-14 重新运行 `npm test -- --run` 获得；同日 `tradeService`、Validator、`positionService` 和 Calculator 定向测试、lint、生产 build、边界扫描与 diff-check 全部通过。
+以上结果于 2026-07-16 审查时重新运行 `npm test -- --run` 获得；Dashboard 定向测试为 1 个文件、7 项测试，lint、生产 build、边界扫描与 diff-check 全部通过。2026-07-15 的浏览器冒烟确认初始交易空状态、六列表格、资产空状态和控制台均正常。
 
 运行全部测试：
 
@@ -320,7 +343,7 @@ npm run build
 ```text
 src/
   app/              Next.js 页面入口
-  components/       UI 组件；Dashboard 资产汇总已读取真实内存账本
+  components/       UI 组件；Dashboard 资产汇总和交易列表已读取真实内存账本
   models/           核心账本类型
   utils/            DecimalMath
   calculators/      持仓和盈亏纯计算
@@ -349,17 +372,17 @@ src/services/positionService.ts       # 已实现
 src/services/positionService.test.ts  # 已实现
 src/services/tradeService.ts          # 已实现
 src/services/tradeService.test.ts     # 已实现
-src/components/dashboard/DashboardShell.tsx       # 已接入真实持仓
-src/components/dashboard/DashboardShell.test.ts   # 已实现
+src/components/dashboard/DashboardShell.tsx       # 已接入真实持仓和交易列表
+src/components/dashboard/DashboardShell.test.ts   # 已覆盖持仓与纯交易视图契约
 src/test/fixtures.ts
 vitest.config.ts
 ```
 
 ## 当前尚未实现
 
-- Dashboard 资产汇总已接入真实 `LedgerData`，但交易列表仍使用硬编码 `trades`。
 - `tradeService` 尚未接入 UI 表单、dispatch 和 reducer。
-- 真实交易列表、交易录入/删除和价格输入尚未接通。
+- 交易录入/删除和价格输入尚未接通。
+- 用户操作触发列表与持仓共同更新的真实交互测试尚未建立。
 - repository / storage adapter 仍为 README 占位。
 - IndexedDB 持久化。
 - AES-256-GCM 本地加密。
@@ -367,16 +390,23 @@ vitest.config.ts
 - 两张保留图表和性能 benchmark。
 - 实时行情 API、NLP 输入和 Agent。
 
-页面资产汇总已来自真实内存账本；交易列表仍是 UI 占位，不能视为真实账本交易。
+页面资产汇总和交易列表都来自当前真实内存账本；但用户仍不能通过页面安全录入、删除交易或保存价格，因此不能表述为完整页面交易闭环。
+
+## Gate 3 已知边界
+
+- 当前非空列表由纯 `TradeTable` 隔离测试和显式接线审查证明；真实 Dashboard dispatch 回归留给 Gate 4。
+- 未来 hydrate/import 必须在替换 state 前校验完整 `LedgerData`、`schemaVersion`、Trade 类型、ID 唯一性、字符串长度和数组规模。
+- 当前列表按账本保存顺序展示；回填旧交易可能出现在末尾，时间排序与同时间规则尚未定义。
+- 当前一次渲染全部交易；分页、虚拟列表和性能通过线尚未定义。
 
 ## 下一步
 
 按 2026-07-10 重排后的 Gate 顺序继续：
 
 1. 将 `createValidatedTrade(...)` 接入表单，成功后再 dispatch，失败时区分字段校验与全局 Service 错误。
-2. 让交易列表读取 `LedgerData.trades`，关闭 Week 5 Gate。
-3. 在 Week 6 完成交易录入/删除、价格输入和内存态手动验收。
-4. 只有内存态页面全绿后，Week 7 才进入 IndexedDB。
+2. 建立真实用户操作触发列表与持仓共同更新的交互回归，关闭 Gate 4 的自动化证据缺口。
+3. 在 Week 6 完成交易删除、价格输入、5 条 golden 交易和超卖拦截的页面验收。
+4. 只有 Gate 2–5 全绿后，Week 7 才进入 IndexedDB。
 
 ## 2026-07-10 后续路线
 
