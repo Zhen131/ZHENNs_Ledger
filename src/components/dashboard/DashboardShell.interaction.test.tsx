@@ -39,6 +39,33 @@ async function fillBuyTrade() {
   return user;
 }
 
+async function createTrade(input: {
+  type: "buy" | "sell";
+  quantity: string;
+  price: string;
+  totalValue: string;
+  occurredAt: string;
+}) {
+  const user = userEvent.setup();
+
+  await user.selectOptions(
+    screen.getByLabelText("类型", { selector: "select" }),
+    input.type,
+  );
+  await user.type(screen.getByLabelText("数量"), input.quantity);
+  await user.type(screen.getByLabelText("成交均价"), input.price);
+  await user.type(screen.getByLabelText("总金额"), input.totalValue);
+
+  const occurredAtInput = screen.getByLabelText("日期");
+  if ((occurredAtInput as HTMLInputElement).value !== input.occurredAt) {
+    await user.clear(occurredAtInput);
+    await user.type(occurredAtInput, input.occurredAt);
+  }
+
+  await user.click(screen.getByRole("button", { name: "保存交易" }));
+  return user;
+}
+
 describe("DashboardShell trade interactions", () => {
   it("creates a validated buy and updates both the trade list and positions", async () => {
     render(<DashboardShell />);
@@ -82,5 +109,42 @@ describe("DashboardShell trade interactions", () => {
         "暂无持仓。添加交易后，这里会自动汇总。",
       ),
     ).not.toBeNull();
+  });
+
+  it("blocks deletion when removing a buy would invalidate a later sell", async () => {
+    render(<DashboardShell />);
+
+    await createTrade({
+      type: "buy",
+      quantity: "10",
+      price: "1",
+      totalValue: "10",
+      occurredAt: "2026-07-14",
+    });
+    const user = await createTrade({
+      type: "sell",
+      quantity: "5",
+      price: "1",
+      totalValue: "5",
+      occurredAt: "2026-07-15",
+    });
+
+    const tradeSection = getSection("交易列表");
+    const rowsBefore = within(tradeSection).getAllByRole("row");
+    expect(rowsBefore).toHaveLength(3);
+
+    await user.click(
+      within(tradeSection).getByRole("button", {
+        name: "删除 买入 BTC 2026-07-14",
+      }),
+    );
+
+    expect(
+      within(tradeSection).getByText(
+        "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效",
+      ),
+    ).not.toBeNull();
+    expect(within(tradeSection).getAllByRole("row")).toHaveLength(3);
+    expect(within(getSection("资产汇总")).getByText("5")).not.toBeNull();
   });
 });

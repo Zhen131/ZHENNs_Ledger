@@ -1,9 +1,10 @@
 "use client";
 
-import { useReducer, type ReactNode } from "react";
+import { useReducer, useState, type ReactNode } from "react";
 
 import type { Trade } from "../../models";
 import { getPositionsFromLedger } from "../../services/positionService";
+import { validateTradeRemoval } from "../../services/tradeRemovalService";
 import { initialLedgerData } from "../../state/initialLedgerData";
 import { ledgerReducer } from "../../state/ledgerReducer";
 import { TradeForm } from "../trades/TradeForm";
@@ -38,9 +39,13 @@ function Section({
 
 export function TradeTable({
   trades,
+  onDelete,
 }: Readonly<{
   trades: readonly Trade[];
+  onDelete?: (tradeId: string) => void;
 }>) {
+  const columnCount = onDelete ? 7 : 6;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[680px] text-left text-sm">
@@ -52,12 +57,16 @@ export function TradeTable({
             <th className="py-2 font-medium">数量</th>
             <th className="py-2 font-medium">均价</th>
             <th className="py-2 font-medium">总金额</th>
+            {onDelete ? <th className="py-2 font-medium">操作</th> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {trades.length === 0 ? (
             <tr>
-              <td className="py-8 text-center text-slate-500" colSpan={6}>
+              <td
+                className="py-8 text-center text-slate-500"
+                colSpan={columnCount}
+              >
                 暂无交易。添加交易后，这里会自动显示。
               </td>
             </tr>
@@ -74,6 +83,20 @@ export function TradeTable({
                 <td className="py-3 text-slate-600">
                   {trade.totalValue} {trade.currency}
                 </td>
+                {onDelete ? (
+                  <td className="py-3">
+                    <button
+                      aria-label={`删除 ${
+                        trade.type === "buy" ? "买入" : "卖出"
+                      } ${trade.assetSymbol} ${trade.occurredAt}`}
+                      className="text-sm font-medium text-red-700 hover:text-red-900"
+                      onClick={() => onDelete(trade.id)}
+                      type="button"
+                    >
+                      删除
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             ))
           )}
@@ -85,7 +108,24 @@ export function TradeTable({
 
 export function DashboardShell() {
   const [ledgerData, dispatch] = useReducer(ledgerReducer, initialLedgerData);
+  const [tradeRemovalError, setTradeRemovalError] = useState("");
   const positions = getPositionsFromLedger(ledgerData);
+
+  function handleDeleteTrade(tradeId: string) {
+    const result = validateTradeRemoval(tradeId, ledgerData);
+
+    if (!result.ok) {
+      setTradeRemovalError(
+        result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
+          ? "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效"
+          : "无法删除：没有找到这笔交易",
+      );
+      return;
+    }
+
+    dispatch({ type: "trade/delete", tradeId: result.tradeId });
+    setTradeRemovalError("");
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -260,7 +300,18 @@ export function DashboardShell() {
             </Section>
 
             <Section eyebrow="LedgerData source" title="交易列表">
-              <TradeTable trades={ledgerData.trades} />
+              {tradeRemovalError ? (
+                <p
+                  aria-live="polite"
+                  className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                >
+                  {tradeRemovalError}
+                </p>
+              ) : null}
+              <TradeTable
+                onDelete={handleDeleteTrade}
+                trades={ledgerData.trades}
+              />
             </Section>
           </div>
         </div>
