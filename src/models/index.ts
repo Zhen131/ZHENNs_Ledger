@@ -9,6 +9,7 @@ export type {
   LedgerData,
   Position,
   PriceSnapshot,
+  PriceSnapshotDraft,
   PriceSource,
   TimePrecision,
   Trade,

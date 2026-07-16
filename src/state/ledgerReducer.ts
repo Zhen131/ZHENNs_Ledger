@@ -1,4 +1,4 @@
-import type { LedgerData, Trade } from "../models";
+import type { LedgerData, PriceSnapshot, Trade } from "../models";
 import { createInitialLedgerData } from "./initialLedgerData";
 
 export type LedgerAction =
@@ -9,6 +9,14 @@ export type LedgerAction =
   | {
       type: "trade/delete";
       tradeId: string;
+    }
+  | {
+      type: "priceSnapshot/add";
+      priceSnapshot: PriceSnapshot;
+    }
+  | {
+      type: "ledger/replace";
+      ledgerData: LedgerData;
     }
   | {
       type: "ledger/reset";
@@ -38,6 +46,13 @@ export function ledgerReducer(
         trades: nextTrades,
       };
     }
+    case "priceSnapshot/add":
+      return {
+        ...state,
+        priceSnapshots: [...state.priceSnapshots, action.priceSnapshot],
+      };
+    case "ledger/replace":
+      return action.ledgerData;
     case "ledger/reset":
       return createInitialLedgerData();
   }

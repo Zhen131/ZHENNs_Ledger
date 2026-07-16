@@ -1,11 +1,15 @@
 "use client";
 
-import { useReducer, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
+import { getDefaultLedgerRepository } from "../../composition/ledgerRepositoryComposition";
+import { usePersistentLedger } from "../../hooks/usePersistentLedger";
 import type { Trade } from "../../models";
+import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { getPositionsFromLedger } from "../../services/positionService";
-import { initialLedgerData } from "../../state/initialLedgerData";
-import { ledgerReducer } from "../../state/ledgerReducer";
+import { validateTradeRemoval } from "../../services/tradeRemovalService";
+import { PriceForm } from "../prices/PriceForm";
+import { TradeForm } from "../trades/TradeForm";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
 
@@ -37,9 +41,13 @@ function Section({
 
 export function TradeTable({
   trades,
+  onDelete,
 }: Readonly<{
   trades: readonly Trade[];
+  onDelete?: (tradeId: string) => void;
 }>) {
+  const columnCount = onDelete ? 7 : 6;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[680px] text-left text-sm">
@@ -51,12 +59,16 @@ export function TradeTable({
             <th className="py-2 font-medium">数量</th>
             <th className="py-2 font-medium">均价</th>
             <th className="py-2 font-medium">总金额</th>
+            {onDelete ? <th className="py-2 font-medium">操作</th> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {trades.length === 0 ? (
             <tr>
-              <td className="py-8 text-center text-slate-500" colSpan={6}>
+              <td
+                className="py-8 text-center text-slate-500"
+                colSpan={columnCount}
+              >
                 暂无交易。添加交易后，这里会自动显示。
               </td>
             </tr>
@@ -73,6 +85,20 @@ export function TradeTable({
                 <td className="py-3 text-slate-600">
                   {trade.totalValue} {trade.currency}
                 </td>
+                {onDelete ? (
+                  <td className="py-3">
+                    <button
+                      aria-label={`删除 ${
+                        trade.type === "buy" ? "买入" : "卖出"
+                      } ${trade.assetSymbol} ${trade.occurredAt}`}
+                      className="text-sm font-medium text-red-700 hover:text-red-900"
+                      onClick={() => onDelete(trade.id)}
+                      type="button"
+                    >
+                      删除
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             ))
           )}
@@ -82,9 +108,40 @@ export function TradeTable({
   );
 }
 
-export function DashboardShell() {
-  const [ledgerData] = useReducer(ledgerReducer, initialLedgerData);
+export function DashboardShell({
+  repository = getDefaultLedgerRepository(),
+}: Readonly<{
+  repository?: LedgerRepository;
+}> = {}) {
+  const {
+    ledgerData,
+    dispatch,
+    hydrationStatus,
+    persistenceError,
+  } = usePersistentLedger(repository);
+  const [tradeRemovalError, setTradeRemovalError] = useState("");
+  const isReady = hydrationStatus === "ready";
   const positions = getPositionsFromLedger(ledgerData);
+
+  function handleDeleteTrade(tradeId: string) {
+    if (!isReady) {
+      return;
+    }
+
+    const result = validateTradeRemoval(tradeId, ledgerData);
+
+    if (!result.ok) {
+      setTradeRemovalError(
+        result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
+          ? "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效"
+          : "无法删除：没有找到这笔交易",
+      );
+      return;
+    }
+
+    dispatch({ type: "trade/delete", tradeId: result.tradeId });
+    setTradeRemovalError("");
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -116,15 +173,13 @@ export function DashboardShell() {
           <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">
-                Day 4 project shell
+                Local-first ledger
               </p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
                 Local-First Trading Ledger
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                A quiet local-first trading ledger workspace. Today this page is
-                only the runnable shell for assets, trades, prices, and future
-                calculations.
+                本地记录交易和价格，持仓与盈亏由同一份账本事实实时推导。
               </p>
             </div>
             <div className="flex w-full rounded-md border border-slate-200 bg-white p-1 text-sm md:w-auto">
@@ -139,6 +194,31 @@ export function DashboardShell() {
               ))}
             </div>
           </header>
+
+          {hydrationStatus === "loading" ? (
+            <p
+              aria-live="polite"
+              className="mb-5 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
+            >
+              正在读取本地账本，完成前不会写入任何数据。
+            </p>
+          ) : null}
+          {hydrationStatus === "error" ? (
+            <p
+              aria-live="assertive"
+              className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            >
+              {persistenceError}
+            </p>
+          ) : null}
+          {hydrationStatus === "ready" && persistenceError ? (
+            <p
+              aria-live="assertive"
+              className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              {persistenceError}
+            </p>
+          ) : null}
 
           <div className="grid gap-5">
             <Section eyebrow="Future chart area" title="资产走势">
@@ -217,71 +297,50 @@ export function DashboardShell() {
               </Section>
 
               <Section eyebrow="Manual source" title="价格输入">
-                <form className="grid gap-4">
-                  <label className="grid gap-2 text-sm font-medium">
-                    资产代码
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      placeholder="BTC"
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm font-medium">
-                    当前价格
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      placeholder="70000"
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm font-medium">
-                    计价货币
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      defaultValue="USD"
-                    />
-                  </label>
-                  <button
-                    className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
-                    type="button"
-                  >
-                    保存价格
-                  </button>
-                </form>
+                <fieldset
+                  className={isReady ? "" : "opacity-60"}
+                  disabled={!isReady}
+                >
+                  <PriceForm
+                    ledgerData={ledgerData}
+                    onPriceSnapshotCreated={(priceSnapshot) =>
+                      dispatch({
+                        type: "priceSnapshot/add",
+                        priceSnapshot,
+                      })
+                    }
+                  />
+                </fieldset>
               </Section>
             </div>
 
             <Section eyebrow="Trade draft" title="新增交易">
-              <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {[
-                  ["类型", "买入 / 卖出"],
-                  ["资产", "BTC"],
-                  ["数量", "0.00016388"],
-                  ["成交均价", "67121.7"],
-                  ["总金额", "11"],
-                  ["日期", "2026-04-02"],
-                  ["手续费", "0"],
-                  ["备注", "可选"],
-                ].map(([label, placeholder]) => (
-                  <label className="grid gap-2 text-sm font-medium" key={label}>
-                    {label}
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      placeholder={placeholder}
-                    />
-                  </label>
-                ))}
-                <div className="md:col-span-2 xl:col-span-4">
-                  <button
-                    className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
-                    type="button"
-                  >
-                    保存交易
-                  </button>
-                </div>
-              </form>
+              <fieldset
+                className={isReady ? "" : "opacity-60"}
+                disabled={!isReady}
+              >
+                <TradeForm
+                  ledgerData={ledgerData}
+                  onTradeCreated={(trade) =>
+                    dispatch({ type: "trade/add", trade })
+                  }
+                />
+              </fieldset>
             </Section>
 
             <Section eyebrow="LedgerData source" title="交易列表">
-              <TradeTable trades={ledgerData.trades} />
+              {tradeRemovalError ? (
+                <p
+                  aria-live="polite"
+                  className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                >
+                  {tradeRemovalError}
+                </p>
+              ) : null}
+              <TradeTable
+                onDelete={isReady ? handleDeleteTrade : undefined}
+                trades={ledgerData.trades}
+              />
             </Section>
           </div>
         </div>

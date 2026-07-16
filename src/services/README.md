@@ -2,7 +2,12 @@
 
 业务流程编排放在这里。
 
-后续可以把校验、计算、repository 调用、成功或失败结果串成完整动作，例如新增
-交易或读取持仓。
+当前已实现：
 
-这个目录负责顺序，不直接碰浏览器存储，不塞复杂计算细节，也不定义核心类型。
+- `positionService`：读取当前账本并调用 Calculator 派生持仓。
+- `tradeService`：校验交易草稿并生成正式 `Trade`。
+- `tradeRemovalService`：删除前验证候选账本时间线。
+- `priceSnapshotService`：校验价格草稿并生成正式 `PriceSnapshot`。
+
+Service 负责业务动作顺序，不直接操作 IndexedDB，不复制 Calculator 公式，也不
+修改调用方传入的 `LedgerData`。

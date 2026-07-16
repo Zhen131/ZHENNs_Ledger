@@ -15,6 +15,7 @@ import {
   multiply,
   subtract,
 } from "../utils/decimalMath";
+import { isValidISODateOrDateTime } from "./isoDateValidator";
 
 /**
  * USD 第一版允许 quantity * price 与 totalValue 相差 1 美分。
@@ -71,6 +72,7 @@ export type TradeValidationContext = {
   assets: readonly Asset[];
   priorTrades: readonly Trade[];
   totalValueTolerance?: DecimalString;
+  skipHoldingsTimeline?: boolean;
 };
 
 export type TradeValidationResult =
@@ -115,7 +117,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   }
 
   const errors: TradeValidationError[] = [];
-  const occurredAt = readRequiredString(input, "occurredAt", errors);
+  const occurredAt = readOccurredAt(input.occurredAt, errors);
   const timePrecision = readTimePrecision(input.timePrecision, errors);
   const type = readTradeType(input.type, errors);
   const assetSymbol = readAssetSymbol(input.assetSymbol, context.assets, errors);
@@ -154,6 +156,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   }
 
   if (
+    !context.skipHoldingsTimeline &&
     occurredAt !== undefined &&
     type !== undefined &&
     assetSymbol !== undefined &&
@@ -214,7 +217,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readRequiredString(
   input: Record<string, unknown>,
-  field: "occurredAt" | "currency",
+  field: "currency",
   errors: TradeValidationError[],
 ): string | undefined {
   const value = input[field];
@@ -228,6 +231,24 @@ function readRequiredString(
       TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
       field,
       `${field} must be a non-empty string`,
+    ),
+  );
+  return undefined;
+}
+
+function readOccurredAt(
+  value: unknown,
+  errors: TradeValidationError[],
+): string | undefined {
+  if (isValidISODateOrDateTime(value)) {
+    return value;
+  }
+
+  errors.push(
+    createError(
+      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
+      "occurredAt",
+      "occurredAt must be a valid ISO date or datetime string",
     ),
   );
   return undefined;
