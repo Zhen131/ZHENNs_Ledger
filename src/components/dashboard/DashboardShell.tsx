@@ -173,15 +173,13 @@ export function DashboardShell({
           <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">
-                Day 4 project shell
+                Local-first ledger
               </p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
                 Local-First Trading Ledger
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                A quiet local-first trading ledger workspace. Today this page is
-                only the runnable shell for assets, trades, prices, and future
-                calculations.
+                本地记录交易和价格，持仓与盈亏由同一份账本事实实时推导。
               </p>
             </div>
             <div className="flex w-full rounded-md border border-slate-200 bg-white p-1 text-sm md:w-auto">
