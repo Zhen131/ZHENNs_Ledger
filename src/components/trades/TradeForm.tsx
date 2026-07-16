@@ -4,7 +4,10 @@ import { useState, type FormEvent } from "react";
 
 import type { LedgerData, Trade, TradeDraft } from "../../models";
 import { createValidatedTrade } from "../../services/tradeService";
-import type { TradeValidationError } from "../../validators/tradeValidator";
+import type {
+  TradeValidationError,
+  TradeValidationField,
+} from "../../validators/tradeValidator";
 
 type TradeFormProps = Readonly<{
   ledgerData: LedgerData;
@@ -81,6 +84,28 @@ function formatValidationError(error: TradeValidationError): string {
   }
 }
 
+function toTradeFormField(field: TradeValidationField): TradeFormField {
+  switch (field) {
+    case "type":
+    case "assetSymbol":
+    case "quantity":
+    case "price":
+    case "totalValue":
+    case "occurredAt":
+    case "fee":
+    case "note":
+      return field;
+    case "input":
+    case "totalValueTolerance":
+    case "timePrecision":
+    case "currency":
+    case "feeCurrency":
+    case "feeRuleId":
+    case "rawText":
+      return "form";
+  }
+}
+
 export function TradeForm({
   ledgerData,
   onTradeCreated,
@@ -136,10 +161,7 @@ export function TradeForm({
 
       const nextErrors: Partial<Record<TradeFormField, string>> = {};
       for (const error of result.errors) {
-        const field =
-          error.field === "input" || error.field === "totalValueTolerance"
-            ? "form"
-            : error.field;
+        const field = toTradeFormField(error.field);
         nextErrors[field] ??= formatValidationError(error);
       }
       setErrors(nextErrors);
