@@ -162,6 +162,20 @@ describe("validateLedgerData", () => {
     );
   });
 
+  it("rejects dates that Date.parse would otherwise normalize", () => {
+    const input = createCompleteLedger();
+    input.trades[0] = {
+      ...input.trades[0],
+      occurredAt: "2026-02-30",
+    };
+
+    expectError(
+      input,
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      "trades[0].occurredAt",
+    );
+  });
+
   it("rejects malformed fee rules and dangling fee rule references", () => {
     const input = createCompleteLedger();
     input.feeRules[0] = {

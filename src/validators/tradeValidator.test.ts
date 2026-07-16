@@ -31,6 +31,25 @@ test("rejects a non-object input before reading fields", () => {
   );
 });
 
+test("rejects a non-ISO or impossible trade date", () => {
+  expectError(
+    validateTradeDraft(
+      { ...validDraft, occurredAt: "2026-02-30" },
+      context,
+    ),
+    TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
+    "occurredAt",
+  );
+  expectError(
+    validateTradeDraft(
+      { ...validDraft, occurredAt: "July 16, 2026" },
+      context,
+    ),
+    TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
+    "occurredAt",
+  );
+});
+
 test("accepts all five fixed trade drafts using production built-in assets", () => {
   const priorTrades: Trade[] = [];
 

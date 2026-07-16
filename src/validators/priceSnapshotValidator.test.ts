@@ -29,6 +29,18 @@ describe("validatePriceSnapshotDraft", () => {
     });
   });
 
+  it("accepts a valid ISO datetime with a timezone", () => {
+    expect(
+      validatePriceSnapshotDraft(
+        {
+          ...validDraft,
+          recordedAt: "2026-07-16T12:30:45.123+08:00",
+        },
+        assets,
+      ).ok,
+    ).toBe(true);
+  });
+
   it.each([
     {
       input: "not-an-object",
@@ -59,6 +71,11 @@ describe("validatePriceSnapshotDraft", () => {
       input: { ...validDraft, source: "import" },
       code: PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_SOURCE,
       field: "source",
+    },
+    {
+      input: { ...validDraft, recordedAt: "2026-02-30" },
+      code: PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
+      field: "recordedAt",
     },
   ])("rejects invalid runtime input for $field", ({ input, code, field }) => {
     const result = validatePriceSnapshotDraft(input, assets);

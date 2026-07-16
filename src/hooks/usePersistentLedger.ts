@@ -40,13 +40,22 @@ export function usePersistentLedger(
     useState<HydrationStatus>("loading");
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const mountedRef = useRef(true);
-  const initialSnapshotRef = useRef(JSON.stringify(ledgerData));
   const lastPersistedSnapshotRef = useRef<string | null>(null);
   const latestScheduledSnapshotRef = useRef<string | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const hydratedRepositoryRef = useRef<LedgerRepository | null>(null);
+  const pendingHydrationRef = useRef<{
+    repository: LedgerRepository;
+    serializedLedger: string;
+  } | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
+    hydratedRepositoryRef.current = null;
+    pendingHydrationRef.current = null;
+    lastPersistedSnapshotRef.current = null;
+    latestScheduledSnapshotRef.current = null;
+    setHydrationStatus("loading");
     let cancelled = false;
 
     async function hydrate() {
@@ -57,26 +66,27 @@ export function usePersistentLedger(
           return;
         }
 
-        if (savedLedger === null) {
-          lastPersistedSnapshotRef.current = initialSnapshotRef.current;
-          latestScheduledSnapshotRef.current = null;
-        } else {
-          const serialized = JSON.stringify(savedLedger);
-          lastPersistedSnapshotRef.current = serialized;
-          latestScheduledSnapshotRef.current = null;
-          reducerDispatch({
-            type: "ledger/replace",
-            ledgerData: savedLedger,
-          });
-        }
+        const hydratedLedger =
+          savedLedger ?? createInitialLedgerData();
+        const serializedLedger = JSON.stringify(hydratedLedger);
+        lastPersistedSnapshotRef.current = serializedLedger;
+        pendingHydrationRef.current = {
+          repository,
+          serializedLedger,
+        };
+        reducerDispatch({
+          type: "ledger/replace",
+          ledgerData: hydratedLedger,
+        });
 
         setPersistenceError(null);
-        setHydrationStatus("ready");
       } catch {
         if (cancelled) {
           return;
         }
 
+        pendingHydrationRef.current = null;
+        hydratedRepositoryRef.current = null;
         setPersistenceError(
           "本地账本读取失败，已停止自动保存以避免覆盖原数据",
         );
@@ -93,7 +103,27 @@ export function usePersistentLedger(
   }, [repository]);
 
   useEffect(() => {
-    if (hydrationStatus !== "ready") {
+    const pendingHydration = pendingHydrationRef.current;
+
+    if (
+      hydrationStatus !== "loading" ||
+      pendingHydration === null ||
+      pendingHydration.repository !== repository ||
+      JSON.stringify(ledgerData) !== pendingHydration.serializedLedger
+    ) {
+      return;
+    }
+
+    pendingHydrationRef.current = null;
+    hydratedRepositoryRef.current = repository;
+    setHydrationStatus("ready");
+  }, [hydrationStatus, ledgerData, repository]);
+
+  useEffect(() => {
+    if (
+      hydrationStatus !== "ready" ||
+      hydratedRepositoryRef.current !== repository
+    ) {
       return;
     }
 
@@ -138,13 +168,16 @@ export function usePersistentLedger(
 
   const dispatch = useCallback<Dispatch<LedgerAction>>(
     (action) => {
-      if (hydrationStatus !== "ready") {
+      if (
+        hydrationStatus !== "ready" ||
+        hydratedRepositoryRef.current !== repository
+      ) {
         return;
       }
 
       reducerDispatch(action);
     },
-    [hydrationStatus],
+    [hydrationStatus, repository],
   );
 
   return {

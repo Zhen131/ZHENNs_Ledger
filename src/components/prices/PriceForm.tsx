@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import type {
   LedgerData,
@@ -94,6 +94,23 @@ export function PriceForm({
     Partial<Record<PriceFormField, string>>
   >({});
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    setForm((current) => {
+      if (
+        ledgerData.assets.some(
+          (asset) => asset.symbol === current.assetSymbol,
+        )
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        assetSymbol: ledgerData.assets[0]?.symbol ?? "",
+      };
+    });
+  }, [ledgerData.assets]);
 
   const selectedAsset =
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
