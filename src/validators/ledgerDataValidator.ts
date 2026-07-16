@@ -7,6 +7,7 @@ import type {
   Trade,
 } from "../models";
 import { isNegative, toDecimal } from "../utils/decimalMath";
+import { isValidISODateOrDateTime } from "./isoDateValidator";
 import { validatePriceSnapshotDraft } from "./priceSnapshotValidator";
 import { validateTradeDraft } from "./tradeValidator";
 
@@ -546,7 +547,7 @@ function readISODate(
     return undefined;
   }
 
-  if (!Number.isNaN(Date.parse(text))) {
+  if (isValidISODateOrDateTime(text)) {
     return text;
   }
 

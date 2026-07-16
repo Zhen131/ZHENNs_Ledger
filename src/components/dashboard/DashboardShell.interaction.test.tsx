@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -10,6 +11,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { createApplicationLedgerRepository } from "../../composition/ledgerRepositoryComposition";
 import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
@@ -52,13 +54,15 @@ function createMemoryRepository(
 async function renderDashboard(
   repository: LedgerRepository = createMemoryRepository(),
 ) {
-  render(<DashboardShell repository={repository} />);
+  const view = render(<DashboardShell repository={repository} />);
 
   await waitFor(() => {
     expect(
       screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
     ).toBeNull();
   });
+
+  return view;
 }
 
 async function fillBuyTrade() {
@@ -189,6 +193,30 @@ describe("DashboardShell trade interactions", () => {
     expect(within(getSection("资产汇总")).getByText("5")).not.toBeNull();
   });
 
+  it("deletes a safe trade and updates both empty states", async () => {
+    await renderDashboard();
+    const user = await fillBuyTrade();
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    const tradeSection = getSection("交易列表");
+    await user.click(
+      within(tradeSection).getByRole("button", {
+        name: "删除 买入 BTC 2026-07-14",
+      }),
+    );
+
+    expect(
+      within(tradeSection).getByText(
+        "暂无交易。添加交易后，这里会自动显示。",
+      ),
+    ).not.toBeNull();
+    expect(
+      within(getSection("资产汇总")).getByText(
+        "暂无持仓。添加交易后，这里会自动汇总。",
+      ),
+    ).not.toBeNull();
+  });
+
   it("saves a manual price and updates market value and unrealized PnL", async () => {
     await renderDashboard();
     const user = await fillBuyTrade();
@@ -227,5 +255,73 @@ describe("DashboardShell trade interactions", () => {
     expect(within(tradeSection).getByText("ETH")).not.toBeNull();
     expect(within(tradeSection).getByText("2")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it("synchronizes both forms to assets restored from the saved ledger", async () => {
+    const baseLedger = createInitialLedgerData();
+    const savedLedger: LedgerData = {
+      ...baseLedger,
+      assets: [
+        {
+          ...baseLedger.assets[0],
+          id: "asset-doge",
+          symbol: "DOGE",
+          name: "Dogecoin",
+        },
+      ],
+    };
+
+    await renderDashboard(createMemoryRepository(savedLedger));
+
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText("资产", {
+          selector: "select",
+        }) as HTMLSelectElement).value,
+      ).toBe("DOGE");
+      expect(
+        (screen.getByLabelText("价格资产", {
+          selector: "select",
+        }) as HTMLSelectElement).value,
+      ).toBe("DOGE");
+    });
+  });
+
+  it("persists through the assembled IndexedDB repository and restores after remount", async () => {
+    const indexedDBFactory = new IDBFactory();
+    const storageOptions = {
+      indexedDBFactory,
+      databaseName: "dashboard-persistence-round-trip",
+    };
+    const firstRepository =
+      createApplicationLedgerRepository(storageOptions);
+    const firstView = await renderDashboard(firstRepository);
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
+    await user.click(screen.getByRole("button", { name: "保存价格" }));
+
+    await waitFor(async () => {
+      const savedLedger = await firstRepository.load();
+      expect(savedLedger?.trades).toHaveLength(1);
+      expect(savedLedger?.priceSnapshots).toHaveLength(1);
+    });
+
+    firstView.unmount();
+
+    const secondRepository =
+      createApplicationLedgerRepository(storageOptions);
+    await renderDashboard(secondRepository);
+
+    const tradeSection = getSection("交易列表");
+    expect(within(tradeSection).getByText("BTC")).not.toBeNull();
+    expect(within(tradeSection).getByText("70 USD")).not.toBeNull();
+
+    const positionSection = getSection("资产汇总");
+    expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
+    expect(within(positionSection).getByText("80 USD")).not.toBeNull();
+    expect(within(positionSection).getByText("10 USD")).not.toBeNull();
   });
 });

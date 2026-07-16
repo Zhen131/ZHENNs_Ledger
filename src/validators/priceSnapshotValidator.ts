@@ -4,6 +4,7 @@ import type {
   PriceSource,
 } from "../models";
 import { isPositive } from "../utils/decimalMath";
+import { isValidISODateOrDateTime } from "./isoDateValidator";
 
 export const PRICE_SNAPSHOT_VALIDATION_ERROR_CODES = {
   INVALID_INPUT: "PRICE_SNAPSHOT_INVALID_INPUT",
@@ -61,11 +62,7 @@ export function validatePriceSnapshotDraft(
   const assetSymbol = readAssetSymbol(input.assetSymbol, assets, errors);
   const price = readPositivePrice(input.price, errors);
   const currency = readRequiredString(input.currency, "currency", errors);
-  const recordedAt = readRequiredString(
-    input.recordedAt,
-    "recordedAt",
-    errors,
-  );
+  const recordedAt = readRecordedAt(input.recordedAt, errors);
   const source = readSource(input.source, errors);
   const note = readOptionalNote(input.note, errors);
 
@@ -175,7 +172,7 @@ function readPositivePrice(
 
 function readRequiredString(
   value: unknown,
-  field: "currency" | "recordedAt",
+  field: "currency",
   errors: PriceSnapshotValidationError[],
 ): string | undefined {
   if (typeof value === "string" && value.length > 0) {
@@ -187,6 +184,24 @@ function readRequiredString(
       PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
       field,
       `${field} must be a non-empty string`,
+    ),
+  );
+  return undefined;
+}
+
+function readRecordedAt(
+  value: unknown,
+  errors: PriceSnapshotValidationError[],
+): string | undefined {
+  if (isValidISODateOrDateTime(value)) {
+    return value;
+  }
+
+  errors.push(
+    createError(
+      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
+      "recordedAt",
+      "recordedAt must be a valid ISO date or datetime string",
     ),
   );
   return undefined;
