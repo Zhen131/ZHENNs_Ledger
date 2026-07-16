@@ -101,6 +101,26 @@ test("keeps the same ledger reference when deleting a missing trade id", () => {
   expect(nextLedger).toBe(previousLedger);
 });
 
+test("adds a price snapshot without mutating the previous ledger", () => {
+  const previousLedger = createInitialLedgerData();
+  const priceSnapshot = createPriceSnapshot(
+    "price-001",
+    "BTC",
+    "70000",
+    "2026-07-16",
+  );
+
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "priceSnapshot/add",
+    priceSnapshot,
+  });
+
+  expect(nextLedger).not.toBe(previousLedger);
+  expect(nextLedger.priceSnapshots).toEqual([priceSnapshot]);
+  expect(nextLedger.priceSnapshots).not.toBe(previousLedger.priceSnapshots);
+  expect(previousLedger.priceSnapshots).toEqual([]);
+});
+
 test("resets user data and restores independent built-in assets", () => {
   const existingTrade = createSimpleTrade("trade-existing", "buy", "BTC", "1");
   const existingPrice = createPriceSnapshot(
