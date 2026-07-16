@@ -121,6 +121,32 @@ test("adds a price snapshot without mutating the previous ledger", () => {
   expect(previousLedger.priceSnapshots).toEqual([]);
 });
 
+test("atomically replaces the complete ledger after external validation", () => {
+  const previousLedger = createInitialLedgerData();
+  const replacement = {
+    ...createInitialLedgerData(),
+    trades: [
+      createSimpleTrade("trade-hydrated", "buy", "ETH", "2"),
+    ],
+    priceSnapshots: [
+      createPriceSnapshot(
+        "price-hydrated",
+        "ETH",
+        "2500",
+        "2026-07-16",
+      ),
+    ],
+  };
+
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "ledger/replace",
+    ledgerData: replacement,
+  });
+
+  expect(nextLedger).toBe(replacement);
+  expect(previousLedger).toEqual(createInitialLedgerData());
+});
+
 test("resets user data and restores independent built-in assets", () => {
   const existingTrade = createSimpleTrade("trade-existing", "buy", "BTC", "1");
   const existingPrice = createPriceSnapshot(
