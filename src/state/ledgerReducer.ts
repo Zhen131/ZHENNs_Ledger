@@ -15,6 +15,10 @@ export type LedgerAction =
       priceSnapshot: PriceSnapshot;
     }
   | {
+      type: "ledger/replace";
+      ledgerData: LedgerData;
+    }
+  | {
       type: "ledger/reset";
     };
 
@@ -47,6 +51,8 @@ export function ledgerReducer(
         ...state,
         priceSnapshots: [...state.priceSnapshots, action.priceSnapshot],
       };
+    case "ledger/replace":
+      return action.ledgerData;
     case "ledger/reset":
       return createInitialLedgerData();
   }
