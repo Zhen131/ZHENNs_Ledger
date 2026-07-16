@@ -154,4 +154,4 @@ git diff --check
 
 - 07A 风险补漏已合入并推送源码 `main`。
 - 合并提交：`d936463 合并07A风险补漏与Week6-7提前实现`。
-- 已合并的功能分支可安全删除。
+- 已合并的功能分支 `zhennn/close-week6-week7-07a-risks` 已删除。
