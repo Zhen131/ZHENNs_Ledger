@@ -6,6 +6,7 @@ import type { Trade } from "../../models";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { initialLedgerData } from "../../state/initialLedgerData";
 import { ledgerReducer } from "../../state/ledgerReducer";
+import { TradeForm } from "../trades/TradeForm";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
 
@@ -83,7 +84,7 @@ export function TradeTable({
 }
 
 export function DashboardShell() {
-  const [ledgerData] = useReducer(ledgerReducer, initialLedgerData);
+  const [ledgerData, dispatch] = useReducer(ledgerReducer, initialLedgerData);
   const positions = getPositionsFromLedger(ledgerData);
 
   return (
@@ -250,34 +251,12 @@ export function DashboardShell() {
             </div>
 
             <Section eyebrow="Trade draft" title="新增交易">
-              <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {[
-                  ["类型", "买入 / 卖出"],
-                  ["资产", "BTC"],
-                  ["数量", "0.00016388"],
-                  ["成交均价", "67121.7"],
-                  ["总金额", "11"],
-                  ["日期", "2026-04-02"],
-                  ["手续费", "0"],
-                  ["备注", "可选"],
-                ].map(([label, placeholder]) => (
-                  <label className="grid gap-2 text-sm font-medium" key={label}>
-                    {label}
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      placeholder={placeholder}
-                    />
-                  </label>
-                ))}
-                <div className="md:col-span-2 xl:col-span-4">
-                  <button
-                    className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
-                    type="button"
-                  >
-                    保存交易
-                  </button>
-                </div>
-              </form>
+              <TradeForm
+                ledgerData={ledgerData}
+                onTradeCreated={(trade) =>
+                  dispatch({ type: "trade/add", trade })
+                }
+              />
             </Section>
 
             <Section eyebrow="LedgerData source" title="交易列表">
