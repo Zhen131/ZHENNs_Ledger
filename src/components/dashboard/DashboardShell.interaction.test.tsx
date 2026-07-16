@@ -147,4 +147,21 @@ describe("DashboardShell trade interactions", () => {
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(3);
     expect(within(getSection("资产汇总")).getByText("5")).not.toBeNull();
   });
+
+  it("saves a manual price and updates market value and unrealized PnL", async () => {
+    render(<DashboardShell />);
+    const user = await fillBuyTrade();
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
+    await user.click(screen.getByRole("button", { name: "保存价格" }));
+
+    expect(screen.getByText("价格已保存")).not.toBeNull();
+
+    const positionSection = getSection("资产汇总");
+    expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
+    expect(within(positionSection).getByText("80 USD")).not.toBeNull();
+    expect(within(positionSection).getByText("10 USD")).not.toBeNull();
+  });
 });

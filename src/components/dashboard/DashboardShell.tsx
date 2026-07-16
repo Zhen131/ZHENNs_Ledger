@@ -7,6 +7,7 @@ import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
 import { initialLedgerData } from "../../state/initialLedgerData";
 import { ledgerReducer } from "../../state/ledgerReducer";
+import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
@@ -258,35 +259,15 @@ export function DashboardShell() {
               </Section>
 
               <Section eyebrow="Manual source" title="价格输入">
-                <form className="grid gap-4">
-                  <label className="grid gap-2 text-sm font-medium">
-                    资产代码
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      placeholder="BTC"
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm font-medium">
-                    当前价格
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      placeholder="70000"
-                    />
-                  </label>
-                  <label className="grid gap-2 text-sm font-medium">
-                    计价货币
-                    <input
-                      className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-                      defaultValue="USD"
-                    />
-                  </label>
-                  <button
-                    className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
-                    type="button"
-                  >
-                    保存价格
-                  </button>
-                </form>
+                <PriceForm
+                  ledgerData={ledgerData}
+                  onPriceSnapshotCreated={(priceSnapshot) =>
+                    dispatch({
+                      type: "priceSnapshot/add",
+                      priceSnapshot,
+                    })
+                  }
+                />
               </Section>
             </div>
 
