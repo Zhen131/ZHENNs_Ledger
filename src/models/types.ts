@@ -68,6 +68,15 @@ export type PriceSnapshot = {
   updatedAt: ISODateTimeString;
 };
 
+export type PriceSnapshotDraft = {
+  assetSymbol: string;
+  price: DecimalString;
+  currency: CurrencyCode;
+  recordedAt: ISODateString | ISODateTimeString;
+  source: PriceSource;
+  note?: string;
+};
+
 export type FeeRule = {
   id: string;
   name: string;
