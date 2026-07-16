@@ -71,6 +71,7 @@ export type TradeValidationContext = {
   assets: readonly Asset[];
   priorTrades: readonly Trade[];
   totalValueTolerance?: DecimalString;
+  skipHoldingsTimeline?: boolean;
 };
 
 export type TradeValidationResult =
@@ -154,6 +155,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   }
 
   if (
+    !context.skipHoldingsTimeline &&
     occurredAt !== undefined &&
     type !== undefined &&
     assetSymbol !== undefined &&
