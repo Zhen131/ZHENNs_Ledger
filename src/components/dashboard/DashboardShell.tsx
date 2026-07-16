@@ -1,12 +1,13 @@
 "use client";
 
-import { useReducer, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
+import { getDefaultLedgerRepository } from "../../composition/ledgerRepositoryComposition";
+import { usePersistentLedger } from "../../hooks/usePersistentLedger";
 import type { Trade } from "../../models";
+import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
-import { initialLedgerData } from "../../state/initialLedgerData";
-import { ledgerReducer } from "../../state/ledgerReducer";
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
 
@@ -107,12 +108,26 @@ export function TradeTable({
   );
 }
 
-export function DashboardShell() {
-  const [ledgerData, dispatch] = useReducer(ledgerReducer, initialLedgerData);
+export function DashboardShell({
+  repository = getDefaultLedgerRepository(),
+}: Readonly<{
+  repository?: LedgerRepository;
+}> = {}) {
+  const {
+    ledgerData,
+    dispatch,
+    hydrationStatus,
+    persistenceError,
+  } = usePersistentLedger(repository);
   const [tradeRemovalError, setTradeRemovalError] = useState("");
+  const isReady = hydrationStatus === "ready";
   const positions = getPositionsFromLedger(ledgerData);
 
   function handleDeleteTrade(tradeId: string) {
+    if (!isReady) {
+      return;
+    }
+
     const result = validateTradeRemoval(tradeId, ledgerData);
 
     if (!result.ok) {
@@ -181,6 +196,31 @@ export function DashboardShell() {
               ))}
             </div>
           </header>
+
+          {hydrationStatus === "loading" ? (
+            <p
+              aria-live="polite"
+              className="mb-5 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
+            >
+              正在读取本地账本，完成前不会写入任何数据。
+            </p>
+          ) : null}
+          {hydrationStatus === "error" ? (
+            <p
+              aria-live="assertive"
+              className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            >
+              {persistenceError}
+            </p>
+          ) : null}
+          {hydrationStatus === "ready" && persistenceError ? (
+            <p
+              aria-live="assertive"
+              className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              {persistenceError}
+            </p>
+          ) : null}
 
           <div className="grid gap-5">
             <Section eyebrow="Future chart area" title="资产走势">
@@ -259,25 +299,35 @@ export function DashboardShell() {
               </Section>
 
               <Section eyebrow="Manual source" title="价格输入">
-                <PriceForm
-                  ledgerData={ledgerData}
-                  onPriceSnapshotCreated={(priceSnapshot) =>
-                    dispatch({
-                      type: "priceSnapshot/add",
-                      priceSnapshot,
-                    })
-                  }
-                />
+                <fieldset
+                  className={isReady ? "" : "opacity-60"}
+                  disabled={!isReady}
+                >
+                  <PriceForm
+                    ledgerData={ledgerData}
+                    onPriceSnapshotCreated={(priceSnapshot) =>
+                      dispatch({
+                        type: "priceSnapshot/add",
+                        priceSnapshot,
+                      })
+                    }
+                  />
+                </fieldset>
               </Section>
             </div>
 
             <Section eyebrow="Trade draft" title="新增交易">
-              <TradeForm
-                ledgerData={ledgerData}
-                onTradeCreated={(trade) =>
-                  dispatch({ type: "trade/add", trade })
-                }
-              />
+              <fieldset
+                className={isReady ? "" : "opacity-60"}
+                disabled={!isReady}
+              >
+                <TradeForm
+                  ledgerData={ledgerData}
+                  onTradeCreated={(trade) =>
+                    dispatch({ type: "trade/add", trade })
+                  }
+                />
+              </fieldset>
             </Section>
 
             <Section eyebrow="LedgerData source" title="交易列表">
@@ -290,7 +340,7 @@ export function DashboardShell() {
                 </p>
               ) : null}
               <TradeTable
-                onDelete={handleDeleteTrade}
+                onDelete={isReady ? handleDeleteTrade : undefined}
                 trades={ledgerData.trades}
               />
             </Section>
