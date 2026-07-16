@@ -1,9 +1,19 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import type { LedgerData } from "../../models";
+import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import { createInitialLedgerData } from "../../state/initialLedgerData";
+import { createSimpleTrade } from "../../test/fixtures";
 import { DashboardShell } from "./DashboardShell";
 
 afterEach(() => {
@@ -18,6 +28,37 @@ function getSection(title: string): HTMLElement {
   }
 
   return section;
+}
+
+function createMemoryRepository(
+  initialData: LedgerData | null = null,
+): LedgerRepository {
+  let storedData =
+    initialData === null ? null : structuredClone(initialData);
+
+  return {
+    load: vi.fn(async () =>
+      storedData === null ? null : structuredClone(storedData),
+    ),
+    save: vi.fn(async (ledgerData) => {
+      storedData = structuredClone(ledgerData);
+    }),
+    clear: vi.fn(async () => {
+      storedData = null;
+    }),
+  };
+}
+
+async function renderDashboard(
+  repository: LedgerRepository = createMemoryRepository(),
+) {
+  render(<DashboardShell repository={repository} />);
+
+  await waitFor(() => {
+    expect(
+      screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
+    ).toBeNull();
+  });
 }
 
 async function fillBuyTrade() {
@@ -68,7 +109,7 @@ async function createTrade(input: {
 
 describe("DashboardShell trade interactions", () => {
   it("creates a validated buy and updates both the trade list and positions", async () => {
-    render(<DashboardShell />);
+    await renderDashboard();
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -87,7 +128,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("shows validator feedback and keeps the ledger unchanged for invalid input", async () => {
-    render(<DashboardShell />);
+    await renderDashboard();
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText("数量"), "0.001");
@@ -112,7 +153,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("blocks deletion when removing a buy would invalidate a later sell", async () => {
-    render(<DashboardShell />);
+    await renderDashboard();
 
     await createTrade({
       type: "buy",
@@ -149,7 +190,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("saves a manual price and updates market value and unrealized PnL", async () => {
-    render(<DashboardShell />);
+    await renderDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
@@ -163,5 +204,28 @@ describe("DashboardShell trade interactions", () => {
     expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
     expect(within(positionSection).getByText("80 USD")).not.toBeNull();
     expect(within(positionSection).getByText("10 USD")).not.toBeNull();
+  });
+
+  it("hydrates saved LedgerData without overwriting it with initial state", async () => {
+    const savedLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        createSimpleTrade(
+          "trade-hydrated",
+          "buy",
+          "ETH",
+          "2",
+          "2026-07-10",
+        ),
+      ],
+    };
+    const repository = createMemoryRepository(savedLedger);
+
+    await renderDashboard(repository);
+
+    const tradeSection = getSection("交易列表");
+    expect(within(tradeSection).getByText("ETH")).not.toBeNull();
+    expect(within(tradeSection).getByText("2")).not.toBeNull();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 });
