@@ -3,6 +3,10 @@ export {
   TRADE_VALIDATION_ERROR_CODES,
   validateTradeDraft,
 } from "./tradeValidator";
+export {
+  LEDGER_DATA_VALIDATION_ERROR_CODES,
+  validateLedgerData,
+} from "./ledgerDataValidator";
 
 export type {
   TradeDraftValidator,
@@ -13,3 +17,7 @@ export type {
   TradeValidationResult,
   ValidatedTradeDraft,
 } from "./tradeValidator";
+export type {
+  LedgerDataValidationError,
+  LedgerDataValidationResult,
+} from "./ledgerDataValidator";
