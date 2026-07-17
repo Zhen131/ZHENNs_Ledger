@@ -23,7 +23,7 @@ function Section({
   children: ReactNode;
 }>) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           {eyebrow ? (
@@ -146,7 +146,7 @@ export function DashboardShell({
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
-        <aside className="border-b border-slate-200 bg-white px-5 py-4 lg:w-60 lg:border-b-0 lg:border-r">
+        <aside className="border-b border-slate-200 bg-white px-5 py-4 lg:w-60 lg:shrink-0 lg:border-b-0 lg:border-r">
           <div className="mb-6">
             <p className="text-sm font-semibold text-slate-950">Local Ledger</p>
             <p className="mt-1 text-xs text-slate-500">Browser-only MVP shell</p>
@@ -169,7 +169,7 @@ export function DashboardShell({
           </div>
         </aside>
 
-        <div className="flex-1 px-5 py-6 sm:px-8 lg:px-10">
+        <div className="min-w-0 flex-1 px-5 py-6 sm:px-8 lg:px-10">
           <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">

@@ -179,4 +179,16 @@ describe("DashboardShell ledger views", () => {
       "暂无交易。添加交易后，这里会自动显示。",
     );
   });
+
+  it("contains wide tables without forcing page-level horizontal overflow", () => {
+    getPositionsFromLedgerMock.mockReturnValue([pricedPosition]);
+
+    const html = renderToStaticMarkup(createElement(DashboardShell));
+
+    expect(html).toContain("lg:w-60 lg:shrink-0");
+    expect(html).toContain("min-w-0 flex-1 px-5");
+    expect(html).toContain(
+      'class="min-w-0 rounded-lg border border-slate-200',
+    );
+  });
 });
