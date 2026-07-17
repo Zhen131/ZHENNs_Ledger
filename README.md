@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-截至 2026-07-16，07A 列出的 6 项 P0/P1 问题已完成实现、自动化复审，并通过
-合并提交 `d936463` 进入源码 `main`、推送到 `origin/main`。
+截至 2026-07-17，Week 6 React Gate 已通过。07A 提前实现的交易、删除、价格
+链路已完成生产 UI 验收，资产汇总已补齐剩余成本与已实现盈亏展示。
 
 功能分支已实现：
 
@@ -18,14 +18,27 @@
 - 安全 hydration：恢复数据真正进入 reducer 前保持 `loading`，禁止 dispatch 和自动保存。
 - 串行自动保存：快速连续修改按顺序写入；失败时保留页面状态并显示错误。
 - 自动化重挂载验收：使用真实组装链和 fake IndexedDB 证明交易、价格可在卸载后恢复。
+- 八列资产汇总：直接展示 `Position.costBasis` 和 `Position.realizedPnl`，并明确当前手续费不计入口径。
+- golden UI 回归：逐笔填写真实表单，覆盖 5 条 golden、BTC 价格、ADA 超卖和两类删除。
+- 响应式收口：宽窄屏页面不再整体横向溢出，宽表只在自己的容器内滚动。
 
 当前自动化结果：
 
 ```text
-Test Files  18 passed (18)
-Tests       152 passed (152)
+Test Files  19 passed (19)
+Tests       154 passed (154)
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
+```
+
+生产 UI 验收结果：
+
+```text
+5 条 golden -> BTC / ETH / ADA 数量、剩余成本、已实现盈亏通过
+BTC 70000 USD -> 市值 11.4716 USD，未实现盈亏 0.4716 USD
+ADA 超卖 -> 拒绝且账本仍为 5 条交易
+不安全删除 -> 拒绝；安全删除 BTC -> 4 条交易且 BTC 持仓消失
+390 / 1280 宽度 -> 页面级无横向溢出，控制台无 warning / error
 ```
 
 ## 核心原则
@@ -141,8 +154,7 @@ git diff --check
 
 ## 尚未关闭
 
-- 5 条 Week 2 golden 交易尚未全部通过生产 UI 逐条手动验收。
-- 真实浏览器 DevTools 的刷新、IndexedDB 明文 envelope 和失败场景仍需人工验收。
+- Week 7 仍需完成真实浏览器刷新恢复、clear、IndexedDB 明文 envelope 和失败场景人工验收。
 - 页面尚无“清空账本”入口；Repository 和 Adapter 的 `clear` 已有自动化测试。
 - 字符串最大长度、数组规模、分页和大账本性能上限尚未定义。
 - 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
@@ -155,3 +167,4 @@ git diff --check
 - 07A 风险补漏已合入并推送源码 `main`。
 - 合并提交：`d936463 合并07A风险补漏与Week6-7提前实现`。
 - 已合并的功能分支 `zhennn/close-week6-week7-07a-risks` 已删除。
+- Week 6 源码变更已在本地 `main` 分步提交，尚未推送远端。
