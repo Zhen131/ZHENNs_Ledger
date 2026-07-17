@@ -143,22 +143,27 @@ describe("DashboardShell ledger views", () => {
     expect(html).toContain("SOL");
     expect(html).toContain("2.3456789");
     expect(html).toContain("100 USD");
+    expect(html).toContain("200 USD");
+    expect(html).toContain("0 USD");
     expect(html).toContain("120 USD");
     expect(html).toContain("240 USD");
     expect(html).toContain("40 USD");
     expect(html).toContain("DOGE");
     expect(html).toContain("0.1 USD");
+    expect(html).toContain("1 USD");
     expect(html).toContain("未输入价格");
     expect(html.match(/>--</g)).toHaveLength(2);
+    expect(html).toContain("剩余成本基础（暂不计手续费）");
+    expect(html).toContain("已实现盈亏（暂不计手续费）");
   });
 
-  it("renders a six-column empty state when the ledger has no positions", () => {
+  it("renders an eight-column empty state when the ledger has no positions", () => {
     getPositionsFromLedgerMock.mockReturnValue([]);
 
     const html = renderToStaticMarkup(createElement(DashboardShell));
 
     expect(html).toContain(
-      'colSpan="6">暂无持仓。添加交易后，这里会自动汇总。</td>',
+      'colSpan="8">暂无持仓。添加交易后，这里会自动汇总。</td>',
     );
   });
 

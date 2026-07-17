@@ -238,12 +238,18 @@ export function DashboardShell({
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
               <Section eyebrow="Calculated later" title="资产汇总">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-left text-sm">
+                  <table className="w-full min-w-[960px] text-left text-sm">
                     <thead className="border-b border-slate-200 text-slate-500">
                       <tr>
                         <th className="py-2 font-medium">资产</th>
                         <th className="py-2 font-medium">持仓数量</th>
                         <th className="py-2 font-medium">平均成本</th>
+                        <th className="py-2 font-medium">
+                          剩余成本基础（暂不计手续费）
+                        </th>
+                        <th className="py-2 font-medium">
+                          已实现盈亏（暂不计手续费）
+                        </th>
                         <th className="py-2 font-medium">当前价格</th>
                         <th className="py-2 font-medium">当前市值</th>
                         <th className="py-2 font-medium">未实现盈亏</th>
@@ -254,7 +260,7 @@ export function DashboardShell({
                         <tr>
                           <td
                             className="py-8 text-center text-slate-500"
-                            colSpan={6}
+                            colSpan={8}
                           >
                             暂无持仓。添加交易后，这里会自动汇总。
                           </td>
@@ -272,6 +278,12 @@ export function DashboardShell({
                             </td>
                             <td className="py-3 text-slate-600">
                               {position.averageCost} {position.currency}
+                            </td>
+                            <td className="py-3 text-slate-600">
+                              {position.costBasis} {position.currency}
+                            </td>
+                            <td className="py-3 text-slate-600">
+                              {position.realizedPnl} {position.currency}
                             </td>
                             <td className="py-3 text-slate-500">
                               {position.latestPrice === undefined
