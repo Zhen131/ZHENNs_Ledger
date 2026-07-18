@@ -121,11 +121,16 @@ export function DashboardShell({
 }> = {}) {
   const {
     ledgerData,
-    dispatch,
+    applyLedgerAction,
     hydrationStatus,
     persistenceError,
+    retryPersistence,
+    canRetryPersistence,
     clearLedger,
     persistenceOperation,
+    persistenceStatus,
+    repositorySwitchBlocked,
+    discardDirtyChangesAndSwitchRepository,
   } = usePersistentLedger(repository);
   const [tradeRemovalError, setTradeRemovalError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
@@ -153,7 +158,9 @@ export function DashboardShell({
   }, [repository]);
 
   const isWritable =
-    hydrationStatus === "ready" && persistenceOperation === "idle";
+    hydrationStatus === "ready" &&
+    persistenceOperation === "idle" &&
+    !repositorySwitchBlocked;
   const positions = getPositionsFromLedger(ledgerData);
 
   function handleDeleteTrade(tradeId: string) {
@@ -172,13 +179,14 @@ export function DashboardShell({
       return;
     }
 
-    dispatch({ type: "trade/delete", tradeId: result.tradeId });
+    applyLedgerAction({ type: "trade/delete", tradeId: result.tradeId });
     setTradeRemovalError("");
   }
 
   function openClearConfirmation(mode: ClearConfirmationMode) {
     if (
       persistenceOperation !== "idle" ||
+      repositorySwitchBlocked ||
       (mode === "normal" && hydrationStatus !== "ready") ||
       (mode === "recovery" && hydrationStatus !== "error")
     ) {
@@ -300,12 +308,56 @@ export function DashboardShell({
             </p>
           ) : null}
           {hydrationStatus === "ready" && persistenceError ? (
-            <p
+            <div
               aria-live="assertive"
-              className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
             >
-              {persistenceError}
-            </p>
+              <p>{persistenceError}</p>
+              {canRetryPersistence ? (
+                <button
+                  className="rounded-md border border-amber-400 bg-white px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={persistenceOperation !== "idle"}
+                  onClick={() => void retryPersistence()}
+                  type="button"
+                >
+                  重试保存
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {hydrationStatus === "ready" && !persistenceError ? (
+            persistenceStatus === "saving" ? (
+              <p
+                aria-live="polite"
+                className="mb-5 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+              >
+                正在保存到本地
+              </p>
+            ) : persistenceStatus === "saved" ? (
+              <p
+                aria-live="polite"
+                className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+              >
+                已保存到本地
+              </p>
+            ) : null
+          ) : null}
+          {repositorySwitchBlocked ? (
+            <div
+              aria-live="assertive"
+              className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+            >
+              <p>
+                当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。
+              </p>
+              <button
+                className="rounded-md border border-red-300 bg-white px-3 py-1.5 font-medium"
+                onClick={discardDirtyChangesAndSwitchRepository}
+                type="button"
+              >
+                放弃未保存更改并切换
+              </button>
+            </div>
           ) : null}
 
           <div className="grid gap-5">
@@ -404,7 +456,7 @@ export function DashboardShell({
                   <PriceForm
                     ledgerData={ledgerData}
                     onPriceSnapshotCreated={(priceSnapshot) =>
-                      dispatch({
+                      applyLedgerAction({
                         type: "priceSnapshot/add",
                         priceSnapshot,
                       })
@@ -422,7 +474,7 @@ export function DashboardShell({
                 <TradeForm
                   ledgerData={ledgerData}
                   onTradeCreated={(trade) =>
-                    dispatch({ type: "trade/add", trade })
+                    applyLedgerAction({ type: "trade/add", trade })
                   }
                 />
               </fieldset>
@@ -459,7 +511,10 @@ export function DashboardShell({
                 {hydrationStatus === "ready" ? (
                   <button
                     className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={persistenceOperation !== "idle"}
+                    disabled={
+                      persistenceOperation !== "idle" ||
+                      repositorySwitchBlocked
+                    }
                     onClick={() => openClearConfirmation("normal")}
                     type="button"
                   >

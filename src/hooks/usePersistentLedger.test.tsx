@@ -37,6 +37,19 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
+function dispatchBeforeUnload(): BeforeUnloadEvent {
+  const event = new Event("beforeunload", {
+    cancelable: true,
+  }) as BeforeUnloadEvent;
+  Object.defineProperty(event, "returnValue", {
+    configurable: true,
+    value: "unchanged",
+    writable: true,
+  });
+  window.dispatchEvent(event);
+  return event;
+}
+
 function createRepository(overrides: Partial<LedgerRepository> = {}) {
   return {
     load: vi.fn(async () => null),
@@ -47,10 +60,12 @@ function createRepository(overrides: Partial<LedgerRepository> = {}) {
 }
 
 function addTrade(
-  dispatch: ReturnType<typeof usePersistentLedger>["dispatch"],
+  applyLedgerAction: ReturnType<
+    typeof usePersistentLedger
+  >["applyLedgerAction"],
   trade: Trade,
 ) {
-  dispatch({ type: "trade/add", trade });
+  return applyLedgerAction({ type: "trade/add", trade });
 }
 
 function createCompleteLedger(): LedgerData {
@@ -84,6 +99,66 @@ function createCompleteLedger(): LedgerData {
 }
 
 describe("usePersistentLedger hydration safety", () => {
+  it("reports rejected, noop, and applied mutations with versioned persistence", async () => {
+    const loadDeferred = createDeferred<LedgerData | null>();
+    const saveDeferred = createDeferred<void>();
+    const repository = createRepository({
+      load: vi.fn(() => loadDeferred.promise),
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+    const trade = createSimpleTrade("trade-versioned", "buy", "BTC", "1");
+
+    let rejectedResult: ReturnType<
+      typeof result.current.applyLedgerAction
+    >;
+    act(() => {
+      rejectedResult = addTrade(result.current.applyLedgerAction, trade);
+    });
+    expect(rejectedResult!).toBe("rejected");
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
+
+    await act(async () => {
+      loadDeferred.resolve(null);
+      await loadDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    let noopResult: ReturnType<typeof result.current.applyLedgerAction>;
+    act(() => {
+      noopResult = result.current.applyLedgerAction({
+        type: "trade/delete",
+        tradeId: "missing-trade",
+      });
+    });
+    expect(noopResult!).toBe("noop");
+    expect(result.current.mutationVersion).toBe(0);
+
+    let appliedResult: ReturnType<typeof result.current.applyLedgerAction>;
+    act(() => {
+      appliedResult = addTrade(result.current.applyLedgerAction, trade);
+    });
+    expect(appliedResult!).toBe("applied");
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(result.current.persistenceStatus).toBe("saving");
+    });
+    expect(result.current.mutationVersion).toBe(1);
+    expect(result.current.persistedVersion).toBe(0);
+
+    await act(async () => {
+      saveDeferred.resolve();
+      await saveDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("saved");
+      expect(result.current.persistedVersion).toBe(1);
+    });
+  });
+
   it("does not dispatch or save before hydration completes", async () => {
     const loadDeferred = createDeferred<LedgerData | null>();
     const savedLedger = {
@@ -99,7 +174,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-too-early", "buy", "ETH", "2"),
       );
     });
@@ -138,7 +213,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-first", "buy", "BTC", "1"),
       );
     });
@@ -164,7 +239,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-1", "buy", "BTC", "1"),
       );
     });
@@ -174,7 +249,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-2", "buy", "ETH", "2"),
       );
     });
@@ -198,6 +273,113 @@ describe("usePersistentLedger hydration safety", () => {
     });
   });
 
+  it("does not report saved while a newer mutation is still pending", async () => {
+    const firstSave = createDeferred<void>();
+    const secondSave = createDeferred<void>();
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockImplementationOnce(() => firstSave.promise)
+      .mockImplementationOnce(() => secondSave.promise);
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-version-a", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledOnce();
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-version-b", "buy", "ETH", "2"),
+      );
+    });
+
+    await act(async () => {
+      firstSave.resolve();
+      await firstSave.promise;
+    });
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(2);
+      expect(result.current.persistedVersion).toBe(1);
+    });
+    expect(result.current.mutationVersion).toBe(2);
+    expect(result.current.persistenceStatus).toBe("saving");
+
+    await act(async () => {
+      secondSave.resolve();
+      await secondSave.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.persistedVersion).toBe(2);
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+  });
+
+  it("ignores a completed save from an old repository generation", async () => {
+    const oldSave = createDeferred<void>();
+    const oldRepository = createRepository({
+      save: vi.fn(() => oldSave.promise),
+    });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("trade-new-generation", "buy", "ETH", "2")],
+    };
+    const newRepository = createRepository({
+      load: vi.fn(async () => structuredClone(newLedger)),
+    });
+    const { result, rerender } = renderHook(
+      ({ repository }) => usePersistentLedger(repository),
+      { initialProps: { repository: oldRepository } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-old-generation", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(oldRepository.save).toHaveBeenCalledOnce();
+    });
+
+    rerender({ repository: newRepository });
+    expect(result.current.repositorySwitchBlocked).toBe(true);
+    expect(newRepository.load).not.toHaveBeenCalled();
+    act(() => {
+      expect(
+        result.current.discardDirtyChangesAndSwitchRepository(),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(newLedger);
+    });
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
+    expect(result.current.persistenceStatus).toBe("idle");
+
+    await act(async () => {
+      oldSave.resolve();
+      await oldSave.promise;
+    });
+    expect(result.current.ledgerData).toEqual(newLedger);
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
+    expect(result.current.persistenceStatus).toBe("idle");
+    expect(newRepository.save).not.toHaveBeenCalled();
+  });
+
   it("keeps page state and exposes an error when a save fails", async () => {
     const save = vi
       .fn<LedgerRepository["save"]>()
@@ -212,7 +394,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-kept", "buy", "BTC", "1"),
       );
     });
@@ -220,13 +402,16 @@ describe("usePersistentLedger hydration safety", () => {
     await waitFor(() => {
       expect(result.current.persistenceError).toMatch(/本地保存失败/);
     });
+    expect(result.current.persistenceStatus).toBe("error");
+    expect(result.current.mutationVersion).toBe(1);
+    expect(result.current.persistedVersion).toBe(0);
     expect(result.current.ledgerData.trades.map((trade) => trade.id)).toEqual([
       "trade-kept",
     ]);
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-retry", "buy", "ETH", "2"),
       );
     });
@@ -234,7 +419,265 @@ describe("usePersistentLedger hydration safety", () => {
     await waitFor(() => {
       expect(save).toHaveBeenCalledTimes(2);
       expect(result.current.persistenceError).toBeNull();
+      expect(result.current.persistenceStatus).toBe("saved");
+      expect(result.current.mutationVersion).toBe(2);
+      expect(result.current.persistedVersion).toBe(2);
     });
+
+    await expect(result.current.retryPersistence()).resolves.toBe(false);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries the latest failed ledger without requiring another mutation", async () => {
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockResolvedValueOnce();
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-direct-retry", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+    });
+
+    await act(async () => {
+      await expect(result.current.retryPersistence()).resolves.toBe(true);
+    });
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1][0].trades.map((trade) => trade.id)).toEqual([
+      "trade-direct-retry",
+    ]);
+    expect(result.current.persistenceError).toBeNull();
+    expect(result.current.persistenceStatus).toBe("saved");
+    expect(result.current.persistedVersion).toBe(1);
+  });
+
+  it("deduplicates repeated retry requests for the same failed version", async () => {
+    const retrySave = createDeferred<void>();
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockImplementationOnce(() => retrySave.promise);
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dedup-retry", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+    });
+
+    let firstRetry!: ReturnType<typeof result.current.retryPersistence>;
+    let secondRetry!: ReturnType<typeof result.current.retryPersistence>;
+    act(() => {
+      firstRetry = result.current.retryPersistence();
+      secondRetry = result.current.retryPersistence();
+    });
+
+    expect(firstRetry).toBe(secondRetry);
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(2);
+    });
+    retrySave.resolve();
+    await expect(Promise.all([firstRetry, secondRetry])).resolves.toEqual([
+      true,
+      true,
+    ]);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("queues a newer mutation after an in-flight retry and persists it last", async () => {
+    const retrySave = createDeferred<void>();
+    const latestSave = createDeferred<void>();
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockImplementationOnce(() => retrySave.promise)
+      .mockImplementationOnce(() => latestSave.promise);
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-retry-a", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+    });
+
+    let retryPromise!: ReturnType<typeof result.current.retryPersistence>;
+    act(() => {
+      retryPromise = result.current.retryPersistence();
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-retry-b", "buy", "ETH", "2"),
+      );
+    });
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(2);
+    });
+
+    retrySave.resolve();
+    await expect(retryPromise).resolves.toBe(true);
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(3);
+    });
+    expect(save.mock.calls[2][0].trades.map((trade) => trade.id)).toEqual([
+      "trade-retry-a",
+      "trade-retry-b",
+    ]);
+    expect(result.current.persistenceStatus).toBe("saving");
+
+    latestSave.resolve();
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("saved");
+      expect(result.current.persistedVersion).toBe(2);
+    });
+  });
+
+  it("ignores retry completion after switching repositories", async () => {
+    const retrySave = createDeferred<void>();
+    const oldSave = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockImplementationOnce(() => retrySave.promise);
+    const oldRepository = createRepository({ save: oldSave });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("trade-retry-new-repo", "buy", "ETH", "2")],
+    };
+    const newRepository = createRepository({
+      load: vi.fn(async () => structuredClone(newLedger)),
+    });
+    const { result, rerender } = renderHook(
+      ({ repository }) => usePersistentLedger(repository),
+      { initialProps: { repository: oldRepository } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-retry-old-repo", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+    });
+    const retryPromise = result.current.retryPersistence();
+    await waitFor(() => {
+      expect(oldSave).toHaveBeenCalledTimes(2);
+    });
+
+    rerender({ repository: newRepository });
+    expect(result.current.repositorySwitchBlocked).toBe(true);
+    expect(newRepository.load).not.toHaveBeenCalled();
+    act(() => {
+      expect(
+        result.current.discardDirtyChangesAndSwitchRepository(),
+      ).toBe(true);
+    });
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(newLedger);
+    });
+    retrySave.resolve();
+    await expect(retryPromise).resolves.toBe(false);
+
+    expect(result.current.ledgerData).toEqual(newLedger);
+    expect(result.current.persistenceStatus).toBe("idle");
+    expect(result.current.persistenceError).toBeNull();
+    expect(newRepository.save).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a failed version after clear succeeds", async () => {
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"));
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-retry-before-clear", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+      expect(result.current.canRetryPersistence).toBe(true);
+    });
+
+    await act(async () => {
+      await expect(result.current.clearLedger()).resolves.toEqual({ ok: true });
+    });
+
+    expect(result.current.canRetryPersistence).toBe(false);
+    await expect(result.current.retryPersistence()).resolves.toBe(false);
+    expect(save).toHaveBeenCalledOnce();
+    expect(repository.clear).toHaveBeenCalledOnce();
+  });
+
+  it("ignores retry completion after unmount", async () => {
+    const retrySave = createDeferred<void>();
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockImplementationOnce(() => retrySave.promise);
+    const repository = createRepository({ save });
+    const { result, unmount } = renderHook(() =>
+      usePersistentLedger(repository),
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-retry-unmount", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+    });
+    const retryPromise = result.current.retryPersistence();
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(2);
+    });
+
+    unmount();
+    retrySave.resolve();
+
+    await expect(retryPromise).resolves.toBe(false);
+    expect(save).toHaveBeenCalledTimes(2);
   });
 
   it("enters error state and never saves when hydration fails", async () => {
@@ -252,13 +695,293 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-blocked", "buy", "BTC", "1"),
       );
     });
 
     expect(result.current.ledgerData.trades).toEqual([]);
     expect(repository.save).not.toHaveBeenCalled();
+  });
+});
+
+describe("usePersistentLedger dirty lifecycle", () => {
+  it("warns while a save is pending and removes the warning after latest success", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createRepository({
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    expect(result.current.isDirty).toBe(false);
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false);
+
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dirty-pending", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("saving");
+      expect(result.current.isDirty).toBe(true);
+    });
+    const pendingEvent = dispatchBeforeUnload();
+    expect(pendingEvent.defaultPrevented).toBe(true);
+    expect(pendingEvent.returnValue).toBe("");
+
+    await act(async () => {
+      saveDeferred.resolve();
+      await saveDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.isDirty).toBe(false);
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false);
+  });
+
+  it("keeps warning after save failure and removes it after retry success", async () => {
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockResolvedValueOnce();
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dirty-error", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+    });
+    expect(result.current.isDirty).toBe(true);
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true);
+
+    await act(async () => {
+      await result.current.retryPersistence();
+    });
+    await waitFor(() => {
+      expect(result.current.isDirty).toBe(false);
+    });
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false);
+  });
+
+  it("stays dirty when an older save succeeds before the latest mutation", async () => {
+    const firstSave = createDeferred<void>();
+    const secondSave = createDeferred<void>();
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockImplementationOnce(() => firstSave.promise)
+      .mockImplementationOnce(() => secondSave.promise);
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dirty-a", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledOnce();
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dirty-b", "buy", "ETH", "2"),
+      );
+    });
+    firstSave.resolve();
+    await waitFor(() => {
+      expect(result.current.persistedVersion).toBe(1);
+    });
+
+    expect(result.current.isDirty).toBe(true);
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true);
+
+    secondSave.resolve();
+    await waitFor(() => {
+      expect(result.current.isDirty).toBe(false);
+    });
+  });
+
+  it("clears dirty state and the leave warning after successful clear", async () => {
+    const repository = createRepository({
+      save: vi.fn(async () => {
+        throw new Error("write failed");
+      }),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dirty-clear", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.isDirty).toBe(true);
+    });
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(true);
+
+    await act(async () => {
+      await result.current.clearLedger();
+    });
+    expect(result.current.isDirty).toBe(false);
+    expect(dispatchBeforeUnload().defaultPrevented).toBe(false);
+  });
+
+  it("removes the leave warning listener on unmount", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createRepository({
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const addEventListener = vi.spyOn(window, "addEventListener");
+    const removeEventListener = vi.spyOn(window, "removeEventListener");
+    const { result, unmount } = renderHook(() =>
+      usePersistentLedger(repository),
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dirty-unmount", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.isDirty).toBe(true);
+      expect(addEventListener).toHaveBeenCalledWith(
+        "beforeunload",
+        expect.any(Function),
+      );
+    });
+    const beforeUnloadHandler = addEventListener.mock.calls.find(
+      ([type]) => type === "beforeunload",
+    )?.[1];
+
+    unmount();
+
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "beforeunload",
+      beforeUnloadHandler,
+    );
+    saveDeferred.resolve();
+    addEventListener.mockRestore();
+    removeEventListener.mockRestore();
+  });
+
+  it("blocks a dirty repository switch until the latest save succeeds", async () => {
+    const oldSave = createDeferred<void>();
+    const oldRepository = createRepository({
+      save: vi.fn(() => oldSave.promise),
+    });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("trade-clean-switch", "buy", "ETH", "2")],
+    };
+    const newRepository = createRepository({
+      load: vi.fn(async () => structuredClone(newLedger)),
+    });
+    const { result, rerender } = renderHook(
+      ({ repository }) => usePersistentLedger(repository),
+      { initialProps: { repository: oldRepository } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-dirty-switch", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(oldRepository.save).toHaveBeenCalledOnce();
+    });
+
+    rerender({ repository: newRepository });
+    expect(result.current.repositorySwitchBlocked).toBe(true);
+    expect(result.current.ledgerData.trades.map((trade) => trade.id)).toEqual([
+      "trade-dirty-switch",
+    ]);
+    expect(newRepository.load).not.toHaveBeenCalled();
+
+    oldSave.resolve();
+    await waitFor(() => {
+      expect(newRepository.load).toHaveBeenCalledOnce();
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(newLedger);
+      expect(result.current.repositorySwitchBlocked).toBe(false);
+    });
+  });
+
+  it("switches only after the user explicitly abandons dirty state", async () => {
+    const oldRepository = createRepository({
+      save: vi.fn(async () => {
+        throw new Error("write failed");
+      }),
+    });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("trade-discard-switch", "buy", "ETH", "2")],
+    };
+    const newRepository = createRepository({
+      load: vi.fn(async () => structuredClone(newLedger)),
+    });
+    const { result, rerender } = renderHook(
+      ({ repository }) => usePersistentLedger(repository),
+      { initialProps: { repository: oldRepository } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-explicit-discard", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("error");
+    });
+    rerender({ repository: newRepository });
+    expect(result.current.repositorySwitchBlocked).toBe(true);
+    expect(newRepository.load).not.toHaveBeenCalled();
+
+    let discardResult = false;
+    act(() => {
+      discardResult =
+        result.current.discardDirtyChangesAndSwitchRepository();
+    });
+    expect(discardResult).toBe(true);
+
+    await waitFor(() => {
+      expect(newRepository.load).toHaveBeenCalledOnce();
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(newLedger);
+      expect(result.current.isDirty).toBe(false);
+    });
   });
 });
 
@@ -301,12 +1024,15 @@ describe("usePersistentLedger clear sequencing", () => {
     expect(result.current.ledgerData.trades).toEqual([]);
     expect(result.current.ledgerData.priceSnapshots).toEqual([]);
     expect(result.current.ledgerData.feeRules).toEqual([]);
+    expect(result.current.persistenceStatus).toBe("idle");
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
     expect(repository.save).not.toHaveBeenCalled();
     await expect(repository.load()).resolves.toBeNull();
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-after-clear", "buy", "BTC", "1"),
       );
     });
@@ -331,7 +1057,7 @@ describe("usePersistentLedger clear sequencing", () => {
     });
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-queued", "buy", "BTC", "1"),
       );
     });
@@ -369,7 +1095,7 @@ describe("usePersistentLedger clear sequencing", () => {
     });
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-save-fails", "buy", "BTC", "1"),
       );
     });
@@ -408,7 +1134,7 @@ describe("usePersistentLedger clear sequencing", () => {
     act(() => {
       clearPromise = result.current.clearLedger();
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-blocked-by-clear", "buy", "ETH", "2"),
       );
     });
