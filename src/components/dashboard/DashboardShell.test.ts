@@ -121,6 +121,19 @@ describe("TradeTable", () => {
     expect(html).toContain(buyTrade.assetSymbol);
     expect(html).toContain(buyTrade.totalValue);
   });
+
+  it("keeps the delete action visible but disabled during a persistence operation", () => {
+    const html = renderToStaticMarkup(
+      createElement(TradeTable, {
+        trades: [buyTrade],
+        onDelete: vi.fn(),
+        deleteDisabled: true,
+      }),
+    );
+
+    expect(html).toContain('aria-label="删除 买入 XQZ-BUY 2042-11-03T04:05:06Z"');
+    expect(html).toContain("disabled");
+  });
 });
 
 describe("DashboardShell ledger views", () => {

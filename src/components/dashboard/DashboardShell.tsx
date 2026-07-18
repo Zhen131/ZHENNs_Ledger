@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { getDefaultLedgerRepository } from "../../composition/ledgerRepositoryComposition";
 import { usePersistentLedger } from "../../hooks/usePersistentLedger";
@@ -12,6 +12,9 @@ import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
+const CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
+
+type ClearConfirmationMode = "normal" | "recovery";
 
 function Section({
   title,
@@ -42,9 +45,11 @@ function Section({
 export function TradeTable({
   trades,
   onDelete,
+  deleteDisabled = false,
 }: Readonly<{
   trades: readonly Trade[];
   onDelete?: (tradeId: string) => void;
+  deleteDisabled?: boolean;
 }>) {
   const columnCount = onDelete ? 7 : 6;
 
@@ -91,7 +96,8 @@ export function TradeTable({
                       aria-label={`删除 ${
                         trade.type === "buy" ? "买入" : "卖出"
                       } ${trade.assetSymbol} ${trade.occurredAt}`}
-                      className="text-sm font-medium text-red-700 hover:text-red-900"
+                      className="text-sm font-medium text-red-700 hover:text-red-900 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={deleteDisabled}
                       onClick={() => onDelete(trade.id)}
                       type="button"
                     >
@@ -118,13 +124,40 @@ export function DashboardShell({
     dispatch,
     hydrationStatus,
     persistenceError,
+    clearLedger,
+    persistenceOperation,
   } = usePersistentLedger(repository);
   const [tradeRemovalError, setTradeRemovalError] = useState("");
-  const isReady = hydrationStatus === "ready";
+  const [clearConfirmationMode, setClearConfirmationMode] =
+    useState<ClearConfirmationMode | null>(null);
+  const [clearConfirmationValue, setClearConfirmationValue] = useState("");
+  const [clearConfirmationError, setClearConfirmationError] = useState("");
+  const [clearSuccessMessage, setClearSuccessMessage] = useState("");
+  const mountedRef = useRef(true);
+  const currentRepositoryRef = useRef(repository);
+  currentRepositoryRef.current = repository;
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setClearConfirmationMode(null);
+    setClearConfirmationValue("");
+    setClearConfirmationError("");
+    setClearSuccessMessage("");
+  }, [repository]);
+
+  const isWritable =
+    hydrationStatus === "ready" && persistenceOperation === "idle";
   const positions = getPositionsFromLedger(ledgerData);
 
   function handleDeleteTrade(tradeId: string) {
-    if (!isReady) {
+    if (!isWritable) {
       return;
     }
 
@@ -141,6 +174,61 @@ export function DashboardShell({
 
     dispatch({ type: "trade/delete", tradeId: result.tradeId });
     setTradeRemovalError("");
+  }
+
+  function openClearConfirmation(mode: ClearConfirmationMode) {
+    if (
+      persistenceOperation !== "idle" ||
+      (mode === "normal" && hydrationStatus !== "ready") ||
+      (mode === "recovery" && hydrationStatus !== "error")
+    ) {
+      return;
+    }
+
+    setClearConfirmationMode(mode);
+    setClearConfirmationValue("");
+    setClearConfirmationError("");
+    setClearSuccessMessage("");
+  }
+
+  function cancelClearConfirmation() {
+    if (persistenceOperation !== "idle") {
+      return;
+    }
+
+    setClearConfirmationMode(null);
+    setClearConfirmationValue("");
+    setClearConfirmationError("");
+  }
+
+  async function handleClearLedger() {
+    if (clearConfirmationValue !== CLEAR_LEDGER_CONFIRMATION_TEXT) {
+      setClearConfirmationError(
+        `请输入完整确认文本“${CLEAR_LEDGER_CONFIRMATION_TEXT}”`,
+      );
+      return;
+    }
+
+    const operationRepository = repository;
+    setClearConfirmationError("");
+    setClearSuccessMessage("");
+    const result = await clearLedger();
+
+    if (
+      !mountedRef.current ||
+      currentRepositoryRef.current !== operationRepository
+    ) {
+      return;
+    }
+
+    if (!result.ok) {
+      return;
+    }
+
+    setTradeRemovalError("");
+    setClearConfirmationMode(null);
+    setClearConfirmationValue("");
+    setClearSuccessMessage("账本已清空");
   }
 
   return (
@@ -310,8 +398,8 @@ export function DashboardShell({
 
               <Section eyebrow="Manual source" title="价格输入">
                 <fieldset
-                  className={isReady ? "" : "opacity-60"}
-                  disabled={!isReady}
+                  className={isWritable ? "" : "opacity-60"}
+                  disabled={!isWritable}
                 >
                   <PriceForm
                     ledgerData={ledgerData}
@@ -328,8 +416,8 @@ export function DashboardShell({
 
             <Section eyebrow="Trade draft" title="新增交易">
               <fieldset
-                className={isReady ? "" : "opacity-60"}
-                disabled={!isReady}
+                className={isWritable ? "" : "opacity-60"}
+                disabled={!isWritable}
               >
                 <TradeForm
                   ledgerData={ledgerData}
@@ -350,9 +438,106 @@ export function DashboardShell({
                 </p>
               ) : null}
               <TradeTable
-                onDelete={isReady ? handleDeleteTrade : undefined}
+                deleteDisabled={!isWritable}
+                onDelete={
+                  hydrationStatus === "ready" ? handleDeleteTrade : undefined
+                }
                 trades={ledgerData.trades}
               />
+            </Section>
+
+            <Section eyebrow="Local data" title="数据管理">
+              <div className="grid gap-4 text-sm text-slate-700">
+                <p>
+                  本区只管理当前浏览器 origin 下的完整本地账本记录。
+                </p>
+
+                {hydrationStatus === "loading" ? (
+                  <p aria-live="polite">本地账本读取完成前不可清空。</p>
+                ) : null}
+
+                {hydrationStatus === "ready" ? (
+                  <button
+                    className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={persistenceOperation !== "idle"}
+                    onClick={() => openClearConfirmation("normal")}
+                    type="button"
+                  >
+                    清空本地账本
+                  </button>
+                ) : null}
+
+                {hydrationStatus === "error" ? (
+                  <button
+                    className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={persistenceOperation !== "idle"}
+                    onClick={() => openClearConfirmation("recovery")}
+                    type="button"
+                  >
+                    清除损坏或无法读取的本地数据
+                  </button>
+                ) : null}
+
+                {clearConfirmationMode ? (
+                  <div className="grid gap-3 rounded-md border border-red-200 bg-red-50 p-4">
+                    <p className="font-medium text-red-900">
+                      {clearConfirmationMode === "normal"
+                        ? "这会永久删除自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。"
+                        : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。"}
+                    </p>
+                    <label className="grid gap-2 font-medium text-red-900">
+                      输入“{CLEAR_LEDGER_CONFIRMATION_TEXT}”以确认
+                      <input
+                        aria-label="输入清空确认文本"
+                        className="rounded-md border border-red-300 bg-white px-3 py-2 font-normal text-slate-950 outline-none focus:border-red-500"
+                        disabled={persistenceOperation !== "idle"}
+                        onChange={(event) => {
+                          setClearConfirmationValue(event.target.value);
+                          setClearConfirmationError("");
+                        }}
+                        value={clearConfirmationValue}
+                      />
+                    </label>
+                    {clearConfirmationError ? (
+                      <p aria-live="polite" className="text-red-800">
+                        {clearConfirmationError}
+                      </p>
+                    ) : null}
+                    {persistenceOperation === "clearing" ? (
+                      <p aria-live="polite" className="font-medium text-red-900">
+                        正在清空本地账本，请勿关闭页面。
+                      </p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        className="rounded-md bg-red-800 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={persistenceOperation !== "idle"}
+                        onClick={() => void handleClearLedger()}
+                        type="button"
+                      >
+                        确认永久清空
+                      </button>
+                      <button
+                        className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={persistenceOperation !== "idle"}
+                        onClick={cancelClearConfirmation}
+                        type="button"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {clearSuccessMessage ? (
+                  <p
+                    aria-live="polite"
+                    className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800"
+                  >
+                    {clearSuccessMessage}
+                  </p>
+                ) : null}
+              </div>
             </Section>
           </div>
         </div>

@@ -15,12 +15,65 @@ import { createApplicationLedgerRepository } from "../../composition/ledgerRepos
 import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
-import { createSimpleTrade } from "../../test/fixtures";
+import {
+  createAsset,
+  createPriceSnapshot,
+  createSimpleTrade,
+} from "../../test/fixtures";
 import { DashboardShell } from "./DashboardShell";
 
 afterEach(() => {
   cleanup();
 });
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+};
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return { promise, resolve, reject };
+}
+
+function createCompleteLedger(): LedgerData {
+  const initialLedger = createInitialLedgerData();
+
+  return {
+    ...initialLedger,
+    assets: [...initialLedger.assets, createAsset("SOL", "Solana")],
+    trades: [
+      createSimpleTrade("trade-clear-ui", "buy", "BTC", "1", "2026-07-14"),
+    ],
+    priceSnapshots: [
+      createPriceSnapshot(
+        "price-clear-ui",
+        "BTC",
+        "80000",
+        "2026-07-16",
+      ),
+    ],
+    feeRules: [
+      {
+        id: "fee-clear-ui",
+        name: "UI clear fee",
+        platform: "Test",
+        type: "percentage",
+        rate: "0.001",
+        currency: "USD",
+        createdAt: "2026-07-01T00:00:00Z",
+        updatedAt: "2026-07-01T00:00:00Z",
+      },
+    ],
+  };
+}
 
 function getSection(title: string): HTMLElement {
   const section = screen.getByRole("heading", { name: title }).closest("section");
@@ -287,7 +340,7 @@ describe("DashboardShell trade interactions", () => {
     });
   });
 
-  it("persists through the assembled IndexedDB repository and restores after remount", async () => {
+  it("restores add, price, and delete across remounts, then keeps clear empty", async () => {
     const indexedDBFactory = new IDBFactory();
     const storageOptions = {
       indexedDBFactory,
@@ -313,7 +366,7 @@ describe("DashboardShell trade interactions", () => {
 
     const secondRepository =
       createApplicationLedgerRepository(storageOptions);
-    await renderDashboard(secondRepository);
+    const secondView = await renderDashboard(secondRepository);
 
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
@@ -323,5 +376,235 @@ describe("DashboardShell trade interactions", () => {
     expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
     expect(within(positionSection).getByText("80 USD")).not.toBeNull();
     expect(within(positionSection).getByText("10 USD")).not.toBeNull();
+
+    const secondUser = userEvent.setup();
+    await secondUser.click(
+      within(tradeSection).getByRole("button", {
+        name: "删除 买入 BTC 2026-07-14",
+      }),
+    );
+    await waitFor(async () => {
+      const savedLedger = await secondRepository.load();
+      expect(savedLedger?.trades).toEqual([]);
+      expect(savedLedger?.priceSnapshots).toHaveLength(1);
+    });
+    secondView.unmount();
+
+    const thirdRepository =
+      createApplicationLedgerRepository(storageOptions);
+    const thirdView = await renderDashboard(thirdRepository);
+    expect(
+      within(getSection("交易列表")).getByText(
+        "暂无交易。添加交易后，这里会自动显示。",
+      ),
+    ).not.toBeNull();
+
+    const thirdUser = userEvent.setup();
+    await thirdUser.click(
+      screen.getByRole("button", { name: "清空本地账本" }),
+    );
+    await thirdUser.type(
+      screen.getByLabelText("输入清空确认文本"),
+      "清空本地账本",
+    );
+    await thirdUser.click(
+      screen.getByRole("button", { name: "确认永久清空" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("账本已清空")).not.toBeNull();
+    });
+    await expect(thirdRepository.load()).resolves.toBeNull();
+    thirdView.unmount();
+
+    const fourthRepository =
+      createApplicationLedgerRepository(storageOptions);
+    await renderDashboard(fourthRepository);
+    expect(
+      within(getSection("交易列表")).getByText(
+        "暂无交易。添加交易后，这里会自动显示。",
+      ),
+    ).not.toBeNull();
+    expect(
+      within(getSection("资产汇总")).getByText(
+        "暂无持仓。添加交易后，这里会自动汇总。",
+      ),
+    ).not.toBeNull();
+    await expect(fourthRepository.load()).resolves.toBeNull();
+  });
+});
+
+describe("DashboardShell data management", () => {
+  it("does not clear when confirmation is cancelled or the fixed text is wrong", async () => {
+    const repository = createMemoryRepository(createCompleteLedger());
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.click(
+      screen.getByRole("button", { name: "清空本地账本" }),
+    );
+    expect(
+      screen.getByText(
+        "这会永久删除自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。",
+      ),
+    ).not.toBeNull();
+
+    await user.click(
+      screen.getByRole("button", { name: "确认永久清空" }),
+    );
+    expect(
+      screen.getByText("请输入完整确认文本“清空本地账本”"),
+    ).not.toBeNull();
+    expect(repository.clear).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("输入清空确认文本"), "错误文本");
+    await user.click(
+      screen.getByRole("button", { name: "确认永久清空" }),
+    );
+    expect(repository.clear).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryByLabelText("输入清空确认文本")).toBeNull();
+    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it("disables every write path while clear runs and shows success only afterward", async () => {
+    const clearDeferred = createDeferred<void>();
+    const repository = createMemoryRepository(createCompleteLedger());
+    repository.clear = vi.fn(() => clearDeferred.promise);
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
+    await user.click(
+      screen.getByRole("button", { name: "清空本地账本" }),
+    );
+    await user.type(
+      screen.getByLabelText("输入清空确认文本"),
+      "清空本地账本",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "确认永久清空" }),
+    );
+
+    await waitFor(() => {
+      expect(repository.clear).toHaveBeenCalledOnce();
+      expect(
+        screen.getByText("正在清空本地账本，请勿关闭页面。"),
+      ).not.toBeNull();
+    });
+    expect(
+      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", {
+        name: "删除 买入 BTC 2026-07-14",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", {
+        name: "确认永久清空",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    clearDeferred.resolve();
+    await waitFor(() => {
+      expect(screen.getByText("账本已清空")).not.toBeNull();
+    });
+
+    expect(screen.queryAllByRole("option", { name: "SOL · Solana" })).toEqual([]);
+    expect(
+      within(getSection("交易列表")).getByText(
+        "暂无交易。添加交易后，这里会自动显示。",
+      ),
+    ).not.toBeNull();
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it("offers controlled recovery after load failure and returns to writable state", async () => {
+    const repository = createMemoryRepository();
+    repository.load = vi.fn(async () => {
+      throw new Error("read failed");
+    });
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    expect(
+      screen.getByText(
+        "本地账本读取失败，已停止自动保存以避免覆盖原数据",
+      ),
+    ).not.toBeNull();
+    expect(
+      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      screen.queryByRole("button", { name: "清空本地账本" }),
+    ).toBeNull();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "清除损坏或无法读取的本地数据",
+      }),
+    );
+    expect(
+      screen.getByText(
+        "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。",
+      ),
+    ).not.toBeNull();
+    await user.type(
+      screen.getByLabelText("输入清空确认文本"),
+      "清空本地账本",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "确认永久清空" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("账本已清空")).not.toBeNull();
+      expect(
+        screen.getByRole("button", { name: "清空本地账本" }),
+      ).not.toBeNull();
+    });
+    expect(
+      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(false);
+    expect(repository.clear).toHaveBeenCalledOnce();
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it("keeps old UI data and shows only an error when clear fails", async () => {
+    const repository = createMemoryRepository(createCompleteLedger());
+    repository.clear = vi.fn(async () => {
+      throw new Error("clear failed");
+    });
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.click(
+      screen.getByRole("button", { name: "清空本地账本" }),
+    );
+    await user.type(
+      screen.getByLabelText("输入清空确认文本"),
+      "清空本地账本",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "确认永久清空" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("清空本地账本失败，原页面与本地数据均未更改"),
+      ).not.toBeNull();
+    });
+    expect(screen.queryByText("账本已清空")).toBeNull();
+    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 });
