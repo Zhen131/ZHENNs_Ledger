@@ -187,6 +187,31 @@ describe("DashboardShell trade interactions", () => {
     });
   });
 
+  it("lets the user retry the latest failed local save", async () => {
+    const repository = createMemoryRepository();
+    repository.save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockResolvedValueOnce();
+    await renderDashboard(repository);
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "本地保存失败，页面数据仍保留；刷新后将恢复上次成功保存的版本",
+        ),
+      ).not.toBeNull();
+    });
+
+    await user.click(screen.getByRole("button", { name: "重试保存" }));
+    await waitFor(() => {
+      expect(screen.getByText("已保存到本地")).not.toBeNull();
+    });
+    expect(repository.save).toHaveBeenCalledTimes(2);
+  });
+
   it("creates a validated buy and updates both the trade list and positions", async () => {
     await renderDashboard();
     const user = await fillBuyTrade();
@@ -626,6 +651,9 @@ describe("DashboardShell data management", () => {
       ).not.toBeNull();
     });
     expect(screen.queryByText("账本已清空")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "重试保存" }),
+    ).toBeNull();
     expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });
