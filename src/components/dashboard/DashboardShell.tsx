@@ -129,6 +129,8 @@ export function DashboardShell({
     clearLedger,
     persistenceOperation,
     persistenceStatus,
+    repositorySwitchBlocked,
+    discardDirtyChangesAndSwitchRepository,
   } = usePersistentLedger(repository);
   const [tradeRemovalError, setTradeRemovalError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
@@ -156,7 +158,9 @@ export function DashboardShell({
   }, [repository]);
 
   const isWritable =
-    hydrationStatus === "ready" && persistenceOperation === "idle";
+    hydrationStatus === "ready" &&
+    persistenceOperation === "idle" &&
+    !repositorySwitchBlocked;
   const positions = getPositionsFromLedger(ledgerData);
 
   function handleDeleteTrade(tradeId: string) {
@@ -182,6 +186,7 @@ export function DashboardShell({
   function openClearConfirmation(mode: ClearConfirmationMode) {
     if (
       persistenceOperation !== "idle" ||
+      repositorySwitchBlocked ||
       (mode === "normal" && hydrationStatus !== "ready") ||
       (mode === "recovery" && hydrationStatus !== "error")
     ) {
@@ -337,6 +342,23 @@ export function DashboardShell({
               </p>
             ) : null
           ) : null}
+          {repositorySwitchBlocked ? (
+            <div
+              aria-live="assertive"
+              className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+            >
+              <p>
+                当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。
+              </p>
+              <button
+                className="rounded-md border border-red-300 bg-white px-3 py-1.5 font-medium"
+                onClick={discardDirtyChangesAndSwitchRepository}
+                type="button"
+              >
+                放弃未保存更改并切换
+              </button>
+            </div>
+          ) : null}
 
           <div className="grid gap-5">
             <Section eyebrow="Future chart area" title="资产走势">
@@ -489,7 +511,10 @@ export function DashboardShell({
                 {hydrationStatus === "ready" ? (
                   <button
                     className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={persistenceOperation !== "idle"}
+                    disabled={
+                      persistenceOperation !== "idle" ||
+                      repositorySwitchBlocked
+                    }
                     onClick={() => openClearConfirmation("normal")}
                     type="button"
                   >

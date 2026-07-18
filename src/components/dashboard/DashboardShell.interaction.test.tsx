@@ -200,7 +200,7 @@ describe("DashboardShell trade interactions", () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          "本地保存失败，页面数据仍保留；刷新后将恢复上次成功保存的版本",
+          "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
         ),
       ).not.toBeNull();
     });
@@ -210,6 +210,57 @@ describe("DashboardShell trade interactions", () => {
       expect(screen.getByText("已保存到本地")).not.toBeNull();
     });
     expect(repository.save).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires explicit confirmation before abandoning dirty state for a repository switch", async () => {
+    const oldRepository = createMemoryRepository();
+    oldRepository.save = vi.fn(async () => {
+      throw new Error("write failed");
+    });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        createSimpleTrade(
+          "trade-ui-repository-switch",
+          "buy",
+          "ETH",
+          "2",
+          "2026-07-15",
+        ),
+      ],
+    };
+    const newRepository = createMemoryRepository(newLedger);
+    const view = await renderDashboard(oldRepository);
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "重试保存" })).not.toBeNull();
+    });
+
+    view.rerender(<DashboardShell repository={newRepository} />);
+    expect(
+      screen.getByText(
+        "当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。",
+      ),
+    ).not.toBeNull();
+    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(newRepository.load).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "放弃未保存更改并切换",
+      }),
+    );
+    await waitFor(() => {
+      expect(newRepository.load).toHaveBeenCalledOnce();
+      expect(within(getSection("交易列表")).getByText("ETH")).not.toBeNull();
+      expect(
+        screen.queryByRole("button", {
+          name: "放弃未保存更改并切换",
+        }),
+      ).toBeNull();
+    });
   });
 
   it("creates a validated buy and updates both the trade list and positions", async () => {

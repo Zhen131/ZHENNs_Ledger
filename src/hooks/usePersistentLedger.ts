@@ -32,6 +32,9 @@ export type PersistentLedgerState = {
   persistenceStatus: PersistenceStatus;
   mutationVersion: number;
   persistedVersion: number;
+  isDirty: boolean;
+  repositorySwitchBlocked: boolean;
+  discardDirtyChangesAndSwitchRepository: () => boolean;
 };
 
 export type PersistenceOperation = "idle" | "clearing";
@@ -75,7 +78,7 @@ export type ClearLedgerResult =
  * 统一管理启动读取、hydration 门禁和 ready 后的串行自动保存。
  */
 export function usePersistentLedger(
-  repository: LedgerRepository,
+  requestedRepository: LedgerRepository,
 ): PersistentLedgerState {
   const [ledgerData, reducerDispatch] = useReducer(
     ledgerReducer,
@@ -89,8 +92,11 @@ export function usePersistentLedger(
     useState<PersistenceOperation>("idle");
   const [persistenceVersionState, setPersistenceVersionState] =
     useState<PersistenceVersionState>(INITIAL_PERSISTENCE_VERSION_STATE);
+  const [, requestRepositorySwitchRender] = useState(0);
   const mountedRef = useRef(true);
-  const currentRepositoryRef = useRef(repository);
+  const activeRepositoryRef = useRef(requestedRepository);
+  const repositorySwitchPermissionRef = useRef<LedgerRepository | null>(null);
+  const currentRepositoryRef = useRef(requestedRepository);
   const ledgerDataRef = useRef(ledgerData);
   const generationRef = useRef(0);
   const persistenceVersionStateRef =
@@ -112,7 +118,26 @@ export function usePersistentLedger(
     serializedLedger: string;
   } | null>(null);
 
-  currentRepositoryRef.current = repository;
+  const currentVersionState = persistenceVersionStateRef.current;
+  const isCurrentlyDirty =
+    currentVersionState.persistedVersion !== currentVersionState.mutationVersion;
+
+  if (
+    requestedRepository !== activeRepositoryRef.current &&
+    (!isCurrentlyDirty ||
+      repositorySwitchPermissionRef.current === requestedRepository)
+  ) {
+    activeRepositoryRef.current = requestedRepository;
+    repositorySwitchPermissionRef.current = null;
+  }
+
+  const activeRepository = activeRepositoryRef.current;
+  const repositorySwitchBlocked =
+    requestedRepository !== activeRepository && isCurrentlyDirty;
+  const isDirty =
+    persistenceVersionState.persistedVersion !==
+    persistenceVersionState.mutationVersion;
+  currentRepositoryRef.current = activeRepository;
 
   const publishPersistenceVersionState = useCallback(
     (nextState: PersistenceVersionState) => {
@@ -217,7 +242,7 @@ export function usePersistentLedger(
             currentVersionState.mutationVersion === scheduledSnapshot.version
           ) {
             setPersistenceError(
-              "本地保存失败，页面数据仍保留；刷新后将恢复上次成功保存的版本",
+              "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
             );
           }
 
@@ -240,6 +265,22 @@ export function usePersistentLedger(
       retryAttemptRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isDirty) {
+      return;
+    }
+
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+  }, [isDirty]);
 
   useEffect(() => {
     const generation = generationRef.current + 1;
@@ -267,7 +308,7 @@ export function usePersistentLedger(
 
     async function hydrate() {
       try {
-        const savedLedger = await repository.load();
+        const savedLedger = await activeRepository.load();
 
         if (cancelled || generationRef.current !== generation) {
           return;
@@ -279,7 +320,7 @@ export function usePersistentLedger(
         ledgerDataRef.current = hydratedLedger;
         lastPersistedSnapshotRef.current = serializedLedger;
         pendingHydrationRef.current = {
-          repository,
+          repository: activeRepository,
           generation,
           serializedLedger,
         };
@@ -297,7 +338,7 @@ export function usePersistentLedger(
 
         pendingHydrationRef.current = null;
         hydratedRepositoryRef.current = null;
-        hydrationErrorRepositoryRef.current = repository;
+        hydrationErrorRepositoryRef.current = activeRepository;
         setPersistenceError(
           "本地账本读取失败，已停止自动保存以避免覆盖原数据",
         );
@@ -310,7 +351,7 @@ export function usePersistentLedger(
     return () => {
       cancelled = true;
     };
-  }, [publishPersistenceVersionState, repository]);
+  }, [activeRepository, publishPersistenceVersionState]);
 
   useEffect(() => {
     const pendingHydration = pendingHydrationRef.current;
@@ -318,7 +359,7 @@ export function usePersistentLedger(
     if (
       hydrationStatus !== "loading" ||
       pendingHydration === null ||
-      pendingHydration.repository !== repository ||
+      pendingHydration.repository !== activeRepository ||
       pendingHydration.generation !== generationRef.current ||
       JSON.stringify(ledgerData) !== pendingHydration.serializedLedger
     ) {
@@ -326,15 +367,15 @@ export function usePersistentLedger(
     }
 
     pendingHydrationRef.current = null;
-    hydratedRepositoryRef.current = repository;
+    hydratedRepositoryRef.current = activeRepository;
     setHydrationStatus("ready");
-  }, [hydrationStatus, ledgerData, repository]);
+  }, [activeRepository, hydrationStatus, ledgerData]);
 
   useEffect(() => {
     if (
       hydrationStatus !== "ready" ||
       operationRef.current !== "idle" ||
-      hydratedRepositoryRef.current !== repository
+      hydratedRepositoryRef.current !== activeRepository
     ) {
       return;
     }
@@ -372,7 +413,7 @@ export function usePersistentLedger(
       serializedLedger: serialized,
     };
     const ledgerSnapshot = ledgerData;
-    const scheduledRepository = repository;
+    const scheduledRepository = activeRepository;
 
     void enqueuePersistence(
       scheduledSnapshot,
@@ -386,7 +427,7 @@ export function usePersistentLedger(
     persistenceOperation,
     persistenceVersionState.mutationVersion,
     publishPersistenceVersionState,
-    repository,
+    activeRepository,
   ]);
 
   const applyLedgerAction = useCallback(
@@ -394,7 +435,7 @@ export function usePersistentLedger(
       if (
         hydrationStatus !== "ready" ||
         operationRef.current !== "idle" ||
-        hydratedRepositoryRef.current !== repository
+        hydratedRepositoryRef.current !== activeRepository
       ) {
         return "rejected";
       }
@@ -428,7 +469,7 @@ export function usePersistentLedger(
 
       return "applied";
     },
-    [hydrationStatus, publishPersistenceVersionState, repository],
+    [activeRepository, hydrationStatus, publishPersistenceVersionState],
   );
 
   const retryPersistence = useCallback((): Promise<boolean> => {
@@ -448,7 +489,7 @@ export function usePersistentLedger(
     if (
       hydrationStatus !== "ready" ||
       operationRef.current !== "idle" ||
-      hydratedRepositoryRef.current !== repository ||
+      hydratedRepositoryRef.current !== activeRepository ||
       currentVersionState.persistenceStatus !== "error" ||
       failedSnapshot === null ||
       failedSnapshot.generation !== generation ||
@@ -475,7 +516,7 @@ export function usePersistentLedger(
     const retryPromise = enqueuePersistence(
       scheduledSnapshot,
       ledgerSnapshot,
-      repository,
+      activeRepository,
     ).then((result) => result === "saved");
     const retryAttempt: RetryAttempt = {
       generation,
@@ -494,13 +535,31 @@ export function usePersistentLedger(
     enqueuePersistence,
     hydrationStatus,
     publishPersistenceVersionState,
-    repository,
+    activeRepository,
   ]);
+
+  const discardDirtyChangesAndSwitchRepository = useCallback((): boolean => {
+    const versionState = persistenceVersionStateRef.current;
+
+    if (
+      operationRef.current !== "idle" ||
+      requestedRepository === activeRepositoryRef.current ||
+      versionState.persistedVersion === versionState.mutationVersion
+    ) {
+      return false;
+    }
+
+    repositorySwitchPermissionRef.current = requestedRepository;
+    failedSnapshotRef.current = null;
+    retryAttemptRef.current = null;
+    requestRepositorySwitchRender((current) => current + 1);
+    return true;
+  }, [requestedRepository]);
 
   const clearLedger = useCallback((): Promise<ClearLedgerResult> => {
     if (
       operationRef.current === "clearing" &&
-      operationRepositoryRef.current === repository &&
+      operationRepositoryRef.current === activeRepository &&
       clearPromiseRef.current !== null
     ) {
       return clearPromiseRef.current;
@@ -508,10 +567,10 @@ export function usePersistentLedger(
 
     const canClearReadyLedger =
       hydrationStatus === "ready" &&
-      hydratedRepositoryRef.current === repository;
+      hydratedRepositoryRef.current === activeRepository;
     const canRecoverHydrationError =
       hydrationStatus === "error" &&
-      hydrationErrorRepositoryRef.current === repository;
+      hydrationErrorRepositoryRef.current === activeRepository;
 
     if (
       operationRef.current !== "idle" ||
@@ -524,7 +583,7 @@ export function usePersistentLedger(
     }
 
     const operationToken = Symbol("clear-ledger");
-    const operationRepository = repository;
+    const operationRepository = activeRepository;
     operationRef.current = "clearing";
     operationRepositoryRef.current = operationRepository;
     operationTokenRef.current = operationToken;
@@ -608,7 +667,7 @@ export function usePersistentLedger(
     writeQueueRef.current = clearPromise.then(() => undefined);
 
     return clearPromise;
-  }, [hydrationStatus, publishPersistenceVersionState, repository]);
+  }, [activeRepository, hydrationStatus, publishPersistenceVersionState]);
 
   return {
     ledgerData,
@@ -626,5 +685,8 @@ export function usePersistentLedger(
     persistenceStatus: persistenceVersionState.persistenceStatus,
     mutationVersion: persistenceVersionState.mutationVersion,
     persistedVersion: persistenceVersionState.persistedVersion,
+    isDirty,
+    repositorySwitchBlocked,
+    discardDirtyChangesAndSwitchRepository,
   };
 }
