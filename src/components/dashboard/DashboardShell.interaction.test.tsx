@@ -165,13 +165,111 @@ async function createTrade(input: {
 }
 
 describe("DashboardShell trade interactions", () => {
+  it("separates an accepted trade from pending and completed local persistence", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createMemoryRepository();
+    repository.save = vi.fn(() => saveDeferred.promise);
+    await renderDashboard(repository);
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(screen.getByText("正在保存到本地")).not.toBeNull();
+    });
+    expect(screen.queryByText("已保存到本地")).toBeNull();
+
+    saveDeferred.resolve();
+    await waitFor(() => {
+      expect(screen.getByText("已保存到本地")).not.toBeNull();
+    });
+  });
+
+  it("lets the user retry the latest failed local save", async () => {
+    const repository = createMemoryRepository();
+    repository.save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("write failed"))
+      .mockResolvedValueOnce();
+    await renderDashboard(repository);
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
+        ),
+      ).not.toBeNull();
+    });
+
+    await user.click(screen.getByRole("button", { name: "重试保存" }));
+    await waitFor(() => {
+      expect(screen.getByText("已保存到本地")).not.toBeNull();
+    });
+    expect(repository.save).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires explicit confirmation before abandoning dirty state for a repository switch", async () => {
+    const oldRepository = createMemoryRepository();
+    oldRepository.save = vi.fn(async () => {
+      throw new Error("write failed");
+    });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        createSimpleTrade(
+          "trade-ui-repository-switch",
+          "buy",
+          "ETH",
+          "2",
+          "2026-07-15",
+        ),
+      ],
+    };
+    const newRepository = createMemoryRepository(newLedger);
+    const view = await renderDashboard(oldRepository);
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "重试保存" })).not.toBeNull();
+    });
+
+    view.rerender(<DashboardShell repository={newRepository} />);
+    expect(
+      screen.getByText(
+        "当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。",
+      ),
+    ).not.toBeNull();
+    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(newRepository.load).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "放弃未保存更改并切换",
+      }),
+    );
+    await waitFor(() => {
+      expect(newRepository.load).toHaveBeenCalledOnce();
+      expect(within(getSection("交易列表")).getByText("ETH")).not.toBeNull();
+      expect(
+        screen.queryByRole("button", {
+          name: "放弃未保存更改并切换",
+        }),
+      ).toBeNull();
+    });
+  });
+
   it("creates a validated buy and updates both the trade list and positions", async () => {
     await renderDashboard();
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
-    expect(screen.getByText("交易已保存")).not.toBeNull();
+    expect(screen.getByText("交易已加入账本")).not.toBeNull();
 
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
@@ -279,7 +377,7 @@ describe("DashboardShell trade interactions", () => {
     await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
-    expect(screen.getByText("价格已保存")).not.toBeNull();
+    expect(screen.getByText("价格已加入账本")).not.toBeNull();
 
     const positionSection = getSection("资产汇总");
     expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
@@ -604,6 +702,9 @@ describe("DashboardShell data management", () => {
       ).not.toBeNull();
     });
     expect(screen.queryByText("账本已清空")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "重试保存" }),
+    ).toBeNull();
     expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });

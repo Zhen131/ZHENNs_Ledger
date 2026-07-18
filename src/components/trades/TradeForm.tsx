@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
+import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
 import type { LedgerData, Trade, TradeDraft } from "../../models";
 import { createValidatedTrade } from "../../services/tradeService";
 import type {
@@ -11,7 +12,7 @@ import type {
 
 type TradeFormProps = Readonly<{
   ledgerData: LedgerData;
-  onTradeCreated: (trade: Trade) => void;
+  onTradeCreated: (trade: Trade) => ApplyLedgerActionResult;
 }>;
 
 type TradeFormState = {
@@ -186,14 +187,26 @@ export function TradeForm({
       return;
     }
 
-    onTradeCreated(result.trade);
+    const mutationResult = onTradeCreated(result.trade);
+
+    if (mutationResult !== "applied") {
+      setErrors({
+        form:
+          mutationResult === "rejected"
+            ? "账本当前不可写，请稍后重试"
+            : "账本未发生变化，请检查输入",
+      });
+      setSuccessMessage("");
+      return;
+    }
+
     setForm((current) => ({
       ...createInitialFormState(current.assetSymbol),
       type: current.type,
       occurredAt: current.occurredAt,
     }));
     setErrors({});
-    setSuccessMessage("交易已保存");
+    setSuccessMessage("交易已加入账本");
   }
 
   return (
