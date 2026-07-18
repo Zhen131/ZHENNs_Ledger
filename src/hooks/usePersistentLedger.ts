@@ -25,6 +25,8 @@ export type PersistentLedgerState = {
   applyLedgerAction: (action: LedgerAction) => ApplyLedgerActionResult;
   hydrationStatus: HydrationStatus;
   persistenceError: string | null;
+  retryPersistence: () => Promise<boolean>;
+  canRetryPersistence: boolean;
   clearLedger: () => Promise<ClearLedgerResult>;
   persistenceOperation: PersistenceOperation;
   persistenceStatus: PersistenceStatus;
@@ -47,6 +49,14 @@ type ScheduledSnapshot = {
   version: number;
   serializedLedger: string;
 };
+
+type RetryAttempt = {
+  generation: number;
+  version: number;
+  promise: Promise<boolean>;
+};
+
+type PersistenceAttemptResult = "saved" | "failed" | "ignored";
 
 const INITIAL_PERSISTENCE_VERSION_STATE: PersistenceVersionState = {
   mutationVersion: 0,
@@ -87,6 +97,8 @@ export function usePersistentLedger(
     useRef<PersistenceVersionState>(INITIAL_PERSISTENCE_VERSION_STATE);
   const lastPersistedSnapshotRef = useRef<string | null>(null);
   const latestScheduledSnapshotRef = useRef<ScheduledSnapshot | null>(null);
+  const failedSnapshotRef = useRef<ScheduledSnapshot | null>(null);
+  const retryAttemptRef = useRef<RetryAttempt | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const hydratedRepositoryRef = useRef<LedgerRepository | null>(null);
   const hydrationErrorRepositoryRef = useRef<LedgerRepository | null>(null);
@@ -113,12 +125,119 @@ export function usePersistentLedger(
     [],
   );
 
+  const enqueuePersistence = useCallback(
+    (
+      scheduledSnapshot: ScheduledSnapshot,
+      ledgerSnapshot: LedgerData,
+      scheduledRepository: LedgerRepository,
+    ): Promise<PersistenceAttemptResult> => {
+      latestScheduledSnapshotRef.current = scheduledSnapshot;
+
+      const persistenceAttempt = writeQueueRef.current
+        .catch(() => undefined)
+        .then(() => scheduledRepository.save(ledgerSnapshot))
+        .then((): PersistenceAttemptResult => {
+          if (
+            currentRepositoryRef.current !== scheduledRepository ||
+            hydratedRepositoryRef.current !== scheduledRepository ||
+            generationRef.current !== scheduledSnapshot.generation
+          ) {
+            return "ignored";
+          }
+
+          lastPersistedSnapshotRef.current =
+            scheduledSnapshot.serializedLedger;
+
+          if (
+            latestScheduledSnapshotRef.current === scheduledSnapshot
+          ) {
+            latestScheduledSnapshotRef.current = null;
+          }
+
+          if (
+            failedSnapshotRef.current?.generation ===
+              scheduledSnapshot.generation &&
+            failedSnapshotRef.current.version === scheduledSnapshot.version
+          ) {
+            failedSnapshotRef.current = null;
+          }
+
+          const currentVersionState = persistenceVersionStateRef.current;
+          const nextPersistedVersion = Math.max(
+            currentVersionState.persistedVersion,
+            scheduledSnapshot.version,
+          );
+          publishPersistenceVersionState({
+            ...currentVersionState,
+            persistedVersion: nextPersistedVersion,
+            persistenceStatus:
+              nextPersistedVersion === currentVersionState.mutationVersion
+                ? "saved"
+                : "saving",
+          });
+
+          if (
+            mountedRef.current &&
+            nextPersistedVersion === currentVersionState.mutationVersion
+          ) {
+            setPersistenceError(null);
+          }
+
+          return "saved";
+        })
+        .catch((): PersistenceAttemptResult => {
+          if (
+            currentRepositoryRef.current !== scheduledRepository ||
+            hydratedRepositoryRef.current !== scheduledRepository ||
+            generationRef.current !== scheduledSnapshot.generation
+          ) {
+            return "ignored";
+          }
+
+          if (
+            latestScheduledSnapshotRef.current === scheduledSnapshot
+          ) {
+            latestScheduledSnapshotRef.current = null;
+          }
+
+          const currentVersionState = persistenceVersionStateRef.current;
+
+          if (
+            currentVersionState.mutationVersion === scheduledSnapshot.version
+          ) {
+            failedSnapshotRef.current = scheduledSnapshot;
+            publishPersistenceVersionState({
+              ...currentVersionState,
+              persistenceStatus: "error",
+            });
+          }
+
+          if (
+            mountedRef.current &&
+            currentVersionState.mutationVersion === scheduledSnapshot.version
+          ) {
+            setPersistenceError(
+              "本地保存失败，页面数据仍保留；刷新后将恢复上次成功保存的版本",
+            );
+          }
+
+          return "failed";
+        });
+
+      writeQueueRef.current = persistenceAttempt.then(() => undefined);
+      return persistenceAttempt;
+    },
+    [publishPersistenceVersionState],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
 
     return () => {
       mountedRef.current = false;
       generationRef.current += 1;
+      failedSnapshotRef.current = null;
+      retryAttemptRef.current = null;
     };
   }, []);
 
@@ -130,6 +249,8 @@ export function usePersistentLedger(
     pendingHydrationRef.current = null;
     lastPersistedSnapshotRef.current = null;
     latestScheduledSnapshotRef.current = null;
+    failedSnapshotRef.current = null;
+    retryAttemptRef.current = null;
     writeQueueRef.current = Promise.resolve();
     publishPersistenceVersionState(INITIAL_PERSISTENCE_VERSION_STATE);
 
@@ -250,83 +371,16 @@ export function usePersistentLedger(
       version: mutationVersion,
       serializedLedger: serialized,
     };
-    latestScheduledSnapshotRef.current = scheduledSnapshot;
     const ledgerSnapshot = ledgerData;
     const scheduledRepository = repository;
 
-    writeQueueRef.current = writeQueueRef.current
-      .catch(() => undefined)
-      .then(() => scheduledRepository.save(ledgerSnapshot))
-      .then(() => {
-        if (
-          currentRepositoryRef.current !== scheduledRepository ||
-          hydratedRepositoryRef.current !== scheduledRepository ||
-          generationRef.current !== generation
-        ) {
-          return;
-        }
-
-        lastPersistedSnapshotRef.current = serialized;
-
-        if (latestScheduledSnapshotRef.current === scheduledSnapshot) {
-          latestScheduledSnapshotRef.current = null;
-        }
-
-        const currentVersionState = persistenceVersionStateRef.current;
-        const nextPersistedVersion = Math.max(
-          currentVersionState.persistedVersion,
-          mutationVersion,
-        );
-        publishPersistenceVersionState({
-          ...currentVersionState,
-          persistedVersion: nextPersistedVersion,
-          persistenceStatus:
-            nextPersistedVersion === currentVersionState.mutationVersion
-              ? "saved"
-              : "saving",
-        });
-
-        if (
-          mountedRef.current &&
-          nextPersistedVersion === currentVersionState.mutationVersion
-        ) {
-          setPersistenceError(null);
-        }
-      })
-      .catch(() => {
-        if (
-          currentRepositoryRef.current !== scheduledRepository ||
-          hydratedRepositoryRef.current !== scheduledRepository ||
-          generationRef.current !== generation
-        ) {
-          return;
-        }
-
-        if (latestScheduledSnapshotRef.current === scheduledSnapshot) {
-          latestScheduledSnapshotRef.current = null;
-        }
-
-        const currentVersionState = persistenceVersionStateRef.current;
-
-        if (
-          currentVersionState.mutationVersion === mutationVersion
-        ) {
-          publishPersistenceVersionState({
-            ...currentVersionState,
-            persistenceStatus: "error",
-          });
-        }
-
-        if (
-          mountedRef.current &&
-          currentVersionState.mutationVersion === mutationVersion
-        ) {
-          setPersistenceError(
-            "本地保存失败，页面数据仍保留；刷新后将恢复上次成功保存的版本",
-          );
-        }
-      });
+    void enqueuePersistence(
+      scheduledSnapshot,
+      ledgerSnapshot,
+      scheduledRepository,
+    );
   }, [
+    enqueuePersistence,
     hydrationStatus,
     ledgerData,
     persistenceOperation,
@@ -358,6 +412,8 @@ export function usePersistentLedger(
         mutationVersion: currentVersionState.mutationVersion + 1,
         persistenceStatus: "saving",
       };
+      failedSnapshotRef.current = null;
+      retryAttemptRef.current = null;
       ledgerDataRef.current = nextLedgerData;
       publishPersistenceVersionState(nextVersionState);
 
@@ -374,6 +430,72 @@ export function usePersistentLedger(
     },
     [hydrationStatus, publishPersistenceVersionState, repository],
   );
+
+  const retryPersistence = useCallback((): Promise<boolean> => {
+    const currentVersionState = persistenceVersionStateRef.current;
+    const generation = generationRef.current;
+    const currentRetryAttempt = retryAttemptRef.current;
+
+    if (
+      currentRetryAttempt?.generation === generation &&
+      currentRetryAttempt.version === currentVersionState.mutationVersion
+    ) {
+      return currentRetryAttempt.promise;
+    }
+
+    const failedSnapshot = failedSnapshotRef.current;
+
+    if (
+      hydrationStatus !== "ready" ||
+      operationRef.current !== "idle" ||
+      hydratedRepositoryRef.current !== repository ||
+      currentVersionState.persistenceStatus !== "error" ||
+      failedSnapshot === null ||
+      failedSnapshot.generation !== generation ||
+      failedSnapshot.version !== currentVersionState.mutationVersion
+    ) {
+      return Promise.resolve(false);
+    }
+
+    const ledgerSnapshot = ledgerDataRef.current;
+    const scheduledSnapshot: ScheduledSnapshot = {
+      generation,
+      version: currentVersionState.mutationVersion,
+      serializedLedger: JSON.stringify(ledgerSnapshot),
+    };
+    publishPersistenceVersionState({
+      ...currentVersionState,
+      persistenceStatus: "saving",
+    });
+
+    if (mountedRef.current) {
+      setPersistenceError(null);
+    }
+
+    const retryPromise = enqueuePersistence(
+      scheduledSnapshot,
+      ledgerSnapshot,
+      repository,
+    ).then((result) => result === "saved");
+    const retryAttempt: RetryAttempt = {
+      generation,
+      version: currentVersionState.mutationVersion,
+      promise: retryPromise,
+    };
+    retryAttemptRef.current = retryAttempt;
+    void retryPromise.finally(() => {
+      if (retryAttemptRef.current === retryAttempt) {
+        retryAttemptRef.current = null;
+      }
+    });
+
+    return retryPromise;
+  }, [
+    enqueuePersistence,
+    hydrationStatus,
+    publishPersistenceVersionState,
+    repository,
+  ]);
 
   const clearLedger = useCallback((): Promise<ClearLedgerResult> => {
     if (
@@ -406,6 +528,8 @@ export function usePersistentLedger(
     operationRef.current = "clearing";
     operationRepositoryRef.current = operationRepository;
     operationTokenRef.current = operationToken;
+    failedSnapshotRef.current = null;
+    retryAttemptRef.current = null;
 
     if (mountedRef.current) {
       setPersistenceOperation("clearing");
@@ -444,6 +568,8 @@ export function usePersistentLedger(
           ledgerDataRef.current = initialLedger;
           lastPersistedSnapshotRef.current = serializedInitialLedger;
           latestScheduledSnapshotRef.current = null;
+          failedSnapshotRef.current = null;
+          retryAttemptRef.current = null;
           pendingHydrationRef.current = null;
           hydratedRepositoryRef.current = operationRepository;
           hydrationErrorRepositoryRef.current = null;
@@ -489,6 +615,12 @@ export function usePersistentLedger(
     applyLedgerAction,
     hydrationStatus,
     persistenceError,
+    retryPersistence,
+    canRetryPersistence:
+      persistenceVersionState.persistenceStatus === "error" &&
+      failedSnapshotRef.current?.generation === generationRef.current &&
+      failedSnapshotRef.current.version ===
+        persistenceVersionState.mutationVersion,
     clearLedger,
     persistenceOperation,
     persistenceStatus: persistenceVersionState.persistenceStatus,
