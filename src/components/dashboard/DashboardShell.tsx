@@ -121,11 +121,12 @@ export function DashboardShell({
 }> = {}) {
   const {
     ledgerData,
-    dispatch,
+    applyLedgerAction,
     hydrationStatus,
     persistenceError,
     clearLedger,
     persistenceOperation,
+    persistenceStatus,
   } = usePersistentLedger(repository);
   const [tradeRemovalError, setTradeRemovalError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
@@ -172,7 +173,7 @@ export function DashboardShell({
       return;
     }
 
-    dispatch({ type: "trade/delete", tradeId: result.tradeId });
+    applyLedgerAction({ type: "trade/delete", tradeId: result.tradeId });
     setTradeRemovalError("");
   }
 
@@ -307,6 +308,23 @@ export function DashboardShell({
               {persistenceError}
             </p>
           ) : null}
+          {hydrationStatus === "ready" && !persistenceError ? (
+            persistenceStatus === "saving" ? (
+              <p
+                aria-live="polite"
+                className="mb-5 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
+              >
+                正在保存到本地
+              </p>
+            ) : persistenceStatus === "saved" ? (
+              <p
+                aria-live="polite"
+                className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+              >
+                已保存到本地
+              </p>
+            ) : null
+          ) : null}
 
           <div className="grid gap-5">
             <Section eyebrow="Future chart area" title="资产走势">
@@ -404,7 +422,7 @@ export function DashboardShell({
                   <PriceForm
                     ledgerData={ledgerData}
                     onPriceSnapshotCreated={(priceSnapshot) =>
-                      dispatch({
+                      applyLedgerAction({
                         type: "priceSnapshot/add",
                         priceSnapshot,
                       })
@@ -422,7 +440,7 @@ export function DashboardShell({
                 <TradeForm
                   ledgerData={ledgerData}
                   onTradeCreated={(trade) =>
-                    dispatch({ type: "trade/add", trade })
+                    applyLedgerAction({ type: "trade/add", trade })
                   }
                 />
               </fieldset>

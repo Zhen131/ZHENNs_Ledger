@@ -135,7 +135,7 @@ async function enterGoldenTrades() {
       fee: draft.fee ?? "0",
     });
 
-    expect(screen.getByText("交易已保存")).not.toBeNull();
+    expect(screen.getByText("交易已加入账本")).not.toBeNull();
   }
 }
 
@@ -173,7 +173,7 @@ describe("DashboardShell golden UI acceptance", () => {
     await user.type(screen.getByLabelText("价格日期"), "2026-04-15");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
-    expect(screen.getByText("价格已保存")).not.toBeNull();
+    expect(screen.getByText("价格已加入账本")).not.toBeNull();
     expectPositionDecimal("BTC", 5, "70000");
     expectPositionDecimal("BTC", 6, "11.4716");
     expectPositionDecimal("BTC", 7, "0.4716");
