@@ -4,8 +4,10 @@
 
 ## 当前状态
 
-截至 2026-07-17，Week 6 React Gate 已通过。07A 提前实现的交易、删除、价格
-链路已完成生产 UI 验收，资产汇总已补齐剩余成本与已实现盈亏展示。
+截至 2026-07-18，Week 7 安全 clear、统一持久化操作互斥与完整自动化测试已完成。
+固定 BTC / ETH 数据的 production build 新增、价格、删除、刷新和 clear 主链通过；
+但本轮未取得 production DevTools IndexedDB envelope 与 clear 后 record 的直接读取证据，
+因此 Week 7 Storage Gate 严格判定为 **No-Go**，Week 8 不得开始。
 
 功能分支已实现：
 
@@ -18,6 +20,10 @@
 - 安全 hydration：恢复数据真正进入 reducer 前保持 `loading`，禁止 dispatch 和自动保存。
 - 串行自动保存：快速连续修改按顺序写入；失败时保留页面状态并显示错误。
 - 自动化重挂载验收：使用真实组装链和 fake IndexedDB 证明交易、价格可在卸载后恢复。
+- 安全 clear：正常状态和 hydration error 状态均使用固定文本二段确认，完整删除本地账本并恢复全新的内置资产初始账本。
+- 通用持久化操作互斥：dispatch、自动保存和 clear 共用同步 operation ref 与写队列；重复 clear 共享同一 Promise。
+- clear 生命周期保护：覆盖排队写入、前置保存失败、clear 失败、Repository 切换和组件卸载。
+- clear 后空库保护：清空成功不自动保存初始账本；第一次新用户写入才重新生成 record。
 - 八列资产汇总：直接展示 `Position.costBasis` 和 `Position.realizedPnl`，并明确当前手续费不计入口径。
 - golden UI 回归：逐笔填写真实表单，覆盖 5 条 golden、BTC 价格、ADA 超卖和两类删除。
 - 响应式收口：宽窄屏页面不再整体横向溢出，宽表只在自己的容器内滚动。
@@ -26,7 +32,7 @@
 
 ```text
 Test Files  19 passed (19)
-Tests       154 passed (154)
+Tests       169 passed (169)
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
 ```
@@ -41,6 +47,20 @@ ADA 超卖 -> 拒绝且账本仍为 5 条交易
 390 / 1280 宽度 -> 页面级无横向溢出，控制台无 warning / error
 ```
 
+Week 7 固定 production build 样例：
+
+```text
+BTC 0.001 @ 70000 USD -> 成本 70 USD，已实现盈亏 0 USD
+BTC 80000 USD         -> 市值 80 USD，未实现盈亏 10 USD
+ETH 0.005 @ 2000 USD  -> 保存刷新后总交易数 2
+删除 ETH 并刷新        -> 总交易数 1，BTC 数值保持不变
+clear 并刷新           -> 空交易、空持仓；首次新写入可再次刷新恢复
+控制台                  -> 无 warning / error
+```
+
+未通过项：当前验收控制环境未提供 production DevTools IndexedDB record 直读能力，
+所以未把自动化 fake IndexedDB 结果替代为人工 envelope 证据。
+
 ## 核心原则
 
 - `Trade` 和 `PriceSnapshot` 是事实数据。
@@ -49,6 +69,7 @@ ADA 超卖 -> 拒绝且账本仍为 5 条交易
 - 不可信表单、IndexedDB 和未来 JSON 输入必须先通过运行时校验。
 - UI、Service 和 Reducer 不直接操作 IndexedDB。
 - 当前 Noop EncryptionService 只保留接口，不提供保密性；IndexedDB 数据仍是可读明文。
+- Week 7 只保证单标签页内的顺序与 clear 安全；另一标签页可能在 clear 后把旧状态重新写回。
 
 ## 已实现数据流
 
@@ -126,6 +147,9 @@ src/
 - 保存前和恢复后都运行完整 `LedgerData` Validator。
 - 空数据库返回 `null`，不会伪装成“已经保存的空账本”。
 - hydration 失败后自动保存保持关闭，避免空状态覆盖旧记录。
+- clear 只在 ready 或 hydration error 的受控恢复入口执行；loading 状态不可清空。
+- dispatch、save 和 clear 共用同一 operation/queue 顺序边界，clear 期间全部写入口禁用。
+- clear 成功后初始账本不会自动重建 `ledger:v1`，第一次新用户写入才会保存。
 - IndexedDB 只出现在 Adapter；具体实例只在 composition 组装点创建。
 
 ## 本地运行
@@ -154,8 +178,8 @@ git diff --check
 
 ## 尚未关闭
 
-- Week 7 仍需完成真实浏览器刷新恢复、clear、IndexedDB 明文 envelope 和失败场景人工验收。
-- 页面尚无“清空账本”入口；Repository 和 Adapter 的 `clear` 已有自动化测试。
+- Week 7 production 新增、价格、删除、刷新和 clear 主链已通过；仍缺 DevTools 对明文 envelope 与 clear 后 record 的直接读取证据，Gate 为 No-Go。
+- load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；不能替代缺失的 production DevTools 证据。
 - 字符串最大长度、数组规模、分页和大账本性能上限尚未定义。
 - 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
 - Noop EncryptionService 不提供加密；真加密计划在后续 Web Crypto 阶段完成。
@@ -167,4 +191,5 @@ git diff --check
 - 07A 风险补漏已合入并推送源码 `main`。
 - 合并提交：`d936463 合并07A风险补漏与Week6-7提前实现`。
 - 已合并的功能分支 `zhennn/close-week6-week7-07a-risks` 已删除。
-- Week 6 源码变更已分步提交并推送到远端 `main`。
+- Week 7 源码在 `zhennn/week7-storage-gate`，功能提交为 `02e28f3 功能：完成第七周安全清空与存储互斥`。
+- 本轮不推送、不合并、不删除分支。
