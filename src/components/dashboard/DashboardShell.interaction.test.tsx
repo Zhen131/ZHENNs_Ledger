@@ -165,13 +165,35 @@ async function createTrade(input: {
 }
 
 describe("DashboardShell trade interactions", () => {
+  it("separates an accepted trade from pending and completed local persistence", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createMemoryRepository();
+    repository.save = vi.fn(() => saveDeferred.promise);
+    await renderDashboard(repository);
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(screen.getByText("正在保存到本地")).not.toBeNull();
+    });
+    expect(screen.queryByText("已保存到本地")).toBeNull();
+
+    saveDeferred.resolve();
+    await waitFor(() => {
+      expect(screen.getByText("已保存到本地")).not.toBeNull();
+    });
+  });
+
   it("creates a validated buy and updates both the trade list and positions", async () => {
     await renderDashboard();
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
-    expect(screen.getByText("交易已保存")).not.toBeNull();
+    expect(screen.getByText("交易已加入账本")).not.toBeNull();
 
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
@@ -279,7 +301,7 @@ describe("DashboardShell trade interactions", () => {
     await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
-    expect(screen.getByText("价格已保存")).not.toBeNull();
+    expect(screen.getByText("价格已加入账本")).not.toBeNull();
 
     const positionSection = getSection("资产汇总");
     expect(within(positionSection).getByText("80000 USD")).not.toBeNull();

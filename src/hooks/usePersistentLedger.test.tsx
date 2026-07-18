@@ -47,10 +47,12 @@ function createRepository(overrides: Partial<LedgerRepository> = {}) {
 }
 
 function addTrade(
-  dispatch: ReturnType<typeof usePersistentLedger>["dispatch"],
+  applyLedgerAction: ReturnType<
+    typeof usePersistentLedger
+  >["applyLedgerAction"],
   trade: Trade,
 ) {
-  dispatch({ type: "trade/add", trade });
+  return applyLedgerAction({ type: "trade/add", trade });
 }
 
 function createCompleteLedger(): LedgerData {
@@ -84,6 +86,66 @@ function createCompleteLedger(): LedgerData {
 }
 
 describe("usePersistentLedger hydration safety", () => {
+  it("reports rejected, noop, and applied mutations with versioned persistence", async () => {
+    const loadDeferred = createDeferred<LedgerData | null>();
+    const saveDeferred = createDeferred<void>();
+    const repository = createRepository({
+      load: vi.fn(() => loadDeferred.promise),
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+    const trade = createSimpleTrade("trade-versioned", "buy", "BTC", "1");
+
+    let rejectedResult: ReturnType<
+      typeof result.current.applyLedgerAction
+    >;
+    act(() => {
+      rejectedResult = addTrade(result.current.applyLedgerAction, trade);
+    });
+    expect(rejectedResult!).toBe("rejected");
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
+
+    await act(async () => {
+      loadDeferred.resolve(null);
+      await loadDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    let noopResult: ReturnType<typeof result.current.applyLedgerAction>;
+    act(() => {
+      noopResult = result.current.applyLedgerAction({
+        type: "trade/delete",
+        tradeId: "missing-trade",
+      });
+    });
+    expect(noopResult!).toBe("noop");
+    expect(result.current.mutationVersion).toBe(0);
+
+    let appliedResult: ReturnType<typeof result.current.applyLedgerAction>;
+    act(() => {
+      appliedResult = addTrade(result.current.applyLedgerAction, trade);
+    });
+    expect(appliedResult!).toBe("applied");
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(result.current.persistenceStatus).toBe("saving");
+    });
+    expect(result.current.mutationVersion).toBe(1);
+    expect(result.current.persistedVersion).toBe(0);
+
+    await act(async () => {
+      saveDeferred.resolve();
+      await saveDeferred.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("saved");
+      expect(result.current.persistedVersion).toBe(1);
+    });
+  });
+
   it("does not dispatch or save before hydration completes", async () => {
     const loadDeferred = createDeferred<LedgerData | null>();
     const savedLedger = {
@@ -99,7 +161,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-too-early", "buy", "ETH", "2"),
       );
     });
@@ -138,7 +200,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-first", "buy", "BTC", "1"),
       );
     });
@@ -164,7 +226,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-1", "buy", "BTC", "1"),
       );
     });
@@ -174,7 +236,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-2", "buy", "ETH", "2"),
       );
     });
@@ -198,6 +260,106 @@ describe("usePersistentLedger hydration safety", () => {
     });
   });
 
+  it("does not report saved while a newer mutation is still pending", async () => {
+    const firstSave = createDeferred<void>();
+    const secondSave = createDeferred<void>();
+    const save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockImplementationOnce(() => firstSave.promise)
+      .mockImplementationOnce(() => secondSave.promise);
+    const repository = createRepository({ save });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-version-a", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledOnce();
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-version-b", "buy", "ETH", "2"),
+      );
+    });
+
+    await act(async () => {
+      firstSave.resolve();
+      await firstSave.promise;
+    });
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(2);
+      expect(result.current.persistedVersion).toBe(1);
+    });
+    expect(result.current.mutationVersion).toBe(2);
+    expect(result.current.persistenceStatus).toBe("saving");
+
+    await act(async () => {
+      secondSave.resolve();
+      await secondSave.promise;
+    });
+    await waitFor(() => {
+      expect(result.current.persistedVersion).toBe(2);
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+  });
+
+  it("ignores a completed save from an old repository generation", async () => {
+    const oldSave = createDeferred<void>();
+    const oldRepository = createRepository({
+      save: vi.fn(() => oldSave.promise),
+    });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("trade-new-generation", "buy", "ETH", "2")],
+    };
+    const newRepository = createRepository({
+      load: vi.fn(async () => structuredClone(newLedger)),
+    });
+    const { result, rerender } = renderHook(
+      ({ repository }) => usePersistentLedger(repository),
+      { initialProps: { repository: oldRepository } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-old-generation", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(oldRepository.save).toHaveBeenCalledOnce();
+    });
+
+    rerender({ repository: newRepository });
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(newLedger);
+    });
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
+    expect(result.current.persistenceStatus).toBe("idle");
+
+    await act(async () => {
+      oldSave.resolve();
+      await oldSave.promise;
+    });
+    expect(result.current.ledgerData).toEqual(newLedger);
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
+    expect(result.current.persistenceStatus).toBe("idle");
+    expect(newRepository.save).not.toHaveBeenCalled();
+  });
+
   it("keeps page state and exposes an error when a save fails", async () => {
     const save = vi
       .fn<LedgerRepository["save"]>()
@@ -212,7 +374,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-kept", "buy", "BTC", "1"),
       );
     });
@@ -220,13 +382,16 @@ describe("usePersistentLedger hydration safety", () => {
     await waitFor(() => {
       expect(result.current.persistenceError).toMatch(/本地保存失败/);
     });
+    expect(result.current.persistenceStatus).toBe("error");
+    expect(result.current.mutationVersion).toBe(1);
+    expect(result.current.persistedVersion).toBe(0);
     expect(result.current.ledgerData.trades.map((trade) => trade.id)).toEqual([
       "trade-kept",
     ]);
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-retry", "buy", "ETH", "2"),
       );
     });
@@ -234,6 +399,9 @@ describe("usePersistentLedger hydration safety", () => {
     await waitFor(() => {
       expect(save).toHaveBeenCalledTimes(2);
       expect(result.current.persistenceError).toBeNull();
+      expect(result.current.persistenceStatus).toBe("saved");
+      expect(result.current.mutationVersion).toBe(2);
+      expect(result.current.persistedVersion).toBe(2);
     });
   });
 
@@ -252,7 +420,7 @@ describe("usePersistentLedger hydration safety", () => {
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-blocked", "buy", "BTC", "1"),
       );
     });
@@ -301,12 +469,15 @@ describe("usePersistentLedger clear sequencing", () => {
     expect(result.current.ledgerData.trades).toEqual([]);
     expect(result.current.ledgerData.priceSnapshots).toEqual([]);
     expect(result.current.ledgerData.feeRules).toEqual([]);
+    expect(result.current.persistenceStatus).toBe("idle");
+    expect(result.current.mutationVersion).toBe(0);
+    expect(result.current.persistedVersion).toBe(0);
     expect(repository.save).not.toHaveBeenCalled();
     await expect(repository.load()).resolves.toBeNull();
 
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-after-clear", "buy", "BTC", "1"),
       );
     });
@@ -331,7 +502,7 @@ describe("usePersistentLedger clear sequencing", () => {
     });
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-queued", "buy", "BTC", "1"),
       );
     });
@@ -369,7 +540,7 @@ describe("usePersistentLedger clear sequencing", () => {
     });
     act(() => {
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-save-fails", "buy", "BTC", "1"),
       );
     });
@@ -408,7 +579,7 @@ describe("usePersistentLedger clear sequencing", () => {
     act(() => {
       clearPromise = result.current.clearLedger();
       addTrade(
-        result.current.dispatch,
+        result.current.applyLedgerAction,
         createSimpleTrade("trade-blocked-by-clear", "buy", "ETH", "2"),
       );
     });

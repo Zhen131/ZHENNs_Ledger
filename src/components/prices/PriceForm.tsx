@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
+import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
 import type {
   LedgerData,
   PriceSnapshot,
@@ -15,7 +16,9 @@ import type {
 
 type PriceFormProps = Readonly<{
   ledgerData: LedgerData;
-  onPriceSnapshotCreated: (priceSnapshot: PriceSnapshot) => void;
+  onPriceSnapshotCreated: (
+    priceSnapshot: PriceSnapshot,
+  ) => ApplyLedgerActionResult;
 }>;
 
 type PriceFormState = {
@@ -157,13 +160,25 @@ export function PriceForm({
       return;
     }
 
-    onPriceSnapshotCreated(result.priceSnapshot);
+    const mutationResult = onPriceSnapshotCreated(result.priceSnapshot);
+
+    if (mutationResult !== "applied") {
+      setErrors({
+        form:
+          mutationResult === "rejected"
+            ? "账本当前不可写，请稍后重试"
+            : "账本未发生变化，请检查输入",
+      });
+      setSuccessMessage("");
+      return;
+    }
+
     setForm((current) => ({
       ...createInitialFormState(current.assetSymbol),
       recordedAt: current.recordedAt,
     }));
     setErrors({});
-    setSuccessMessage("价格已保存");
+    setSuccessMessage("价格已加入账本");
   }
 
   return (
