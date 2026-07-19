@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-截至 2026-07-18，Week 7 安全 clear、统一持久化操作互斥与完整自动化测试已完成。
+截至 2026-07-19，Week 7 安全 clear、统一持久化操作互斥与 B 批次可靠性补漏已完成。
 固定 BTC / ETH 数据的 production build 新增、价格、删除、刷新和 clear 主链通过；
 但本轮未取得 production DevTools IndexedDB envelope 与 clear 后 record 的直接读取证据，
 因此 Week 7 Storage Gate 严格判定为 **No-Go**，Week 8 不得开始。
@@ -19,6 +19,9 @@
 - IndexedDB whole-blob 持久化：通过 Repository、Noop EncryptionService 和 StorageAdapter 保存整份账本。
 - 安全 hydration：恢复数据真正进入 reducer 前保持 `loading`，禁止 dispatch 和自动保存。
 - 串行自动保存：快速连续修改按顺序写入；失败时保留页面状态并显示错误。
+- 保存状态语义：页面区分“已加入账本”“正在保存到本地”“已保存到本地”和保存失败。
+- 失败安全重试：最新保存失败可重试，旧 snapshot、旧 Repository generation 和重复点击不能覆盖新账本。
+- dirty 离开保护：pending / save error 会标记未落盘，离开页面或切换 Repository 前会警告或要求明确放弃。
 - 自动化重挂载验收：使用真实组装链和 fake IndexedDB 证明交易、价格可在卸载后恢复。
 - 安全 clear：正常状态和 hydration error 状态均使用固定文本二段确认，完整删除本地账本并恢复全新的内置资产初始账本。
 - 通用持久化操作互斥：dispatch、自动保存和 clear 共用同步 operation ref 与写队列；重复 clear 共享同一 Promise。
@@ -31,8 +34,8 @@
 当前自动化结果：
 
 ```text
-Test Files  19 passed (19)
-Tests       169 passed (169)
+Storage Gate 基线：19 个测试文件、169 项测试
+B 批次补漏后：19 个测试文件、188 项测试
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
 ```
@@ -179,6 +182,7 @@ git diff --check
 ## 尚未关闭
 
 - Week 7 production 新增、价格、删除、刷新和 clear 主链已通过；仍缺 DevTools 对明文 envelope 与 clear 后 record 的直接读取证据，Gate 为 No-Go。
+- S-07 只完成确定性资源测量，文件、数组和字符串资源阈值待确认，ResourcePolicy 尚未实现。
 - load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；不能替代缺失的 production DevTools 证据。
 - 字符串最大长度、数组规模、分页和大账本性能上限尚未定义。
 - 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
@@ -191,5 +195,5 @@ git diff --check
 - 07A 风险补漏已合入并推送源码 `main`。
 - 合并提交：`d936463 合并07A风险补漏与Week6-7提前实现`。
 - 已合并的功能分支 `zhennn/close-week6-week7-07a-risks` 已删除。
-- Week 7 源码在 `zhennn/week7-storage-gate`，功能提交为 `02e28f3 功能：完成第七周安全清空与存储互斥`。
-- 本轮不推送、不合并、不删除分支。
+- Week 7 源码已进入 `main` / `origin/main`，包含 `529983e` 合并提交及 S-01 / S-02 / S-03 三个补漏提交。
+- Week 8 尚未开始；production DevTools G-01 / G-02 证据与 S-07 ResourcePolicy 仍是前置阻断。
