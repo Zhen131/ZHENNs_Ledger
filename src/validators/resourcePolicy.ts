@@ -58,7 +58,8 @@ export function evaluateLedgerResourcePolicy(
   );
   checkCollection(errors, "feeRules", ledgerData.feeRules.length, limits.feeRules);
 
-  for (const [index, asset] of ledgerData.assets.entries()) {
+  for (let index = 0; index < ledgerData.assets.length; index += 1) {
+    const asset = ledgerData.assets[index];
     const path = `assets[${index}]`;
     checkString(errors, `${path}.id`, asset.id, limits.id);
     checkString(errors, `${path}.symbol`, asset.symbol, limits.symbol);
@@ -71,7 +72,8 @@ export function evaluateLedgerResourcePolicy(
     );
   }
 
-  for (const [index, trade] of ledgerData.trades.entries()) {
+  for (let index = 0; index < ledgerData.trades.length; index += 1) {
+    const trade = ledgerData.trades[index];
     const path = `trades[${index}]`;
     checkString(errors, `${path}.id`, trade.id, limits.id);
     checkString(errors, `${path}.assetSymbol`, trade.assetSymbol, limits.symbol);
@@ -82,7 +84,12 @@ export function evaluateLedgerResourcePolicy(
     checkOptionalString(errors, `${path}.rawText`, trade.rawText, limits.rawText);
   }
 
-  for (const [index, priceSnapshot] of ledgerData.priceSnapshots.entries()) {
+  for (
+    let index = 0;
+    index < ledgerData.priceSnapshots.length;
+    index += 1
+  ) {
+    const priceSnapshot = ledgerData.priceSnapshots[index];
     const path = `priceSnapshots[${index}]`;
     checkString(errors, `${path}.id`, priceSnapshot.id, limits.id);
     checkString(
@@ -100,7 +107,8 @@ export function evaluateLedgerResourcePolicy(
     checkOptionalString(errors, `${path}.note`, priceSnapshot.note, limits.note);
   }
 
-  for (const [index, feeRule] of ledgerData.feeRules.entries()) {
+  for (let index = 0; index < ledgerData.feeRules.length; index += 1) {
+    const feeRule = ledgerData.feeRules[index];
     const path = `feeRules[${index}]`;
     checkString(errors, `${path}.id`, feeRule.id, limits.id);
     checkString(errors, `${path}.name`, feeRule.name, limits.name);
