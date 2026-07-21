@@ -19,12 +19,18 @@ import {
   ledgerReducer,
   type LedgerAction,
 } from "../state/ledgerReducer";
+import {
+  evaluateLedgerResourcePolicy,
+  type LedgerResourcePolicyError,
+} from "../validators/resourcePolicy";
 
 export type PersistentLedgerState = {
   ledgerData: LedgerData;
   applyLedgerAction: (action: LedgerAction) => ApplyLedgerActionResult;
   hydrationStatus: HydrationStatus;
   persistenceError: string | null;
+  resourcePolicyError: LedgerResourcePolicyError | null;
+  isReadOnly: boolean;
   retryPersistence: () => Promise<boolean>;
   canRetryPersistence: boolean;
   clearLedger: () => Promise<ClearLedgerResult>;
@@ -88,6 +94,9 @@ export function usePersistentLedger(
   const [hydrationStatus, setHydrationStatus] =
     useState<HydrationStatus>("loading");
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [resourcePolicyError, setResourcePolicyError] =
+    useState<LedgerResourcePolicyError | null>(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [persistenceOperation, setPersistenceOperation] =
     useState<PersistenceOperation>("idle");
   const [persistenceVersionState, setPersistenceVersionState] =
@@ -117,6 +126,7 @@ export function usePersistentLedger(
     generation: number;
     serializedLedger: string;
   } | null>(null);
+  const readOnlyRef = useRef(false);
 
   const currentVersionState = persistenceVersionStateRef.current;
   const isCurrentlyDirty =
@@ -304,6 +314,9 @@ export function usePersistentLedger(
     }
 
     setHydrationStatus("loading");
+    setResourcePolicyError(null);
+    readOnlyRef.current = false;
+    setIsReadOnly(false);
     let cancelled = false;
 
     async function hydrate() {
@@ -316,6 +329,8 @@ export function usePersistentLedger(
 
         const hydratedLedger =
           savedLedger ?? createInitialLedgerData();
+        const resourcePolicyResult =
+          evaluateLedgerResourcePolicy(hydratedLedger);
         const serializedLedger = JSON.stringify(hydratedLedger);
         ledgerDataRef.current = hydratedLedger;
         lastPersistedSnapshotRef.current = serializedLedger;
@@ -331,6 +346,15 @@ export function usePersistentLedger(
         });
 
         setPersistenceError(null);
+        if (resourcePolicyResult.ok) {
+          readOnlyRef.current = false;
+          setResourcePolicyError(null);
+          setIsReadOnly(false);
+        } else {
+          readOnlyRef.current = true;
+          setResourcePolicyError(resourcePolicyResult.errors[0]);
+          setIsReadOnly(true);
+        }
       } catch {
         if (cancelled || generationRef.current !== generation) {
           return;
@@ -374,6 +398,7 @@ export function usePersistentLedger(
   useEffect(() => {
     if (
       hydrationStatus !== "ready" ||
+      readOnlyRef.current ||
       operationRef.current !== "idle" ||
       hydratedRepositoryRef.current !== activeRepository
     ) {
@@ -434,6 +459,7 @@ export function usePersistentLedger(
     (action: LedgerAction): ApplyLedgerActionResult => {
       if (
         hydrationStatus !== "ready" ||
+        readOnlyRef.current ||
         operationRef.current !== "idle" ||
         hydratedRepositoryRef.current !== activeRepository
       ) {
@@ -445,6 +471,16 @@ export function usePersistentLedger(
 
       if (nextLedgerData === currentLedgerData) {
         return "noop";
+      }
+
+      const resourcePolicyResult =
+        evaluateLedgerResourcePolicy(nextLedgerData);
+
+      if (!resourcePolicyResult.ok) {
+        if (mountedRef.current) {
+          setResourcePolicyError(resourcePolicyResult.errors[0]);
+        }
+        return "rejected";
       }
 
       const currentVersionState = persistenceVersionStateRef.current;
@@ -460,6 +496,7 @@ export function usePersistentLedger(
 
       if (mountedRef.current) {
         setPersistenceError(null);
+        setResourcePolicyError(null);
       }
 
       reducerDispatch({
@@ -469,7 +506,11 @@ export function usePersistentLedger(
 
       return "applied";
     },
-    [activeRepository, hydrationStatus, publishPersistenceVersionState],
+    [
+      activeRepository,
+      hydrationStatus,
+      publishPersistenceVersionState,
+    ],
   );
 
   const retryPersistence = useCallback((): Promise<boolean> => {
@@ -488,6 +529,7 @@ export function usePersistentLedger(
 
     if (
       hydrationStatus !== "ready" ||
+      readOnlyRef.current ||
       operationRef.current !== "idle" ||
       hydratedRepositoryRef.current !== activeRepository ||
       currentVersionState.persistenceStatus !== "error" ||
@@ -574,6 +616,7 @@ export function usePersistentLedger(
 
     if (
       operationRef.current !== "idle" ||
+      readOnlyRef.current ||
       (!canClearReadyLedger && !canRecoverHydrationError)
     ) {
       return Promise.resolve({
@@ -640,6 +683,8 @@ export function usePersistentLedger(
             ledgerData: initialLedger,
           });
           setPersistenceError(null);
+          readOnlyRef.current = false;
+          setIsReadOnly(false);
           setHydrationStatus("ready");
         }
 
@@ -667,13 +712,19 @@ export function usePersistentLedger(
     writeQueueRef.current = clearPromise.then(() => undefined);
 
     return clearPromise;
-  }, [activeRepository, hydrationStatus, publishPersistenceVersionState]);
+  }, [
+    activeRepository,
+    hydrationStatus,
+    publishPersistenceVersionState,
+  ]);
 
   return {
     ledgerData,
     applyLedgerAction,
     hydrationStatus,
     persistenceError,
+    resourcePolicyError,
+    isReadOnly,
     retryPersistence,
     canRetryPersistence:
       persistenceVersionState.persistenceStatus === "error" &&

@@ -708,4 +708,38 @@ describe("DashboardShell data management", () => {
     expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });
+
+  it("loads an oversized saved ledger as read-only without offering clear", async () => {
+    const oversizedLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        {
+          ...createSimpleTrade(
+            "trade-ui-resource-limit",
+            "buy",
+            "BTC",
+            "1",
+          ),
+          note: "n".repeat(4_097),
+        },
+      ],
+    };
+    const repository = createMemoryRepository(oversizedLedger);
+    await renderDashboard(repository);
+
+    expect(
+      screen.getByText(/当前账本超过资源上限，已只读加载/),
+    ).not.toBeNull();
+    expect(
+      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", {
+        name: "清空本地账本",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(repository.clear).not.toHaveBeenCalled();
+  });
 });

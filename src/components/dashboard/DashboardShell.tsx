@@ -124,6 +124,8 @@ export function DashboardShell({
     applyLedgerAction,
     hydrationStatus,
     persistenceError,
+    resourcePolicyError,
+    isReadOnly,
     retryPersistence,
     canRetryPersistence,
     clearLedger,
@@ -160,7 +162,8 @@ export function DashboardShell({
   const isWritable =
     hydrationStatus === "ready" &&
     persistenceOperation === "idle" &&
-    !repositorySwitchBlocked;
+    !repositorySwitchBlocked &&
+    !isReadOnly;
   const positions = getPositionsFromLedger(ledgerData);
 
   function handleDeleteTrade(tradeId: string) {
@@ -187,6 +190,7 @@ export function DashboardShell({
     if (
       persistenceOperation !== "idle" ||
       repositorySwitchBlocked ||
+      isReadOnly ||
       (mode === "normal" && hydrationStatus !== "ready") ||
       (mode === "recovery" && hydrationStatus !== "error")
     ) {
@@ -305,6 +309,16 @@ export function DashboardShell({
               className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
             >
               {persistenceError}
+            </p>
+          ) : null}
+          {hydrationStatus === "ready" && resourcePolicyError ? (
+            <p
+              aria-live="assertive"
+              className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            >
+              {isReadOnly
+                ? `当前账本超过资源上限，已只读加载：${resourcePolicyError.message}`
+                : `操作被资源边界拒绝：${resourcePolicyError.message}`}
             </p>
           ) : null}
           {hydrationStatus === "ready" && persistenceError ? (
@@ -513,7 +527,8 @@ export function DashboardShell({
                     className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={
                       persistenceOperation !== "idle" ||
-                      repositorySwitchBlocked
+                      repositorySwitchBlocked ||
+                      isReadOnly
                     }
                     onClick={() => openClearConfirmation("normal")}
                     type="button"
