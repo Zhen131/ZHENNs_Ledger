@@ -7,6 +7,12 @@ export {
   LEDGER_DATA_VALIDATION_ERROR_CODES,
   validateLedgerData,
 } from "./ledgerDataValidator";
+export {
+  DEFAULT_LEDGER_RESOURCE_LIMITS,
+  LEDGER_RESOURCE_POLICY_ERROR_CODES,
+  evaluateLedgerJsonResourcePolicy,
+  evaluateLedgerResourcePolicy,
+} from "./resourcePolicy";
 
 export type {
   TradeDraftValidator,
@@ -21,3 +27,8 @@ export type {
   LedgerDataValidationError,
   LedgerDataValidationResult,
 } from "./ledgerDataValidator";
+export type {
+  LedgerResourceLimits,
+  LedgerResourcePolicyError,
+  LedgerResourcePolicyResult,
+} from "./resourcePolicy";
