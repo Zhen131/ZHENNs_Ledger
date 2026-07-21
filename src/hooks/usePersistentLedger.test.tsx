@@ -1338,4 +1338,74 @@ describe("usePersistentLedger clear recovery and lifecycle", () => {
     await expect(clearPromise).resolves.toEqual({ ok: true });
     expect(repository.save).not.toHaveBeenCalled();
   });
+
+  it("hydrates a structurally valid oversized ledger as read-only without saving or clearing it", async () => {
+    const oversizedLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        {
+          ...createSimpleTrade("trade-oversized", "buy", "BTC", "1"),
+          note: "n".repeat(4_097),
+        },
+      ],
+    };
+    const repository = createRepository({
+      load: vi.fn(async () => structuredClone(oversizedLedger)),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.isReadOnly).toBe(true);
+    });
+    expect(result.current.resourcePolicyError).toEqual(
+      expect.objectContaining({
+        path: "trades[0].note",
+        limit: 4_096,
+        actual: 4_097,
+      }),
+    );
+
+    let mutationResult!: ReturnType<typeof result.current.applyLedgerAction>;
+    act(() => {
+      mutationResult = addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("trade-blocked", "buy", "ETH", "1"),
+      );
+    });
+    expect(mutationResult).toBe("rejected");
+    await expect(result.current.clearLedger()).resolves.toEqual({
+      ok: false,
+      code: LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED,
+    });
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(repository.clear).not.toHaveBeenCalled();
+  });
+
+  it("rejects a new mutation before it enters state when it exceeds ResourcePolicy", async () => {
+    const repository = createRepository();
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    let mutationResult!: ReturnType<typeof result.current.applyLedgerAction>;
+    act(() => {
+      mutationResult = addTrade(
+        result.current.applyLedgerAction,
+        {
+          ...createSimpleTrade("trade-note-too-long", "buy", "BTC", "1"),
+          note: "n".repeat(4_097),
+        },
+      );
+    });
+
+    expect(mutationResult).toBe("rejected");
+    expect(result.current.ledgerData.trades).toEqual([]);
+    expect(result.current.resourcePolicyError).toEqual(
+      expect.objectContaining({ path: "trades[0].note" }),
+    );
+    expect(repository.save).not.toHaveBeenCalled();
+  });
 });
