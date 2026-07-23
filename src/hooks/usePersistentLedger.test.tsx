@@ -4,7 +4,10 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LedgerData, Trade } from "../models";
+import type { StorageAdapter, StoredLedgerEnvelope } from "../adapters/storageAdapter";
+import { NoopEncryptionService } from "../encryption/noopEncryptionService";
 import {
+  DefaultLedgerRepository,
   LEDGER_REPOSITORY_ERROR_CODES,
   type LedgerRepository,
 } from "../repositories/ledgerRepository";
@@ -57,6 +60,28 @@ function createRepository(overrides: Partial<LedgerRepository> = {}) {
     clear: vi.fn(async () => undefined),
     ...overrides,
   } satisfies LedgerRepository;
+}
+
+function createMemoryStorageAdapter(
+  initialLedger: LedgerData | null,
+  write: (envelope: StoredLedgerEnvelope) => Promise<void> = async () => undefined,
+) {
+  let stored: StoredLedgerEnvelope | null = initialLedger
+    ? { formatVersion: 1, encryptedPayload: JSON.stringify(initialLedger) }
+    : null;
+
+  const adapter: StorageAdapter = {
+    read: vi.fn(async () => stored),
+    write: vi.fn(async (envelope) => {
+      await write(envelope);
+      stored = envelope;
+    }),
+    clear: vi.fn(async () => {
+      stored = null;
+    }),
+  };
+
+  return { adapter, readStored: () => stored };
 }
 
 function addTrade(
@@ -981,6 +1006,202 @@ describe("usePersistentLedger dirty lifecycle", () => {
       expect(result.current.hydrationStatus).toBe("ready");
       expect(result.current.ledgerData).toEqual(newLedger);
       expect(result.current.isDirty).toBe(false);
+    });
+  });
+});
+
+describe("usePersistentLedger backup import", () => {
+  it("validates a candidate before opening a repository write", async () => {
+    const repository = createRepository();
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    await expect(result.current.replaceLedgerFromBackup({})).resolves.toEqual({
+      ok: false,
+      code: "LEDGER_IMPORT_INVALID_BACKUP",
+    });
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it("writes once, replaces state only after success, and deduplicates concurrent import requests", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createRepository({
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const candidate = createCompleteLedger();
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    let firstImport!: ReturnType<typeof result.current.replaceLedgerFromBackup>;
+    let secondImport!: ReturnType<typeof result.current.replaceLedgerFromBackup>;
+    act(() => {
+      firstImport = result.current.replaceLedgerFromBackup(candidate);
+      secondImport = result.current.replaceLedgerFromBackup(candidate);
+    });
+
+    expect(firstImport).toBe(secondImport);
+    expect(result.current.persistenceOperation).toBe("importing");
+    expect(result.current.ledgerData).toEqual(createInitialLedgerData());
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+    });
+
+    await act(async () => {
+      saveDeferred.resolve();
+      await expect(firstImport).resolves.toEqual({ ok: true });
+    });
+    expect(result.current.ledgerData).toEqual(candidate);
+    expect(result.current.persistenceStatus).toBe("saved");
+    expect(result.current.isDirty).toBe(false);
+  });
+
+  it("keeps the prior record and page data when DefaultLedgerRepository import write fails", async () => {
+    const priorLedger = createCompleteLedger();
+    const { adapter, readStored } = createMemoryStorageAdapter(
+      priorLedger,
+      async () => {
+        throw new Error("write failed");
+      },
+    );
+    const repository = new DefaultLedgerRepository(
+      adapter,
+      new NoopEncryptionService(),
+    );
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    const pageBeforeImport = result.current.ledgerData;
+    const candidate = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("backup-new", "buy", "BTC", "3")],
+    };
+
+    await expect(result.current.replaceLedgerFromBackup(candidate)).resolves.toEqual({
+      ok: false,
+      code: "LEDGER_IMPORT_WRITE_FAILED",
+    });
+
+    expect(result.current.ledgerData).toEqual(pageBeforeImport);
+    expect(readStored()).toEqual({
+      formatVersion: 1,
+      encryptedPayload: JSON.stringify(priorLedger),
+    });
+    await expect(repository.load()).resolves.toEqual(priorLedger);
+  });
+
+  it("queues import after an in-flight save and preserves the last successful record on import failure", async () => {
+    const queuedSave = createDeferred<void>();
+    let writeCount = 0;
+    const priorLedger = createInitialLedgerData();
+    const { adapter } = createMemoryStorageAdapter(priorLedger, async () => {
+      writeCount += 1;
+      if (writeCount === 1) {
+        await queuedSave.promise;
+        return;
+      }
+      throw new Error("import failed");
+    });
+    const repository = new DefaultLedgerRepository(
+      adapter,
+      new NoopEncryptionService(),
+    );
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("queued-before-import", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(adapter.write).toHaveBeenCalledTimes(1);
+    });
+    const queuedLedger = result.current.ledgerData;
+    const importPromise = result.current.replaceLedgerFromBackup(
+      createCompleteLedger(),
+    );
+
+    queuedSave.resolve();
+    await expect(importPromise).resolves.toEqual({
+      ok: false,
+      code: "LEDGER_IMPORT_WRITE_FAILED",
+    });
+
+    await expect(repository.load()).resolves.toEqual(queuedLedger);
+    expect(result.current.ledgerData).toEqual(queuedLedger);
+  });
+
+  it("recovers from hydration failure without clearing first", async () => {
+    const repository = createRepository({
+      load: vi.fn(async () => {
+        throw new Error("corrupt record");
+      }),
+    });
+    const candidate = createCompleteLedger();
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("error");
+    });
+    await expect(result.current.replaceLedgerFromBackup(candidate)).resolves.toEqual({
+      ok: true,
+    });
+
+    expect(repository.clear).not.toHaveBeenCalled();
+    expect(repository.save).toHaveBeenCalledWith(candidate);
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(candidate);
+    });
+  });
+
+  it("defers repository switching until an import completes", async () => {
+    const saveDeferred = createDeferred<void>();
+    const oldRepository = createRepository({
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("new-repository", "buy", "ETH", "2")],
+    };
+    const newRepository = createRepository({
+      load: vi.fn(async () => newLedger),
+    });
+    const { result, rerender } = renderHook(
+      ({ repository }) => usePersistentLedger(repository),
+      { initialProps: { repository: oldRepository } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    const importPromise = result.current.replaceLedgerFromBackup(
+      createCompleteLedger(),
+    );
+    await waitFor(() => {
+      expect(oldRepository.save).toHaveBeenCalledOnce();
+    });
+
+    rerender({ repository: newRepository });
+    expect(result.current.repositorySwitchBlocked).toBe(true);
+    expect(newRepository.load).not.toHaveBeenCalled();
+
+    saveDeferred.resolve();
+    await expect(importPromise).resolves.toEqual({ ok: true });
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(newLedger);
     });
   });
 });
