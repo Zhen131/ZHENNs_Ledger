@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LedgerData, Trade } from "../models";
 import type { StorageAdapter, StoredLedgerEnvelope } from "../adapters/storageAdapter";
 import { NoopEncryptionService } from "../encryption/noopEncryptionService";
+import {
+  createBackupEnvelope,
+  parseBackupJson,
+  serializeBackupEnvelope,
+} from "../backup/backupEnvelope";
+import { createApplicationLedgerRepository } from "../composition/ledgerRepositoryComposition";
 import {
   DefaultLedgerRepository,
   LEDGER_REPOSITORY_ERROR_CODES,
@@ -16,6 +23,7 @@ import {
   createAsset,
   createPriceSnapshot,
   createSimpleTrade,
+  sampleTrades,
 } from "../test/fixtures";
 import { usePersistentLedger } from "./usePersistentLedger";
 
@@ -120,6 +128,36 @@ function createCompleteLedger(): LedgerData {
         updatedAt: "2026-07-01T00:00:00Z",
       },
     ],
+  };
+}
+
+function createCompleteBackupLedger(): LedgerData {
+  const initialLedger = createInitialLedgerData();
+  const feeRule = {
+    id: "fee-backup",
+    name: "Backup test fee",
+    platform: "Test",
+    type: "percentage" as const,
+    rate: "0.001",
+    currency: "USD",
+    createdAt: "2026-07-01T00:00:00Z",
+    updatedAt: "2026-07-01T00:00:00Z",
+  };
+
+  return {
+    ...initialLedger,
+    assets: [...initialLedger.assets, createAsset("SOL", "Solana")],
+    trades: structuredClone(sampleTrades).map((trade, index) => ({
+      ...trade,
+      note: index === 0 ? "golden backup note" : trade.note,
+      rawText: trade.rawText ?? `golden backup ${index}`,
+      feeRuleId: index === 0 ? feeRule.id : undefined,
+    })),
+    priceSnapshots: [
+      createPriceSnapshot("price-backup-btc", "BTC", "80000", "2026-07-16"),
+      createPriceSnapshot("price-backup-eth", "ETH", "2200", "2026-07-16"),
+    ],
+    feeRules: [feeRule],
   };
 }
 
@@ -1061,6 +1099,42 @@ describe("usePersistentLedger backup import", () => {
     expect(result.current.isDirty).toBe(false);
   });
 
+  it("rejects import while an explicit retry owns the write queue", async () => {
+    const retrySave = createDeferred<void>();
+    const repository = createRepository({
+      save: vi
+        .fn<LedgerRepository["save"]>()
+        .mockRejectedValueOnce(new Error("write failed"))
+        .mockImplementationOnce(() => retrySave.promise),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("retry-before-import", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(result.current.canRetryPersistence).toBe(true);
+    });
+
+    const retryPromise = result.current.retryPersistence();
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledTimes(2);
+    });
+    await expect(
+      result.current.replaceLedgerFromBackup(createCompleteLedger()),
+    ).resolves.toEqual({ ok: false, code: "LEDGER_IMPORT_NOT_ALLOWED" });
+    expect(repository.save).toHaveBeenCalledTimes(2);
+
+    retrySave.resolve();
+    await expect(retryPromise).resolves.toBe(true);
+  });
+
   it("keeps the prior record and page data when DefaultLedgerRepository import write fails", async () => {
     const priorLedger = createCompleteLedger();
     const { adapter, readStored } = createMemoryStorageAdapter(
@@ -1265,6 +1339,59 @@ describe("usePersistentLedger backup import", () => {
       expect(result.current.hydrationStatus).toBe("ready");
       expect(result.current.ledgerData).toEqual(newLedger);
     });
+  });
+
+  it("round-trips a complete backup through Hook clear, import, and repository remount", async () => {
+    const indexedDBFactory = new IDBFactory();
+    const databaseName = "hook-backup-roundtrip";
+    const firstRepository = createApplicationLedgerRepository({
+      databaseName,
+      indexedDBFactory,
+    });
+    const fixture = createCompleteBackupLedger();
+    const { result, unmount } = renderHook(() => usePersistentLedger(firstRepository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    await expect(result.current.replaceLedgerFromBackup(fixture)).resolves.toEqual({
+      ok: true,
+    });
+    await waitFor(() => {
+      expect(result.current.ledgerData).toEqual(fixture);
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+
+    const envelope = createBackupEnvelope(result.current.ledgerData, {
+      appVersion: "0.1.0",
+      exportedAt: "2026-07-23T12:34:56Z",
+    });
+    expect(envelope.ok).toBe(true);
+    if (!envelope.ok) return;
+    const parsed = parseBackupJson(serializeBackupEnvelope(envelope.value));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    await expect(result.current.clearLedger()).resolves.toEqual({ ok: true });
+    await expect(firstRepository.load()).resolves.toBeNull();
+    await expect(
+      result.current.replaceLedgerFromBackup(parsed.value.ledgerData),
+    ).resolves.toEqual({ ok: true });
+    await waitFor(() => {
+      expect(result.current.ledgerData).toEqual(fixture);
+    });
+
+    unmount();
+    const remountedRepository = createApplicationLedgerRepository({
+      databaseName,
+      indexedDBFactory,
+    });
+    const remounted = renderHook(() => usePersistentLedger(remountedRepository));
+    await waitFor(() => {
+      expect(remounted.result.current.hydrationStatus).toBe("ready");
+      expect(remounted.result.current.ledgerData).toEqual(fixture);
+    });
+    remounted.unmount();
   });
 });
 
