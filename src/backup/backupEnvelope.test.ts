@@ -61,23 +61,29 @@ describe("BackupEnvelopeV1", () => {
 
   it("rejects invalid metadata and mismatched schema versions", () => {
     const ledger = createInitialLedgerData();
-    expect(
-      validateBackupEnvelope({
-        backupFormatVersion: 1,
-        appVersion: "",
-        exportedAt: "2026-07-23",
-        ledgerSchemaVersion: 2,
-        ledgerData: ledger,
-      }),
-    ).toEqual({
+    const result = validateBackupEnvelope({
+      backupFormatVersion: 1,
+      appVersion: "",
+      exportedAt: "2026-07-23",
+      ledgerSchemaVersion: 2,
+      ledgerData: ledger,
+    });
+
+    expect(result).toEqual({
       ok: false,
       errors: expect.arrayContaining([
         expect.objectContaining({ code: "BACKUP_INVALID_APP_VERSION" }),
         expect.objectContaining({ code: "BACKUP_INVALID_EXPORTED_AT" }),
         expect.objectContaining({ code: "BACKUP_SCHEMA_VERSION_MISMATCH" }),
-        expect.objectContaining({ code: "BACKUP_SCHEMA_VERSION_MISMATCH" }),
       ]),
     });
+    if (!result.ok) {
+      expect(
+        result.errors.filter(
+          (error) => error.code === "BACKUP_SCHEMA_VERSION_MISMATCH",
+        ),
+      ).toHaveLength(1);
+    }
   });
 
   it("rejects resource-exhausting payloads after structural validation", () => {

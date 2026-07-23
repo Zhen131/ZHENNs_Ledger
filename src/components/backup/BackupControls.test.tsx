@@ -68,6 +68,32 @@ describe("BackupControls", () => {
     expect(screen.getByText("已导出备份。备份为明文，未加密。")).not.toBeNull();
   });
 
+  it("does not create a backup blob when the serialized envelope exceeds 8 MiB", async () => {
+    const createObjectURL = vi.fn(() => "blob:backup");
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL: vi.fn() });
+    const oversizedTrade = {
+      ...createSimpleTrade("oversized", "buy", "BTC", "1"),
+      rawText: "x".repeat(8 * 1024 * 1024),
+    };
+    renderControls({
+      isReadOnly: true,
+      ledgerData: {
+        ...createInitialLedgerData(),
+        trades: [oversizedTrade],
+      },
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "无法导出：当前 v1 无法安全导出该超大账本；未创建备份文件。",
+      ),
+    ).not.toBeNull();
+  });
+
   it("checks file size before File.text", async () => {
     renderControls();
     const file = createBackupFile();
@@ -192,12 +218,28 @@ describe("BackupControls", () => {
     expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
   });
 
-  it("keeps only rescue export available for a read-only ledger", () => {
+  it("states that a read-only rescue backup may not be importable", async () => {
+    const createObjectURL = vi.fn(() => "blob:backup");
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL: vi.fn() });
     renderControls({ isReadOnly: true });
+    const user = userEvent.setup();
 
     expect(screen.getByRole("button", { name: "导出完整账本备份" })).not.toBeNull();
     expect(screen.queryByLabelText("选择账本备份文件")).toBeNull();
-    expect(screen.getByText(/仅可导出受 8 MiB 限制的救援备份/)).not.toBeNull();
+    expect(
+      screen.getByText(
+        /备份可能因集合或字符串超限而无法由当前版本重新导入/,
+      ),
+    ).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText(
+        /已导出只读救援备份.*可能因集合或字符串超限而无法由当前版本重新导入/,
+      ),
+    ).not.toBeNull();
   });
 
   it("shows recovery import but no export after hydration fails", () => {
