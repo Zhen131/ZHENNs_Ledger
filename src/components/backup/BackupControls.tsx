@@ -72,14 +72,11 @@ export function BackupControls({
     };
   }, []);
 
-  const canExport =
-    hydrationStatus === "ready" && persistenceOperation === "idle";
-  const canImport =
-    persistenceOperation === "idle" &&
-    ((hydrationStatus === "ready" && !isReadOnly) || hydrationStatus === "error");
-  const isImporting =
-    persistenceOperation === "importing" || importState === "importing";
-
+  const showExport = hydrationStatus === "ready";
+  const showImport =
+    (hydrationStatus === "ready" && !isReadOnly) || hydrationStatus === "error";
+  const canExport = showExport && persistenceOperation === "idle";
+  const canImport = showImport && persistenceOperation === "idle";
   function resetFileSelection() {
     selectionGenerationRef.current += 1;
     selectedEnvelopeRef.current = null;
@@ -105,7 +102,9 @@ export function BackupControls({
     const serialized = serializeBackupEnvelope(envelopeResult.value);
     const bytePolicy = evaluateLedgerJsonResourcePolicy(serialized);
     if (!bytePolicy.ok) {
-      setMessage("无法导出：备份文件超过 8 MiB 限制。");
+      setMessage(
+        "无法导出：当前 v1 无法安全导出该超大账本；未创建备份文件。",
+      );
       return;
     }
 
@@ -118,7 +117,7 @@ export function BackupControls({
     downloadBackupJson(serialized, exportedAt);
     setMessage(
       isReadOnly
-        ? "已导出只读救援备份。备份为明文，且当前只读保护禁止导入覆盖超限账本。"
+        ? "已导出只读救援备份。备份为明文，可能因集合或字符串超限而无法由当前版本重新导入；当前只读保护禁止导入覆盖超限账本。"
         : persistenceStatus === "saving" || persistenceStatus === "error"
           ? "已导出救援备份。备份为明文，可能新于最后成功保存的版本。"
           : "已导出备份。备份为明文，未加密。",
@@ -215,24 +214,24 @@ export function BackupControls({
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
       <div className="flex flex-wrap gap-3">
-        {canExport ? (
+        {showExport ? (
           <button
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={isImporting}
+            disabled={!canExport}
             onClick={handleExport}
             type="button"
           >
             导出完整账本备份
           </button>
         ) : null}
-        {canImport ? (
+        {showImport ? (
           <label className="w-fit cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
             选择备份文件
             <input
               accept="application/json,.json"
               aria-label="选择账本备份文件"
               className="sr-only"
-              disabled={isImporting}
+              disabled={!canImport}
               onChange={handleFileChange}
               ref={fileInputRef}
               type="file"
@@ -244,7 +243,7 @@ export function BackupControls({
       {hydrationStatus === "loading" ? <p>读取完成前不可导入或导出。</p> : null}
       {hydrationStatus === "error" ? <p>可使用有效备份恢复本地账本。</p> : null}
       {isReadOnly ? (
-        <p>当前账本只读，仅可导出受 8 MiB 限制的救援备份；当前只读保护禁止导入覆盖超限账本。</p>
+        <p>当前账本只读，仅可导出受 8 MiB 限制的救援备份；备份可能因集合或字符串超限而无法由当前版本重新导入；当前只读保护禁止导入覆盖超限账本。</p>
       ) : null}
       {persistenceStatus === "saving" || persistenceStatus === "error" ? (
         <p>可导出当前页面账本作为救援备份。备份为明文，可能新于最后成功保存的版本。</p>

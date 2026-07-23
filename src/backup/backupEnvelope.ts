@@ -125,7 +125,8 @@ export function validateBackupEnvelope(input: unknown): BackupEnvelopeResult {
   });
   errors.push(...metadataErrors);
 
-  if (input.ledgerSchemaVersion !== 1) {
+  const hasSupportedLedgerSchemaVersion = input.ledgerSchemaVersion === 1;
+  if (!hasSupportedLedgerSchemaVersion) {
     errors.push(
       createError(
         "BACKUP_SCHEMA_VERSION_MISMATCH",
@@ -139,7 +140,10 @@ export function validateBackupEnvelope(input: unknown): BackupEnvelopeResult {
   if (!ledgerResult.ok) {
     errors.push(...ledgerResult.errors);
   } else {
-    if (input.ledgerSchemaVersion !== ledgerResult.value.schemaVersion) {
+    if (
+      hasSupportedLedgerSchemaVersion &&
+      input.ledgerSchemaVersion !== ledgerResult.value.schemaVersion
+    ) {
       errors.push(
         createError(
           "BACKUP_SCHEMA_VERSION_MISMATCH",
