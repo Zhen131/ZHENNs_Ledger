@@ -4,6 +4,7 @@ import { createInitialLedgerData } from "../state/initialLedgerData";
 import {
   DEFAULT_LEDGER_RESOURCE_LIMITS,
   LEDGER_RESOURCE_POLICY_ERROR_CODES,
+  evaluateLedgerByteLengthResourcePolicy,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
 } from "./resourcePolicy";
@@ -101,6 +102,25 @@ describe("Ledger resource policy", () => {
     });
 
     expect(result).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE,
+          path: "file",
+          limit: 8,
+          actual: 9,
+        }),
+      ],
+    });
+  });
+
+  it("shares the file byte limit with callers that have not read text yet", () => {
+    expect(
+      evaluateLedgerByteLengthResourcePolicy(9, {
+        ...DEFAULT_LEDGER_RESOURCE_LIMITS,
+        fileBytes: 8,
+      }),
+    ).toEqual({
       ok: false,
       errors: [
         expect.objectContaining({
