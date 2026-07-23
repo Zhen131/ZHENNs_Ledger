@@ -542,7 +542,7 @@ describe("DashboardShell data management", () => {
     );
     expect(
       screen.getByText(
-        "这会永久删除自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。",
+        "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。",
       ),
     ).not.toBeNull();
 
@@ -652,7 +652,7 @@ describe("DashboardShell data management", () => {
     );
     expect(
       screen.getByText(
-        "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。",
+        "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。",
       ),
     ).not.toBeNull();
     await user.type(
