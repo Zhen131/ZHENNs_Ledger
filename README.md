@@ -4,10 +4,9 @@
 
 ## 当前状态
 
-截至 2026-07-23，Week 8 完整账本备份修复候选已在
-`zhennn/week8-backup-roundtrip` 完成，等待独立终审；尚未合并或推送。
-版本化 JSON 导出、完整校验、原子恢复、hydration error 恢复、只读救援导出、
-8 MiB 边界、并发失效保护和生产 UI 往返均已接通。
+截至 2026-07-23，Week 8 完整账本备份修复候选位于
+`zhennn/week8-backup-roundtrip`，尚未合并或推送。P1-02 精确 8 MiB 自动化 Gate 已关闭；P1-01 production evidence Gate 未关闭。
+受控生产实际文件的导出 -> clear -> 回导 -> 二次导出已有通过记录；另一轮 Chrome 最终回导出现“备份已恢复并保存到本地”但页面为空的待复核现象。该现象尚未确认是否为可复现的实现缺陷、浏览器 profile 状态或验收操作差异；Week 8 为 No-Go，禁止开始 Week 9。
 
 功能分支已实现：
 
@@ -40,7 +39,7 @@
 当前自动化结果：
 
 ```text
-Week 8 修复候选：23 个测试文件、238 项测试
+Week 8 修复候选：23 个测试文件、239 项测试
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
 git diff --check -> 通过
@@ -55,8 +54,8 @@ ADA 超卖 -> 拒绝且账本仍为 5 条交易
 不安全删除 -> 拒绝；安全删除 BTC -> 4 条交易且 BTC 持仓消失
 390 / 1280 宽度 -> 页面级无横向溢出，控制台无 warning / error
 Week 8 production -> BTC 交易与价格保存、导出提示、clear、刷新空库通过
-完整 fixture -> BTC / ETH 交易与 BTC 价格恢复，刷新后持仓与交易一致
-拒绝路径 -> 坏 JSON、format v2、schema v2、悬空引用、超 8 MiB 均零改动
+受控真实文件 -> BTC / ETH 交易与 BTC 价格恢复，二次导出规范化 ledgerData 一致
+Chrome 最终回导 -> 候选摘要与成功提示正确，但页面为空；待复现定位或排除，不计为通过
 production console -> 0 warning / 0 error
 ```
 
@@ -195,7 +194,7 @@ git diff --check
 
 ## 尚未关闭
 
-- Week 8 修复候选等待独立终审；尚未合并 `main`，不得据此进入 Week 9。
+- Week 8 P1-01 production evidence Gate 未关闭：仍缺 direct record、完整 fixture、hydration recovery、五类拒绝场景的前后 record 证据，并需复现定位或排除 Chrome 回导待复核现象；尚未合并 `main`，不得进入 Week 9。
 - S-07 已完成；大账本性能预算、分页和 virtual list 仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
 - load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；production DevTools envelope 与 clear record 直读证据已补齐。
 - 分页、virtual list 和大账本性能上限尚未定义。
