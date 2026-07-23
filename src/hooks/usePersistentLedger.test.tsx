@@ -1086,7 +1086,7 @@ describe("usePersistentLedger backup import", () => {
 
     await expect(result.current.replaceLedgerFromBackup(candidate)).resolves.toEqual({
       ok: false,
-      code: "LEDGER_IMPORT_WRITE_FAILED",
+      code: LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED,
     });
 
     expect(result.current.ledgerData).toEqual(pageBeforeImport);
@@ -1095,6 +1095,68 @@ describe("usePersistentLedger backup import", () => {
       encryptedPayload: JSON.stringify(priorLedger),
     });
     await expect(repository.load()).resolves.toEqual(priorLedger);
+  });
+
+  it("does not auto-save a failed mutation again after a failed import", async () => {
+    const initialLedger = createInitialLedgerData();
+    let writeCount = 0;
+    const { adapter, readStored } = createMemoryStorageAdapter(
+      initialLedger,
+      async () => {
+        writeCount += 1;
+        throw new Error(`write ${writeCount} failed`);
+      },
+    );
+    const repository = new DefaultLedgerRepository(
+      adapter,
+      new NoopEncryptionService(),
+    );
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    act(() => {
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("failed-before-import", "buy", "BTC", "1"),
+      );
+    });
+    await waitFor(() => {
+      expect(adapter.write).toHaveBeenCalledTimes(1);
+      expect(result.current.persistenceStatus).toBe("error");
+      expect(result.current.canRetryPersistence).toBe(true);
+    });
+
+    const pageBeforeImport = result.current.ledgerData;
+    const mutationVersionBeforeImport = result.current.mutationVersion;
+    const persistedVersionBeforeImport = result.current.persistedVersion;
+
+    await expect(
+      result.current.replaceLedgerFromBackup(createCompleteLedger()),
+    ).resolves.toEqual({
+      ok: false,
+      code: LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED,
+    });
+
+    await waitFor(() => {
+      expect(adapter.write).toHaveBeenCalledTimes(2);
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(adapter.write).toHaveBeenCalledTimes(2);
+    expect(result.current.ledgerData).toEqual(pageBeforeImport);
+    expect(result.current.mutationVersion).toBe(mutationVersionBeforeImport);
+    expect(result.current.persistedVersion).toBe(persistedVersionBeforeImport);
+    expect(result.current.persistenceStatus).toBe("error");
+    expect(result.current.canRetryPersistence).toBe(true);
+    expect(result.current.isDirty).toBe(true);
+    expect(readStored()).toEqual({
+      formatVersion: 1,
+      encryptedPayload: JSON.stringify(initialLedger),
+    });
   });
 
   it("queues import after an in-flight save and preserves the last successful record on import failure", async () => {
@@ -1135,7 +1197,7 @@ describe("usePersistentLedger backup import", () => {
     queuedSave.resolve();
     await expect(importPromise).resolves.toEqual({
       ok: false,
-      code: "LEDGER_IMPORT_WRITE_FAILED",
+      code: LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED,
     });
 
     await expect(repository.load()).resolves.toEqual(queuedLedger);

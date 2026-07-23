@@ -91,7 +91,7 @@ export type ImportLedgerResult =
       code:
         | "LEDGER_IMPORT_NOT_ALLOWED"
         | "LEDGER_IMPORT_INVALID_BACKUP"
-        | "LEDGER_IMPORT_WRITE_FAILED";
+        | typeof LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED;
     };
 
 /**
@@ -450,6 +450,17 @@ export function usePersistentLedger(
       return;
     }
 
+    const failedSnapshot = failedSnapshotRef.current;
+
+    // A failed version is retried only by the explicit retry action or a new mutation.
+    // Re-rendering after an unrelated failed import must not enqueue it again.
+    if (
+      failedSnapshot?.generation === generation &&
+      failedSnapshot.version === mutationVersion
+    ) {
+      return;
+    }
+
     const scheduledSnapshot: ScheduledSnapshot = {
       generation,
       version: mutationVersion,
@@ -746,6 +757,15 @@ export function usePersistentLedger(
         return importPromiseRef.current;
       }
 
+      const currentRetryAttempt = retryAttemptRef.current;
+      if (
+        currentRetryAttempt?.generation === generationRef.current &&
+        currentRetryAttempt.version ===
+          persistenceVersionStateRef.current.mutationVersion
+      ) {
+        return Promise.resolve({ ok: false, code: "LEDGER_IMPORT_NOT_ALLOWED" });
+      }
+
       const canImportReadyLedger =
         hydrationStatus === "ready" &&
         hydratedRepositoryRef.current === activeRepository &&
@@ -772,8 +792,6 @@ export function usePersistentLedger(
       operationRef.current = "importing";
       operationRepositoryRef.current = operationRepository;
       operationTokenRef.current = operationToken;
-      failedSnapshotRef.current = null;
-      retryAttemptRef.current = null;
 
       if (mountedRef.current) {
         setPersistenceOperation("importing");
@@ -785,7 +803,10 @@ export function usePersistentLedger(
           try {
             await operationRepository.save(validatedLedger);
           } catch {
-            return { ok: false, code: "LEDGER_IMPORT_WRITE_FAILED" };
+            return {
+              ok: false,
+              code: LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED,
+            };
           }
 
           if (
