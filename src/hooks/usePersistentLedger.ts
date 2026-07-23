@@ -23,6 +23,7 @@ import {
   evaluateLedgerResourcePolicy,
   type LedgerResourcePolicyError,
 } from "../validators/resourcePolicy";
+import { validateLedgerData } from "../validators/ledgerDataValidator";
 
 export type PersistentLedgerState = {
   ledgerData: LedgerData;
@@ -34,6 +35,9 @@ export type PersistentLedgerState = {
   retryPersistence: () => Promise<boolean>;
   canRetryPersistence: boolean;
   clearLedger: () => Promise<ClearLedgerResult>;
+  replaceLedgerFromBackup: (
+    candidate: unknown,
+  ) => Promise<ImportLedgerResult>;
   persistenceOperation: PersistenceOperation;
   persistenceStatus: PersistenceStatus;
   mutationVersion: number;
@@ -43,7 +47,7 @@ export type PersistentLedgerState = {
   discardDirtyChangesAndSwitchRepository: () => boolean;
 };
 
-export type PersistenceOperation = "idle" | "clearing";
+export type PersistenceOperation = "idle" | "clearing" | "importing";
 export type PersistenceStatus = "idle" | "saving" | "saved" | "error";
 export type ApplyLedgerActionResult = "applied" | "noop" | "rejected";
 
@@ -78,6 +82,16 @@ export type ClearLedgerResult =
   | {
       ok: false;
       code: typeof LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED;
+    };
+
+export type ImportLedgerResult =
+  | { ok: true }
+  | {
+      ok: false;
+      code:
+        | "LEDGER_IMPORT_NOT_ALLOWED"
+        | "LEDGER_IMPORT_INVALID_BACKUP"
+        | "LEDGER_IMPORT_WRITE_FAILED";
     };
 
 /**
@@ -121,6 +135,7 @@ export function usePersistentLedger(
   const operationRepositoryRef = useRef<LedgerRepository | null>(null);
   const operationTokenRef = useRef<symbol | null>(null);
   const clearPromiseRef = useRef<Promise<ClearLedgerResult> | null>(null);
+  const importPromiseRef = useRef<Promise<ImportLedgerResult> | null>(null);
   const pendingHydrationRef = useRef<{
     repository: LedgerRepository;
     generation: number;
@@ -134,6 +149,7 @@ export function usePersistentLedger(
 
   if (
     requestedRepository !== activeRepositoryRef.current &&
+    operationRef.current !== "importing" &&
     (!isCurrentlyDirty ||
       repositorySwitchPermissionRef.current === requestedRepository)
   ) {
@@ -143,7 +159,8 @@ export function usePersistentLedger(
 
   const activeRepository = activeRepositoryRef.current;
   const repositorySwitchBlocked =
-    requestedRepository !== activeRepository && isCurrentlyDirty;
+    requestedRepository !== activeRepository &&
+    (isCurrentlyDirty || operationRef.current === "importing");
   const isDirty =
     persistenceVersionState.persistedVersion !==
     persistenceVersionState.mutationVersion;
@@ -310,6 +327,7 @@ export function usePersistentLedger(
       operationRepositoryRef.current = null;
       operationTokenRef.current = null;
       clearPromiseRef.current = null;
+      importPromiseRef.current = null;
       setPersistenceOperation("idle");
     }
 
@@ -718,6 +736,116 @@ export function usePersistentLedger(
     publishPersistenceVersionState,
   ]);
 
+  const replaceLedgerFromBackup = useCallback(
+    (candidate: unknown): Promise<ImportLedgerResult> => {
+      if (
+        operationRef.current === "importing" &&
+        operationRepositoryRef.current === activeRepository &&
+        importPromiseRef.current !== null
+      ) {
+        return importPromiseRef.current;
+      }
+
+      const canImportReadyLedger =
+        hydrationStatus === "ready" &&
+        hydratedRepositoryRef.current === activeRepository &&
+        !readOnlyRef.current;
+      const canRecoverHydrationError =
+        hydrationStatus === "error" &&
+        hydrationErrorRepositoryRef.current === activeRepository;
+
+      if (
+        operationRef.current !== "idle" ||
+        (!canImportReadyLedger && !canRecoverHydrationError)
+      ) {
+        return Promise.resolve({ ok: false, code: "LEDGER_IMPORT_NOT_ALLOWED" });
+      }
+
+      const ledgerResult = validateLedgerData(candidate);
+      if (!ledgerResult.ok || !evaluateLedgerResourcePolicy(ledgerResult.value).ok) {
+        return Promise.resolve({ ok: false, code: "LEDGER_IMPORT_INVALID_BACKUP" });
+      }
+
+      const validatedLedger = ledgerResult.value;
+      const operationToken = Symbol("import-ledger");
+      const operationRepository = activeRepository;
+      operationRef.current = "importing";
+      operationRepositoryRef.current = operationRepository;
+      operationTokenRef.current = operationToken;
+      failedSnapshotRef.current = null;
+      retryAttemptRef.current = null;
+
+      if (mountedRef.current) {
+        setPersistenceOperation("importing");
+      }
+
+      const importPromise = writeQueueRef.current
+        .catch(() => undefined)
+        .then(async (): Promise<ImportLedgerResult> => {
+          try {
+            await operationRepository.save(validatedLedger);
+          } catch {
+            return { ok: false, code: "LEDGER_IMPORT_WRITE_FAILED" };
+          }
+
+          if (
+            mountedRef.current &&
+            currentRepositoryRef.current === operationRepository &&
+            operationTokenRef.current === operationToken
+          ) {
+            const serializedLedger = JSON.stringify(validatedLedger);
+            generationRef.current += 1;
+            ledgerDataRef.current = validatedLedger;
+            lastPersistedSnapshotRef.current = serializedLedger;
+            latestScheduledSnapshotRef.current = null;
+            failedSnapshotRef.current = null;
+            retryAttemptRef.current = null;
+            pendingHydrationRef.current = null;
+            hydratedRepositoryRef.current = operationRepository;
+            hydrationErrorRepositoryRef.current = null;
+            publishPersistenceVersionState({
+              mutationVersion: 0,
+              persistedVersion: 0,
+              persistenceStatus: "saved",
+            });
+            reducerDispatch({
+              type: "ledger/replace",
+              ledgerData: validatedLedger,
+            });
+            setPersistenceError(null);
+            setResourcePolicyError(null);
+            readOnlyRef.current = false;
+            setIsReadOnly(false);
+            setHydrationStatus("ready");
+          }
+
+          return { ok: true };
+        })
+        .finally(() => {
+          if (
+            operationTokenRef.current !== operationToken ||
+            currentRepositoryRef.current !== operationRepository
+          ) {
+            return;
+          }
+
+          operationRef.current = "idle";
+          operationRepositoryRef.current = null;
+          operationTokenRef.current = null;
+          importPromiseRef.current = null;
+
+          if (mountedRef.current) {
+            setPersistenceOperation("idle");
+          }
+        });
+
+      importPromiseRef.current = importPromise;
+      writeQueueRef.current = importPromise.then(() => undefined);
+      return importPromise;
+    },
+    [activeRepository, hydrationStatus, publishPersistenceVersionState],
+  );
+
   return {
     ledgerData,
     applyLedgerAction,
@@ -732,6 +860,7 @@ export function usePersistentLedger(
       failedSnapshotRef.current.version ===
         persistenceVersionState.mutationVersion,
     clearLedger,
+    replaceLedgerFromBackup,
     persistenceOperation,
     persistenceStatus: persistenceVersionState.persistenceStatus,
     mutationVersion: persistenceVersionState.mutationVersion,
