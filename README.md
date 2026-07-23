@@ -4,10 +4,10 @@
 
 ## 当前状态
 
-截至 2026-07-22，Week 7 安全 clear、统一持久化操作互斥、B 批次可靠性补漏与 S-07 ResourcePolicy 已完成。
-固定 BTC / ETH 数据的 production build 新增、价格、删除、刷新和 clear 主链通过；
-production DevTools 已直接读取 `ledger:v1` envelope，并确认 clear 后 record 不存在。
-Week 7 Storage Gate 判定为 **Go**，Week 8 可在用户确认后开始。
+截至 2026-07-23，Week 8 完整账本备份修复候选已在
+`zhennn/week8-backup-roundtrip` 完成，等待独立终审；尚未合并或推送。
+版本化 JSON 导出、完整校验、原子恢复、hydration error 恢复、只读救援导出、
+8 MiB 边界、并发失效保护和生产 UI 往返均已接通。
 
 功能分支已实现：
 
@@ -29,6 +29,10 @@ Week 7 Storage Gate 判定为 **Go**，Week 8 可在用户确认后开始。
 - 通用持久化操作互斥：dispatch、自动保存和 clear 共用同步 operation ref 与写队列；重复 clear 共享同一 Promise。
 - clear 生命周期保护：覆盖排队写入、前置保存失败、clear 失败、Repository 切换和组件卸载。
 - clear 后空库保护：清空成功不自动保存初始账本；第一次新用户写入才重新生成 record。
+- 完整账本备份：`BackupEnvelopeV1` 只包含版本元数据与完整 `LedgerData`，不包含 `Position[]`。
+- 原子恢复：复用 Repository 整账 `save`，写入成功后才替换页面；失败保留页面和旧 record。
+- 导入失效保护：取消、卸载、Repository 切换和旧 `File.text()` 完成均不得修改当前页面。
+- 只读救援边界：允许导出当前内存账本，并明确超限备份可能无法由当前版本重新导入。
 - 八列资产汇总：直接展示 `Position.costBasis` 和 `Position.realizedPnl`，并明确当前手续费不计入口径。
 - golden UI 回归：逐笔填写真实表单，覆盖 5 条 golden、BTC 价格、ADA 超卖和两类删除。
 - 响应式收口：宽窄屏页面不再整体横向溢出，宽表只在自己的容器内滚动。
@@ -36,11 +40,10 @@ Week 7 Storage Gate 判定为 **Go**，Week 8 可在用户确认后开始。
 当前自动化结果：
 
 ```text
-Storage Gate 基线：19 个测试文件、169 项测试
-B 批次补漏后：19 个测试文件、188 项测试
-S-07 ResourcePolicy 后：20 个测试文件、195 项测试
+Week 8 修复候选：23 个测试文件、238 项测试
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
+git diff --check -> 通过
 ```
 
 生产 UI 验收结果：
@@ -51,6 +54,10 @@ BTC 70000 USD -> 市值 11.4716 USD，未实现盈亏 0.4716 USD
 ADA 超卖 -> 拒绝且账本仍为 5 条交易
 不安全删除 -> 拒绝；安全删除 BTC -> 4 条交易且 BTC 持仓消失
 390 / 1280 宽度 -> 页面级无横向溢出，控制台无 warning / error
+Week 8 production -> BTC 交易与价格保存、导出提示、clear、刷新空库通过
+完整 fixture -> BTC / ETH 交易与 BTC 价格恢复，刷新后持仓与交易一致
+拒绝路径 -> 坏 JSON、format v2、schema v2、悬空引用、超 8 MiB 均零改动
+production console -> 0 warning / 0 error
 ```
 
 Week 7 固定 production build 样例：
@@ -131,7 +138,8 @@ IndexedDB
 ```text
 src/
   app/           Next.js 页面入口
-  components/    Dashboard、交易表单、价格表单和交易列表
+  backup/        BackupEnvelopeV1、规范化序列化与浏览器下载
+  components/    Dashboard、交易表单、价格表单、备份控制和交易列表
   models/        Asset、Trade、PriceSnapshot、Position、LedgerData 等类型
   utils/         Decimal 运算统一入口
   calculators/   持仓、成本和盈亏纯计算
@@ -156,6 +164,9 @@ src/
 - clear 只在 ready 或 hydration error 的受控恢复入口执行；loading 状态不可清空。
 - dispatch、save 和 clear 共用同一 operation/queue 顺序边界，clear 期间全部写入口禁用。
 - clear 成功后初始账本不会自动重建 `ledger:v1`，第一次新用户写入才会保存。
+- 导入在 `File.text()` 前检查声明大小，解析前复核 UTF-8 字节数，再运行整账 Validator 与 ResourcePolicy。
+- 导入、clear 和自动保存共用写队列；导入期间所有写入口与备份入口同步禁用。
+- schema 版本错误每个冲突只返回一项结构化错误，不重复报告。
 - IndexedDB 只出现在 Adapter；具体实例只在 composition 组装点创建。
 
 ## 本地运行
@@ -184,20 +195,17 @@ git diff --check
 
 ## 尚未关闭
 
-- Week 7 Storage Gate 已 Go；Week 8 导入导出尚未开始。
+- Week 8 修复候选等待独立终审；尚未合并 `main`，不得据此进入 Week 9。
 - S-07 已完成；大账本性能预算、分页和 virtual list 仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
 - load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；production DevTools envelope 与 clear record 直读证据已补齐。
 - 分页、virtual list 和大账本性能上限尚未定义。
 - 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
 - Noop EncryptionService 不提供加密；真加密计划在后续 Web Crypto 阶段完成。
-- JSON 导入导出、图表、benchmark 和论文发布门尚未实现。
+- 加密备份、图表、benchmark 和论文发布门尚未实现。
 - `npm audit` 当前报告 5 个依赖漏洞；Next.js 与 lint 工具链升级需要单独评估，未执行强制大版本修复。
 
 ## Git 状态
 
-- 07A 风险补漏已合入并推送源码 `main`。
-- 合并提交：`d936463 合并07A风险补漏与Week6-7提前实现`。
-- 已合并的功能分支 `zhennn/close-week6-week7-07a-risks` 已删除。
-- Week 7 源码已进入 `main` / `origin/main`，包含 `529983e` 合并提交及 S-01 / S-02 / S-03 三个补漏提交。
-- S-07 提交 `c2b8c06`、`7b1597d`、`dc89f35` 与文档提交 `6ea5c75` 已进入 `main` / `origin/main`。
-- Week 8 尚未开始；production DevTools G-01 / G-02 直接 record 证据已关闭。
+- 当前源码分支：`zhennn/week8-backup-roundtrip`。
+- 本轮修复提交：`26141d5`、`3fe5ab0`。
+- Week 8 修复候选未合并、未推送；远端同步不在本轮范围。
