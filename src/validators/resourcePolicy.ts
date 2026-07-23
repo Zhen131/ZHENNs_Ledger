@@ -126,10 +126,22 @@ export function evaluateLedgerJsonResourcePolicy(
   serializedLedger: string,
   overrides: Partial<LedgerResourceLimits> = {},
 ): LedgerResourcePolicyResult {
-  const limits = { ...DEFAULT_LEDGER_RESOURCE_LIMITS, ...overrides };
-  const actual = new TextEncoder().encode(serializedLedger).byteLength;
+  return evaluateLedgerByteLengthResourcePolicy(
+    new TextEncoder().encode(serializedLedger).byteLength,
+    overrides,
+  );
+}
 
-  if (actual <= limits.fileBytes) {
+/**
+ * 供文件选择入口在读取 File.text() 前复用的字节上限检查。
+ */
+export function evaluateLedgerByteLengthResourcePolicy(
+  byteLength: number,
+  overrides: Partial<LedgerResourceLimits> = {},
+): LedgerResourcePolicyResult {
+  const limits = { ...DEFAULT_LEDGER_RESOURCE_LIMITS, ...overrides };
+
+  if (byteLength <= limits.fileBytes) {
     return { ok: true };
   }
 
@@ -140,7 +152,7 @@ export function evaluateLedgerJsonResourcePolicy(
         LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE,
         "file",
         limits.fileBytes,
-        actual,
+        byteLength,
       ),
     ],
   };
