@@ -248,7 +248,21 @@ export function BackupControls({
       {persistenceStatus === "saving" || persistenceStatus === "error" ? (
         <p>可导出当前页面账本作为救援备份。备份为明文，可能新于最后成功保存的版本。</p>
       ) : null}
-      {importState === "reading" ? <p aria-live="polite">正在读取备份文件。</p> : null}
+      {importState === "reading" ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p aria-live="polite">正在读取备份文件。</p>
+          <button
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
+            onClick={() => {
+              resetFileSelection();
+              setImportState("idle");
+            }}
+            type="button"
+          >
+            取消
+          </button>
+        </div>
+      ) : null}
       {importState === "awaiting-confirmation" ? (
         <div className="grid gap-3 border-t border-slate-200 pt-3">
           <p className="font-medium text-amber-900">
