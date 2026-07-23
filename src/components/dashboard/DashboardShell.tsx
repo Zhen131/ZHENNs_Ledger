@@ -10,6 +10,7 @@ import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
+import { BackupControls } from "../backup/BackupControls";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
 const CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
@@ -129,8 +130,10 @@ export function DashboardShell({
     retryPersistence,
     canRetryPersistence,
     clearLedger,
+    replaceLedgerFromBackup,
     persistenceOperation,
     persistenceStatus,
+    isDirty,
     repositorySwitchBlocked,
     discardDirtyChangesAndSwitchRepository,
   } = usePersistentLedger(repository);
@@ -518,6 +521,16 @@ export function DashboardShell({
                   本区只管理当前浏览器 origin 下的完整本地账本记录。
                 </p>
 
+                <BackupControls
+                  hydrationStatus={hydrationStatus}
+                  isDirty={isDirty}
+                  isReadOnly={isReadOnly}
+                  ledgerData={ledgerData}
+                  onImport={replaceLedgerFromBackup}
+                  persistenceOperation={persistenceOperation}
+                  persistenceStatus={persistenceStatus}
+                />
+
                 {hydrationStatus === "loading" ? (
                   <p aria-live="polite">本地账本读取完成前不可清空。</p>
                 ) : null}
@@ -552,8 +565,8 @@ export function DashboardShell({
                   <div className="grid gap-3 rounded-md border border-red-200 bg-red-50 p-4">
                     <p className="font-medium text-red-900">
                       {clearConfirmationMode === "normal"
-                        ? "这会永久删除自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。"
-                        : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。"}
+                        ? "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。"
+                        : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。"}
                     </p>
                     <label className="grid gap-2 font-medium text-red-900">
                       输入“{CLEAR_LEDGER_CONFIRMATION_TEXT}”以确认
