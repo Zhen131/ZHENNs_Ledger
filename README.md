@@ -206,6 +206,6 @@ git diff --check
 ## Git 状态
 
 - 当前源码分支：`zhennn/week8-backup-roundtrip`。
-- Week 8 分支共 13 个提交领先本地 `main`；相对远端 `main` 共 14 个提交，额外包含本地 `main` 尚未推送的 Week 7 状态文档提交 `655a87d`。
+- Week 8 分支的功能、测试与验收历史共 13 个提交领先本地 `main`；PR 还会包含本地 `main` 尚未推送的 Week 7 状态文档提交 `655a87d`，以及后续发布状态提交。
 - 功能分支已推送至 `origin/zhennn/week8-backup-roundtrip`；未合并 `main`。
 - Draft PR 待 GitHub 写入认证恢复后创建。
