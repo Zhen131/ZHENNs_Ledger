@@ -132,4 +132,41 @@ describe("Ledger resource policy", () => {
       ],
     });
   });
+
+  it("accepts exactly 8 MiB and rejects the next byte before parsing", () => {
+    const serializedBackup = "x".repeat(
+      DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+    );
+
+    expect(evaluateLedgerJsonResourcePolicy(serializedBackup)).toEqual({
+      ok: true,
+    });
+    expect(
+      evaluateLedgerByteLengthResourcePolicy(serializedBackup.length),
+    ).toEqual({ ok: true });
+
+    const oversizedBackup = `${serializedBackup}x`;
+    expect(evaluateLedgerJsonResourcePolicy(oversizedBackup)).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE,
+          limit: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+          actual: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1,
+        }),
+      ],
+    });
+    expect(
+      evaluateLedgerByteLengthResourcePolicy(oversizedBackup.length),
+    ).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE,
+          limit: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+          actual: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1,
+        }),
+      ],
+    });
+  });
 });

@@ -1302,6 +1302,98 @@ describe("usePersistentLedger backup import", () => {
     });
   });
 
+  it("preserves a corrupt record when hydration recovery import cannot write", async () => {
+    const corruptEnvelope: StoredLedgerEnvelope = {
+      formatVersion: 1,
+      encryptedPayload: "{",
+    };
+    let storedEnvelope: StoredLedgerEnvelope | null = corruptEnvelope;
+    const adapter: StorageAdapter = {
+      read: vi.fn(async () => storedEnvelope),
+      write: vi.fn(async () => {
+        throw new Error("write failed");
+      }),
+      clear: vi.fn(async () => {
+        storedEnvelope = null;
+      }),
+    };
+    const repository = new DefaultLedgerRepository(
+      adapter,
+      new NoopEncryptionService(),
+    );
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("error");
+    });
+    await expect(
+      result.current.replaceLedgerFromBackup(createCompleteLedger()),
+    ).resolves.toEqual({
+      ok: false,
+      code: LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED,
+    });
+
+    expect(result.current.hydrationStatus).toBe("error");
+    expect(storedEnvelope).toEqual(corruptEnvelope);
+    expect(adapter.clear).not.toHaveBeenCalled();
+    await expect(adapter.read()).resolves.toEqual(corruptEnvelope);
+  });
+
+  it("rejects import from a ready read-only ledger without opening a write", async () => {
+    const oversizedLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        {
+          ...createSimpleTrade("read-only-import", "buy", "BTC", "1"),
+          note: "n".repeat(4_097),
+        },
+      ],
+    };
+    const repository = createRepository({
+      load: vi.fn(async () => oversizedLedger),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.isReadOnly).toBe(true);
+    });
+
+    await expect(
+      result.current.replaceLedgerFromBackup(createCompleteLedger()),
+    ).resolves.toEqual({
+      ok: false,
+      code: "LEDGER_IMPORT_NOT_ALLOWED",
+    });
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it("does not apply an import that completes after unmount", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createRepository({
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const { result, unmount } = renderHook(() =>
+      usePersistentLedger(repository),
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    const importPromise = result.current.replaceLedgerFromBackup(
+      createCompleteLedger(),
+    );
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+    });
+    unmount();
+
+    saveDeferred.resolve();
+    await expect(importPromise).resolves.toEqual({ ok: true });
+    expect(repository.save).toHaveBeenCalledOnce();
+    expect(repository.clear).not.toHaveBeenCalled();
+  });
+
   it("defers repository switching until an import completes", async () => {
     const saveDeferred = createDeferred<void>();
     const oldRepository = createRepository({
@@ -1339,6 +1431,49 @@ describe("usePersistentLedger backup import", () => {
       expect(result.current.hydrationStatus).toBe("ready");
       expect(result.current.ledgerData).toEqual(newLedger);
     });
+  });
+
+  it("switches repositories without applying an old import failure", async () => {
+    const saveDeferred = createDeferred<void>();
+    const oldLedger = createCompleteLedger();
+    const newLedger = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("new-after-import-failure", "buy", "ETH", "2")],
+    };
+    const oldRepository = createRepository({
+      load: vi.fn(async () => oldLedger),
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const newRepository = createRepository({
+      load: vi.fn(async () => newLedger),
+    });
+    const { result, rerender } = renderHook(
+      ({ repository }) => usePersistentLedger(repository),
+      { initialProps: { repository: oldRepository } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    const importPromise = result.current.replaceLedgerFromBackup(
+      createInitialLedgerData(),
+    );
+    await waitFor(() => {
+      expect(oldRepository.save).toHaveBeenCalledOnce();
+    });
+    rerender({ repository: newRepository });
+    expect(result.current.repositorySwitchBlocked).toBe(true);
+
+    saveDeferred.reject(new Error("old import failed"));
+    await expect(importPromise).resolves.toEqual({
+      ok: false,
+      code: LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED,
+    });
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.ledgerData).toEqual(newLedger);
+    });
+    expect(newRepository.save).not.toHaveBeenCalled();
   });
 
   it("round-trips a complete backup through Hook clear, import, and repository remount", async () => {
@@ -1391,6 +1526,25 @@ describe("usePersistentLedger backup import", () => {
       expect(remounted.result.current.hydrationStatus).toBe("ready");
       expect(remounted.result.current.ledgerData).toEqual(fixture);
     });
+    const reexportedEnvelope = createBackupEnvelope(
+      remounted.result.current.ledgerData,
+      {
+        appVersion: envelope.value.appVersion,
+        exportedAt: envelope.value.exportedAt,
+      },
+    );
+    expect(reexportedEnvelope.ok).toBe(true);
+    if (!reexportedEnvelope.ok) return;
+    const reparsed = parseBackupJson(
+      serializeBackupEnvelope(reexportedEnvelope.value),
+    );
+    expect(reparsed).toEqual(parsed);
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        reparsed.ok ? reparsed.value.ledgerData : {},
+        "positions",
+      ),
+    ).toBe(false);
     remounted.unmount();
   });
 });

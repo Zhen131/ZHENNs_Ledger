@@ -15,6 +15,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return { promise, resolve, reject };
+}
+
 function createBackupFile(name = "ledger.json") {
   const envelope = createBackupEnvelope(createInitialLedgerData(), {
     appVersion: "0.1.0",
@@ -35,7 +46,7 @@ function renderControls(
   overrides: Partial<ComponentProps<typeof BackupControls>> = {},
 ) {
   const onImport = vi.fn(async () => ({ ok: true }));
-  render(
+  const view = render(
     <BackupControls
       hydrationStatus="ready"
       isDirty={false}
@@ -47,7 +58,7 @@ function renderControls(
       {...overrides}
     />,
   );
-  return { onImport };
+  return { onImport, ...view };
 }
 
 describe("BackupControls", () => {
@@ -104,6 +115,20 @@ describe("BackupControls", () => {
 
     expect(file.text).not.toHaveBeenCalled();
     expect(screen.getByText("无法导入：文件超过 8 MiB 限制。")).not.toBeNull();
+  });
+
+  it("accepts a file whose declared size is exactly 8 MiB", async () => {
+    renderControls();
+    const file = createBackupFile();
+    Object.defineProperty(file, "size", { value: 8 * 1024 * 1024 });
+    const user = userEvent.setup();
+
+    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+    });
+    expect(file.text).toHaveBeenCalledOnce();
   });
 
   it("requires confirmation before replacing the ledger", async () => {
@@ -217,6 +242,63 @@ describe("BackupControls", () => {
     expect(screen.queryByText("无法导入：备份文件格式或内容无效。")).toBeNull();
     expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
   });
+
+  it.each(["resolve", "reject"] as const)(
+    "ignores a pending File.text %s after the user cancels",
+    async (settlement) => {
+      renderControls();
+      const read = createDeferred<string>();
+      const file = createBackupFile("pending.json");
+      Object.defineProperty(file, "text", {
+        configurable: true,
+        value: vi.fn(() => read.promise),
+      });
+      const user = userEvent.setup();
+
+      await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+      expect(screen.getByText("正在读取备份文件。")).not.toBeNull();
+      await user.click(screen.getByRole("button", { name: "取消" }));
+
+      if (settlement === "resolve") {
+        read.resolve("{");
+      } else {
+        read.reject(new Error("late read failure"));
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
+      expect(screen.queryByText("无法读取备份文件。")).toBeNull();
+      expect(
+        screen.queryByText("无法导入：备份文件格式或内容无效。"),
+      ).toBeNull();
+    },
+  );
+
+  it.each(["resolve", "reject"] as const)(
+    "ignores a pending File.text %s after unmount",
+    async (settlement) => {
+      const read = createDeferred<string>();
+      const file = createBackupFile("pending-unmount.json");
+      Object.defineProperty(file, "text", {
+        configurable: true,
+        value: vi.fn(() => read.promise),
+      });
+      const view = renderControls();
+      const user = userEvent.setup();
+
+      await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+      view.unmount();
+
+      if (settlement === "resolve") {
+        read.resolve("{");
+      } else {
+        read.reject(new Error("late read failure"));
+      }
+      await Promise.resolve();
+      await Promise.resolve();
+    },
+  );
 
   it("states that a read-only rescue backup may not be importable", async () => {
     const createObjectURL = vi.fn(() => "blob:backup");
