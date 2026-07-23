@@ -13,6 +13,8 @@ import {
   createBackupEnvelope,
   parseBackupJson,
   serializeBackupEnvelope,
+  type BackupEnvelopeError,
+  type BackupEnvelopeV1,
 } from "../../backup/backupEnvelope";
 import type { PersistenceOperation } from "../../hooks/usePersistentLedger";
 import type { LedgerData } from "../../models";
@@ -56,7 +58,9 @@ export function BackupControls({
 }: Readonly<BackupControlsProps>) {
   const [importState, setImportState] = useState<ImportState>("idle");
   const [message, setMessage] = useState("");
-  const selectedLedgerRef = useRef<LedgerData | null>(null);
+  const [importErrors, setImportErrors] = useState<BackupEnvelopeError[]>([]);
+  const selectedEnvelopeRef = useRef<BackupEnvelopeV1 | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const selectionGenerationRef = useRef(0);
   const mountedRef = useRef(true);
 
@@ -75,6 +79,16 @@ export function BackupControls({
     ((hydrationStatus === "ready" && !isReadOnly) || hydrationStatus === "error");
   const isImporting =
     persistenceOperation === "importing" || importState === "importing";
+
+  function resetFileSelection() {
+    selectionGenerationRef.current += 1;
+    selectedEnvelopeRef.current = null;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    setImportErrors([]);
+    setMessage("");
+  }
 
   function handleExport() {
     const exportedAt = new Date().toISOString();
@@ -104,18 +118,24 @@ export function BackupControls({
     downloadBackupJson(serialized, exportedAt);
     setMessage(
       isReadOnly
-        ? "已导出只读救援备份。备份文件未加密。"
-        : "已导出备份。备份文件未加密。",
+        ? "已导出只读救援备份。备份为明文，且当前只读保护禁止导入覆盖超限账本。"
+        : persistenceStatus === "saving" || persistenceStatus === "error"
+          ? "已导出救援备份。备份为明文，可能新于最后成功保存的版本。"
+          : "已导出备份。备份为明文，未加密。",
     );
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
     const selectionGeneration = selectionGenerationRef.current + 1;
     selectionGenerationRef.current = selectionGeneration;
-    selectedLedgerRef.current = null;
+    selectedEnvelopeRef.current = null;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     setMessage("");
+    setImportErrors([]);
 
-    const file = event.target.files?.[0];
     if (!file) {
       setImportState("idle");
       return;
@@ -125,6 +145,7 @@ export function BackupControls({
     if (!bytePolicy.ok) {
       setImportState("invalid");
       setMessage("无法导入：文件超过 8 MiB 限制。");
+      setImportErrors(bytePolicy.errors);
       return;
     }
 
@@ -142,10 +163,11 @@ export function BackupControls({
         if (!result.ok) {
           setImportState("invalid");
           setMessage("无法导入：备份文件格式或内容无效。");
+          setImportErrors(result.errors);
           return;
         }
 
-        selectedLedgerRef.current = result.value.ledgerData;
+        selectedEnvelopeRef.current = result.value;
         setImportState("awaiting-confirmation");
       },
       () => {
@@ -155,25 +177,26 @@ export function BackupControls({
         ) {
           setImportState("invalid");
           setMessage("无法读取备份文件。");
+          setImportErrors([]);
         }
       },
     );
   }
 
   async function confirmImport() {
-    const selectedLedger = selectedLedgerRef.current;
-    if (!selectedLedger || !canImport) {
+    const selectedEnvelope = selectedEnvelopeRef.current;
+    if (!selectedEnvelope || !canImport) {
       return;
     }
 
     setImportState("importing");
     setMessage("");
-    const result = await onImport(selectedLedger);
+    const result = await onImport(selectedEnvelope.ledgerData);
     if (!mountedRef.current) {
       return;
     }
     if (result.ok) {
-      selectedLedgerRef.current = null;
+      resetFileSelection();
       setImportState("success");
       setMessage("备份已恢复并保存到本地。");
       return;
@@ -211,6 +234,7 @@ export function BackupControls({
               className="sr-only"
               disabled={isImporting}
               onChange={handleFileChange}
+              ref={fileInputRef}
               type="file"
             />
           </label>
@@ -219,20 +243,30 @@ export function BackupControls({
 
       {hydrationStatus === "loading" ? <p>读取完成前不可导入或导出。</p> : null}
       {hydrationStatus === "error" ? <p>可使用有效备份恢复本地账本。</p> : null}
-      {isReadOnly ? <p>当前账本只读，仅可导出受 8 MiB 限制的救援备份。</p> : null}
+      {isReadOnly ? (
+        <p>当前账本只读，仅可导出受 8 MiB 限制的救援备份；当前只读保护禁止导入覆盖超限账本。</p>
+      ) : null}
       {persistenceStatus === "saving" || persistenceStatus === "error" ? (
-        <p>可导出当前页面账本作为救援备份。</p>
+        <p>可导出当前页面账本作为救援备份。备份为明文，可能新于最后成功保存的版本。</p>
       ) : null}
       {importState === "reading" ? <p aria-live="polite">正在读取备份文件。</p> : null}
       {importState === "awaiting-confirmation" ? (
         <div className="grid gap-3 border-t border-slate-200 pt-3">
           <p className="font-medium text-amber-900">
             {hydrationStatus === "error"
-              ? "恢复将替换无法读取的本地记录。"
+              ? "恢复成功后覆盖损坏 record；失败保留原 record。"
               : isDirty
-                ? "恢复将覆盖当前未保存的页面更改和本地账本。"
-                : "恢复将覆盖当前本地账本。"}
+                ? "导入将完整覆盖当前账本，不合并数据。页面中尚未落盘的数据也会被覆盖；可先导出救援备份。"
+                : "导入将完整覆盖当前账本，不合并数据。"}
           </p>
+          <dl className="grid grid-cols-2 gap-2 text-sm text-slate-700">
+            <div><dt className="text-slate-500">应用版本</dt><dd>{selectedEnvelopeRef.current?.appVersion}</dd></div>
+            <div><dt className="text-slate-500">导出时间</dt><dd>{selectedEnvelopeRef.current?.exportedAt}</dd></div>
+            <div><dt className="text-slate-500">资产</dt><dd>{selectedEnvelopeRef.current?.ledgerData.assets.length}</dd></div>
+            <div><dt className="text-slate-500">交易</dt><dd>{selectedEnvelopeRef.current?.ledgerData.trades.length}</dd></div>
+            <div><dt className="text-slate-500">价格快照</dt><dd>{selectedEnvelopeRef.current?.ledgerData.priceSnapshots.length}</dd></div>
+            <div><dt className="text-slate-500">手续费规则</dt><dd>{selectedEnvelopeRef.current?.ledgerData.feeRules.length}</dd></div>
+          </dl>
           <div className="flex flex-wrap gap-3">
             <button
               className="rounded-md bg-slate-950 px-3 py-2 font-medium text-white"
@@ -244,10 +278,8 @@ export function BackupControls({
             <button
               className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
               onClick={() => {
-                selectionGenerationRef.current += 1;
-                selectedLedgerRef.current = null;
+                resetFileSelection();
                 setImportState("idle");
-                setMessage("");
               }}
               type="button"
             >
@@ -258,6 +290,19 @@ export function BackupControls({
       ) : null}
       {importState === "importing" ? (
         <p aria-live="polite">正在恢复备份，请勿关闭页面。</p>
+      ) : null}
+      {importErrors.length > 0 ? (
+        <div aria-live="polite" className="grid gap-2 text-sm text-red-800">
+          <p>发现 {importErrors.length} 项导入错误，显示前 {Math.min(importErrors.length, 5)} 项。</p>
+          <ul className="grid gap-1">
+            {importErrors.slice(0, 5).map((error, index) => (
+              <li key={`${error.code}-${error.path}-${index}`}>
+                <code>{error.code}</code> · <code>{error.path}</code> · {error.message}
+                {"limit" in error ? `（限制 ${error.limit}，实际 ${error.actual}）` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {message ? <p aria-live="polite">{message}</p> : null}
     </div>

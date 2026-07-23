@@ -3,6 +3,8 @@ import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
   isValidISODateOrDateTime,
+  type LedgerDataValidationError,
+  type LedgerResourcePolicyError,
   validateLedgerData,
 } from "../validators";
 
@@ -16,11 +18,22 @@ export type BackupEnvelopeV1 = {
   ledgerData: LedgerData;
 };
 
-export type BackupEnvelopeError = {
-  code: string;
+export type BackupEnvelopeContractError = {
+  code:
+    | "BACKUP_BAD_JSON"
+    | "BACKUP_INVALID_ENVELOPE"
+    | "BACKUP_UNSUPPORTED_FORMAT_VERSION"
+    | "BACKUP_INVALID_APP_VERSION"
+    | "BACKUP_INVALID_EXPORTED_AT"
+    | "BACKUP_SCHEMA_VERSION_MISMATCH";
   path: string;
   message: string;
 };
+
+export type BackupEnvelopeError =
+  | BackupEnvelopeContractError
+  | LedgerDataValidationError
+  | LedgerResourcePolicyError;
 
 export type BackupEnvelopeResult =
   | { ok: true; value: BackupEnvelopeV1 }
@@ -77,7 +90,7 @@ export function parseBackupJson(serializedBackup: string): BackupEnvelopeResult 
     return {
       ok: false,
       errors: [
-        createError("BACKUP_JSON_INVALID", "file", "Backup must be valid JSON"),
+        createError("BACKUP_BAD_JSON", "file", "Backup must be valid JSON"),
       ],
     };
   }
@@ -89,7 +102,9 @@ export function validateBackupEnvelope(input: unknown): BackupEnvelopeResult {
   if (!isRecord(input)) {
     return {
       ok: false,
-      errors: [createError("BACKUP_INVALID_ROOT", "backup", "Backup must be an object")],
+      errors: [
+        createError("BACKUP_INVALID_ENVELOPE", "backup", "Backup must be an object"),
+      ],
     };
   }
 
@@ -113,7 +128,7 @@ export function validateBackupEnvelope(input: unknown): BackupEnvelopeResult {
   if (input.ledgerSchemaVersion !== 1) {
     errors.push(
       createError(
-        "BACKUP_UNSUPPORTED_LEDGER_SCHEMA",
+        "BACKUP_SCHEMA_VERSION_MISMATCH",
         "ledgerSchemaVersion",
         `Unsupported ledger schema version: ${String(input.ledgerSchemaVersion)}`,
       ),
@@ -182,7 +197,11 @@ function validateMetadata(metadata: {
   return errors;
 }
 
-function createError(code: string, path: string, message: string): BackupEnvelopeError {
+function createError(
+  code: BackupEnvelopeContractError["code"],
+  path: string,
+  message: string,
+): BackupEnvelopeContractError {
   return { code, path, message };
 }
 

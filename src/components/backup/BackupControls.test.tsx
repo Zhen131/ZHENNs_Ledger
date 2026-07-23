@@ -65,7 +65,7 @@ describe("BackupControls", () => {
     await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
 
     expect(createObjectURL).toHaveBeenCalledOnce();
-    expect(screen.getByText("已导出备份。备份文件未加密。")).not.toBeNull();
+    expect(screen.getByText("已导出备份。备份为明文，未加密。")).not.toBeNull();
   });
 
   it("checks file size before File.text", async () => {
@@ -95,6 +95,76 @@ describe("BackupControls", () => {
       expect(onImport).toHaveBeenCalledOnce();
       expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
     });
+  });
+
+  it("shows the complete backup candidate and lets the same file be selected after cancel", async () => {
+    renderControls();
+    const user = userEvent.setup();
+    const input = screen.getByLabelText("选择账本备份文件");
+    const file = createBackupFile();
+
+    await user.upload(input, file);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+    });
+    expect(screen.getByText("应用版本")).not.toBeNull();
+    expect(screen.getByText("导出时间")).not.toBeNull();
+    expect(screen.getByText("资产")).not.toBeNull();
+    expect(screen.getByText("交易")).not.toBeNull();
+    expect(screen.getByText("价格快照")).not.toBeNull();
+    expect(screen.getByText("手续费规则")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
+
+    await user.upload(input, file);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+    });
+  });
+
+  it("lets the same file be selected after a successful import", async () => {
+    const { onImport } = renderControls();
+    const user = userEvent.setup();
+    const input = screen.getByLabelText("选择账本备份文件");
+    const file = createBackupFile();
+
+    await user.upload(input, file);
+    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await waitFor(() => {
+      expect(onImport).toHaveBeenCalledOnce();
+      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+    });
+
+    await user.upload(input, file);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+    });
+  });
+
+  it("shows structured parser errors and clears them on a new selection", async () => {
+    renderControls();
+    const invalidFile = new File(["{"], "invalid.json", {
+      type: "application/json",
+    });
+    Object.defineProperty(invalidFile, "text", {
+      configurable: true,
+      value: vi.fn(async () => "{"),
+    });
+    const user = userEvent.setup();
+    const input = screen.getByLabelText("选择账本备份文件");
+
+    await user.upload(input, invalidFile);
+    await waitFor(() => {
+      expect(screen.getByText(/BACKUP_BAD_JSON/)).not.toBeNull();
+      expect(screen.getByText(/发现 1 项导入错误/)).not.toBeNull();
+    });
+
+    await user.upload(input, createBackupFile("valid.json"));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+    });
+    expect(screen.queryByText(/BACKUP_BAD_JSON/)).toBeNull();
   });
 
   it("ignores an earlier file read after the user selects a newer file", async () => {

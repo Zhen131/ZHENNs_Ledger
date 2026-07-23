@@ -55,9 +55,7 @@ describe("BackupEnvelopeV1", () => {
   it("rejects malformed JSON before it reaches the validator", () => {
     expect(parseBackupJson("{")).toEqual({
       ok: false,
-      errors: [
-        expect.objectContaining({ code: "BACKUP_JSON_INVALID", path: "file" }),
-      ],
+      errors: [expect.objectContaining({ code: "BACKUP_BAD_JSON", path: "file" })],
     });
   });
 
@@ -76,7 +74,7 @@ describe("BackupEnvelopeV1", () => {
       errors: expect.arrayContaining([
         expect.objectContaining({ code: "BACKUP_INVALID_APP_VERSION" }),
         expect.objectContaining({ code: "BACKUP_INVALID_EXPORTED_AT" }),
-        expect.objectContaining({ code: "BACKUP_UNSUPPORTED_LEDGER_SCHEMA" }),
+        expect.objectContaining({ code: "BACKUP_SCHEMA_VERSION_MISMATCH" }),
         expect.objectContaining({ code: "BACKUP_SCHEMA_VERSION_MISMATCH" }),
       ]),
     });
@@ -100,6 +98,8 @@ describe("BackupEnvelopeV1", () => {
         expect.objectContaining({
           code: "LEDGER_RESOURCE_STRING_LIMIT_EXCEEDED",
           path: "assets[0].name",
+          limit: 128,
+          actual: 129,
         }),
       ],
     });
