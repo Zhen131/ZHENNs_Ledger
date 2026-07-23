@@ -5,15 +5,36 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createBackupEnvelope, serializeBackupEnvelope } from "../../backup/backupEnvelope";
+import {
+  createBackupEnvelope,
+  parseBackupJson,
+  serializeBackupEnvelope,
+} from "../../backup/backupEnvelope";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
 import { createSimpleTrade } from "../../test/fixtures";
+import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "../../validators";
 import { BackupControls } from "./BackupControls";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
+
+const FIXED_EXPORTED_AT = "2026-07-23T12:34:56.000Z";
+
+function byteLength(serialized: string): number {
+  return new TextEncoder().encode(serialized).byteLength;
+}
+
+function padSerializedBackupToBytes(serialized: string, targetBytes: number): string {
+  const currentBytes = byteLength(serialized);
+
+  if (currentBytes > targetBytes) {
+    throw new Error("Serialized fixture already exceeds target");
+  }
+
+  return `${serialized}${" ".repeat(targetBytes - currentBytes)}`;
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -29,7 +50,7 @@ function createDeferred<T>() {
 function createBackupFile(name = "ledger.json") {
   const envelope = createBackupEnvelope(createInitialLedgerData(), {
     appVersion: "0.1.0",
-    exportedAt: "2026-07-23T12:34:56Z",
+    exportedAt: FIXED_EXPORTED_AT,
   });
   if (!envelope.ok) throw new Error("Fixture must be valid");
   const file = new File([serializeBackupEnvelope(envelope.value)], name, {
@@ -40,6 +61,50 @@ function createBackupFile(name = "ledger.json") {
     value: vi.fn(async () => serializeBackupEnvelope(envelope.value)),
   });
   return file;
+}
+
+function createPaddedBackupFile(serialized: string, name = "ledger.json") {
+  const file = new File([serialized], name, { type: "application/json" });
+  Object.defineProperty(file, "text", {
+    configurable: true,
+    value: vi.fn(async () => serialized),
+  });
+  return file;
+}
+
+function createReadOnlyLedgerAtBackupBytes(targetBytes: number) {
+  const ledgerData = {
+    ...createInitialLedgerData(),
+    trades: [
+      {
+        ...createSimpleTrade("boundary", "buy", "BTC", "1"),
+        rawText: "",
+      },
+    ],
+  };
+  const envelope = createBackupEnvelope(ledgerData, {
+    appVersion: "0.1.0",
+    exportedAt: FIXED_EXPORTED_AT,
+  });
+  if (!envelope.ok) throw new Error("Fixture must be valid");
+
+  const serialized = serializeBackupEnvelope(envelope.value);
+  ledgerData.trades[0].rawText = "x".repeat(targetBytes - byteLength(serialized));
+  return ledgerData;
+}
+
+function stubBlobConstructor() {
+  const OriginalBlob = Blob;
+  const blobConstructor = vi.fn();
+  class SpyBlob extends OriginalBlob {
+    constructor(parts?: BlobPart[], options?: BlobPropertyBag) {
+      blobConstructor(parts, options);
+      super(parts, options);
+    }
+  }
+
+  vi.stubGlobal("Blob", SpyBlob);
+  return blobConstructor;
 }
 
 function renderControls(
@@ -79,24 +144,39 @@ describe("BackupControls", () => {
     expect(screen.getByText("已导出备份。备份为明文，未加密。")).not.toBeNull();
   });
 
-  it("does not create a backup blob when the serialized envelope exceeds 8 MiB", async () => {
+  it("creates one backup Blob when the serialized envelope is exactly 8 MiB", async () => {
     const createObjectURL = vi.fn(() => "blob:backup");
     vi.stubGlobal("URL", { createObjectURL, revokeObjectURL: vi.fn() });
-    const oversizedTrade = {
-      ...createSimpleTrade("oversized", "buy", "BTC", "1"),
-      rawText: "x".repeat(8 * 1024 * 1024),
-    };
+    const blobConstructor = stubBlobConstructor();
     renderControls({
       isReadOnly: true,
-      ledgerData: {
-        ...createInitialLedgerData(),
-        trades: [oversizedTrade],
-      },
+      ledgerData: createReadOnlyLedgerAtBackupBytes(
+        DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+      ),
     });
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
 
+    expect(blobConstructor).toHaveBeenCalledOnce();
+    expect(createObjectURL).toHaveBeenCalledOnce();
+  });
+
+  it("does not construct a Blob when the serialized envelope exceeds 8 MiB by one byte", async () => {
+    const createObjectURL = vi.fn(() => "blob:backup");
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL: vi.fn() });
+    const blobConstructor = stubBlobConstructor();
+    renderControls({
+      isReadOnly: true,
+      ledgerData: createReadOnlyLedgerAtBackupBytes(
+        DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1,
+      ),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+
+    expect(blobConstructor).not.toHaveBeenCalled();
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(
       screen.getByText(
@@ -105,26 +185,56 @@ describe("BackupControls", () => {
     ).not.toBeNull();
   });
 
-  it("checks file size before File.text", async () => {
+  it("rejects a real legal backup that exceeds 8 MiB by one byte before File.text", async () => {
     renderControls();
-    const file = createBackupFile();
-    Object.defineProperty(file, "size", { value: 8 * 1024 * 1024 + 1 });
+    const envelope = createBackupEnvelope(createInitialLedgerData(), {
+      appVersion: "0.1.0",
+      exportedAt: FIXED_EXPORTED_AT,
+    });
+    if (!envelope.ok) throw new Error("Fixture must be valid");
+    const exactLimit = padSerializedBackupToBytes(
+      serializeBackupEnvelope(envelope.value),
+      DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+    );
+    const serialized = `${exactLimit} `;
+    const file = createPaddedBackupFile(serialized);
     const user = userEvent.setup();
 
     await user.upload(screen.getByLabelText("选择账本备份文件"), file);
 
+    expect(file.size).toBe(DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1);
+    expect(parseBackupJson(serialized)).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({ code: "LEDGER_RESOURCE_FILE_TOO_LARGE" }),
+      ],
+    });
     expect(file.text).not.toHaveBeenCalled();
     expect(screen.getByText("无法导入：文件超过 8 MiB 限制。")).not.toBeNull();
   });
 
-  it("accepts a file whose declared size is exactly 8 MiB", async () => {
+  it("accepts a real legal backup whose content is exactly 8 MiB", async () => {
     renderControls();
-    const file = createBackupFile();
-    Object.defineProperty(file, "size", { value: 8 * 1024 * 1024 });
+    const envelope = createBackupEnvelope(createInitialLedgerData(), {
+      appVersion: "0.1.0",
+      exportedAt: FIXED_EXPORTED_AT,
+    });
+    if (!envelope.ok) throw new Error("Fixture must be valid");
+    const serialized = padSerializedBackupToBytes(
+      serializeBackupEnvelope(envelope.value),
+      DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+    );
+    const file = createPaddedBackupFile(serialized);
     const user = userEvent.setup();
 
     await user.upload(screen.getByLabelText("选择账本备份文件"), file);
 
+    expect(file.size).toBe(DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes);
+    expect(byteLength(serialized)).toBe(DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes);
+    expect(parseBackupJson(serialized)).toEqual({
+      ok: true,
+      value: expect.any(Object),
+    });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
     });
