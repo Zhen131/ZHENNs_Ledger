@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-截至 2026-07-23，Week 8 完整账本备份 Gate 已关闭，成果位于
-`zhennn/week8-backup-roundtrip`，已推送远端，尚未合并。精确 8 MiB 自动化 Gate、受控生产实际文件导出 -> clear -> 回导 -> 刷新 -> 二次导出均通过。
+截至 2026-07-23，Week 8 完整账本备份 Gate 已关闭，PR #7 已合并至
+`main`。精确 8 MiB 自动化 Gate、受控生产实际文件导出 -> clear -> 回导 -> 刷新 -> 二次导出均通过。
 另一轮 Chrome 验收的空页面观察已由用户补充操作事实解释：恢复后曾删除仅有的两条交易。受控复验确认 BTC、ETH 两条交易及持仓存在，刷新后仍完整。Week 8 为 Go，Week 9 前置 Gate 已开放。
 
 功能分支已实现：
@@ -205,7 +205,7 @@ git diff --check
 
 ## Git 状态
 
-- 当前源码分支：`zhennn/week8-backup-roundtrip`。
-- Week 8 分支的功能、测试与验收历史共 13 个提交领先本地 `main`；PR 还会包含本地 `main` 尚未推送的 Week 7 状态文档提交 `655a87d`，以及后续发布状态提交。
-- 功能分支已推送至 `origin/zhennn/week8-backup-roundtrip`；未合并 `main`。
-- Draft PR 待 GitHub 写入认证恢复后创建。
+- 当前源码分支：`main`。
+- PR #7 已由用户 Review 并合并，merge commit 为 `60d42a1`。
+- GitHub 与本地功能分支均已删除。
+- 本地 `main` 已同步 `origin/main`。
