@@ -1,12 +1,28 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  createBackupEnvelope,
+  parseBackupJson,
+  serializeBackupEnvelope,
+} from "../backup/backupEnvelope";
 import { createInitialLedgerData } from "../state/initialLedgerData";
 import {
   DEFAULT_LEDGER_RESOURCE_LIMITS,
   LEDGER_RESOURCE_POLICY_ERROR_CODES,
+  evaluateLedgerByteLengthResourcePolicy,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
 } from "./resourcePolicy";
+
+function padSerializedBackupToBytes(serialized: string, targetBytes: number): string {
+  const currentBytes = new TextEncoder().encode(serialized).byteLength;
+
+  if (currentBytes > targetBytes) {
+    throw new Error("Serialized fixture already exceeds target");
+  }
+
+  return `${serialized}${" ".repeat(targetBytes - currentBytes)}`;
+}
 
 describe("Ledger resource policy", () => {
   it("accepts collections and strings exactly at their configured limits", () => {
@@ -108,6 +124,72 @@ describe("Ledger resource policy", () => {
           path: "file",
           limit: 8,
           actual: 9,
+        }),
+      ],
+    });
+  });
+
+  it("shares the file byte limit with callers that have not read text yet", () => {
+    expect(
+      evaluateLedgerByteLengthResourcePolicy(9, {
+        ...DEFAULT_LEDGER_RESOURCE_LIMITS,
+        fileBytes: 8,
+      }),
+    ).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE,
+          path: "file",
+          limit: 8,
+          actual: 9,
+        }),
+      ],
+    });
+  });
+
+  it("accepts a legal backup at exactly 8 MiB and rejects the next byte before parsing", () => {
+    const envelope = createBackupEnvelope(createInitialLedgerData(), {
+      appVersion: "0.1.0",
+      exportedAt: "2026-07-23T12:34:56.000Z",
+    });
+    if (!envelope.ok) throw new Error("Fixture must be valid");
+    const serializedBackup = padSerializedBackupToBytes(
+      serializeBackupEnvelope(envelope.value),
+      DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+    );
+
+    expect(evaluateLedgerJsonResourcePolicy(serializedBackup)).toEqual({
+      ok: true,
+    });
+    expect(parseBackupJson(serializedBackup)).toEqual({
+      ok: true,
+      value: expect.any(Object),
+    });
+    expect(
+      evaluateLedgerByteLengthResourcePolicy(serializedBackup.length),
+    ).toEqual({ ok: true });
+
+    const oversizedBackup = `${serializedBackup} `;
+    expect(evaluateLedgerJsonResourcePolicy(oversizedBackup)).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE,
+          limit: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+          actual: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1,
+        }),
+      ],
+    });
+    expect(
+      evaluateLedgerByteLengthResourcePolicy(oversizedBackup.length),
+    ).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE,
+          limit: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes,
+          actual: DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1,
         }),
       ],
     });

@@ -11,6 +11,10 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import {
+  createBackupEnvelope,
+  serializeBackupEnvelope,
+} from "../../backup/backupEnvelope";
 import { createApplicationLedgerRepository } from "../../composition/ledgerRepositoryComposition";
 import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
@@ -73,6 +77,25 @@ function createCompleteLedger(): LedgerData {
       },
     ],
   };
+}
+
+function createBackupFile(ledgerData: LedgerData): File {
+  const envelope = createBackupEnvelope(ledgerData, {
+    appVersion: "0.1.0",
+    exportedAt: "2026-07-23T12:34:56Z",
+  });
+  if (!envelope.ok) {
+    throw new Error("Backup test fixture must be valid");
+  }
+  const serialized = serializeBackupEnvelope(envelope.value);
+  const file = new File([serialized], "ledger-backup.json", {
+    type: "application/json",
+  });
+  Object.defineProperty(file, "text", {
+    configurable: true,
+    value: vi.fn(async () => serialized),
+  });
+  return file;
 }
 
 function getSection(title: string): HTMLElement {
@@ -532,6 +555,168 @@ describe("DashboardShell trade interactions", () => {
 });
 
 describe("DashboardShell data management", () => {
+  it("imports a confirmed backup through the UI and updates every dashboard view", async () => {
+    const repository = createMemoryRepository();
+    const candidate = createCompleteLedger();
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFile(candidate),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+    });
+    expect(repository.save).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledWith(candidate);
+      expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+      expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
+      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+    });
+  });
+
+  it("keeps the prior dashboard data when a confirmed import write fails", async () => {
+    const priorLedger = createCompleteLedger();
+    const repository = createMemoryRepository(priorLedger);
+    repository.save = vi.fn(async () => {
+      throw new Error("write failed");
+    });
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFile(createInitialLedgerData()),
+    );
+    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("恢复写入失败，当前页面与本地记录未变更。"),
+      ).not.toBeNull();
+    });
+    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(repository.save).toHaveBeenCalledOnce();
+    expect(repository.clear).not.toHaveBeenCalled();
+  });
+
+  it("recovers a hydration failure through backup import", async () => {
+    const repository = createMemoryRepository();
+    repository.load = vi.fn(async () => {
+      throw new Error("read failed");
+    });
+    const candidate = createCompleteLedger();
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFile(candidate),
+    );
+    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+      expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    });
+    expect(
+      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(false);
+    expect(repository.save).toHaveBeenCalledWith(candidate);
+    expect(repository.clear).not.toHaveBeenCalled();
+  });
+
+  it("keeps hydration recovery blocked when backup import cannot write", async () => {
+    const repository = createMemoryRepository();
+    repository.load = vi.fn(async () => {
+      throw new Error("read failed");
+    });
+    repository.save = vi.fn(async () => {
+      throw new Error("write failed");
+    });
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFile(createCompleteLedger()),
+    );
+    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("恢复写入失败，当前页面与本地记录未变更。"),
+      ).not.toBeNull();
+    });
+    expect(
+      screen.getByText(
+        "本地账本读取失败，已停止自动保存以避免覆盖原数据",
+      ),
+    ).not.toBeNull();
+    expect(
+      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(true);
+    expect(repository.clear).not.toHaveBeenCalled();
+  });
+
+  it("disables every write and backup path while an import is writing", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createMemoryRepository(createCompleteLedger());
+    repository.save = vi.fn(() => saveDeferred.promise);
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFile(createInitialLedgerData()),
+    );
+    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(
+        screen.getByText("正在恢复备份，请勿关闭页面。"),
+      ).not.toBeNull();
+    });
+    expect(
+      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", {
+        name: "删除 买入 BTC 2026-07-14",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", {
+        name: "清空本地账本",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", {
+        name: "导出完整账本备份",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("选择账本备份文件") as HTMLInputElement).disabled,
+    ).toBe(true);
+
+    saveDeferred.resolve();
+    await waitFor(() => {
+      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+    });
+  });
+
   it("does not clear when confirmation is cancelled or the fixed text is wrong", async () => {
     const repository = createMemoryRepository(createCompleteLedger());
     await renderDashboard(repository);
@@ -542,7 +727,7 @@ describe("DashboardShell data management", () => {
     );
     expect(
       screen.getByText(
-        "这会永久删除自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。",
+        "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。",
       ),
     ).not.toBeNull();
 
@@ -652,7 +837,7 @@ describe("DashboardShell data management", () => {
     );
     expect(
       screen.getByText(
-        "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。Week 8 备份尚未实现，当前不可恢复。",
+        "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。",
       ),
     ).not.toBeNull();
     await user.type(
