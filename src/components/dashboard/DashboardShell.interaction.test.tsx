@@ -11,6 +11,10 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import {
+  createBackupEnvelope,
+  serializeBackupEnvelope,
+} from "../../backup/backupEnvelope";
 import { createApplicationLedgerRepository } from "../../composition/ledgerRepositoryComposition";
 import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
@@ -73,6 +77,25 @@ function createCompleteLedger(): LedgerData {
       },
     ],
   };
+}
+
+function createBackupFile(ledgerData: LedgerData): File {
+  const envelope = createBackupEnvelope(ledgerData, {
+    appVersion: "0.1.0",
+    exportedAt: "2026-07-23T12:34:56Z",
+  });
+  if (!envelope.ok) {
+    throw new Error("Backup test fixture must be valid");
+  }
+  const serialized = serializeBackupEnvelope(envelope.value);
+  const file = new File([serialized], "ledger-backup.json", {
+    type: "application/json",
+  });
+  Object.defineProperty(file, "text", {
+    configurable: true,
+    value: vi.fn(async () => serialized),
+  });
+  return file;
 }
 
 function getSection(title: string): HTMLElement {
@@ -532,6 +555,30 @@ describe("DashboardShell trade interactions", () => {
 });
 
 describe("DashboardShell data management", () => {
+  it("imports a confirmed backup through the UI and updates every dashboard view", async () => {
+    const repository = createMemoryRepository();
+    const candidate = createCompleteLedger();
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFile(candidate),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+    });
+    expect(repository.save).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledWith(candidate);
+      expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+      expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
+      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+    });
+  });
+
   it("does not clear when confirmation is cancelled or the fixed text is wrong", async () => {
     const repository = createMemoryRepository(createCompleteLedger());
     await renderDashboard(repository);
