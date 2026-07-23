@@ -4,10 +4,10 @@
 
 ## 当前状态
 
-截至 2026-07-21，Week 7 安全 clear、统一持久化操作互斥、B 批次可靠性补漏与 S-07 ResourcePolicy 已完成。
+截至 2026-07-22，Week 7 安全 clear、统一持久化操作互斥、B 批次可靠性补漏与 S-07 ResourcePolicy 已完成。
 固定 BTC / ETH 数据的 production build 新增、价格、删除、刷新和 clear 主链通过；
-但本轮未取得 production DevTools IndexedDB envelope 与 clear 后 record 的直接读取证据，
-因此 Week 7 Storage Gate 严格判定为 **No-Go**，Week 8 不得开始。
+production DevTools 已直接读取 `ledger:v1` envelope，并确认 clear 后 record 不存在。
+Week 7 Storage Gate 判定为 **Go**，Week 8 可在用户确认后开始。
 
 功能分支已实现：
 
@@ -64,8 +64,8 @@ clear 并刷新           -> 空交易、空持仓；首次新写入可再次刷
 控制台                  -> 无 warning / error
 ```
 
-未通过项：当前验收控制环境未提供 production DevTools IndexedDB record 直读能力，
-所以未把自动化 fake IndexedDB 结果替代为人工 envelope 证据。
+production DevTools 补充验收：已直接读取 `ledger:v1`，确认 `formatVersion = 1`、
+明文完整 `LedgerData` 且不包含 `Position[]`；clear 后已直接确认 record 不存在。
 
 ## 核心原则
 
@@ -184,10 +184,10 @@ git diff --check
 
 ## 尚未关闭
 
-- Week 7 production 新增、价格、删除、刷新和 clear 主链已通过；仍缺 DevTools 对明文 envelope 与 clear 后 record 的直接读取证据，Gate 为 No-Go。
+- Week 7 Storage Gate 已 Go；Week 8 导入导出尚未开始。
 - S-07 已完成；大账本性能预算、分页和 virtual list 仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
-- load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；不能替代缺失的 production DevTools 证据。
-- 字符串最大长度、数组规模、分页和大账本性能上限尚未定义。
+- load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；production DevTools envelope 与 clear record 直读证据已补齐。
+- 分页、virtual list 和大账本性能上限尚未定义。
 - 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
 - Noop EncryptionService 不提供加密；真加密计划在后续 Web Crypto 阶段完成。
 - JSON 导入导出、图表、benchmark 和论文发布门尚未实现。
@@ -199,5 +199,5 @@ git diff --check
 - 合并提交：`d936463 合并07A风险补漏与Week6-7提前实现`。
 - 已合并的功能分支 `zhennn/close-week6-week7-07a-risks` 已删除。
 - Week 7 源码已进入 `main` / `origin/main`，包含 `529983e` 合并提交及 S-01 / S-02 / S-03 三个补漏提交。
-- S-07 候选提交 `c2b8c06`、`7b1597d`、`dc89f35` 位于 `zhennn/week7-s07-resource-policy`，待 G-01 / G-02 后作为最终 Gate 候选处理。
-- Week 8 尚未开始；production DevTools G-01 / G-02 直接 record 证据仍是唯一前置阻断。
+- S-07 提交 `c2b8c06`、`7b1597d`、`dc89f35` 与文档提交 `6ea5c75` 已进入 `main` / `origin/main`。
+- Week 8 尚未开始；production DevTools G-01 / G-02 直接 record 证据已关闭。
