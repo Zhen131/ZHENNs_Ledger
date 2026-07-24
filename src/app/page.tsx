@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { LedgerAccessGate } from "@/components/security/LedgerAccessGate";
 
 export default function Home() {
-  return <DashboardShell />;
+  return <LedgerAccessGate />;
 }

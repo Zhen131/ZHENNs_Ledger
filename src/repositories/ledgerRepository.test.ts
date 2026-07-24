@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type {
-  StorageAdapter,
-  StoredLedgerEnvelope,
-} from "../adapters/storageAdapter";
+import type { StorageAdapter } from "../adapters/storageAdapter";
+import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 import type { EncryptionService } from "../encryption/encryptionService";
-import { NoopEncryptionService } from "../encryption/noopEncryptionService";
+import {
+  createNoopStoredLedgerEnvelope,
+  NoopEncryptionService,
+} from "../encryption/noopEncryptionService";
 import type { LedgerData } from "../models";
 import { createInitialLedgerData } from "../state/initialLedgerData";
 import { sampleTrades } from "../test/fixtures";
@@ -15,13 +16,13 @@ import {
 } from "./ledgerRepository";
 
 class MemoryStorageAdapter implements StorageAdapter {
-  envelope: StoredLedgerEnvelope | null = null;
+  envelope: unknown | null = null;
 
   async read() {
     return this.envelope;
   }
 
-  async write(envelope: StoredLedgerEnvelope) {
+  async write(envelope: StoredLedgerEnvelopeV2) {
     this.envelope = structuredClone(envelope);
   }
 
@@ -41,8 +42,10 @@ describe("DefaultLedgerRepository", () => {
   it("returns null for an empty adapter without invoking decryption", async () => {
     const storage = new MemoryStorageAdapter();
     const encryption: EncryptionService = {
-      encrypt: vi.fn(async (value) => value),
-      decrypt: vi.fn(async (value) => value),
+      encrypt: vi.fn(async (value) =>
+        createNoopStoredLedgerEnvelope(value),
+      ),
+      decrypt: vi.fn(async () => ""),
     };
     const repository = new DefaultLedgerRepository(storage, encryption);
 
@@ -60,18 +63,20 @@ describe("DefaultLedgerRepository", () => {
 
     await repository.save(ledgerData);
 
-    expect(storage.envelope).toEqual({
-      formatVersion: 1,
-      encryptedPayload: JSON.stringify(ledgerData),
-    });
+    expect(storage.envelope).toEqual(
+      createNoopStoredLedgerEnvelope(JSON.stringify(ledgerData)),
+    );
     await expect(repository.load()).resolves.toEqual(ledgerData);
   });
 
   it("invokes encryption at the single repository boundary", async () => {
     const storage = new MemoryStorageAdapter();
+    const noop = new NoopEncryptionService();
     const encryption: EncryptionService = {
-      encrypt: vi.fn(async (value) => `locked:${value}`),
-      decrypt: vi.fn(async (value) => value.replace(/^locked:/, "")),
+      encrypt: vi.fn(async (value) =>
+        createNoopStoredLedgerEnvelope(value),
+      ),
+      decrypt: vi.fn(async (envelope) => noop.decrypt(envelope)),
     };
     const repository = new DefaultLedgerRepository(storage, encryption);
     const ledgerData = createLedger();
@@ -81,14 +86,19 @@ describe("DefaultLedgerRepository", () => {
 
     expect(encryption.encrypt).toHaveBeenCalledOnce();
     expect(encryption.decrypt).toHaveBeenCalledOnce();
-    expect(storage.envelope?.encryptedPayload).toMatch(/^locked:/);
+    expect(encryption.encrypt).toHaveBeenCalledWith(
+      JSON.stringify(ledgerData),
+    );
+    expect(encryption.decrypt).toHaveBeenCalledWith(storage.envelope);
   });
 
   it("rejects invalid ledger data before encryption or storage writes", async () => {
     const storage = new MemoryStorageAdapter();
     const encryption: EncryptionService = {
-      encrypt: vi.fn(async (value) => value),
-      decrypt: vi.fn(async (value) => value),
+      encrypt: vi.fn(async (value) =>
+        createNoopStoredLedgerEnvelope(value),
+      ),
+      decrypt: vi.fn(async () => ""),
     };
     const repository = new DefaultLedgerRepository(storage, encryption);
     const invalidLedger = {
@@ -113,24 +123,20 @@ describe("DefaultLedgerRepository", () => {
     },
     {
       name: "invalid JSON",
-      envelope: {
-        formatVersion: 1,
-        encryptedPayload: "{invalid",
-      },
+      envelope: createNoopStoredLedgerEnvelope("{invalid"),
     },
     {
       name: "invalid LedgerData",
-      envelope: {
-        formatVersion: 1,
-        encryptedPayload: JSON.stringify({
+      envelope: createNoopStoredLedgerEnvelope(
+        JSON.stringify({
           ...createInitialLedgerData(),
           trades: "not-an-array",
         }),
-      },
+      ),
     },
   ])("rejects $name as invalid stored data", async ({ envelope }) => {
     const storage = new MemoryStorageAdapter();
-    storage.envelope = envelope as unknown as StoredLedgerEnvelope;
+    storage.envelope = envelope;
     const repository = new DefaultLedgerRepository(
       storage,
       new NoopEncryptionService(),

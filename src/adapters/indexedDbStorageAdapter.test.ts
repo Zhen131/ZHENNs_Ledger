@@ -1,7 +1,8 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { StoredLedgerEnvelope } from "./storageAdapter";
+import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
+import { createNoopStoredLedgerEnvelope } from "../encryption/noopEncryptionService";
 import { IndexedDbStorageAdapter } from "./indexedDbStorageAdapter";
 
 const adapters: IndexedDbStorageAdapter[] = [];
@@ -36,14 +37,8 @@ describe("IndexedDbStorageAdapter", () => {
 
   it("round-trips and atomically replaces the whole envelope", async () => {
     const adapter = createAdapter();
-    const first: StoredLedgerEnvelope = {
-      formatVersion: 1,
-      encryptedPayload: "first",
-    };
-    const second: StoredLedgerEnvelope = {
-      formatVersion: 1,
-      encryptedPayload: "second",
-    };
+    const first = createNoopStoredLedgerEnvelope("first");
+    const second = createNoopStoredLedgerEnvelope("second");
 
     await adapter.write(first);
     await expect(adapter.read()).resolves.toEqual(first);
@@ -53,10 +48,7 @@ describe("IndexedDbStorageAdapter", () => {
 
   it("clears only the current ledger record", async () => {
     const adapter = createAdapter();
-    await adapter.write({
-      formatVersion: 1,
-      encryptedPayload: "saved",
-    });
+    await adapter.write(createNoopStoredLedgerEnvelope("saved"));
 
     await adapter.clear();
 
@@ -93,16 +85,13 @@ describe("IndexedDbStorageAdapter", () => {
 
   it("keeps the previous record when a replacement cannot be cloned", async () => {
     const adapter = createAdapter();
-    const previous: StoredLedgerEnvelope = {
-      formatVersion: 1,
-      encryptedPayload: "safe-old-record",
-    };
+    const previous = createNoopStoredLedgerEnvelope("safe-old-record");
     await adapter.write(previous);
 
     const invalidEnvelope = {
-      formatVersion: 1,
-      encryptedPayload: () => "not cloneable",
-    } as unknown as StoredLedgerEnvelope;
+      ...createNoopStoredLedgerEnvelope("replacement"),
+      ciphertextBase64Url: () => "not cloneable",
+    } as unknown as StoredLedgerEnvelopeV2;
 
     await expect(adapter.write(invalidEnvelope)).rejects.toBeDefined();
     await expect(adapter.read()).resolves.toEqual(previous);

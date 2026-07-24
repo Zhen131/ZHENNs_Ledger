@@ -7,17 +7,22 @@ describe("NoopEncryptionService", () => {
     const service = new NoopEncryptionService();
     const plaintext = '{"schemaVersion":1,"trades":[]}';
 
-    const encryptedPayload = await service.encrypt(plaintext);
-    const decryptedPayload = await service.decrypt(encryptedPayload);
+    const envelope = await service.encrypt(plaintext);
+    const decryptedPayload = await service.decrypt(envelope);
 
-    expect(encryptedPayload).toBe(plaintext);
+    expect(envelope).toMatchObject({ formatVersion: 2 });
     expect(decryptedPayload).toBe(plaintext);
   });
 
   it("preserves Unicode and empty strings exactly", async () => {
     const service = new NoopEncryptionService();
 
-    await expect(service.encrypt("账本数据")).resolves.toBe("账本数据");
-    await expect(service.decrypt("")).resolves.toBe("");
+    const unicodeEnvelope = await service.encrypt("账本数据");
+    const emptyEnvelope = await service.encrypt("");
+
+    await expect(service.decrypt(unicodeEnvelope)).resolves.toBe(
+      "账本数据",
+    );
+    await expect(service.decrypt(emptyEnvelope)).resolves.toBe("");
   });
 });

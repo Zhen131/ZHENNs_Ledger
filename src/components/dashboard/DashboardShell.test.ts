@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Position, Trade } from "../../models";
+import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
 import { ledgerReducer } from "../../state/ledgerReducer";
@@ -13,6 +14,11 @@ vi.mock("../../services/positionService", () => ({
 }));
 
 const getPositionsFromLedgerMock = vi.mocked(getPositionsFromLedger);
+const staticRepository: LedgerRepository = {
+  load: async () => null,
+  save: async () => undefined,
+  clear: async () => undefined,
+};
 
 const pricedPosition: Position = {
   assetSymbol: "SOL",
@@ -147,7 +153,9 @@ describe("DashboardShell ledger views", () => {
       unpricedPosition,
     ]);
 
-    const html = renderToStaticMarkup(createElement(DashboardShell));
+    const html = renderToStaticMarkup(
+      createElement(DashboardShell, { repository: staticRepository }),
+    );
 
     expect(getPositionsFromLedgerMock).toHaveBeenCalledOnce();
     expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
@@ -173,7 +181,9 @@ describe("DashboardShell ledger views", () => {
   it("renders an eight-column empty state when the ledger has no positions", () => {
     getPositionsFromLedgerMock.mockReturnValue([]);
 
-    const html = renderToStaticMarkup(createElement(DashboardShell));
+    const html = renderToStaticMarkup(
+      createElement(DashboardShell, { repository: staticRepository }),
+    );
 
     expect(html).toContain(
       'colSpan="8">暂无持仓。添加交易后，这里会自动汇总。</td>',
@@ -183,7 +193,9 @@ describe("DashboardShell ledger views", () => {
   it("renders the initial trade empty state from the current ledger", () => {
     getPositionsFromLedgerMock.mockReturnValue([]);
 
-    const html = renderToStaticMarkup(createElement(DashboardShell));
+    const html = renderToStaticMarkup(
+      createElement(DashboardShell, { repository: staticRepository }),
+    );
 
     expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
       createInitialLedgerData(),
@@ -196,7 +208,9 @@ describe("DashboardShell ledger views", () => {
   it("contains wide tables without forcing page-level horizontal overflow", () => {
     getPositionsFromLedgerMock.mockReturnValue([pricedPosition]);
 
-    const html = renderToStaticMarkup(createElement(DashboardShell));
+    const html = renderToStaticMarkup(
+      createElement(DashboardShell, { repository: staticRepository }),
+    );
 
     expect(html).toContain("lg:w-60 lg:shrink-0");
     expect(html).toContain("min-w-0 flex-1 px-5");

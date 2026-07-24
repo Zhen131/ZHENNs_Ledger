@@ -4,9 +4,10 @@
 
 ## 当前状态
 
-截至 2026-07-23，Week 8 完整账本备份 Gate 已关闭，PR #7 已合并至
-`main`。精确 8 MiB 自动化 Gate、受控生产实际文件导出 -> clear -> 回导 -> 刷新 -> 二次导出均通过。
-另一轮 Chrome 验收的空页面观察已由用户补充操作事实解释：恢复后曾删除仅有的两条交易。受控复验确认 BTC、ETH 两条交易及持仓存在，刷新后仍完整。Week 8 为 Go，Week 9 前置 Gate 已开放。
+截至 2026-07-24，Week 9 IndexedDB 静态加密实现与主生产链验收已完成，
+当前位于 `zhennn/week9-encryption-at-rest`，等待用户验收后再决定是否合并。
+IndexedDB 固定槽位现只接受 `StoredLedgerEnvelopeV2`；首次使用必须设置密码，
+刷新或关闭后必须重新解锁。明文备份仍由用户自行持有。
 
 功能分支已实现：
 
@@ -15,7 +16,11 @@
 - 价格表单：写入 `PriceSnapshot` 后更新最新价格、市值和未实现盈亏。
 - 真实交互回归：覆盖合法新增、非法输入、超卖、安全删除、价格联动。
 - 整账运行时校验：保存或恢复前检查 schema、实体、Decimal、日期、引用、唯一性和交易时间线。
-- IndexedDB whole-blob 持久化：通过 Repository、Noop EncryptionService 和 StorageAdapter 保存整份账本。
+- IndexedDB 静态加密：PBKDF2-SHA-256（600,000 次）派生不可导出的 AES-256-GCM 会话密钥。
+- V2 密文 envelope：固定记录槽位保存版本、KDF、salt、IV 与 ciphertext；每次保存使用新 IV。
+- 启动访问门禁：严格区分首次设置、已有密文解锁、旧/未知格式、损坏密文与读取失败。
+- 会话边界：密码和 `CryptoKey` 不持久化，刷新或关闭后必须重新输入密码。
+- 忘记密码重置：未解锁状态必须输入固定确认文本，只删除当前加密账本记录。
 - 安全 hydration：恢复数据真正进入 reducer 前保持 `loading`，禁止 dispatch 和自动保存。
 - 串行自动保存：快速连续修改按顺序写入；失败时保留页面状态并显示错误。
 - 保存状态语义：页面区分“已加入账本”“正在保存到本地”“已保存到本地”和保存失败。
@@ -39,7 +44,7 @@
 当前自动化结果：
 
 ```text
-Week 8 修复候选：23 个测试文件、239 项测试
+Week 9 验收候选：30 个测试文件、286 项测试
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
 git diff --check -> 通过
@@ -70,8 +75,9 @@ clear 并刷新           -> 空交易、空持仓；首次新写入可再次刷
 控制台                  -> 无 warning / error
 ```
 
-production DevTools 补充验收：已直接读取 `ledger:v1`，确认 `formatVersion = 1`、
-明文完整 `LedgerData` 且不包含 `Position[]`；clear 后已直接确认 record 不存在。
+Week 8 production DevTools 历史证据：旧 `ledger:v1` record 为
+`formatVersion = 1` 明文。Week 9 对该旧格式明确拒绝自动覆盖，用户确认其为测试数据后，
+通过固定确认文本精确清除并建立 V2 密文 record。
 
 ## 核心原则
 
@@ -80,7 +86,8 @@ production DevTools 补充验收：已直接读取 `ledger:v1`，确认 `formatV
 - 数量和金额使用 `DecimalString -> decimal.js`，不使用 JavaScript 浮点数重算账本。
 - 不可信表单、IndexedDB 和未来 JSON 输入必须先通过运行时校验。
 - UI、Service 和 Reducer 不直接操作 IndexedDB。
-- 当前 Noop EncryptionService 只保留接口，不提供保密性；IndexedDB 数据仍是可读明文。
+- IndexedDB whole-blob 使用 AES-256-GCM 静态加密；Noop EncryptionService 仅供隔离测试。
+- 明文备份不属于 IndexedDB 静态加密范围，导出 UI 必须持续提示“备份为明文，未加密”。
 - Week 7 只保证单标签页内的顺序与 clear 安全；另一标签页可能在 clear 后把旧状态重新写回。
 
 ## 已实现数据流
@@ -110,15 +117,19 @@ PriceForm
 -> 最新价格 / 市值 / 未实现盈亏
 ```
 
-持久化：
+启动与持久化：
 
 ```text
-DashboardShell
+page
+-> LedgerAccessGate
+-> inspect / setup / unlock
+-> PBKDF2 + non-extractable CryptoKey
+-> DashboardShell(required repository)
 -> usePersistentLedger
 -> LedgerRepository
--> NoopEncryptionService
+-> WebCryptoEncryptionService
 -> IndexedDbStorageAdapter
--> IndexedDB whole-blob envelope
+-> IndexedDB StoredLedgerEnvelopeV2
 ```
 
 恢复：
@@ -138,7 +149,7 @@ IndexedDB
 src/
   app/           Next.js 页面入口
   backup/        BackupEnvelopeV1、规范化序列化与浏览器下载
-  components/    Dashboard、交易表单、价格表单、备份控制和交易列表
+  components/    访问门禁、Dashboard、交易表单、价格表单、备份控制和交易列表
   models/        Asset、Trade、PriceSnapshot、Position、LedgerData 等类型
   utils/         Decimal 运算统一入口
   calculators/   持仓、成本和盈亏纯计算
@@ -146,7 +157,7 @@ src/
   services/      交易创建、安全删除、价格创建和持仓派生
   state/         初始账本、reducer、replace 与 hydration 状态
   repositories/  整账 load / save / clear 与运行时校验边界
-  encryption/    EncryptionService 与当前 Noop 实现
+  encryption/    V2 envelope、Base64URL、密码规则、PBKDF2 与 AES-GCM
   adapters/      原生 IndexedDB whole-blob 适配器
   composition/   具体 Adapter、加密与 Repository 的唯一组装点
   test/          共享 golden fixtures
@@ -167,6 +178,10 @@ src/
 - 导入、clear 和自动保存共用写队列；导入期间所有写入口与备份入口同步禁用。
 - schema 版本错误每个冲突只返回一项结构化错误，不重复报告。
 - IndexedDB 只出现在 Adapter；具体实例只在 composition 组装点创建。
+- Adapter 的 `read()` 返回 `unknown | null`；AccessController 与 Repository 分别执行同一 V2 runtime validator。
+- 未解锁时不挂载 Dashboard、持久化 Hook 或备份入口。
+- `formatVersion: 1`、未知格式和损坏 V2 record 均不得自动迁移或覆盖。
+- 保存顺序固定为校验账本、序列化、加密、校验 envelope、原子写入。
 
 ## 本地运行
 
@@ -194,18 +209,17 @@ git diff --check
 
 ## 尚未关闭
 
-- Week 8 功能与 Gate 已关闭；当前仅剩是否合并 `main`、是否创建 Week 9 分支的 Git 决策。
+- Week 9 实现、自动化与主 production 链已完成；等待用户验收后再合并。
 - S-07 已完成；大账本性能预算、分页和 virtual list 仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
-- load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；production DevTools envelope 与 clear record 直读证据已补齐。
+- load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试。Week 9 的 production 主链已通过；最终验收仍需用户在 DevTools 直接展开一次 V2 record。
 - 分页、virtual list 和大账本性能上限尚未定义。
 - 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
-- Noop EncryptionService 不提供加密；真加密计划在后续 Web Crypto 阶段完成。
-- 加密备份、图表、benchmark 和论文发布门尚未实现。
+- 加密备份不在 Week 9 范围；用户导出的备份仍是明文文件。
+- 图表、benchmark 和论文发布门尚未实现。
 - `npm audit` 当前报告 5 个依赖漏洞；Next.js 与 lint 工具链升级需要单独评估，未执行强制大版本修复。
 
 ## Git 状态
 
-- 当前源码分支：`main`。
-- PR #7 已由用户 Review 并合并，merge commit 为 `60d42a1`。
-- GitHub 与本地功能分支均已删除。
-- 本地 `main` 已同步 `origin/main`。
+- 当前源码分支：`zhennn/week9-encryption-at-rest`。
+- 分支基线：`45e10dc`。
+- Week 9 功能已在当前分支形成独立提交；尚未推送或合并，等待用户验收。

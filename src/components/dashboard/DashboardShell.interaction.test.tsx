@@ -15,7 +15,7 @@ import {
   createBackupEnvelope,
   serializeBackupEnvelope,
 } from "../../backup/backupEnvelope";
-import { createApplicationLedgerRepository } from "../../composition/ledgerRepositoryComposition";
+import { createTestLedgerRepository } from "../../test/createTestLedgerRepository";
 import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
@@ -468,7 +468,7 @@ describe("DashboardShell trade interactions", () => {
       databaseName: "dashboard-persistence-round-trip",
     };
     const firstRepository =
-      createApplicationLedgerRepository(storageOptions);
+      createTestLedgerRepository(storageOptions);
     const firstView = await renderDashboard(firstRepository);
     const user = await fillBuyTrade();
 
@@ -486,7 +486,7 @@ describe("DashboardShell trade interactions", () => {
     firstView.unmount();
 
     const secondRepository =
-      createApplicationLedgerRepository(storageOptions);
+      createTestLedgerRepository(storageOptions);
     const secondView = await renderDashboard(secondRepository);
 
     const tradeSection = getSection("交易列表");
@@ -512,7 +512,7 @@ describe("DashboardShell trade interactions", () => {
     secondView.unmount();
 
     const thirdRepository =
-      createApplicationLedgerRepository(storageOptions);
+      createTestLedgerRepository(storageOptions);
     const thirdView = await renderDashboard(thirdRepository);
     expect(
       within(getSection("交易列表")).getByText(
@@ -538,7 +538,7 @@ describe("DashboardShell trade interactions", () => {
     thirdView.unmount();
 
     const fourthRepository =
-      createApplicationLedgerRepository(storageOptions);
+      createTestLedgerRepository(storageOptions);
     await renderDashboard(fourthRepository);
     expect(
       within(getSection("交易列表")).getByText(
