@@ -1,7 +1,5 @@
-import type {
-  StorageAdapter,
-  StoredLedgerEnvelope,
-} from "./storageAdapter";
+import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
+import type { StorageAdapter } from "./storageAdapter";
 
 export const INDEXED_DB_STORAGE_DEFAULTS = {
   databaseName: "local-first-trading-ledger",
@@ -42,19 +40,19 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     this.indexedDBFactory = options.indexedDBFactory ?? globalThis.indexedDB;
   }
 
-  async read(): Promise<StoredLedgerEnvelope | null> {
+  async read(): Promise<unknown | null> {
     const database = await this.openDatabase();
 
     return new Promise((resolve, reject) => {
       const transaction = database.transaction(this.storeName, "readonly");
       const request = transaction.objectStore(this.storeName).get(this.recordKey);
-      let result: StoredLedgerEnvelope | null = null;
+      let result: unknown | null = null;
 
       request.onsuccess = () => {
         result =
           request.result === undefined
             ? null
-            : (request.result as StoredLedgerEnvelope);
+            : request.result;
       };
       request.onerror = () => {
         reject(request.error ?? new Error("IndexedDB read request failed"));
@@ -75,7 +73,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     });
   }
 
-  async write(envelope: StoredLedgerEnvelope): Promise<void> {
+  async write(envelope: StoredLedgerEnvelopeV2): Promise<void> {
     const database = await this.openDatabase();
 
     return new Promise((resolve, reject) => {

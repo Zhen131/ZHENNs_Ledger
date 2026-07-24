@@ -5,11 +5,12 @@
 当前已实现 `IndexedDbStorageAdapter`：
 
 - 使用原生 IndexedDB。
-- 固定 key 保存一份 whole-blob `StoredLedgerEnvelope`。
+- 固定 key 保存一份 whole-blob `StoredLedgerEnvelopeV2`。
 - 支持 `read / write / clear`。
 - 空库返回 `null`。
 - 写入失败时由 IndexedDB 事务保留上一份成功记录。
 
 Adapter 不解析 `LedgerData`、不负责加密、不计算业务数据，也不能把 IndexedDB
 API 泄露到 UI、Service、Reducer 或 Calculator。未来 JSON、文件和行情接口仍应
-以独立 Adapter 接入。
+以独立 Adapter 接入。`read()` 返回 `unknown | null`，由访问层和 Repository
+分别执行密文 envelope 的运行时校验。

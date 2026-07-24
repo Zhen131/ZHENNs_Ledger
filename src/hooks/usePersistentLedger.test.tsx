@@ -5,14 +5,18 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LedgerData, Trade } from "../models";
-import type { StorageAdapter, StoredLedgerEnvelope } from "../adapters/storageAdapter";
-import { NoopEncryptionService } from "../encryption/noopEncryptionService";
+import type { StorageAdapter } from "../adapters/storageAdapter";
+import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
+import {
+  createNoopStoredLedgerEnvelope,
+  NoopEncryptionService,
+} from "../encryption/noopEncryptionService";
 import {
   createBackupEnvelope,
   parseBackupJson,
   serializeBackupEnvelope,
 } from "../backup/backupEnvelope";
-import { createApplicationLedgerRepository } from "../composition/ledgerRepositoryComposition";
+import { createTestLedgerRepository } from "../test/createTestLedgerRepository";
 import {
   DefaultLedgerRepository,
   LEDGER_REPOSITORY_ERROR_CODES,
@@ -72,10 +76,10 @@ function createRepository(overrides: Partial<LedgerRepository> = {}) {
 
 function createMemoryStorageAdapter(
   initialLedger: LedgerData | null,
-  write: (envelope: StoredLedgerEnvelope) => Promise<void> = async () => undefined,
+  write: (envelope: StoredLedgerEnvelopeV2) => Promise<void> = async () => undefined,
 ) {
-  let stored: StoredLedgerEnvelope | null = initialLedger
-    ? { formatVersion: 1, encryptedPayload: JSON.stringify(initialLedger) }
+  let stored: StoredLedgerEnvelopeV2 | null = initialLedger
+    ? createNoopStoredLedgerEnvelope(JSON.stringify(initialLedger))
     : null;
 
   const adapter: StorageAdapter = {
@@ -1164,10 +1168,9 @@ describe("usePersistentLedger backup import", () => {
     });
 
     expect(result.current.ledgerData).toEqual(pageBeforeImport);
-    expect(readStored()).toEqual({
-      formatVersion: 1,
-      encryptedPayload: JSON.stringify(priorLedger),
-    });
+    expect(readStored()).toEqual(
+      createNoopStoredLedgerEnvelope(JSON.stringify(priorLedger)),
+    );
     await expect(repository.load()).resolves.toEqual(priorLedger);
   });
 
@@ -1227,10 +1230,9 @@ describe("usePersistentLedger backup import", () => {
     expect(result.current.persistenceStatus).toBe("error");
     expect(result.current.canRetryPersistence).toBe(true);
     expect(result.current.isDirty).toBe(true);
-    expect(readStored()).toEqual({
-      formatVersion: 1,
-      encryptedPayload: JSON.stringify(initialLedger),
-    });
+    expect(readStored()).toEqual(
+      createNoopStoredLedgerEnvelope(JSON.stringify(initialLedger)),
+    );
   });
 
   it("queues import after an in-flight save and preserves the last successful record on import failure", async () => {
@@ -1303,11 +1305,11 @@ describe("usePersistentLedger backup import", () => {
   });
 
   it("preserves a corrupt record when hydration recovery import cannot write", async () => {
-    const corruptEnvelope: StoredLedgerEnvelope = {
-      formatVersion: 1,
-      encryptedPayload: "{",
+    const corruptEnvelope = {
+      ...createNoopStoredLedgerEnvelope("{"),
+      ciphertextBase64Url: "not valid!",
     };
-    let storedEnvelope: StoredLedgerEnvelope | null = corruptEnvelope;
+    let storedEnvelope: unknown | null = corruptEnvelope;
     const adapter: StorageAdapter = {
       read: vi.fn(async () => storedEnvelope),
       write: vi.fn(async () => {
@@ -1479,7 +1481,7 @@ describe("usePersistentLedger backup import", () => {
   it("round-trips a complete backup through Hook clear, import, and repository remount", async () => {
     const indexedDBFactory = new IDBFactory();
     const databaseName = "hook-backup-roundtrip";
-    const firstRepository = createApplicationLedgerRepository({
+    const firstRepository = createTestLedgerRepository({
       databaseName,
       indexedDBFactory,
     });
@@ -1517,7 +1519,7 @@ describe("usePersistentLedger backup import", () => {
     });
 
     unmount();
-    const remountedRepository = createApplicationLedgerRepository({
+    const remountedRepository = createTestLedgerRepository({
       databaseName,
       indexedDBFactory,
     });

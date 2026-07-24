@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { getDefaultLedgerRepository } from "../../composition/ledgerRepositoryComposition";
 import { usePersistentLedger } from "../../hooks/usePersistentLedger";
 import type { Trade } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
@@ -116,10 +115,10 @@ export function TradeTable({
 }
 
 export function DashboardShell({
-  repository = getDefaultLedgerRepository(),
+  repository,
 }: Readonly<{
-  repository?: LedgerRepository;
-}> = {}) {
+  repository: LedgerRepository;
+}>) {
   const {
     ledgerData,
     applyLedgerAction,
