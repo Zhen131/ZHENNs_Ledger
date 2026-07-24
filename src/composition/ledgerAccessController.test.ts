@@ -116,6 +116,19 @@ describe("DefaultLedgerAccessController", () => {
     expect(storage.stored).toEqual(legacyRecord);
   });
 
+  it("redirects a stale setup attempt to unlock when a valid V2 record already exists", async () => {
+    const encryptedRecord = createNoopStoredLedgerEnvelope("{}");
+    const storage = new MemoryStorageAdapter(encryptedRecord);
+    const controller = new DefaultLedgerAccessController(storage);
+
+    await expect(controller.setup(PASSPHRASE)).resolves.toEqual({
+      ok: false,
+      code: LEDGER_ACCESS_ERROR_CODES.SETUP_RECOVERY_REQUIRED,
+    });
+    expect(storage.write).not.toHaveBeenCalled();
+    expect(storage.stored).toEqual(encryptedRecord);
+  });
+
   it("does not unlock the Dashboard when initial encrypted persistence fails", async () => {
     const storage = new MemoryStorageAdapter();
     storage.write.mockRejectedValueOnce(new Error("write failed"));
@@ -126,6 +139,50 @@ describe("DefaultLedgerAccessController", () => {
       code: LEDGER_ACCESS_ERROR_CODES.SETUP_FAILED,
     });
     expect(storage.stored).toBeNull();
+  });
+
+  it("keeps a successfully written V2 record and requires unlock when verification read fails", async () => {
+    const storage = new MemoryStorageAdapter();
+    storage.read
+      .mockImplementationOnce(async () => null)
+      .mockRejectedValueOnce(new Error("verification read failed"));
+    const controller = new DefaultLedgerAccessController(storage);
+
+    await expect(controller.setup(PASSPHRASE)).resolves.toEqual({
+      ok: false,
+      code: LEDGER_ACCESS_ERROR_CODES.SETUP_RECOVERY_REQUIRED,
+    });
+    expect(storage.write).toHaveBeenCalledOnce();
+    expect(storage.read).toHaveBeenCalledTimes(3);
+    expect(validateStoredLedgerEnvelopeV2(storage.stored).ok).toBe(true);
+
+    const unlock = await new DefaultLedgerAccessController(storage).unlock(
+      PASSPHRASE,
+    );
+    expect(unlock.ok).toBe(true);
+    if (!unlock.ok) return;
+    await expect(unlock.repository.load()).resolves.toEqual(
+      createInitialLedgerData(),
+    );
+  });
+
+  it("maps a failed setup reconciliation read without deleting the written record", async () => {
+    const storage = new MemoryStorageAdapter();
+    storage.read
+      .mockImplementationOnce(async () => null)
+      .mockRejectedValueOnce(new Error("verification read failed"))
+      .mockRejectedValueOnce(new Error("reconciliation read failed"));
+    const controller = new DefaultLedgerAccessController(storage);
+
+    await expect(controller.setup(PASSPHRASE)).resolves.toEqual({
+      ok: false,
+      code: LEDGER_ACCESS_ERROR_CODES.READ_FAILED,
+    });
+    expect(storage.write).toHaveBeenCalledOnce();
+    expect(validateStoredLedgerEnvelopeV2(storage.stored).ok).toBe(true);
+    await expect(controller.inspect()).resolves.toEqual({
+      status: "unlock-required",
+    });
   });
 
   it("unlocks with the correct password and rejects a wrong password with zero writes", async () => {

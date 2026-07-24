@@ -83,6 +83,46 @@ describe("LedgerAccessGate", () => {
     );
   });
 
+  it("moves a recoverable setup result to unlock without mounting Dashboard", async () => {
+    const user = userEvent.setup();
+    const setup = vi.fn(async () => ({
+      ok: false as const,
+      code: LEDGER_ACCESS_ERROR_CODES.SETUP_RECOVERY_REQUIRED,
+    }));
+    const unlock = vi.fn(async () => ({ ok: true as const, repository }));
+    const controller = createController({ setup, unlock });
+    render(<LedgerAccessGate accessController={controller} />);
+
+    await user.type(
+      await screen.findByLabelText("设置密码"),
+      "correct horse battery staple",
+    );
+    await user.type(
+      screen.getByLabelText("再次输入密码"),
+      "correct horse battery staple",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "创建加密账本" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "解锁本地账本" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain(
+      "加密账本已写入",
+    );
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+    expect(setup).toHaveBeenCalledOnce();
+
+    const password = screen.getByLabelText("账本密码");
+    expect((password as HTMLInputElement).value).toBe("");
+    await user.type(password, "correct horse battery staple");
+    await user.click(screen.getByRole("button", { name: "解锁账本" }));
+
+    expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
+    expect(unlock).toHaveBeenCalledWith("correct horse battery staple");
+  });
+
   it("uses one generic message for an unlock failure and clears the password field", async () => {
     const user = userEvent.setup();
     const controller = createController({
