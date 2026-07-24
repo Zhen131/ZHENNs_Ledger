@@ -4,12 +4,12 @@
 
 ## 当前状态
 
-截至 2026-07-24，Week 9 IndexedDB 静态加密实现、P1 恢复修复与主生产链验收已完成，
-当前位于 `zhennn/week9-encryption-at-rest`，等待用户检阅后再决定是否合并。
+截至 2026-07-24，Week 9 IndexedDB 静态加密实现、P1 恢复修复与主 production 链验收已完成；
+主实现 `aca6c53` 与恢复修复 `b17b58e` 已通过合并提交 `4fadfb6` 进入并推送至 `main`。功能分支仅作保留，不是当前开发分支。
 IndexedDB 固定槽位现只接受 `StoredLedgerEnvelopeV2`；首次使用必须设置密码，
 刷新或关闭后必须重新解锁。明文备份仍由用户自行持有。
 
-功能分支已实现：
+当前 `main` 已实现：
 
 - 交易表单：校验成功后写入 `LedgerData.trades`，列表和持仓同步更新。
 - 安全删除：删除后若会破坏后续卖出时间线，则拒绝删除。
@@ -45,7 +45,7 @@ IndexedDB 固定槽位现只接受 `StoredLedgerEnvelopeV2`；首次使用必须
 当前自动化结果：
 
 ```text
-Week 9 验收候选：30 个测试文件、290 项测试
+Week 9 最终验收：30 个测试文件、290 项测试
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
 git diff --check -> 通过
@@ -210,12 +210,11 @@ npm run build
 git diff --check
 ```
 
-## 尚未关闭
+## 已知限制与后续范围
 
-- Week 9 实现、P1 恢复修复、自动化与主 production 链已完成；等待用户检阅后再合并。
+- Week 9 已按调整后的 Gate 合并并推送；整机硬断网已取消、未验证，不作为本轮阻塞项，也不得写成通过。
 - S-07 已完成；大账本性能预算、分页和 virtual list 仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
 - load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；Week 9 的 production 主链与 V2 DevTools 直读均已通过。
-- 整机硬断网验收按用户决定不再执行，不作为本轮合并阻断项；产品仍无外部 API 依赖，但不把未执行项写成已通过。
 - 分页、virtual list 和大账本性能上限尚未定义。
 - 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
 - 加密备份不在 Week 9 范围；用户导出的备份仍是明文文件。
@@ -224,6 +223,6 @@ git diff --check
 
 ## Git 状态
 
-- 当前源码分支：`zhennn/week9-encryption-at-rest`。
-- 分支基线：`45e10dc`。
-- Week 9 功能已在当前分支形成独立提交；尚未推送或合并，等待用户验收。
+- 当前源码分支：`main`。
+- 当前主线提交：`4fadfb6`（`合并：完成第九周静态加密开发`），已推送至 `origin/main`。
+- `zhennn/week9-encryption-at-rest` 保留为已合并功能分支；仅在用户要求时清理。
