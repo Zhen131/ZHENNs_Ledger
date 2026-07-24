@@ -23,7 +23,7 @@ const RESET_CONFIRMATION_TEXT = "清空本地加密账本";
 type AccessState =
   | { status: "checking" }
   | { status: "setup-required" }
-  | { status: "unlock-required" }
+  | { status: "unlock-required"; notice?: string }
   | { status: "unlocked"; repository: LedgerRepository }
   | { status: "error"; code: LedgerAccessErrorCode };
 
@@ -96,6 +96,15 @@ export function LedgerAccessGate({
         setAccessState({
           status: "unlocked",
           repository: result.repository,
+        });
+      } else if (
+        result.code ===
+        LEDGER_ACCESS_ERROR_CODES.SETUP_RECOVERY_REQUIRED
+      ) {
+        setAccessState({
+          status: "unlock-required",
+          notice:
+            "加密账本已写入，但本次验证未完成。请重新输入密码解锁。",
         });
       } else if (
         result.code === LEDGER_ACCESS_ERROR_CODES.READ_FAILED ||
@@ -283,6 +292,15 @@ export function LedgerAccessGate({
       title="解锁本地账本"
     >
       <form className="space-y-4" onSubmit={submitUnlock}>
+        {accessState.notice ? (
+          <p
+            aria-live="polite"
+            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+            role="status"
+          >
+            {accessState.notice}
+          </p>
+        ) : null}
         <PasswordField
           autoComplete="current-password"
           disabled={isSubmitting}

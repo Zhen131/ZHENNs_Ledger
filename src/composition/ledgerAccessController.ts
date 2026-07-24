@@ -19,6 +19,7 @@ export const LEDGER_ACCESS_ERROR_CODES = {
   UNSUPPORTED_FORMAT: "LEDGER_ACCESS_UNSUPPORTED_FORMAT",
   INVALID_ENVELOPE: "LEDGER_ACCESS_INVALID_ENVELOPE",
   SETUP_FAILED: "LEDGER_SETUP_FAILED",
+  SETUP_RECOVERY_REQUIRED: "LEDGER_SETUP_RECOVERY_REQUIRED",
   UNLOCK_FAILED: "LEDGER_UNLOCK_FAILED",
   RESET_FAILED: "LEDGER_ACCESS_RESET_FAILED",
 } as const;
@@ -88,7 +89,7 @@ export class DefaultLedgerAccessController
         code:
           inspection.status === "error"
             ? inspection.code
-            : LEDGER_ACCESS_ERROR_CODES.SETUP_FAILED,
+            : LEDGER_ACCESS_ERROR_CODES.SETUP_RECOVERY_REQUIRED,
       };
     }
 
@@ -107,18 +108,12 @@ export class DefaultLedgerAccessController
       const verifiedLedger = await repository.load();
 
       if (verifiedLedger === null) {
-        return {
-          ok: false,
-          code: LEDGER_ACCESS_ERROR_CODES.SETUP_FAILED,
-        };
+        return this.reconcileSetupFailure();
       }
 
       return { ok: true, repository };
     } catch {
-      return {
-        ok: false,
-        code: LEDGER_ACCESS_ERROR_CODES.SETUP_FAILED,
-      };
+      return this.reconcileSetupFailure();
     }
   }
 
@@ -225,6 +220,35 @@ export class DefaultLedgerAccessController
         },
       };
     }
+  }
+
+  private async reconcileSetupFailure(): Promise<LedgerAccessOperationResult> {
+    const storedResult = await this.readStoredValue();
+
+    if (!storedResult.ok) {
+      return {
+        ok: false,
+        code: storedResult.result.code,
+      };
+    }
+
+    const inspection = inspectStoredValue(storedResult.value);
+
+    if (inspection.status === "unlock-required") {
+      return {
+        ok: false,
+        code: LEDGER_ACCESS_ERROR_CODES.SETUP_RECOVERY_REQUIRED,
+      };
+    }
+
+    if (inspection.status === "error") {
+      return { ok: false, code: inspection.code };
+    }
+
+    return {
+      ok: false,
+      code: LEDGER_ACCESS_ERROR_CODES.SETUP_FAILED,
+    };
   }
 }
 
