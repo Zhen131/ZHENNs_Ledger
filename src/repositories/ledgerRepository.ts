@@ -1,7 +1,5 @@
-import type {
-  StorageAdapter,
-  StoredLedgerEnvelope,
-} from "../adapters/storageAdapter";
+import type { StorageAdapter } from "../adapters/storageAdapter";
+import { validateStoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 import type { EncryptionService } from "../encryption/encryptionService";
 import type { LedgerData } from "../models";
 import { validateLedgerData } from "../validators/ledgerDataValidator";
@@ -51,10 +49,10 @@ export class DefaultLedgerRepository implements LedgerRepository {
   ) {}
 
   async load(): Promise<LedgerData | null> {
-    let envelope: StoredLedgerEnvelope | null;
+    let storedValue: unknown | null;
 
     try {
-      envelope = await this.storageAdapter.read();
+      storedValue = await this.storageAdapter.read();
     } catch (error) {
       throw new LedgerRepositoryError(
         LEDGER_REPOSITORY_ERROR_CODES.READ_FAILED,
@@ -63,11 +61,14 @@ export class DefaultLedgerRepository implements LedgerRepository {
       );
     }
 
-    if (envelope === null) {
+    if (storedValue === null) {
       return null;
     }
 
-    if (!isStoredLedgerEnvelope(envelope)) {
+    const envelopeValidation =
+      validateStoredLedgerEnvelopeV2(storedValue);
+
+    if (!envelopeValidation.ok) {
       throw new LedgerRepositoryError(
         LEDGER_REPOSITORY_ERROR_CODES.INVALID_STORED_DATA,
         "Saved ledger envelope is invalid",
@@ -78,7 +79,7 @@ export class DefaultLedgerRepository implements LedgerRepository {
 
     try {
       const plaintext = await this.encryptionService.decrypt(
-        envelope.encryptedPayload,
+        envelopeValidation.value,
       );
       parsedData = JSON.parse(plaintext);
     } catch (error) {
@@ -115,13 +116,15 @@ export class DefaultLedgerRepository implements LedgerRepository {
 
     try {
       const plaintext = JSON.stringify(validationResult.value);
-      const encryptedPayload =
-        await this.encryptionService.encrypt(plaintext);
+      const envelope = await this.encryptionService.encrypt(plaintext);
+      const envelopeValidation =
+        validateStoredLedgerEnvelopeV2(envelope);
 
-      await this.storageAdapter.write({
-        formatVersion: 1,
-        encryptedPayload,
-      });
+      if (!envelopeValidation.ok) {
+        throw new Error("Encryption service returned an invalid envelope");
+      }
+
+      await this.storageAdapter.write(envelopeValidation.value);
     } catch (error) {
       throw new LedgerRepositoryError(
         LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED,
@@ -142,18 +145,4 @@ export class DefaultLedgerRepository implements LedgerRepository {
       );
     }
   }
-}
-
-function isStoredLedgerEnvelope(
-  value: unknown,
-): value is StoredLedgerEnvelope {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    "formatVersion" in value &&
-    value.formatVersion === 1 &&
-    "encryptedPayload" in value &&
-    typeof value.encryptedPayload === "string"
-  );
 }
