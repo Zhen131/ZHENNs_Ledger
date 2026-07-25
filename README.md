@@ -4,12 +4,12 @@
 
 ## 当前状态
 
-截至 2026-07-24，Week 9 IndexedDB 静态加密实现、P1 恢复修复与主 production 链验收已完成；
-主实现 `aca6c53` 与恢复修复 `b17b58e` 已通过合并提交 `4fadfb6` 进入并推送至 `main`。功能分支仅作保留，不是当前开发分支。
-IndexedDB 固定槽位现只接受 `StoredLedgerEnvelopeV2`；首次使用必须设置密码，
-刷新或关闭后必须重新解锁。明文备份仍由用户自行持有。
+截至 2026-07-25，Week 10 的日期兼容、Binance 最新行情、统一价格选择、共享持仓重放、
+三张 ECharts 图与持久化安全回归已经在本地功能分支
+`zhennn/week10-charts-binance` 完成。该分支尚未合并、尚未推送，等待用户审查。
+`LedgerData.schemaVersion` 仍为 `1`，Week 9 的 IndexedDB V2 静态加密主链保持不变。
 
-当前 `main` 已实现：
+当前功能分支已实现：
 
 - 交易表单：校验成功后写入 `LedgerData.trades`，列表和持仓同步更新。
 - 安全删除：删除后若会破坏后续卖出时间线，则拒绝删除。
@@ -41,11 +41,21 @@ IndexedDB 固定槽位现只接受 `StoredLedgerEnvelopeV2`；首次使用必须
 - 八列资产汇总：直接展示 `Position.costBasis` 和 `Position.realizedPnl`，并明确当前手续费不计入口径。
 - golden UI 回归：逐笔填写真实表单，覆盖 5 条 golden、BTC 价格、ADA 超卖和两类删除。
 - 响应式收口：宽窄屏页面不再整体横向溢出，宽表只在自己的容器内滚动。
+- 日期与兼容：统一日期 key、稳定排序和可注入本地时钟；新事实与 strict import 拒绝未来日期，既有未来事实进入受限纠正模式。
+- 币种边界：USD/USDT 按 `1 USDT ≈ 1 USD` 估值并常驻披露；其他旧币种只允许救援，不进入自动估值。
+- Binance 最新行情：固定读取公开 `exchangeInfo` 与 `ticker/price`，8 秒超时、无重试、无轮询、无 WebSocket；BTC、ETH、ADA 提供默认映射。
+- 批量刷新：逐资产报告成功或失败，同日 API 价格执行 upsert，一次批量 mutation 保存；旧请求受 mapping signature、`ledgerEpoch`、卸载和 Repository 状态保护。
+- 统一价格选择：`priceSelectionService.selectPriceAsOf(...)` 是持仓表、饼图和历史曲线的唯一选择入口；自动模式同日优先 Binance，手动模式优先手动价格，缺价保持缺失。
+- 共享持仓重放：当前持仓和历史曲线复用 `positionReplay` 的 DCA、卖出与剩余成本规则，不存在第二套成本算法。
+- 三张图：当前 USD 等值持仓饼图、总市值/持仓成本阶梯曲线、最近 365 天交易热力图；支持 1 日、7 日、30 日、365 日和全部范围。
+- 真实缺价表达：全缺价不渲染误导性饼图，部分缺价显式列出未估值资产，曲线缺价断开且不使用成交价、成本、未来价格或 `0` 回填。
+- 热力交互：点击日期过滤交易列表，再次点击取消；导入与 clear 会重置日期筛选。
+- 派生边界：`Position[]`、分配切片、曲线点、热力等级、当前估值模式和选中日期均不进入 `LedgerData`、IndexedDB 或备份。
 
 当前自动化结果：
 
 ```text
-Week 9 最终验收：30 个测试文件、290 项测试
+Week 10 最终验收：41 个测试文件、362 项测试
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
 git diff --check -> 通过
@@ -54,28 +64,17 @@ git diff --check -> 通过
 生产 UI 验收结果：
 
 ```text
-5 条 golden -> BTC / ETH / ADA 数量、剩余成本、已实现盈亏通过
-BTC 70000 USD -> 市值 11.4716 USD，未实现盈亏 0.4716 USD
-ADA 超卖 -> 拒绝且账本仍为 5 条交易
-不安全删除 -> 拒绝；安全删除 BTC -> 4 条交易且 BTC 持仓消失
-390 / 1280 宽度 -> 页面级无横向溢出，控制台无 warning / error
-Week 8 production -> BTC 交易与价格保存、导出提示、clear、刷新空库通过
-受控真实文件 -> BTC / ETH 交易与 BTC 价格恢复，二次导出规范化 ledgerData 一致
-最终复验 -> BTC、ETH 两条交易及持仓存在，刷新后仍完整；先前空页面为恢复后的正常删除
+真实交易 -> BTC/ETH/ADA 4 笔，3 项当前持仓，三图同步
+真实 Binance -> 3 项更新、0 项失败；BTC/ETH/ADA 最新价格与来源、as-of 可见
+同日手动 BTC 70000 -> 自动模式仍选 Binance；手动模式改选 70000
+区间切换 -> 1/7/30/365/全部的点数、缺口与 1 日免责声明正确
+缺价场景 -> 全缺价、部分缺价和单资产均按真实数据表达
+热力点击 -> 日期筛选、再次点击取消与 clear/import 重置通过
+备份闭环 -> 导出明文提示、clear、无刷新导入、刷新解锁恢复通过
+持久化 -> 映射、API/manual provenance 与事实恢复；派生/会话字段未进入备份
+未来输入 -> 2099-01-01 在 production UI 被拒绝，交易仍为 4 笔
+390 / 1280 宽度 -> 页面级无横向溢出，宽表仅局部滚动
 production console -> 0 warning / 0 error
-Week 9 clear 闭环 -> 2 条交易和 1 条价格导出、Dashboard clear、无刷新导入、V2 直读、刷新解锁恢复通过
-Week 9 V2 直读 -> PBKDF2 600000 / AES-GCM / 固定六字段；测试账本明文特征零命中
-```
-
-Week 7 固定 production build 样例：
-
-```text
-BTC 0.001 @ 70000 USD -> 成本 70 USD，已实现盈亏 0 USD
-BTC 80000 USD         -> 市值 80 USD，未实现盈亏 10 USD
-ETH 0.005 @ 2000 USD  -> 保存刷新后总交易数 2
-删除 ETH 并刷新        -> 总交易数 1，BTC 数值保持不变
-clear 并刷新           -> 空交易、空持仓；首次新写入可再次刷新恢复
-控制台                  -> 无 warning / error
 ```
 
 Week 8 production DevTools 历史证据：旧 `ledger:v1` record 为
@@ -84,10 +83,12 @@ Week 8 production DevTools 历史证据：旧 `ledger:v1` record 为
 
 ## 核心原则
 
-- `Trade` 和 `PriceSnapshot` 是事实数据。
-- `Position[]` 由交易和价格临时推导，不写入 reducer 或 IndexedDB。
+- `Trade`、`PriceSnapshot` 和 Binance 映射是事实数据。
+- `Position[]` 与全部图表数据由事实临时推导，不写入 reducer、IndexedDB 或备份。
 - 数量和金额使用 `DecimalString -> decimal.js`，不使用 JavaScript 浮点数重算账本。
 - 不可信表单、IndexedDB 和未来 JSON 输入必须先通过运行时校验。
+- 市场价缺失就是缺失；不得以成交价、成本、未来价格或 `0` 伪造。
+- Binance 是可失败的外部输入，不是本地账本可用性的前置条件。
 - UI、Service 和 Reducer 不直接操作 IndexedDB。
 - IndexedDB whole-blob 使用 AES-256-GCM 静态加密；Noop EncryptionService 仅供隔离测试。
 - 明文备份不属于 IndexedDB 静态加密范围，导出 UI 必须持续提示“备份为明文，未加密”。
@@ -118,6 +119,28 @@ PriceForm
 -> LedgerData.priceSnapshots
 -> positionCalculator
 -> 最新价格 / 市值 / 未实现盈亏
+```
+
+Binance 最新行情与统一价格选择：
+
+```text
+MarketDataControls
+-> BinanceMarketDataClient(exchangeInfo + ticker/price)
+-> binancePriceRefreshService(逐资产结果 + 同日 upsert)
+-> LedgerData.priceSnapshots
+-> priceSelectionService.selectPriceAsOf(...)
+-> 持仓表 / 饼图 / 历史曲线
+```
+
+三图派生：
+
+```text
+LedgerData facts
+-> positionReplay(共享 DCA / sell / cost)
+-> chartDataService
+-> allocation / step history / 365-day heatmap
+-> chartOptionBuilders
+-> EChart(Canvas 生命周期适配层)
 ```
 
 启动与持久化：
@@ -152,12 +175,14 @@ IndexedDB
 src/
   app/           Next.js 页面入口
   backup/        BackupEnvelopeV1、规范化序列化与浏览器下载
-  components/    访问门禁、Dashboard、交易表单、价格表单、备份控制和交易列表
+  components/    访问门禁、Dashboard、行情控制、三图、备份控制和事实表单/列表
+  marketData/    Binance 公共 REST 客户端、响应校验与超时
   models/        Asset、Trade、PriceSnapshot、Position、LedgerData 等类型
   utils/         Decimal 运算统一入口
-  calculators/   持仓、成本和盈亏纯计算
+  calculators/   共享持仓重放、成本和盈亏纯计算
+  policies/      新事实、导入、日期、币种与旧未来事实边界
   validators/    交易、价格、ISO 日期和完整 LedgerData 运行时校验
-  services/      交易创建、安全删除、价格创建和持仓派生
+  services/      事实写入、行情刷新、统一选价、持仓与图表纯派生
   state/         初始账本、reducer、replace 与 hydration 状态
   repositories/  整账 load / save / clear 与运行时校验边界
   encryption/    V2 envelope、Base64URL、密码规则、PBKDF2 与 AES-GCM
@@ -168,7 +193,12 @@ src/
 
 ## 主要安全边界
 
-- 交易日期和价格日期只接受严格的 `YYYY-MM-DD` 或带时区 ISO datetime。
+- 交易日期和价格日期只接受严格的 `YYYY-MM-DD` 或带时区 ISO datetime；新事实不得晚于注入时钟的今天。
+- 旧未来事实只允许救援、导出、删除或纠正，不能继续新增普通事实或自动行情。
+- 自动估值域固定为 USD/USDT，持续披露 `1 USDT ≈ 1 USD`；其他旧币种不参与自动估值。
+- Binance 客户端固定公开 GET、8 秒超时且不重试；单个资产失败不得清除旧价或阻塞本地操作。
+- `priceSelectionService` 是所有估值消费者的唯一价格选择算法。
+- 历史曲线只使用点位当时已经发生的事实和价格，缺价输出断点。
 - 候选卖出加入完整时间线后，任一时点都不能出现负持仓。
 - 删除交易前重新验证候选账本；Reducer 仍只负责不可变状态更新。
 - 保存前和恢复后都运行完整 `LedgerData` Validator。
@@ -185,6 +215,7 @@ src/
 - 未解锁时不挂载 Dashboard、持久化 Hook 或备份入口。
 - `formatVersion: 1`、未知格式和损坏 V2 record 均不得自动迁移或覆盖。
 - 保存顺序固定为校验账本、序列化、加密、校验 envelope、原子写入。
+- 图表 option、曲线点、热力等级、估值模式和日期筛选均为内存派生/会话状态。
 
 ## 本地运行
 
@@ -212,17 +243,16 @@ git diff --check
 
 ## 已知限制与后续范围
 
-- Week 9 已按调整后的 Gate 合并并推送；整机硬断网已取消、未验证，不作为本轮阻塞项，也不得写成通过。
-- S-07 已完成；大账本性能预算、分页和 virtual list 仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
-- load / save / clear、排队写入、重复 clear、Repository 切换和卸载均已有确定性故障注入测试；Week 9 的 production 主链与 V2 DevTools 直读均已通过。
-- 分页、virtual list 和大账本性能上限尚未定义。
-- 交易列表仍按保存顺序展示；回填交易的显示排序规则尚未确定。
-- 加密备份不在 Week 9 范围；用户导出的备份仍是明文文件。
-- 图表、benchmark 和论文发布门尚未实现。
-- `npm audit` 当前报告 5 个依赖漏洞；Next.js 与 lint 工具链升级需要单独评估，未执行强制大版本修复。
+- Binance 只读取最新公开价格，不读取历史 Kline/OHLC，不轮询、不使用 WebSocket；网络、地区、限流或 CORS 失败时保留旧事实并继续使用本地账本。
+- production UI 能证明未来新事实拒绝；既有 legacy future 事实的受限纠正模式和请求竞态只能用确定性自动化覆盖，未伪造浏览器场景。
+- 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
+- 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
+- 分页、virtual list 和大账本性能预算仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
+- 情景价格、未来价格模拟、动画、主题、K 线、指标、dataZoom、账户、订单和下单不在 Week 10 范围。
+- 安装 ECharts 后 npm 摘要报告 7 个 high 漏洞；本轮未获准向外部 advisory 服务发送依赖元数据，因此没有完成在线归因，也未执行 `npm audit fix`。
 
 ## Git 状态
 
-- 当前源码分支：`main`。
-- 当前主线提交：`4fadfb6`（`合并：完成第九周静态加密开发`），已推送至 `origin/main`。
-- `zhennn/week9-encryption-at-rest` 保留为已合并功能分支；仅在用户要求时清理。
+- 当前源码分支：`zhennn/week10-charts-binance`。
+- Week 10 从 `main@7f974e0` 分出；功能与测试提交为 `bdc7a84`、`375a96f`、`dfa75a0`、`247eb8e`、`28eb0fe`、`45f2359`、`06cef3b`。
+- 当前功能分支未合并、未 push、未 rebase，等待用户审查。
