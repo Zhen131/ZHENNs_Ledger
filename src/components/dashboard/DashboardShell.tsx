@@ -9,14 +9,19 @@ import {
   buildHoldingAllocation,
   buildHoldingHistory,
   buildTradeHeatmap,
+  type ChartRange,
 } from "../../services/chartDataService";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
-import { createSystemLedgerClock, isLedgerFactInFuture } from "../../utils/ledgerDate";
+import {
+  createSystemLedgerClock,
+  getLedgerDateKey,
+  isLedgerFactInFuture,
+} from "../../utils/ledgerDate";
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
 import { BackupControls } from "../backup/BackupControls";
-import { ChartOverviewSummary } from "../charts/ChartOverviewSummary";
+import { ChartsOverview } from "../charts/ChartsOverview";
 import { MarketDataControls } from "../market-data/MarketDataControls";
 
 const CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
@@ -152,6 +157,10 @@ export function DashboardShell({
   } = usePersistentLedger(repository);
   const [valuationPriceMode, setValuationPriceMode] =
     useState<ValuationPriceMode>("auto");
+  const [chartRange, setChartRange] = useState<ChartRange>("30d");
+  const [selectedTradeDate, setSelectedTradeDate] = useState<string | null>(
+    null,
+  );
   const [tradeRemovalError, setTradeRemovalError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
     useState<ClearConfirmationMode | null>(null);
@@ -177,6 +186,10 @@ export function DashboardShell({
     setClearSuccessMessage("");
   }, [repository]);
 
+  useEffect(() => {
+    setSelectedTradeDate(null);
+  }, [ledgerEpoch]);
+
   const isWritable =
     hydrationStatus === "ready" &&
     persistenceOperation === "idle" &&
@@ -195,9 +208,14 @@ export function DashboardShell({
   const history = buildHoldingHistory(ledgerData, {
     todayKey,
     mode: valuationPriceMode,
-    range: "30d",
+    range: chartRange,
   });
   const heatmap = buildTradeHeatmap(ledgerData, todayKey);
+  const displayedTrades = selectedTradeDate
+    ? ledgerData.trades.filter(
+        (trade) => getLedgerDateKey(trade.occurredAt) === selectedTradeDate,
+      )
+    : ledgerData.trades;
   const futureTrades = ledgerData.trades.filter((trade) =>
     isLedgerFactInFuture(trade.occurredAt, todayKey),
   );
@@ -437,10 +455,14 @@ export function DashboardShell({
             </Section>
 
             <Section title="账本图表">
-              <ChartOverviewSummary
+              <ChartsOverview
                 allocation={allocation}
                 heatmap={heatmap}
                 history={history}
+                onRangeChange={setChartRange}
+                onSelectedTradeDateChange={setSelectedTradeDate}
+                range={chartRange}
+                selectedTradeDate={selectedTradeDate}
               />
             </Section>
 
@@ -549,7 +571,13 @@ export function DashboardShell({
               </fieldset>
             </Section>
 
-            <Section title="交易列表">
+            <Section
+              title={
+                selectedTradeDate
+                  ? `交易列表 · ${selectedTradeDate}`
+                  : "交易列表"
+              }
+            >
               {tradeRemovalError ? (
                 <p
                   aria-live="polite"
@@ -563,7 +591,7 @@ export function DashboardShell({
                 onDelete={
                   hydrationStatus === "ready" ? handleDeleteTrade : undefined
                 }
-                trades={ledgerData.trades}
+                trades={displayedTrades}
                 todayKey={todayKey}
               />
             </Section>

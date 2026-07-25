@@ -16,6 +16,12 @@ import { sampleTradeDrafts } from "../../test/fixtures";
 import { isWithinTolerance } from "../../utils/decimalMath";
 import { DashboardShell } from "./DashboardShell";
 
+vi.mock("../charts/EChart", () => ({
+  EChart: ({ ariaLabel }: { ariaLabel: string }) => (
+    <div aria-label={ariaLabel} role="img" />
+  ),
+}));
+
 afterEach(() => {
   cleanup();
 });
@@ -177,6 +183,9 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("BTC", 5, "70000");
     expectPositionDecimal("BTC", 6, "11.4716");
     expectPositionDecimal("BTC", 7, "0.4716");
+    expect(screen.getByText(/已估值 1 项，总市值 11.4716 USD 等值/)).not.toBeNull();
+    expect(screen.getByText("未估值资产：ADA、ETH。")).not.toBeNull();
+    expect(screen.getByText(/共 365 个自然日、5 笔交易/)).not.toBeNull();
 
     await fillTradeForm({
       type: "sell",

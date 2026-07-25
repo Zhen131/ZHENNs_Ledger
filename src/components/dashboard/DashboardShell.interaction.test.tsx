@@ -26,6 +26,26 @@ import {
 } from "../../test/fixtures";
 import { DashboardShell } from "./DashboardShell";
 
+vi.mock("../charts/EChart", () => ({
+  EChart: ({
+    ariaLabel,
+    events,
+  }: {
+    ariaLabel: string;
+    events?: Record<string, (params: unknown) => void>;
+  }) => (
+    <button
+      aria-label={ariaLabel}
+      onClick={() =>
+        events?.click?.({
+          data: ["2026-07-14", 1, 1, 1, 0],
+        })
+      }
+      type="button"
+    />
+  ),
+}));
+
 afterEach(() => {
   cleanup();
 });
@@ -551,6 +571,49 @@ describe("DashboardShell trade interactions", () => {
       ),
     ).not.toBeNull();
     await expect(fourthRepository.load()).resolves.toBeNull();
+  });
+
+  it("filters the trade table from a heatmap day and toggles the same day off", async () => {
+    const initialLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        createSimpleTrade(
+          "trade-filter-btc",
+          "buy",
+          "BTC",
+          "1",
+          "2026-07-14",
+        ),
+        createSimpleTrade(
+          "trade-filter-eth",
+          "buy",
+          "ETH",
+          "1",
+          "2026-07-15",
+        ),
+      ],
+    };
+    await renderDashboard(createMemoryRepository(initialLedger));
+    const user = userEvent.setup();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "最近 365 天交易活跃热力图",
+      }),
+    );
+
+    const filteredSection = getSection("交易列表 · 2026-07-14");
+    expect(within(filteredSection).getByText("BTC")).not.toBeNull();
+    expect(within(filteredSection).queryByText("ETH")).toBeNull();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "最近 365 天交易活跃热力图",
+      }),
+    );
+    const restoredSection = getSection("交易列表");
+    expect(within(restoredSection).getByText("BTC")).not.toBeNull();
+    expect(within(restoredSection).getByText("ETH")).not.toBeNull();
   });
 });
 
