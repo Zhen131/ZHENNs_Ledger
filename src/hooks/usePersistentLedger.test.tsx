@@ -166,6 +166,42 @@ function createCompleteBackupLedger(): LedgerData {
 }
 
 describe("usePersistentLedger hydration safety", () => {
+  it("persists one multi-price market refresh as one mutation and one save", async () => {
+    const repository = createRepository();
+    const { result } = renderHook(() => usePersistentLedger(repository));
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    act(() => {
+      expect(
+        result.current.applyLedgerMutation((current) => ({
+          ...current,
+          priceSnapshots: [
+            ...current.priceSnapshots,
+            createPriceSnapshot("btc-batch", "BTC", "70000", "2026-07-25"),
+            createPriceSnapshot("eth-batch", "ETH", "2000", "2026-07-25"),
+          ],
+        })),
+      ).toBe("applied");
+    });
+
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+    expect(result.current.mutationVersion).toBe(1);
+    expect(result.current.persistedVersion).toBe(1);
+    expect(repository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceSnapshots: expect.arrayContaining([
+          expect.objectContaining({ id: "btc-batch" }),
+          expect.objectContaining({ id: "eth-batch" }),
+        ]),
+      }),
+    );
+  });
+
   it("increments ledgerEpoch only for whole-ledger replacement and enforces future correction mode", async () => {
     const futureLedger = createInitialLedgerData();
     futureLedger.trades = [

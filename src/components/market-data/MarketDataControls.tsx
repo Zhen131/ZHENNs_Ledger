@@ -1,0 +1,472 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
+import {
+  createBinanceMarketDataClient,
+  type BinanceMarketDataClient,
+} from "../../marketData/binanceMarketDataClient";
+import type {
+  Asset,
+  LedgerData,
+  ValuationPriceMode,
+} from "../../models";
+import {
+  getBinanceMappingSignature,
+  setAssetBinanceMapping,
+  validateBinanceMapping,
+} from "../../services/binanceMappingService";
+import {
+  mergeBinancePriceRefresh,
+  refreshBinancePrices,
+  type BinanceAssetRefreshFailure,
+} from "../../services/binancePriceRefreshService";
+import { getPositionsFromLedger } from "../../services/positionService";
+import { selectPriceAsOf } from "../../services/priceSelectionService";
+import { isZero } from "../../utils/decimalMath";
+import {
+  createSystemLedgerClock,
+  type LedgerClock,
+} from "../../utils/ledgerDate";
+
+const defaultClient = createBinanceMarketDataClient();
+const defaultClock = createSystemLedgerClock();
+
+type MarketDataControlsProps = {
+  ledgerData: LedgerData;
+  ledgerEpoch: number;
+  isWritable: boolean;
+  mode: ValuationPriceMode;
+  onModeChange: (mode: ValuationPriceMode) => void;
+  applyLedgerMutation: (
+    mutation: (current: LedgerData) => LedgerData,
+  ) => ApplyLedgerActionResult;
+  client?: BinanceMarketDataClient;
+  clock?: LedgerClock;
+  generateId?: () => string;
+};
+
+type RefreshState = {
+  status: "idle" | "loading" | "success" | "partial" | "error";
+  message: string;
+  failures: BinanceAssetRefreshFailure[];
+};
+
+const INITIAL_REFRESH_STATE: RefreshState = {
+  status: "idle",
+  message: "本次解锁尚未刷新 Binance 行情。",
+  failures: [],
+};
+
+export function MarketDataControls({
+  ledgerData,
+  ledgerEpoch,
+  isWritable,
+  mode,
+  onModeChange,
+  applyLedgerMutation,
+  client = defaultClient,
+  clock = defaultClock,
+  generateId = () => globalThis.crypto.randomUUID(),
+}: Readonly<MarketDataControlsProps>) {
+  const assets = ledgerData.assets;
+  const mappingSignature = getBinanceMappingSignature(ledgerData);
+  const [mappingDrafts, setMappingDrafts] = useState<Record<string, string>>(
+    () => createMappingDrafts(assets),
+  );
+  const [mappingMessages, setMappingMessages] = useState<
+    Record<string, string>
+  >({});
+  const [refreshState, setRefreshState] =
+    useState<RefreshState>(INITIAL_REFRESH_STATE);
+  const requestIdRef = useRef(0);
+  const activeAbortRef = useRef<AbortController | null>(null);
+  const autoAttemptedRef = useRef(false);
+  const previousEpochRef = useRef(ledgerEpoch);
+  const previousMappingSignatureRef = useRef(
+    mappingSignature,
+  );
+  const latestRef = useRef({
+    ledgerData,
+    ledgerEpoch,
+    isWritable,
+    mappingSignature,
+  });
+  latestRef.current = {
+    ledgerData,
+    ledgerEpoch,
+    isWritable,
+    mappingSignature,
+  };
+
+  useEffect(() => {
+    setMappingDrafts(createMappingDrafts(assets));
+  }, [assets]);
+
+  useEffect(() => {
+    if (previousEpochRef.current === ledgerEpoch) {
+      return;
+    }
+    previousEpochRef.current = ledgerEpoch;
+    requestIdRef.current += 1;
+    activeAbortRef.current?.abort();
+    activeAbortRef.current = null;
+    setRefreshState(INITIAL_REFRESH_STATE);
+    setMappingMessages({});
+  }, [ledgerEpoch]);
+
+  useEffect(() => {
+    if (previousMappingSignatureRef.current === mappingSignature) {
+      return;
+    }
+    previousMappingSignatureRef.current = mappingSignature;
+    requestIdRef.current += 1;
+    activeAbortRef.current?.abort();
+    activeAbortRef.current = null;
+    setRefreshState(INITIAL_REFRESH_STATE);
+  }, [mappingSignature]);
+
+  useEffect(
+    () => () => {
+      requestIdRef.current += 1;
+      activeAbortRef.current?.abort();
+    },
+    [],
+  );
+
+  const refresh = useCallback(async () => {
+    if (!latestRef.current.isWritable || activeAbortRef.current) {
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const requestEpoch = latestRef.current.ledgerEpoch;
+    const requestMappingSignature = latestRef.current.mappingSignature;
+    const requestLedger = latestRef.current.ledgerData;
+    const controller = new AbortController();
+    activeAbortRef.current = controller;
+    setRefreshState({
+      status: "loading",
+      message: "正在验证交易对并刷新 Binance 最新价格。",
+      failures: [],
+    });
+
+    const result = await refreshBinancePrices(
+      requestLedger,
+      clock.todayKey(),
+      { client, clock },
+      controller.signal,
+    );
+
+    if (
+      requestIdRef.current !== requestId ||
+      latestRef.current.ledgerEpoch !== requestEpoch ||
+      latestRef.current.mappingSignature !== requestMappingSignature
+    ) {
+      return;
+    }
+    activeAbortRef.current = null;
+
+    let appliedCount = 0;
+    const mutationResult = applyLedgerMutation((current) => {
+      if (
+        getBinanceMappingSignature(current) !== requestMappingSignature
+      ) {
+        return current;
+      }
+      const merged = mergeBinancePriceRefresh(
+        current,
+        result.successes,
+        generateId,
+      );
+      appliedCount = merged.appliedAssetSymbols.length;
+      return merged.ledgerData;
+    });
+
+    if (result.successes.length > 0 && mutationResult === "rejected") {
+      setRefreshState({
+        status: "error",
+        message: "行情已返回，但账本当前不可写；未保存任何新价格。",
+        failures: result.failures,
+      });
+      return;
+    }
+
+    const failedCount = result.failures.length;
+    setRefreshState({
+      status:
+        appliedCount > 0
+          ? failedCount > 0
+            ? "partial"
+            : "success"
+          : failedCount > 0
+            ? "error"
+            : "success",
+      message:
+        appliedCount === 0 && failedCount === 0
+          ? "当前没有需要刷新的非零持仓映射。"
+          : `已更新 ${appliedCount} 项，失败 ${failedCount} 项。`,
+      failures: result.failures,
+    });
+  }, [applyLedgerMutation, client, clock, generateId]);
+
+  useEffect(() => {
+    if (!isWritable || autoAttemptedRef.current) {
+      return;
+    }
+    autoAttemptedRef.current = true;
+    void refresh();
+  }, [isWritable, refresh]);
+
+  function cancelActiveRefresh() {
+    requestIdRef.current += 1;
+    activeAbortRef.current?.abort();
+    activeAbortRef.current = null;
+  }
+
+  async function saveMapping(assetSymbol: string) {
+    if (!isWritable) {
+      return;
+    }
+    cancelActiveRefresh();
+    const requestEpoch = ledgerEpoch;
+    const controller = new AbortController();
+    activeAbortRef.current = controller;
+    setMappingMessages((current) => ({
+      ...current,
+      [assetSymbol]: "正在向 Binance 验证交易对。",
+    }));
+
+    const result = await validateBinanceMapping(
+      client,
+      assetSymbol,
+      mappingDrafts[assetSymbol] ?? "",
+      controller.signal,
+    );
+    if (
+      controller.signal.aborted ||
+      latestRef.current.ledgerEpoch !== requestEpoch
+    ) {
+      return;
+    }
+    activeAbortRef.current = null;
+
+    if (!result.ok) {
+      setMappingMessages((current) => ({
+        ...current,
+        [assetSymbol]: result.error.message,
+      }));
+      return;
+    }
+
+    const mutationResult = applyLedgerMutation((current) =>
+      setAssetBinanceMapping(
+        current,
+        assetSymbol,
+        result.mapping,
+        clock.now().toISOString(),
+      ),
+    );
+    setMappingMessages((current) => ({
+      ...current,
+      [assetSymbol]:
+        mutationResult === "applied"
+          ? "交易对已验证并加入保存队列。"
+          : mutationResult === "noop"
+            ? "交易对未发生变化。"
+            : "账本当前不可写，交易对未保存。",
+    }));
+  }
+
+  function removeMapping(assetSymbol: string) {
+    if (!isWritable) {
+      return;
+    }
+    cancelActiveRefresh();
+    const mutationResult = applyLedgerMutation((current) =>
+      setAssetBinanceMapping(
+        current,
+        assetSymbol,
+        null,
+        clock.now().toISOString(),
+      ),
+    );
+    setMappingDrafts((current) => ({ ...current, [assetSymbol]: "" }));
+    setMappingMessages((current) => ({
+      ...current,
+      [assetSymbol]:
+        mutationResult === "applied"
+          ? "映射已删除；历史 API 价格仍保留。"
+          : "映射未发生变化。",
+    }));
+  }
+
+  const todayKey = clock.todayKey();
+  const currentPositions = getPositionsFromLedger(ledgerData, {
+    todayKey,
+    mode,
+  }).filter((position) => !isZero(position.quantity));
+
+  return (
+    <div className="grid gap-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium">估值价格模式</span>
+        {(["auto", "manual"] as const).map((value) => (
+          <button
+            aria-pressed={mode === value}
+            className={
+              mode === value
+                ? "rounded-md bg-slate-950 px-3 py-2 text-sm font-medium text-white"
+                : "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800"
+            }
+            key={value}
+            onClick={() => onModeChange(value)}
+            type="button"
+          >
+            {value === "auto" ? "自动行情" : "手动价格"}
+          </button>
+        ))}
+        <button
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!isWritable || refreshState.status === "loading"}
+          onClick={() => void refresh()}
+          type="button"
+        >
+          {refreshState.status === "loading"
+            ? "正在刷新 Binance 价格"
+            : "刷新 Binance 价格"}
+        </button>
+      </div>
+
+      <p
+        aria-live="polite"
+        className={
+          refreshState.status === "error"
+            ? "text-sm text-red-800"
+            : "text-sm text-slate-700"
+        }
+      >
+        {refreshState.message}
+      </p>
+
+      <div className="grid gap-2 text-sm text-slate-700">
+        <p>
+          USD 与 Binance USDT 报价按 <strong>1 USDT ≈ 1 USD</strong> 汇总为 USD 等值；这不是严格美元现货换算。
+        </p>
+        <p>
+          刷新只会把所配置的公开交易对 symbol 发送给 Binance；不会发送交易、数量、成本、密码或完整账本。
+        </p>
+      </div>
+
+      <div className="grid gap-3">
+        <h3 className="font-semibold">当前非零持仓实际价格</h3>
+        {currentPositions.length === 0 ? (
+          <p className="text-sm text-slate-500">当前没有非零持仓。</p>
+        ) : (
+          <ul className="grid gap-1 text-sm text-slate-700">
+            {currentPositions.map((position) => {
+              const asset = ledgerData.assets.find(
+                (candidate) => candidate.symbol === position.assetSymbol,
+              );
+              const selected = asset
+                ? selectPriceAsOf(
+                    ledgerData.priceSnapshots,
+                    asset,
+                    todayKey,
+                    mode,
+                  )
+                : undefined;
+              const failure = refreshState.failures.find(
+                (item) => item.assetSymbol === position.assetSymbol,
+              );
+              return (
+                <li key={position.assetSymbol}>
+                  <strong>{position.assetSymbol}</strong>：
+                  {selected
+                    ? `${selected.snapshot.price} ${selected.snapshot.currency} · ${
+                        selected.actualSource === "binance"
+                          ? "Binance"
+                          : "手动"
+                      } · as-of ${selected.asOf}`
+                    : "无合法价格"}
+                  {failure ? ` · 本次刷新失败：${failure.message}` : ""}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <details>
+        <summary className="cursor-pointer font-semibold">配置 Binance Spot 交易对</summary>
+        <div className="mt-3 grid gap-3">
+          {ledgerData.assets.map((asset) => (
+            <div
+              className="grid gap-2 rounded-md border border-slate-200 p-3 md:grid-cols-[8rem_1fr_auto_auto]"
+              key={asset.id}
+            >
+              <label className="font-medium" htmlFor={`mapping-${asset.id}`}>
+                {asset.symbol}
+              </label>
+              <input
+                className="rounded-md border border-slate-300 px-3 py-2 uppercase"
+                disabled={!isWritable}
+                id={`mapping-${asset.id}`}
+                onChange={(event) =>
+                  setMappingDrafts((current) => ({
+                    ...current,
+                    [asset.symbol]: event.target.value,
+                  }))
+                }
+                placeholder={`${asset.symbol}USDT`}
+                value={mappingDrafts[asset.symbol] ?? ""}
+              />
+              <button
+                className="rounded-md border border-slate-300 px-3 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!isWritable || activeAbortRef.current !== null}
+                onClick={() => void saveMapping(asset.symbol)}
+                type="button"
+              >
+                验证并保存
+              </button>
+              <button
+                className="rounded-md border border-red-300 px-3 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!isWritable || asset.binanceMapping == null}
+                onClick={() => removeMapping(asset.symbol)}
+                type="button"
+              >
+                删除映射
+              </button>
+              {mappingMessages[asset.symbol] ? (
+                <p
+                  aria-live="polite"
+                  className="text-sm text-slate-600 md:col-start-2 md:col-span-3"
+                >
+                  {mappingMessages[asset.symbol]}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
+function createMappingDrafts(
+  assets: readonly Asset[],
+): Record<string, string> {
+  return Object.fromEntries(
+    assets.map((asset) => [
+      asset.symbol,
+      asset.binanceMapping?.symbol ?? "",
+    ]),
+  );
+}

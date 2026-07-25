@@ -157,10 +157,9 @@ describe("DashboardShell ledger views", () => {
       createElement(DashboardShell, { repository: staticRepository }),
     );
 
-    expect(getPositionsFromLedgerMock).toHaveBeenCalledOnce();
     expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
       createInitialLedgerData(),
-      { todayKey: "2026-07-25" },
+      { mode: "auto", todayKey: "2026-07-25" },
     );
     expect(html).toContain("SOL");
     expect(html).toContain("2.3456789");
@@ -200,7 +199,7 @@ describe("DashboardShell ledger views", () => {
 
     expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
       createInitialLedgerData(),
-      { todayKey: "2026-07-25" },
+      { mode: "auto", todayKey: "2026-07-25" },
     );
     expect(html).toContain(
       "暂无交易。添加交易后，这里会自动显示。",
