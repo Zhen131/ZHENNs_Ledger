@@ -111,7 +111,7 @@ export function EChart({
   return (
     <div
       aria-label={ariaLabel}
-      className={className}
+      className={`min-w-0 max-w-full overflow-hidden ${className}`}
       ref={containerRef}
       role="img"
     />

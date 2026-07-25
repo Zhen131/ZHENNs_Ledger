@@ -86,6 +86,8 @@ describe("EChart lifecycle adapter", () => {
       }),
       { notMerge: true, lazyUpdate: false },
     );
+    expect(view.getByRole("img").className).toContain("min-w-0");
+    expect(view.getByRole("img").className).toContain("overflow-hidden");
 
     view.rerender(
       <EChart ariaLabel="测试图表" option={{ series: [] }} />,
