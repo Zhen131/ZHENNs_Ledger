@@ -79,8 +79,8 @@ export function ChartsOverview({
   );
 
   return (
-    <div className="grid gap-5">
-      <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className="grid min-w-0 gap-5">
+      <article className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-4">
         <h3 className="font-semibold text-slate-950">
           当前 USD 等值持仓分配
         </h3>
@@ -120,7 +120,7 @@ export function ChartsOverview({
         ) : null}
       </article>
 
-      <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <article className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-slate-950">
@@ -171,7 +171,7 @@ export function ChartsOverview({
         ) : null}
       </article>
 
-      <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <article className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-slate-950">
