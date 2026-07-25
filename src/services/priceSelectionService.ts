@@ -18,6 +18,71 @@ export type SelectedPrice = {
   asOf: string;
 };
 
+type PriceCandidate = {
+  snapshot: PriceSnapshot;
+  index: number;
+};
+
+export type PriceSelectionAccumulator = {
+  readonly asset: Asset;
+  readonly mode: ValuationPriceMode;
+  manual?: PriceCandidate;
+  binance?: PriceCandidate;
+};
+
+export function createPriceSelectionAccumulator(
+  asset: Asset,
+  mode: ValuationPriceMode,
+): PriceSelectionAccumulator {
+  return { asset, mode };
+}
+
+export function considerPriceSnapshot(
+  accumulator: PriceSelectionAccumulator,
+  snapshot: PriceSnapshot,
+  index: number,
+): void {
+  const source = classifyCandidate(snapshot, accumulator.asset);
+  if (!source) {
+    return;
+  }
+
+  const current = accumulator[source];
+  if (
+    !current ||
+    compareLedgerFactOrder(
+      snapshot.recordedAt,
+      current.snapshot.recordedAt,
+      index,
+      current.index,
+    ) >= 0
+  ) {
+    accumulator[source] = { snapshot, index };
+  }
+}
+
+export function getSelectedPrice(
+  accumulator: PriceSelectionAccumulator,
+): SelectedPrice | undefined {
+  const manual = accumulator.manual?.snapshot;
+  const binance = accumulator.binance?.snapshot;
+
+  if (accumulator.mode === "manual" && manual) {
+    return toSelectedPrice(manual, "manual");
+  }
+  if (!manual) {
+    return binance ? toSelectedPrice(binance, "binance") : undefined;
+  }
+  if (!binance) {
+    return toSelectedPrice(manual, "manual");
+  }
+
+  return getLedgerDateKey(manual.recordedAt) >
+    getLedgerDateKey(binance.recordedAt)
+    ? toSelectedPrice(manual, "manual")
+    : toSelectedPrice(binance, "binance");
+}
+
 export function selectPriceAsOf(
   snapshots: readonly PriceSnapshot[],
   asset: Asset,
@@ -28,83 +93,34 @@ export function selectPriceAsOf(
     return undefined;
   }
 
-  const manual = selectLatestCandidate(
-    snapshots,
-    asset,
-    dateKey,
-    "manual",
-  );
-  const binance = selectLatestCandidate(
-    snapshots,
-    asset,
-    dateKey,
-    "binance",
-  );
-
-  if (mode === "manual" && manual) {
-    return toSelectedPrice(manual, "manual");
-  }
-
-  if (!manual) {
-    return binance ? toSelectedPrice(binance, "binance") : undefined;
-  }
-  if (!binance) {
-    return toSelectedPrice(manual, "manual");
-  }
-
-  const manualDate = getLedgerDateKey(manual.recordedAt);
-  const binanceDate = getLedgerDateKey(binance.recordedAt);
-  return manualDate > binanceDate
-    ? toSelectedPrice(manual, "manual")
-    : toSelectedPrice(binance, "binance");
-}
-
-function selectLatestCandidate(
-  snapshots: readonly PriceSnapshot[],
-  asset: Asset,
-  dateKey: string,
-  source: "manual" | "binance",
-): PriceSnapshot | undefined {
-  let selected: PriceSnapshot | undefined;
-  let selectedIndex = -1;
-
+  const accumulator = createPriceSelectionAccumulator(asset, mode);
   snapshots.forEach((snapshot, index) => {
-    if (
-      snapshot.assetSymbol !== asset.symbol ||
-      !isSupportedValuationCurrency(snapshot.currency) ||
-      snapshot.currency !== asset.quoteCurrency ||
-      getLedgerDateKey(snapshot.recordedAt) > dateKey
-    ) {
-      return;
-    }
-
-    const isManual = snapshot.source === "manual";
-    const isBinance =
-      snapshot.source === "api" &&
-      snapshot.binanceProvenance?.provider === "binance" &&
-      snapshot.binanceProvenance.sourceQuoteCurrency === "USDT";
-    if (
-      (source === "manual" && !isManual) ||
-      (source === "binance" && !isBinance)
-    ) {
-      return;
-    }
-
-    if (
-      !selected ||
-      compareLedgerFactOrder(
-        snapshot.recordedAt,
-        selected.recordedAt,
-        index,
-        selectedIndex,
-      ) >= 0
-    ) {
-      selected = snapshot;
-      selectedIndex = index;
+    if (getLedgerDateKey(snapshot.recordedAt) <= dateKey) {
+      considerPriceSnapshot(accumulator, snapshot, index);
     }
   });
+  return getSelectedPrice(accumulator);
+}
 
-  return selected;
+function classifyCandidate(
+  snapshot: PriceSnapshot,
+  asset: Asset,
+): "manual" | "binance" | undefined {
+  if (
+    snapshot.assetSymbol !== asset.symbol ||
+    !isSupportedValuationCurrency(snapshot.currency) ||
+    snapshot.currency !== asset.quoteCurrency
+  ) {
+    return undefined;
+  }
+  if (snapshot.source === "manual") {
+    return "manual";
+  }
+  return snapshot.source === "api" &&
+    snapshot.binanceProvenance?.provider === "binance" &&
+    snapshot.binanceProvenance.sourceQuoteCurrency === "USDT"
+    ? "binance"
+    : undefined;
 }
 
 function toSelectedPrice(

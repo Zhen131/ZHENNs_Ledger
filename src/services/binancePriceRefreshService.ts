@@ -1,4 +1,4 @@
-import { calculatePositions } from "../calculators/positionCalculator";
+import { replayPositions } from "../calculators/positionReplay";
 import type {
   BinanceMarketMapping,
   LedgerData,
@@ -46,7 +46,7 @@ export async function refreshBinancePrices(
   signal?: AbortSignal,
 ): Promise<BinancePriceRefreshResult> {
   const partition = partitionLedgerFactsForToday(ledgerData, todayKey);
-  const positions = calculatePositions(partition.activeTrades, []);
+  const positions = replayPositions(partition.activeTrades);
   const nonZeroSymbols = new Set(
     positions
       .filter((position) => !isZero(position.quantity))
