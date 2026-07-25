@@ -5,8 +5,11 @@
 ## 当前状态
 
 截至 2026-07-25，Week 10 的日期兼容、Binance 最新行情、统一价格选择、共享持仓重放、
-三张 ECharts 图与持久化安全回归已经在本地功能分支
-`zhennn/week10-charts-binance` 完成。该分支尚未合并、尚未推送，等待用户审查。
+三张 ECharts 图与持久化安全回归已经在功能分支
+`zhennn/week10-charts-binance` 完成。该分支已推送并跟踪同名远端分支，但尚未合并。
+02B 独立补充测试总判定为“不通过”：`next@14.2.35` 存在当前 `next start`
+部署面可达的 WebSocket upgrade SSRF 高危漏洞；旧未来事实虽能正确隔离，
+但正式 UI 不能逐条删除未来交易和价格。修复并重新独立测试前，不进入合并审查。
 `LedgerData.schemaVersion` 仍为 `1`，Week 9 的 IndexedDB V2 静态加密主链保持不变。
 
 当前功能分支已实现：
@@ -59,6 +62,18 @@ Week 10 最终验收：41 个测试文件、362 项测试
 npm run lint  -> 无 warning / error
 npm run build -> Compiled successfully
 git diff --check -> 通过
+```
+
+独立补充测试结果：
+
+```text
+T0 -> 41 files / 362 tests、lint、build、diff-check 通过
+T2 -> timeout / offline / 418 / 429 / 500 / partial 全部通过
+T3 -> 未来事实隔离与整体恢复通过；交易/价格逐条删除 FAIL
+T4 -> mapping / 整账替换 / 并发普通交易的旧响应保护通过
+T5 -> 响应式与重新解锁恢复通过；raw V2 envelope 证据 BLOCKED
+T6 -> Next WebSocket SSRF 为 production 可达 P1
+总判定 -> 不通过；不可进入合并审查，需要独立修复计划
 ```
 
 生产 UI 验收结果：
@@ -244,15 +259,15 @@ git diff --check
 ## 已知限制与后续范围
 
 - Binance 只读取最新公开价格，不读取历史 Kline/OHLC，不轮询、不使用 WebSocket；网络、地区、限流或 CORS 失败时保留旧事实并继续使用本地账本。
-- production UI 能证明未来新事实拒绝；既有 legacy future 事实的受限纠正模式和请求竞态只能用确定性自动化覆盖，未伪造浏览器场景。
+- production UI 能证明未来新事实拒绝；独立测试确认既有 future 事实不会进入持仓和三图，但当前未来交易删除按钮被禁用、未来价格无单删入口。
 - 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
 - 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
 - 分页、virtual list 和大账本性能预算仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
 - 情景价格、未来价格模拟、动画、主题、K 线、指标、dataZoom、账户、订单和下单不在 Week 10 范围。
-- 安装 ECharts 后 npm 摘要报告 7 个 high 漏洞；本轮未获准向外部 advisory 服务发送依赖元数据，因此没有完成在线归因，也未执行 `npm audit fix`。
+- T6 已完成 npm high 在线归因：`next@14.2.35` 存在当前 `next start` 部署面可达的 WebSocket upgrade SSRF；`postcss` 为当前 production 输入不可达的构建期剩余风险。本轮未执行 `npm audit fix`。
 
 ## Git 状态
 
 - 当前源码分支：`zhennn/week10-charts-binance`。
-- Week 10 从 `main@7f974e0` 分出；功能与测试提交为 `bdc7a84`、`375a96f`、`dfa75a0`、`247eb8e`、`28eb0fe`、`45f2359`、`06cef3b`。
-- 当前功能分支未合并、未 push、未 rebase，等待用户审查。
+- Week 10 从 `main@7f974e0` 分出；功能、测试与说明提交为 `bdc7a84`、`375a96f`、`dfa75a0`、`247eb8e`、`28eb0fe`、`45f2359`、`06cef3b`、`fd5391e`。
+- 当前功能分支已推送并跟踪 `origin/zhennn/week10-charts-binance`；未合并、未 rebase，等待独立修复计划。
