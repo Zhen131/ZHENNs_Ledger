@@ -160,6 +160,21 @@ function createCompleteBackupLedger(): LedgerData {
     priceSnapshots: [
       createPriceSnapshot("price-backup-btc", "BTC", "80000", "2026-07-16"),
       createPriceSnapshot("price-backup-eth", "ETH", "2200", "2026-07-16"),
+      {
+        ...createPriceSnapshot(
+          "price-backup-binance",
+          "ADA",
+          "0.75",
+          "2026-07-17",
+        ),
+        source: "api",
+        binanceProvenance: {
+          provider: "binance",
+          symbol: "ADAUSDT",
+          sourceQuoteCurrency: "USDT",
+          fetchedAt: "2026-07-17T08:00:00Z",
+        },
+      },
     ],
     feeRules: [feeRule],
   };
@@ -1638,12 +1653,36 @@ describe("usePersistentLedger backup import", () => {
       serializeBackupEnvelope(reexportedEnvelope.value),
     );
     expect(reparsed).toEqual(parsed);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.ledgerData.assets[0].binanceMapping?.symbol).toBe(
+      "BTCUSDT",
+    );
     expect(
-      Object.prototype.hasOwnProperty.call(
-        reparsed.ok ? reparsed.value.ledgerData : {},
-        "positions",
-      ),
-    ).toBe(false);
+      reparsed.value.ledgerData.priceSnapshots.find(
+        (snapshot) => snapshot.id === "price-backup-binance",
+      )?.binanceProvenance,
+    ).toEqual({
+      provider: "binance",
+      symbol: "ADAUSDT",
+      sourceQuoteCurrency: "USDT",
+      fetchedAt: "2026-07-17T08:00:00Z",
+    });
+    expect(reparsed.value.ledgerData.feeRules).toEqual([fixture.feeRules[0]]);
+    for (const forbiddenKey of [
+      "positions",
+      "allocationSlices",
+      "holdingHistory",
+      "tradeHeatmap",
+      "valuationPriceMode",
+      "selectedTradeDate",
+    ]) {
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          reparsed.value.ledgerData,
+          forbiddenKey,
+        ),
+      ).toBe(false);
+    }
     remounted.unmount();
   });
 });

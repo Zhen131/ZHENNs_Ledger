@@ -118,6 +118,17 @@ function createBackupFile(ledgerData: LedgerData): File {
   return file;
 }
 
+function createRawBackupFile(contents: string, name: string): File {
+  const file = new File([contents], name, {
+    type: "application/json",
+  });
+  Object.defineProperty(file, "text", {
+    configurable: true,
+    value: vi.fn(async () => contents),
+  });
+  return file;
+}
+
 function getSection(title: string): HTMLElement {
   const section = screen.getByRole("heading", { name: title }).closest("section");
 
@@ -624,6 +635,14 @@ describe("DashboardShell data management", () => {
     await renderDashboard(repository);
     const user = userEvent.setup();
 
+    await user.click(screen.getByRole("button", { name: "手动价格" }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "最近 365 天交易活跃热力图",
+      }),
+    );
+    expect(getSection("交易列表 · 2026-07-14")).not.toBeNull();
+
     await user.upload(
       screen.getByLabelText("选择账本备份文件"),
       createBackupFile(candidate),
@@ -639,7 +658,14 @@ describe("DashboardShell data management", () => {
       expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
       expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
       expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+      expect(getSection("交易列表")).not.toBeNull();
+      expect(screen.getByText(/已估值 1 项，总市值 80000 USD 等值/)).not.toBeNull();
     });
+    expect(
+      screen.getByRole("button", { name: "手动价格" }).getAttribute(
+        "aria-pressed",
+      ),
+    ).toBe("true");
   });
 
   it("keeps the prior dashboard data when a confirmed import write fails", async () => {
@@ -664,6 +690,79 @@ describe("DashboardShell data management", () => {
     });
     expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
     expect(repository.save).toHaveBeenCalledOnce();
+    expect(repository.clear).not.toHaveBeenCalled();
+  });
+
+  it("rejects corrupt, future and non-USD/USDT backups without changing page or storage", async () => {
+    const priorLedger = createCompleteLedger();
+    const repository = createMemoryRepository(priorLedger);
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+    const futureLedger = createInitialLedgerData();
+    futureLedger.trades = [
+      createSimpleTrade(
+        "future-import",
+        "buy",
+        "BTC",
+        "1",
+        "2099-01-01",
+      ),
+    ];
+    const unsupportedLedger = createInitialLedgerData();
+    unsupportedLedger.assets[0] = {
+      ...unsupportedLedger.assets[0],
+      quoteCurrency: "EUR",
+    };
+
+    const futureEnvelope = createBackupEnvelope(futureLedger, {
+      appVersion: "0.1.0",
+      exportedAt: "2026-07-23T12:34:56Z",
+    });
+    const unsupportedEnvelope = createBackupEnvelope(unsupportedLedger, {
+      appVersion: "0.1.0",
+      exportedAt: "2026-07-23T12:34:56Z",
+    });
+    expect(futureEnvelope.ok).toBe(true);
+    expect(unsupportedEnvelope.ok).toBe(true);
+    if (!futureEnvelope.ok || !unsupportedEnvelope.ok) return;
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createRawBackupFile("{", "corrupt.json"),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("无法导入：备份文件格式或内容无效。")).not.toBeNull();
+      expect(screen.getByText(/BACKUP_BAD_JSON/)).not.toBeNull();
+    });
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createRawBackupFile(
+        serializeBackupEnvelope(futureEnvelope.value),
+        "future.json",
+      ),
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/LEDGER_IMPORT_FUTURE_FACT/)).not.toBeNull();
+      expect(screen.getByText(/trades\[0\]\.occurredAt/)).not.toBeNull();
+    });
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createRawBackupFile(
+        serializeBackupEnvelope(unsupportedEnvelope.value),
+        "unsupported.json",
+      ),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(/LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY/),
+      ).not.toBeNull();
+      expect(screen.getByText(/当前仅支持 USD\/USDT 估值/)).not.toBeNull();
+    });
+
+    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(repository.save).not.toHaveBeenCalled();
     expect(repository.clear).not.toHaveBeenCalled();
   });
 
@@ -822,6 +921,12 @@ describe("DashboardShell data management", () => {
     const user = userEvent.setup();
 
     expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
+    await user.click(
+      screen.getByRole("button", {
+        name: "最近 365 天交易活跃热力图",
+      }),
+    );
+    expect(getSection("交易列表 · 2026-07-14")).not.toBeNull();
     await user.click(
       screen.getByRole("button", { name: "清空本地账本" }),
     );
