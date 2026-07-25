@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { usePersistentLedger } from "../../hooks/usePersistentLedger";
-import type { Trade } from "../../models";
+import type { Trade, ValuationPriceMode } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
@@ -11,6 +11,7 @@ import { createSystemLedgerClock, isLedgerFactInFuture } from "../../utils/ledge
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
 import { BackupControls } from "../backup/BackupControls";
+import { MarketDataControls } from "../market-data/MarketDataControls";
 
 const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
 const CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
@@ -133,6 +134,7 @@ export function DashboardShell({
   const {
     ledgerData,
     applyLedgerAction,
+    applyLedgerMutation,
     hydrationStatus,
     persistenceError,
     resourcePolicyError,
@@ -148,7 +150,10 @@ export function DashboardShell({
     discardDirtyChangesAndSwitchRepository,
     compatibilityWarnings,
     isFutureFactCorrectionMode,
+    ledgerEpoch,
   } = usePersistentLedger(repository);
+  const [valuationPriceMode, setValuationPriceMode] =
+    useState<ValuationPriceMode>("auto");
   const [tradeRemovalError, setTradeRemovalError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
     useState<ClearConfirmationMode | null>(null);
@@ -181,7 +186,10 @@ export function DashboardShell({
     !isReadOnly &&
     !isFutureFactCorrectionMode;
   const todayKey = createSystemLedgerClock().todayKey();
-  const positions = getPositionsFromLedger(ledgerData, { todayKey });
+  const positions = getPositionsFromLedger(ledgerData, {
+    todayKey,
+    mode: valuationPriceMode,
+  });
   const futureTrades = ledgerData.trades.filter((trade) =>
     isLedgerFactInFuture(trade.occurredAt, todayKey),
   );
@@ -446,6 +454,17 @@ export function DashboardShell({
           ) : null}
 
           <div className="grid gap-5">
+            <Section title="图表总览与 Binance 行情">
+              <MarketDataControls
+                applyLedgerMutation={applyLedgerMutation}
+                isWritable={isWritable}
+                ledgerData={ledgerData}
+                ledgerEpoch={ledgerEpoch}
+                mode={valuationPriceMode}
+                onModeChange={setValuationPriceMode}
+              />
+            </Section>
+
             <Section eyebrow="Future chart area" title="资产走势">
               <div className="flex min-h-48 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                 <div>

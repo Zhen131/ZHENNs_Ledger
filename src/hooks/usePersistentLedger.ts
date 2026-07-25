@@ -39,6 +39,9 @@ import { createSystemLedgerClock, isLedgerFactInFuture } from "../utils/ledgerDa
 export type PersistentLedgerState = {
   ledgerData: LedgerData;
   applyLedgerAction: (action: LedgerAction) => ApplyLedgerActionResult;
+  applyLedgerMutation: (
+    mutation: (current: LedgerData) => LedgerData,
+  ) => ApplyLedgerActionResult;
   hydrationStatus: HydrationStatus;
   persistenceError: string | null;
   resourcePolicyError: LedgerResourcePolicyError | null;
@@ -578,6 +581,66 @@ export function usePersistentLedger(
     ],
   );
 
+  const applyLedgerMutation = useCallback(
+    (
+      mutation: (current: LedgerData) => LedgerData,
+    ): ApplyLedgerActionResult => {
+      if (
+        hydrationStatus !== "ready" ||
+        readOnlyRef.current ||
+        operationRef.current !== "idle" ||
+        hydratedRepositoryRef.current !== activeRepository
+      ) {
+        return "rejected";
+      }
+
+      const currentLedgerData = ledgerDataRef.current;
+      if (hasFutureFacts(currentLedgerData, todayKey)) {
+        return "rejected";
+      }
+
+      const nextLedgerData = mutation(currentLedgerData);
+      if (nextLedgerData === currentLedgerData) {
+        return "noop";
+      }
+
+      const resourcePolicyResult =
+        evaluateLedgerResourcePolicy(nextLedgerData);
+      if (!resourcePolicyResult.ok) {
+        if (mountedRef.current) {
+          setResourcePolicyError(resourcePolicyResult.errors[0]);
+        }
+        return "rejected";
+      }
+
+      const currentVersionState = persistenceVersionStateRef.current;
+      failedSnapshotRef.current = null;
+      retryAttemptRef.current = null;
+      ledgerDataRef.current = nextLedgerData;
+      publishPersistenceVersionState({
+        ...currentVersionState,
+        mutationVersion: currentVersionState.mutationVersion + 1,
+        persistenceStatus: "saving",
+      });
+
+      if (mountedRef.current) {
+        setPersistenceError(null);
+        setResourcePolicyError(null);
+      }
+      reducerDispatch({
+        type: "ledger/replace",
+        ledgerData: nextLedgerData,
+      });
+      return "applied";
+    },
+    [
+      activeRepository,
+      hydrationStatus,
+      publishPersistenceVersionState,
+      todayKey,
+    ],
+  );
+
   const retryPersistence = useCallback((): Promise<boolean> => {
     const currentVersionState = persistenceVersionStateRef.current;
     const generation = generationRef.current;
@@ -925,6 +988,7 @@ export function usePersistentLedger(
   return {
     ledgerData,
     applyLedgerAction,
+    applyLedgerMutation,
     hydrationStatus,
     persistenceError,
     resourcePolicyError,
