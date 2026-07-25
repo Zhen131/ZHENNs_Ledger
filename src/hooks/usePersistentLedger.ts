@@ -10,6 +10,16 @@ import {
 
 import type { LedgerData } from "../models";
 import {
+  collectLedgerCompatibilityWarnings,
+  normalizeLedgerDataForRuntime,
+  partitionLedgerFactsForToday,
+  type LedgerCompatibilityWarning,
+} from "../policies/ledgerFactPolicy";
+import {
+  validateLedgerImportPolicy,
+  type LedgerImportPolicyError,
+} from "../policies/ledgerImportPolicy";
+import {
   LEDGER_REPOSITORY_ERROR_CODES,
   type LedgerRepository,
 } from "../repositories/ledgerRepository";
@@ -24,6 +34,7 @@ import {
   type LedgerResourcePolicyError,
 } from "../validators/resourcePolicy";
 import { validateLedgerData } from "../validators/ledgerDataValidator";
+import { createSystemLedgerClock, isLedgerFactInFuture } from "../utils/ledgerDate";
 
 export type PersistentLedgerState = {
   ledgerData: LedgerData;
@@ -45,6 +56,9 @@ export type PersistentLedgerState = {
   isDirty: boolean;
   repositorySwitchBlocked: boolean;
   discardDirtyChangesAndSwitchRepository: () => boolean;
+  ledgerEpoch: number;
+  compatibilityWarnings: LedgerCompatibilityWarning[];
+  isFutureFactCorrectionMode: boolean;
 };
 
 export type PersistenceOperation = "idle" | "clearing" | "importing";
@@ -92,6 +106,7 @@ export type ImportLedgerResult =
         | "LEDGER_IMPORT_NOT_ALLOWED"
         | "LEDGER_IMPORT_INVALID_BACKUP"
         | typeof LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED;
+      errors?: LedgerImportPolicyError[];
     };
 
 /**
@@ -115,6 +130,7 @@ export function usePersistentLedger(
     useState<PersistenceOperation>("idle");
   const [persistenceVersionState, setPersistenceVersionState] =
     useState<PersistenceVersionState>(INITIAL_PERSISTENCE_VERSION_STATE);
+  const [ledgerEpoch, setLedgerEpoch] = useState(0);
   const [, requestRepositorySwitchRender] = useState(0);
   const mountedRef = useRef(true);
   const activeRepositoryRef = useRef(requestedRepository);
@@ -165,6 +181,15 @@ export function usePersistentLedger(
     persistenceVersionState.persistedVersion !==
     persistenceVersionState.mutationVersion;
   currentRepositoryRef.current = activeRepository;
+  const todayKey = createSystemLedgerClock().todayKey();
+  const compatibilityWarnings = collectLedgerCompatibilityWarnings(
+    ledgerData,
+    todayKey,
+  );
+  const factPartition = partitionLedgerFactsForToday(ledgerData, todayKey);
+  const isFutureFactCorrectionMode =
+    factPartition.futureTrades.length > 0 ||
+    factPartition.futurePriceSnapshots.length > 0;
 
   const publishPersistenceVersionState = useCallback(
     (nextState: PersistenceVersionState) => {
@@ -345,8 +370,9 @@ export function usePersistentLedger(
           return;
         }
 
-        const hydratedLedger =
-          savedLedger ?? createInitialLedgerData();
+        const hydratedLedger = normalizeLedgerDataForRuntime(
+          savedLedger ?? createInitialLedgerData(),
+        );
         const resourcePolicyResult =
           evaluateLedgerResourcePolicy(hydratedLedger);
         const serializedLedger = JSON.stringify(hydratedLedger);
@@ -410,6 +436,7 @@ export function usePersistentLedger(
 
     pendingHydrationRef.current = null;
     hydratedRepositoryRef.current = activeRepository;
+    setLedgerEpoch((current) => current + 1);
     setHydrationStatus("ready");
   }, [activeRepository, hydrationStatus, ledgerData]);
 
@@ -496,6 +523,14 @@ export function usePersistentLedger(
       }
 
       const currentLedgerData = ledgerDataRef.current;
+
+      if (
+        hasFutureFacts(currentLedgerData, todayKey) &&
+        !isCorrectionAction(action, currentLedgerData, todayKey)
+      ) {
+        return "rejected";
+      }
+
       const nextLedgerData = ledgerReducer(currentLedgerData, action);
 
       if (nextLedgerData === currentLedgerData) {
@@ -539,6 +574,7 @@ export function usePersistentLedger(
       activeRepository,
       hydrationStatus,
       publishPersistenceVersionState,
+      todayKey,
     ],
   );
 
@@ -715,6 +751,7 @@ export function usePersistentLedger(
           readOnlyRef.current = false;
           setIsReadOnly(false);
           setHydrationStatus("ready");
+          setLedgerEpoch((current) => current + 1);
         }
 
         return { ok: true };
@@ -786,7 +823,19 @@ export function usePersistentLedger(
         return Promise.resolve({ ok: false, code: "LEDGER_IMPORT_INVALID_BACKUP" });
       }
 
-      const validatedLedger = ledgerResult.value;
+      const importPolicy = validateLedgerImportPolicy(
+        ledgerResult.value,
+        todayKey,
+      );
+      if (!importPolicy.ok) {
+        return Promise.resolve({
+          ok: false,
+          code: "LEDGER_IMPORT_INVALID_BACKUP",
+          errors: importPolicy.errors,
+        });
+      }
+
+      const validatedLedger = normalizeLedgerDataForRuntime(ledgerResult.value);
       const operationToken = Symbol("import-ledger");
       const operationRepository = activeRepository;
       operationRef.current = "importing";
@@ -838,6 +887,7 @@ export function usePersistentLedger(
             readOnlyRef.current = false;
             setIsReadOnly(false);
             setHydrationStatus("ready");
+            setLedgerEpoch((current) => current + 1);
           }
 
           return { ok: true };
@@ -864,7 +914,12 @@ export function usePersistentLedger(
       writeQueueRef.current = importPromise.then(() => undefined);
       return importPromise;
     },
-    [activeRepository, hydrationStatus, publishPersistenceVersionState],
+    [
+      activeRepository,
+      hydrationStatus,
+      publishPersistenceVersionState,
+      todayKey,
+    ],
   );
 
   return {
@@ -889,5 +944,46 @@ export function usePersistentLedger(
     isDirty,
     repositorySwitchBlocked,
     discardDirtyChangesAndSwitchRepository,
+    ledgerEpoch,
+    compatibilityWarnings,
+    isFutureFactCorrectionMode,
   };
+}
+
+function hasFutureFacts(ledgerData: LedgerData, todayKey: string): boolean {
+  return (
+    ledgerData.trades.some((trade) =>
+      isLedgerFactInFuture(trade.occurredAt, todayKey),
+    ) ||
+    ledgerData.priceSnapshots.some((snapshot) =>
+      isLedgerFactInFuture(snapshot.recordedAt, todayKey),
+    )
+  );
+}
+
+function isCorrectionAction(
+  action: LedgerAction,
+  ledgerData: LedgerData,
+  todayKey: string,
+): boolean {
+  if (action.type === "futureFacts/deleteAll") {
+    return action.todayKey === todayKey;
+  }
+
+  if (action.type === "trade/delete") {
+    const trade = ledgerData.trades.find((item) => item.id === action.tradeId);
+    return trade !== undefined && isLedgerFactInFuture(trade.occurredAt, todayKey);
+  }
+
+  if (action.type === "priceSnapshot/delete") {
+    const snapshot = ledgerData.priceSnapshots.find(
+      (item) => item.id === action.priceSnapshotId,
+    );
+    return (
+      snapshot !== undefined &&
+      isLedgerFactInFuture(snapshot.recordedAt, todayKey)
+    );
+  }
+
+  return false;
 }

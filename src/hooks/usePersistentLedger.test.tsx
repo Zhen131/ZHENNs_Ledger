@@ -166,6 +166,67 @@ function createCompleteBackupLedger(): LedgerData {
 }
 
 describe("usePersistentLedger hydration safety", () => {
+  it("increments ledgerEpoch only for whole-ledger replacement and enforces future correction mode", async () => {
+    const futureLedger = createInitialLedgerData();
+    futureLedger.trades = [
+      createSimpleTrade("future-trade", "buy", "BTC", "1", "2099-01-01"),
+    ];
+    const repository = createRepository({
+      load: vi.fn(async () => futureLedger),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    expect(result.current.ledgerEpoch).toBe(1);
+    expect(result.current.isFutureFactCorrectionMode).toBe(true);
+    expect(
+      result.current.compatibilityWarnings.some(
+        (warning) => warning.path === "trades[0].occurredAt",
+      ),
+    ).toBe(true);
+
+    act(() => {
+      expect(
+        addTrade(
+          result.current.applyLedgerAction,
+          createSimpleTrade("normal-trade", "buy", "BTC", "1", "2020-01-01"),
+        ),
+      ).toBe("rejected");
+      expect(
+        result.current.applyLedgerAction({
+          type: "trade/delete",
+          tradeId: "normal-trade",
+        }),
+      ).toBe("rejected");
+      expect(
+        result.current.applyLedgerAction({
+          type: "futureFacts/deleteAll",
+          todayKey: "2026-07-25",
+        }),
+      ).toBe("applied");
+    });
+
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+    expect(result.current.isFutureFactCorrectionMode).toBe(false);
+    expect(result.current.ledgerEpoch).toBe(1);
+
+    await act(async () => {
+      await expect(
+        result.current.replaceLedgerFromBackup(createInitialLedgerData()),
+      ).resolves.toEqual({ ok: true });
+    });
+    expect(result.current.ledgerEpoch).toBe(2);
+
+    await act(async () => {
+      await expect(result.current.clearLedger()).resolves.toEqual({ ok: true });
+    });
+    expect(result.current.ledgerEpoch).toBe(3);
+  });
+
   it("reports rejected, noop, and applied mutations with versioned persistence", async () => {
     const loadDeferred = createDeferred<LedgerData | null>();
     const saveDeferred = createDeferred<void>();

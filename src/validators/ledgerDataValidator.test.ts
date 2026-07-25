@@ -95,6 +95,7 @@ describe("validateLedgerData", () => {
       ...createInitialLedgerData().assets[0],
       id: createInitialLedgerData().assets[1].id,
       symbol: createInitialLedgerData().assets[1].symbol,
+      binanceMapping: undefined,
     };
     const input = createCompleteLedger();
     input.assets.push(duplicateAsset);

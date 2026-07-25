@@ -13,6 +13,7 @@ import {
   subtract,
   toDecimalString,
 } from "../utils/decimalMath";
+import { compareLedgerFactOrder } from "../utils/ledgerDate";
 
 /**
  * PositionAccumulator 是计算过程中的 internal state。
@@ -72,10 +73,14 @@ export function calculatePositions(
 function sortTradesByOccurredAt(trades: Trade[]): Trade[] {
   return trades
     .map((trade, index) => ({ trade, index }))
-    .sort((left, right) => {
-      const dateOrder = left.trade.occurredAt.localeCompare(right.trade.occurredAt);
-      return dateOrder === 0 ? left.index - right.index : dateOrder;
-    })
+    .sort((left, right) =>
+      compareLedgerFactOrder(
+        left.trade.occurredAt,
+        right.trade.occurredAt,
+        left.index,
+        right.index,
+      ),
+    )
     .map(({ trade }) => trade);
 }
 
@@ -206,8 +211,10 @@ function findLatestSnapshot(
   priceSnapshots: PriceSnapshot[],
 ): PriceSnapshot | undefined {
   let latest: PriceSnapshot | undefined;
+  let latestIndex = -1;
 
-  for (const snapshot of priceSnapshots) {
+  for (let index = 0; index < priceSnapshots.length; index += 1) {
+    const snapshot = priceSnapshots[index];
     if (
       snapshot.assetSymbol !== position.assetSymbol ||
       snapshot.currency !== position.currency
@@ -215,8 +222,17 @@ function findLatestSnapshot(
       continue;
     }
 
-    if (!latest || snapshot.recordedAt.localeCompare(latest.recordedAt) >= 0) {
+    if (
+      !latest ||
+      compareLedgerFactOrder(
+        snapshot.recordedAt,
+        latest.recordedAt,
+        index,
+        latestIndex,
+      ) >= 0
+    ) {
       latest = snapshot;
+      latestIndex = index;
     }
   }
 

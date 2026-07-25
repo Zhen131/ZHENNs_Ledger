@@ -1,6 +1,7 @@
 import { calculatePositions } from "../calculators/positionCalculator";
 import type {
   Asset,
+  BinanceMarketMapping,
   FeeRule,
   LedgerData,
   PriceSnapshot,
@@ -202,6 +203,12 @@ function readAsset(
     `${path}.decimals`,
     errors,
   );
+  const binanceMapping = readBinanceMapping(
+    record.binanceMapping,
+    symbol,
+    `${path}.binanceMapping`,
+    errors,
+  );
 
   if (
     errors.length !== errorCount ||
@@ -221,8 +228,83 @@ function readAsset(
     name,
     quoteCurrency,
     ...(decimals === undefined ? {} : { decimals }),
+    ...(binanceMapping === undefined ? {} : { binanceMapping }),
     createdAt,
     updatedAt,
+  };
+}
+
+function readBinanceMapping(
+  value: unknown,
+  assetSymbol: string | undefined,
+  path: string,
+  errors: LedgerDataValidationError[],
+): BinanceMarketMapping | null | undefined {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (!isRecord(value)) {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        path,
+        `${path} must be null or a Binance mapping`,
+      ),
+    );
+    return undefined;
+  }
+
+  const symbol = readRequiredString(value.symbol, `${path}.symbol`, errors);
+  const baseAsset = readRequiredString(
+    value.baseAsset,
+    `${path}.baseAsset`,
+    errors,
+  );
+
+  if (value.provider !== "binance") {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.provider`,
+        "Binance mapping provider must be binance",
+      ),
+    );
+  }
+  if (value.quoteAsset !== "USDT") {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.quoteAsset`,
+        "Binance mapping quote asset must be USDT",
+      ),
+    );
+  }
+  if (baseAsset !== undefined && assetSymbol !== undefined && baseAsset !== assetSymbol) {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.baseAsset`,
+        "Binance mapping base asset must match the ledger asset symbol",
+      ),
+    );
+  }
+
+  if (
+    symbol === undefined ||
+    baseAsset === undefined ||
+    value.provider !== "binance" ||
+    value.quoteAsset !== "USDT" ||
+    baseAsset !== assetSymbol
+  ) {
+    return undefined;
+  }
+
+  return {
+    provider: "binance",
+    symbol,
+    baseAsset,
+    quoteAsset: "USDT",
   };
 }
 

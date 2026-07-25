@@ -1,5 +1,7 @@
 export type {
   Asset,
+  BinanceMarketMapping,
+  BinancePriceProvenance,
   CurrencyCode,
   DecimalString,
   FeeRule,
@@ -15,4 +17,5 @@ export type {
   Trade,
   TradeDraft,
   TradeType,
+  ValuationPriceMode,
 } from "./types";

@@ -15,6 +15,11 @@ import {
   multiply,
   subtract,
 } from "../utils/decimalMath";
+import {
+  compareLedgerFactOrder,
+  isLedgerFactInFuture,
+} from "../utils/ledgerDate";
+import { isSupportedValuationCurrency } from "../policies/ledgerFactPolicy";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
 
 /**
@@ -39,6 +44,8 @@ export const TRADE_VALIDATION_ERROR_CODES = {
   TOTAL_VALUE_MISMATCH: "TOTAL_VALUE_MISMATCH",
   INSUFFICIENT_HOLDINGS: "INSUFFICIENT_HOLDINGS",
   CURRENCY_MISMATCH: "CURRENCY_MISMATCH",
+  FUTURE_FACT: "FUTURE_FACT",
+  UNSUPPORTED_VALUATION_CURRENCY: "UNSUPPORTED_VALUATION_CURRENCY",
 } as const;
 
 export type TradeValidationErrorCode =
@@ -73,6 +80,8 @@ export type TradeValidationContext = {
   priorTrades: readonly Trade[];
   totalValueTolerance?: DecimalString;
   skipHoldingsTimeline?: boolean;
+  todayKey?: string;
+  requireSupportedValuationCurrency?: boolean;
 };
 
 export type TradeValidationResult =
@@ -152,6 +161,36 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
       context.assets,
       context.priorTrades,
       errors,
+    );
+  }
+
+  if (
+    occurredAt !== undefined &&
+    context.todayKey !== undefined &&
+    isLedgerFactInFuture(occurredAt, context.todayKey)
+  ) {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.FUTURE_FACT,
+        "occurredAt",
+        `occurredAt cannot be later than ${context.todayKey}`,
+      ),
+    );
+  }
+
+  if (
+    context.requireSupportedValuationCurrency &&
+    currency !== undefined &&
+    !isSupportedValuationCurrency(currency) &&
+    context.assets.find((asset) => asset.symbol === assetSymbol)
+      ?.quoteCurrency === currency
+  ) {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.UNSUPPORTED_VALUATION_CURRENCY,
+        "currency",
+        "Only USD/USDT valuation is supported",
+      ),
     );
   }
 
@@ -488,12 +527,14 @@ function validateHoldingsTimeline(
     originalIndex: priorTrades.length,
   });
 
-  timeline.sort((left, right) => {
-    const dateOrder = left.occurredAt.localeCompare(right.occurredAt);
-    return dateOrder === 0
-      ? left.originalIndex - right.originalIndex
-      : dateOrder;
-  });
+  timeline.sort((left, right) =>
+    compareLedgerFactOrder(
+      left.occurredAt,
+      right.occurredAt,
+      left.originalIndex,
+      right.originalIndex,
+    ),
+  );
 
   let availableQuantity: DecimalString = "0";
 

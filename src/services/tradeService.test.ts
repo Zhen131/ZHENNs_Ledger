@@ -190,6 +190,8 @@ describe("createValidatedTrade validation failures", () => {
       const expectedValidation = validateTradeDraft(input, {
         assets: ledgerData.assets,
         priorTrades: ledgerData.trades,
+        todayKey: "2026-07-25",
+        requireSupportedValuationCurrency: true,
       });
 
       const result = createValidatedTrade(input, ledgerData, dependencies);

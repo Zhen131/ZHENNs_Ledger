@@ -7,6 +7,7 @@ import type { Trade } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
+import { createSystemLedgerClock, isLedgerFactInFuture } from "../../utils/ledgerDate";
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
 import { BackupControls } from "../backup/BackupControls";
@@ -46,10 +47,12 @@ export function TradeTable({
   trades,
   onDelete,
   deleteDisabled = false,
+  todayKey,
 }: Readonly<{
   trades: readonly Trade[];
   onDelete?: (tradeId: string) => void;
   deleteDisabled?: boolean;
+  todayKey?: string;
 }>) {
   const columnCount = onDelete ? 7 : 6;
 
@@ -80,7 +83,15 @@ export function TradeTable({
           ) : (
             trades.map((trade) => (
               <tr key={trade.id}>
-                <td className="py-3 text-slate-600">{trade.occurredAt}</td>
+                <td className="py-3 text-slate-600">
+                  {trade.occurredAt}
+                  {todayKey &&
+                  isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
+                    <span className="ml-2 font-medium text-red-700">
+                      无效未来事实
+                    </span>
+                  ) : null}
+                </td>
                 <td className="py-3 text-slate-600">
                   {trade.type === "buy" ? "买入" : "卖出"}
                 </td>
@@ -135,6 +146,8 @@ export function DashboardShell({
     isDirty,
     repositorySwitchBlocked,
     discardDirtyChangesAndSwitchRepository,
+    compatibilityWarnings,
+    isFutureFactCorrectionMode,
   } = usePersistentLedger(repository);
   const [tradeRemovalError, setTradeRemovalError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
@@ -165,8 +178,16 @@ export function DashboardShell({
     hydrationStatus === "ready" &&
     persistenceOperation === "idle" &&
     !repositorySwitchBlocked &&
-    !isReadOnly;
-  const positions = getPositionsFromLedger(ledgerData);
+    !isReadOnly &&
+    !isFutureFactCorrectionMode;
+  const todayKey = createSystemLedgerClock().todayKey();
+  const positions = getPositionsFromLedger(ledgerData, { todayKey });
+  const futureTrades = ledgerData.trades.filter((trade) =>
+    isLedgerFactInFuture(trade.occurredAt, todayKey),
+  );
+  const futurePriceSnapshots = ledgerData.priceSnapshots.filter((snapshot) =>
+    isLedgerFactInFuture(snapshot.recordedAt, todayKey),
+  );
 
   function handleDeleteTrade(tradeId: string) {
     if (!isWritable) {
@@ -375,6 +396,54 @@ export function DashboardShell({
               </button>
             </div>
           ) : null}
+          {compatibilityWarnings.length > 0 ? (
+            <div
+              aria-live="assertive"
+              className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+            >
+              <p className="font-semibold">旧账本兼容警告</p>
+              <ul className="mt-2 grid gap-1">
+                {compatibilityWarnings.slice(0, 8).map((warning, index) => (
+                  <li key={`${warning.code}-${warning.path}-${index}`}>
+                    <code>{warning.path}</code> · {warning.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {isFutureFactCorrectionMode ? (
+            <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
+              <p className="font-semibold">未来事实纠正模式</p>
+              <p>
+                未来交易和价格不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可救援导出、导入合法整账、清空或删除全部无效未来事实。
+              </p>
+              <ul className="grid gap-1">
+                {futureTrades.map((trade) => (
+                  <li key={trade.id}>
+                    未来交易：{trade.occurredAt} · {trade.assetSymbol} · {trade.type}
+                  </li>
+                ))}
+                {futurePriceSnapshots.map((snapshot) => (
+                  <li key={snapshot.id}>
+                    未来价格：{snapshot.recordedAt} · {snapshot.assetSymbol} · {snapshot.price} {snapshot.currency}
+                  </li>
+                ))}
+              </ul>
+              <button
+                className="w-fit rounded-md bg-red-800 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={persistenceOperation !== "idle" || isReadOnly}
+                onClick={() =>
+                  applyLedgerAction({
+                    type: "futureFacts/deleteAll",
+                    todayKey,
+                  })
+                }
+                type="button"
+              >
+                删除全部无效未来事实
+              </button>
+            </div>
+          ) : null}
 
           <div className="grid gap-5">
             <Section eyebrow="Future chart area" title="资产走势">
@@ -511,6 +580,7 @@ export function DashboardShell({
                   hydrationStatus === "ready" ? handleDeleteTrade : undefined
                 }
                 trades={ledgerData.trades}
+                todayKey={todayKey}
               />
             </Section>
 
