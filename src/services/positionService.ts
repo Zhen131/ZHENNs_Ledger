@@ -1,4 +1,4 @@
-import { calculatePositions } from "../calculators/positionCalculator";
+import { replayPositions } from "../calculators/positionReplay";
 import type {
   LedgerData,
   Position,
@@ -7,7 +7,15 @@ import type {
 import { partitionLedgerFactsForToday } from "../policies/ledgerFactPolicy";
 import { multiply, subtract } from "../utils/decimalMath";
 import { createSystemLedgerClock } from "../utils/ledgerDate";
-import { selectPriceAsOf } from "./priceSelectionService";
+import {
+  selectPriceAsOf,
+  type SelectedPrice,
+} from "./priceSelectionService";
+
+export type ValuedPosition = {
+  position: Position;
+  selectedPrice?: SelectedPrice;
+};
 
 export function getPositionsFromLedger(
   ledgerData: LedgerData,
@@ -16,6 +24,18 @@ export function getPositionsFromLedger(
     mode?: ValuationPriceMode;
   } = {},
 ): Position[] {
+  return getValuedPositionsFromLedger(ledgerData, options).map(
+    (item) => item.position,
+  );
+}
+
+export function getValuedPositionsFromLedger(
+  ledgerData: LedgerData,
+  options: {
+    todayKey?: string;
+    mode?: ValuationPriceMode;
+  } = {},
+): ValuedPosition[] {
   const todayKey = options.todayKey ?? createSystemLedgerClock().todayKey();
   const partition = partitionLedgerFactsForToday(
     ledgerData,
@@ -25,10 +45,10 @@ export function getPositionsFromLedger(
     ledgerData.assets.map((asset) => [asset.symbol, asset]),
   );
 
-  return calculatePositions(partition.activeTrades, []).map((position) => {
+  return replayPositions(partition.activeTrades).map((position) => {
     const asset = assetsBySymbol.get(position.assetSymbol);
     if (!asset) {
-      return position;
+      return { position };
     }
 
     const selected = selectPriceAsOf(
@@ -38,7 +58,7 @@ export function getPositionsFromLedger(
       options.mode ?? "auto",
     );
     if (!selected) {
-      return position;
+      return { position };
     }
 
     const marketValue = multiply(
@@ -46,10 +66,13 @@ export function getPositionsFromLedger(
       selected.snapshot.price,
     );
     return {
-      ...position,
-      latestPrice: selected.snapshot.price,
-      marketValue,
-      unrealizedPnl: subtract(marketValue, position.costBasis),
+      selectedPrice: selected,
+      position: {
+        ...position,
+        latestPrice: selected.snapshot.price,
+        marketValue,
+        unrealizedPnl: subtract(marketValue, position.costBasis),
+      },
     };
   });
 }
