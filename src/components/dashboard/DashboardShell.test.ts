@@ -11,6 +11,7 @@ import { DashboardShell, TradeTable } from "./DashboardShell";
 
 vi.mock("../../services/positionService", () => ({
   getPositionsFromLedger: vi.fn(),
+  getValuedPositionsFromLedger: vi.fn(() => []),
 }));
 
 const getPositionsFromLedgerMock = vi.mocked(getPositionsFromLedger);
@@ -213,10 +214,27 @@ describe("DashboardShell ledger views", () => {
       createElement(DashboardShell, { repository: staticRepository }),
     );
 
-    expect(html).toContain("lg:w-60 lg:shrink-0");
-    expect(html).toContain("min-w-0 flex-1 px-5");
+    expect(html).not.toContain("lg:w-60 lg:shrink-0");
+    expect(html).toContain("max-w-7xl px-5");
     expect(html).toContain(
       'class="min-w-0 rounded-lg border border-slate-200',
     );
+    expect(html).toContain("min-w-[960px]");
+  });
+
+  it("removes fake navigation and renders the three truthful chart summaries", () => {
+    getPositionsFromLedgerMock.mockReturnValue([]);
+
+    const html = renderToStaticMarkup(
+      createElement(DashboardShell, { repository: staticRepository }),
+    );
+
+    expect(html).not.toContain("Browser-only MVP shell");
+    expect(html).not.toContain(">Today<");
+    expect(html).not.toContain(">This Month<");
+    expect(html).not.toContain("未来这里显示资产净值曲线和 K 线");
+    expect(html).toContain("当前 USD 等值持仓分配");
+    expect(html).toContain("持仓总市值 / 持仓成本");
+    expect(html).toContain("最近 365 天交易活跃");
   });
 });
