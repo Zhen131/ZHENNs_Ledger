@@ -8,6 +8,12 @@ const EXPECTED_ASSETS = [
     symbol: "BTC",
     name: "Bitcoin",
     quoteCurrency: "USD",
+    binanceMapping: {
+      provider: "binance",
+      symbol: "BTCUSDT",
+      baseAsset: "BTC",
+      quoteAsset: "USDT",
+    },
     createdAt: "2026-07-13T00:00:00Z",
     updatedAt: "2026-07-13T00:00:00Z",
   },
@@ -16,6 +22,12 @@ const EXPECTED_ASSETS = [
     symbol: "ETH",
     name: "Ethereum",
     quoteCurrency: "USD",
+    binanceMapping: {
+      provider: "binance",
+      symbol: "ETHUSDT",
+      baseAsset: "ETH",
+      quoteAsset: "USDT",
+    },
     createdAt: "2026-07-13T00:00:00Z",
     updatedAt: "2026-07-13T00:00:00Z",
   },
@@ -24,6 +36,12 @@ const EXPECTED_ASSETS = [
     symbol: "ADA",
     name: "Cardano",
     quoteCurrency: "USD",
+    binanceMapping: {
+      provider: "binance",
+      symbol: "ADAUSDT",
+      baseAsset: "ADA",
+      quoteAsset: "USDT",
+    },
     createdAt: "2026-07-13T00:00:00Z",
     updatedAt: "2026-07-13T00:00:00Z",
   },
@@ -52,6 +70,8 @@ test("creates independent arrays and asset objects", () => {
   }
 
   firstAssets[0].name = "Changed Bitcoin";
+  firstAssets[0].binanceMapping!.symbol = "CHANGED";
   expect(secondAssets[0].name).toBe("Bitcoin");
+  expect(secondAssets[0].binanceMapping?.symbol).toBe("BTCUSDT");
   expect(createBuiltInAssets()).toEqual(EXPECTED_ASSETS);
 });

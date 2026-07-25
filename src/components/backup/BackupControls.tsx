@@ -44,6 +44,7 @@ type BackupControlsProps = {
   onImport: (candidate: LedgerData) => Promise<{
     ok: boolean;
     code?: string;
+    errors?: BackupEnvelopeError[];
   }>;
 };
 
@@ -201,6 +202,9 @@ export function BackupControls({
       return;
     }
 
+    if (result.errors) {
+      setImportErrors(result.errors);
+    }
     setImportState("write-error");
     setMessage(
       result.code === "LEDGER_IMPORT_NOT_ALLOWED"

@@ -1,5 +1,10 @@
 import type { LedgerData } from "../models";
 import {
+  validateLedgerImportPolicy,
+  type LedgerImportPolicyError,
+} from "../policies/ledgerImportPolicy";
+import { createSystemLedgerClock } from "../utils/ledgerDate";
+import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
   isValidISODateOrDateTime,
@@ -33,7 +38,8 @@ export type BackupEnvelopeContractError = {
 export type BackupEnvelopeError =
   | BackupEnvelopeContractError
   | LedgerDataValidationError
-  | LedgerResourcePolicyError;
+  | LedgerResourcePolicyError
+  | LedgerImportPolicyError;
 
 export type BackupEnvelopeResult =
   | { ok: true; value: BackupEnvelopeV1 }
@@ -77,7 +83,10 @@ export function serializeBackupEnvelope(envelope: BackupEnvelopeV1): string {
   return `${JSON.stringify(envelope, null, 2)}\n`;
 }
 
-export function parseBackupJson(serializedBackup: string): BackupEnvelopeResult {
+export function parseBackupJson(
+  serializedBackup: string,
+  todayKey: string = createSystemLedgerClock().todayKey(),
+): BackupEnvelopeResult {
   const bytePolicy = evaluateLedgerJsonResourcePolicy(serializedBackup);
   if (!bytePolicy.ok) {
     return { ok: false, errors: bytePolicy.errors };
@@ -95,10 +104,13 @@ export function parseBackupJson(serializedBackup: string): BackupEnvelopeResult 
     };
   }
 
-  return validateBackupEnvelope(parsed);
+  return validateBackupEnvelope(parsed, todayKey);
 }
 
-export function validateBackupEnvelope(input: unknown): BackupEnvelopeResult {
+export function validateBackupEnvelope(
+  input: unknown,
+  todayKey: string = createSystemLedgerClock().todayKey(),
+): BackupEnvelopeResult {
   if (!isRecord(input)) {
     return {
       ok: false,
@@ -156,6 +168,14 @@ export function validateBackupEnvelope(input: unknown): BackupEnvelopeResult {
     const resourcePolicy = evaluateLedgerResourcePolicy(ledgerResult.value);
     if (!resourcePolicy.ok) {
       errors.push(...resourcePolicy.errors);
+    }
+
+    const importPolicy = validateLedgerImportPolicy(
+      ledgerResult.value,
+      todayKey,
+    );
+    if (!importPolicy.ok) {
+      errors.push(...importPolicy.errors);
     }
   }
 

@@ -7,6 +7,7 @@ import {
   type TradeValidationError,
   validateTradeDraft,
 } from "../validators/tradeValidator";
+import { createSystemLedgerClock } from "../utils/ledgerDate";
 
 const MAX_TRADE_ID_GENERATION_ATTEMPTS = 3;
 
@@ -18,6 +19,7 @@ export const TRADE_SERVICE_ERROR_CODES = {
 export type TradeServiceDependencies = {
   generateId: () => string;
   now: () => ISODateTimeString;
+  todayKey?: () => string;
 };
 
 export type TradeServiceOperationalError =
@@ -50,6 +52,7 @@ export type CreateTradeResult =
 const defaultDependencies: TradeServiceDependencies = {
   generateId: () => globalThis.crypto.randomUUID(),
   now: () => new Date().toISOString(),
+  todayKey: () => createSystemLedgerClock().todayKey(),
 };
 
 export function createValidatedTrade(
@@ -60,6 +63,9 @@ export function createValidatedTrade(
   const validationResult = validateTradeDraft(input, {
     assets: ledgerData.assets,
     priorTrades: ledgerData.trades,
+    todayKey:
+      dependencies.todayKey?.() ?? createSystemLedgerClock().todayKey(),
+    requireSupportedValuationCurrency: true,
   });
 
   if (!validationResult.ok) {
