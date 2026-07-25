@@ -55,6 +55,31 @@ function createLedgerWithBtc(): LedgerData {
 }
 
 describe("MarketDataControls", () => {
+  it("does not auto refresh or allow manual refresh while the ledger is not writable", async () => {
+    const client = createClient();
+    render(
+      <MarketDataControls
+        applyLedgerMutation={vi.fn(() => "rejected")}
+        client={client}
+        clock={clock}
+        isWritable={false}
+        ledgerData={createLedgerWithBtc()}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    await act(async () => undefined);
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(
+      (screen.getByRole("button", {
+        name: "刷新 Binance 价格",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
   it("auto refreshes once per mount and applies all successes as one mutation", async () => {
     let latestLedger = createLedgerWithBtc();
     const client = createClient();
@@ -221,6 +246,178 @@ describe("MarketDataControls", () => {
       await tickerPromise;
     });
     expect(applyLedgerMutation).not.toHaveBeenCalled();
+  });
+
+  it("drops an in-flight response after the mapping signature changes", async () => {
+    let resolveTicker!: (
+      value: Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>,
+    ) => void;
+    const tickerPromise = new Promise<
+      Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>
+    >((resolve) => {
+      resolveTicker = resolve;
+    });
+    const client = createClient({
+      fetchLatestPrices: vi.fn(() => tickerPromise),
+    });
+    const ledgerData = createLedgerWithBtc();
+    const applyLedgerMutation = vi.fn(() => "applied" as const);
+    const view = render(
+      <MarketDataControls
+        applyLedgerMutation={applyLedgerMutation}
+        client={client}
+        clock={clock}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
+    });
+    const changedMappingLedger = structuredClone(ledgerData);
+    changedMappingLedger.assets[0].binanceMapping = null;
+    view.rerender(
+      <MarketDataControls
+        applyLedgerMutation={applyLedgerMutation}
+        client={client}
+        clock={clock}
+        isWritable
+        ledgerData={changedMappingLedger}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    await act(async () => {
+      resolveTicker({
+        prices: [{ symbol: "BTCUSDT", price: "70000" }],
+        failures: [],
+      });
+      await tickerPromise;
+    });
+    expect(applyLedgerMutation).not.toHaveBeenCalled();
+  });
+
+  it("aborts an in-flight response on unmount and never applies it", async () => {
+    let requestSignal: AbortSignal | undefined;
+    const tickerPromise = new Promise<
+      Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>
+    >(() => undefined);
+    const client = createClient({
+      fetchLatestPrices: vi.fn((_symbols, signal) => {
+        requestSignal = signal;
+        return tickerPromise;
+      }),
+    });
+    const applyLedgerMutation = vi.fn(() => "applied" as const);
+    const view = render(
+      <MarketDataControls
+        applyLedgerMutation={applyLedgerMutation}
+        client={client}
+        clock={clock}
+        isWritable
+        ledgerData={createLedgerWithBtc()}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
+    });
+    view.unmount();
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(applyLedgerMutation).not.toHaveBeenCalled();
+  });
+
+  it("merges a response into the latest ledger without overwriting concurrent local facts", async () => {
+    let resolveTicker!: (
+      value: Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>,
+    ) => void;
+    const tickerPromise = new Promise<
+      Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>
+    >((resolve) => {
+      resolveTicker = resolve;
+    });
+    const client = createClient({
+      fetchLatestPrices: vi.fn(() => tickerPromise),
+    });
+    let latestLedger = createLedgerWithBtc();
+    const applyLedgerMutation = vi.fn(
+      (mutation: (current: LedgerData) => LedgerData) => {
+        latestLedger = mutation(latestLedger);
+        return "applied" as const;
+      },
+    );
+    render(
+      <MarketDataControls
+        applyLedgerMutation={applyLedgerMutation}
+        client={client}
+        clock={clock}
+        generateId={() => "api-after-concurrent-write"}
+        isWritable
+        ledgerData={latestLedger}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
+    });
+    latestLedger = {
+      ...latestLedger,
+      trades: [
+        ...latestLedger.trades,
+        createSimpleTrade(
+          "eth-concurrent-buy",
+          "buy",
+          "ETH",
+          "1",
+          "2026-07-25",
+        ),
+      ],
+      priceSnapshots: [
+        {
+          id: "manual-concurrent",
+          assetSymbol: "ETH",
+          price: "2500",
+          currency: "USD",
+          recordedAt: "2026-07-25",
+          source: "manual",
+          createdAt: "2026-07-25T11:59:00Z",
+          updatedAt: "2026-07-25T11:59:00Z",
+        },
+      ],
+    };
+
+    await act(async () => {
+      resolveTicker({
+        prices: [{ symbol: "BTCUSDT", price: "70000" }],
+        failures: [],
+      });
+      await tickerPromise;
+    });
+
+    expect(latestLedger.trades.map((trade) => trade.id)).toContain(
+      "eth-concurrent-buy",
+    );
+    expect(
+      latestLedger.priceSnapshots.map((snapshot) => snapshot.id),
+    ).toEqual(
+      expect.arrayContaining([
+        "manual-concurrent",
+        "api-after-concurrent-write",
+      ]),
+    );
   });
 
   it("validates edited mappings online and keeps the mode session-only", async () => {

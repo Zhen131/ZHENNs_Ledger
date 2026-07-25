@@ -52,6 +52,72 @@ describe("BackupEnvelopeV1", () => {
     expect(parseBackupJson(serialized)).toEqual(created);
   });
 
+  it("exports only LedgerData facts and strips chart or session-derived fields", () => {
+    const ledger = createInitialLedgerData();
+    const result = createBackupEnvelope(
+      {
+        ...ledger,
+        positions: [{ assetSymbol: "BTC", marketValue: "70000" }],
+        allocationSlices: [{ assetSymbol: "BTC", ratio: "1" }],
+        holdingHistory: [{ date: "2026-07-25", totalMarketValue: "70000" }],
+        tradeHeatmap: [{ date: "2026-07-25", level: 4 }],
+        valuationPriceMode: "manual",
+        selectedTradeDate: "2026-07-25",
+      },
+      metadata,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const serialized = serializeBackupEnvelope(result.value);
+    for (const forbiddenKey of [
+      "positions",
+      "allocationSlices",
+      "holdingHistory",
+      "tradeHeatmap",
+      "valuationPriceMode",
+      "selectedTradeDate",
+    ]) {
+      expect(serialized).not.toContain(`"${forbiddenKey}"`);
+    }
+    expect(Object.keys(result.value.ledgerData)).toEqual([
+      "schemaVersion",
+      "assets",
+      "trades",
+      "priceSnapshots",
+      "feeRules",
+    ]);
+  });
+
+  it("allows a complete rescue export to retain legacy future facts", () => {
+    const ledger = createInitialLedgerData();
+    ledger.trades = [
+      {
+        id: "future-rescue",
+        occurredAt: "2099-01-01",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "1",
+        price: "70000",
+        totalValue: "70000",
+        currency: "USD",
+        fee: "0",
+        feeCurrency: "USD",
+        createdAt: "2026-07-25T00:00:00Z",
+        updatedAt: "2026-07-25T00:00:00Z",
+      },
+    ];
+
+    const result = createBackupEnvelope(ledger, metadata);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.ledgerData.trades).toEqual(ledger.trades);
+    expect(serializeBackupEnvelope(result.value)).toContain(
+      '"occurredAt": "2099-01-01"',
+    );
+  });
+
   it("rejects malformed JSON before it reaches the validator", () => {
     expect(parseBackupJson("{")).toEqual({
       ok: false,
