@@ -7,8 +7,25 @@ const LEDGER_DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}/;
 
 export type LedgerClock = {
   now(): Date;
-  todayKey(): ISODateString;
 };
+
+export type LedgerTimeSnapshot = Readonly<{
+  now: Date;
+  todayKey: ISODateString;
+}>;
+
+/**
+ * 从 LedgerClock 捕获单一时刻，并从同一个 Date 派生本地日期。
+ *
+ * invariant：同一次业务操作的时间戳和“今天”必须来自同一次 clock.now()。
+ */
+export function captureLedgerTime(clock: LedgerClock): LedgerTimeSnapshot {
+  const now = clock.now();
+  return {
+    now,
+    todayKey: formatLocalDateKey(now),
+  };
+}
 
 export function getLedgerDateKey(
   value: ISODateString | ISODateTimeString | string,
@@ -32,10 +49,18 @@ export function formatLocalDateKey(date: Date): ISODateString {
 export function createSystemLedgerClock(
   now: () => Date = () => new Date(),
 ): LedgerClock {
-  return {
-    now,
-    todayKey: () => formatLocalDateKey(now()),
-  };
+  return { now };
+}
+
+export const systemLedgerClock = createSystemLedgerClock();
+
+export function millisecondsUntilNextLocalMidnight(now: Date): number {
+  const nextMidnight = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+  );
+  return Math.max(1, nextMidnight.getTime() - now.getTime());
 }
 
 export function isLedgerFactInFuture(

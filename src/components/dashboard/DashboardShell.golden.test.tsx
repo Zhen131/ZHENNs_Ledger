@@ -14,7 +14,22 @@ import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { sampleTradeDrafts } from "../../test/fixtures";
 import { isWithinTolerance } from "../../utils/decimalMath";
-import { DashboardShell } from "./DashboardShell";
+import type { LedgerClock } from "../../utils/ledgerDate";
+import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
+
+const fixedClock: LedgerClock = {
+  now: () => new Date("2026-07-25T12:00:00"),
+};
+
+function DashboardShell({
+  repository,
+}: {
+  repository: LedgerRepository;
+}) {
+  return (
+    <DashboardShellRuntime clock={fixedClock} repository={repository} />
+  );
+}
 
 vi.mock("../charts/EChart", () => ({
   EChart: ({ ariaLabel }: { ariaLabel: string }) => (

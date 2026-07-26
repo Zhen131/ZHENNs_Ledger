@@ -7,7 +7,10 @@ import {
   type TradeValidationError,
   validateTradeDraft,
 } from "../validators/tradeValidator";
-import { createSystemLedgerClock } from "../utils/ledgerDate";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+} from "../utils/ledgerDate";
 
 const MAX_TRADE_ID_GENERATION_ATTEMPTS = 3;
 
@@ -49,22 +52,25 @@ export type CreateTradeResult =
       error: TradeServiceOperationalError;
     };
 
-const defaultDependencies: TradeServiceDependencies = {
-  generateId: () => globalThis.crypto.randomUUID(),
-  now: () => new Date().toISOString(),
-  todayKey: () => createSystemLedgerClock().todayKey(),
-};
-
 export function createValidatedTrade(
   input: unknown,
   ledgerData: LedgerData,
-  dependencies: TradeServiceDependencies = defaultDependencies,
+  providedDependencies?: TradeServiceDependencies,
 ): CreateTradeResult {
+  const defaultTimeSnapshot = providedDependencies
+    ? undefined
+    : captureLedgerTime(systemLedgerClock);
+  const dependencies: TradeServiceDependencies = providedDependencies ?? {
+    generateId: () => globalThis.crypto.randomUUID(),
+    now: () => defaultTimeSnapshot!.now.toISOString(),
+    todayKey: () => defaultTimeSnapshot!.todayKey,
+  };
   const validationResult = validateTradeDraft(input, {
     assets: ledgerData.assets,
     priorTrades: ledgerData.trades,
     todayKey:
-      dependencies.todayKey?.() ?? createSystemLedgerClock().todayKey(),
+      dependencies.todayKey?.() ??
+      captureLedgerTime(systemLedgerClock).todayKey,
     requireSupportedValuationCurrency: true,
   });
 

@@ -34,13 +34,24 @@ import {
   type LedgerResourcePolicyError,
 } from "../validators/resourcePolicy";
 import { validateLedgerData } from "../validators/ledgerDataValidator";
-import { createSystemLedgerClock, isLedgerFactInFuture } from "../utils/ledgerDate";
+import {
+  captureLedgerTime,
+  isLedgerFactInFuture,
+  millisecondsUntilNextLocalMidnight,
+  systemLedgerClock,
+  type LedgerClock,
+  type LedgerTimeSnapshot,
+} from "../utils/ledgerDate";
 
 export type PersistentLedgerState = {
   ledgerData: LedgerData;
-  applyLedgerAction: (action: LedgerAction) => ApplyLedgerActionResult;
+  applyLedgerAction: (
+    action: LedgerAction,
+    timeSnapshot?: LedgerTimeSnapshot,
+  ) => ApplyLedgerActionResult;
   applyLedgerMutation: (
     mutation: (current: LedgerData) => LedgerData,
+    timeSnapshot?: LedgerTimeSnapshot,
   ) => ApplyLedgerActionResult;
   hydrationStatus: HydrationStatus;
   persistenceError: string | null;
@@ -51,6 +62,7 @@ export type PersistentLedgerState = {
   clearLedger: () => Promise<ClearLedgerResult>;
   replaceLedgerFromBackup: (
     candidate: unknown,
+    timeSnapshot?: LedgerTimeSnapshot,
   ) => Promise<ImportLedgerResult>;
   persistenceOperation: PersistenceOperation;
   persistenceStatus: PersistenceStatus;
@@ -62,6 +74,7 @@ export type PersistentLedgerState = {
   ledgerEpoch: number;
   compatibilityWarnings: LedgerCompatibilityWarning[];
   isFutureFactCorrectionMode: boolean;
+  todayKey: string;
 };
 
 export type PersistenceOperation = "idle" | "clearing" | "importing";
@@ -117,6 +130,7 @@ export type ImportLedgerResult =
  */
 export function usePersistentLedger(
   requestedRepository: LedgerRepository,
+  clock: LedgerClock = systemLedgerClock,
 ): PersistentLedgerState {
   const [ledgerData, reducerDispatch] = useReducer(
     ledgerReducer,
@@ -134,6 +148,7 @@ export function usePersistentLedger(
   const [persistenceVersionState, setPersistenceVersionState] =
     useState<PersistenceVersionState>(INITIAL_PERSISTENCE_VERSION_STATE);
   const [ledgerEpoch, setLedgerEpoch] = useState(0);
+  const [, requestClockRefresh] = useReducer((version: number) => version + 1, 0);
   const [, requestRepositorySwitchRender] = useState(0);
   const mountedRef = useRef(true);
   const activeRepositoryRef = useRef(requestedRepository);
@@ -184,7 +199,11 @@ export function usePersistentLedger(
     persistenceVersionState.persistedVersion !==
     persistenceVersionState.mutationVersion;
   currentRepositoryRef.current = activeRepository;
-  const todayKey = createSystemLedgerClock().todayKey();
+  const renderTimeSnapshot = captureLedgerTime(clock);
+  const todayKey = renderTimeSnapshot.todayKey;
+  const midnightDelay = millisecondsUntilNextLocalMidnight(
+    renderTimeSnapshot.now,
+  );
   const compatibilityWarnings = collectLedgerCompatibilityWarnings(
     ledgerData,
     todayKey,
@@ -320,6 +339,27 @@ export function usePersistentLedger(
       retryAttemptRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const refreshClock = () => requestClockRefresh();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        refreshClock();
+      }
+    };
+    const midnightTimer = window.setTimeout(
+      refreshClock,
+      midnightDelay,
+    );
+
+    window.addEventListener("focus", refreshClock);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearTimeout(midnightTimer);
+      window.removeEventListener("focus", refreshClock);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [clock, midnightDelay, todayKey]);
 
   useEffect(() => {
     if (!isDirty) {
@@ -515,7 +555,10 @@ export function usePersistentLedger(
   ]);
 
   const applyLedgerAction = useCallback(
-    (action: LedgerAction): ApplyLedgerActionResult => {
+    (
+      action: LedgerAction,
+      timeSnapshot?: LedgerTimeSnapshot,
+    ): ApplyLedgerActionResult => {
       if (
         hydrationStatus !== "ready" ||
         readOnlyRef.current ||
@@ -526,10 +569,12 @@ export function usePersistentLedger(
       }
 
       const currentLedgerData = ledgerDataRef.current;
+      const operationTodayKey =
+        timeSnapshot?.todayKey ?? captureLedgerTime(clock).todayKey;
 
       if (
-        hasFutureFacts(currentLedgerData, todayKey) &&
-        !isCorrectionAction(action, currentLedgerData, todayKey)
+        hasFutureFacts(currentLedgerData, operationTodayKey) &&
+        !isCorrectionAction(action, currentLedgerData, operationTodayKey)
       ) {
         return "rejected";
       }
@@ -575,15 +620,16 @@ export function usePersistentLedger(
     },
     [
       activeRepository,
+      clock,
       hydrationStatus,
       publishPersistenceVersionState,
-      todayKey,
     ],
   );
 
   const applyLedgerMutation = useCallback(
     (
       mutation: (current: LedgerData) => LedgerData,
+      timeSnapshot?: LedgerTimeSnapshot,
     ): ApplyLedgerActionResult => {
       if (
         hydrationStatus !== "ready" ||
@@ -595,7 +641,9 @@ export function usePersistentLedger(
       }
 
       const currentLedgerData = ledgerDataRef.current;
-      if (hasFutureFacts(currentLedgerData, todayKey)) {
+      const operationTodayKey =
+        timeSnapshot?.todayKey ?? captureLedgerTime(clock).todayKey;
+      if (hasFutureFacts(currentLedgerData, operationTodayKey)) {
         return "rejected";
       }
 
@@ -635,9 +683,9 @@ export function usePersistentLedger(
     },
     [
       activeRepository,
+      clock,
       hydrationStatus,
       publishPersistenceVersionState,
-      todayKey,
     ],
   );
 
@@ -848,7 +896,10 @@ export function usePersistentLedger(
   ]);
 
   const replaceLedgerFromBackup = useCallback(
-    (candidate: unknown): Promise<ImportLedgerResult> => {
+    (
+      candidate: unknown,
+      timeSnapshot?: LedgerTimeSnapshot,
+    ): Promise<ImportLedgerResult> => {
       if (
         operationRef.current === "importing" &&
         operationRepositoryRef.current === activeRepository &&
@@ -888,7 +939,7 @@ export function usePersistentLedger(
 
       const importPolicy = validateLedgerImportPolicy(
         ledgerResult.value,
-        todayKey,
+        timeSnapshot?.todayKey ?? captureLedgerTime(clock).todayKey,
       );
       if (!importPolicy.ok) {
         return Promise.resolve({
@@ -979,9 +1030,9 @@ export function usePersistentLedger(
     },
     [
       activeRepository,
+      clock,
       hydrationStatus,
       publishPersistenceVersionState,
-      todayKey,
     ],
   );
 
@@ -1011,6 +1062,7 @@ export function usePersistentLedger(
     ledgerEpoch,
     compatibilityWarnings,
     isFutureFactCorrectionMode,
+    todayKey,
   };
 }
 

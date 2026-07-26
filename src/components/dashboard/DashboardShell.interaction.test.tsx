@@ -24,7 +24,22 @@ import {
   createPriceSnapshot,
   createSimpleTrade,
 } from "../../test/fixtures";
-import { DashboardShell } from "./DashboardShell";
+import type { LedgerClock } from "../../utils/ledgerDate";
+import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
+
+const fixedClock: LedgerClock = {
+  now: () => new Date("2026-07-25T12:00:00"),
+};
+
+function DashboardShell({
+  repository,
+}: {
+  repository: LedgerRepository;
+}) {
+  return (
+    <DashboardShellRuntime clock={fixedClock} repository={repository} />
+  );
+}
 
 vi.mock("../charts/EChart", () => ({
   EChart: ({

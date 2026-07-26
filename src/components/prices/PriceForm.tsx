@@ -13,11 +13,19 @@ import type {
   PriceSnapshotValidationError,
   PriceSnapshotValidationField,
 } from "../../validators/priceSnapshotValidator";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+  type LedgerClock,
+  type LedgerTimeSnapshot,
+} from "../../utils/ledgerDate";
 
 type PriceFormProps = Readonly<{
+  clock?: LedgerClock;
   ledgerData: LedgerData;
   onPriceSnapshotCreated: (
     priceSnapshot: PriceSnapshot,
+    timeSnapshot: LedgerTimeSnapshot,
   ) => ApplyLedgerActionResult;
 }>;
 
@@ -95,6 +103,7 @@ function formatValidationError(
 }
 
 export function PriceForm({
+  clock = systemLedgerClock,
   ledgerData,
   onPriceSnapshotCreated,
 }: PriceFormProps) {
@@ -140,6 +149,7 @@ export function PriceForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const timeSnapshot = captureLedgerTime(clock);
 
     const result = createValidatedPriceSnapshot(
       {
@@ -151,6 +161,11 @@ export function PriceForm({
         ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
       },
       ledgerData,
+      {
+        generateId: () => globalThis.crypto.randomUUID(),
+        now: () => timeSnapshot.now.toISOString(),
+        todayKey: () => timeSnapshot.todayKey,
+      },
     );
 
     if (!result.ok) {
@@ -169,7 +184,10 @@ export function PriceForm({
       return;
     }
 
-    const mutationResult = onPriceSnapshotCreated(result.priceSnapshot);
+    const mutationResult = onPriceSnapshotCreated(
+      result.priceSnapshot,
+      timeSnapshot,
+    );
 
     if (mutationResult !== "applied") {
       setErrors({

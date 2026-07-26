@@ -6,7 +6,10 @@ import type {
 } from "../models";
 import { partitionLedgerFactsForToday } from "../policies/ledgerFactPolicy";
 import { multiply, subtract } from "../utils/decimalMath";
-import { createSystemLedgerClock } from "../utils/ledgerDate";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+} from "../utils/ledgerDate";
 import {
   selectPriceAsOf,
   type SelectedPrice,
@@ -36,7 +39,8 @@ export function getValuedPositionsFromLedger(
     mode?: ValuationPriceMode;
   } = {},
 ): ValuedPosition[] {
-  const todayKey = options.todayKey ?? createSystemLedgerClock().todayKey();
+  const todayKey =
+    options.todayKey ?? captureLedgerTime(systemLedgerClock).todayKey;
   const partition = partitionLedgerFactsForToday(
     ledgerData,
     todayKey,

@@ -31,21 +31,23 @@ import { getPositionsFromLedger } from "../../services/positionService";
 import { selectPriceAsOf } from "../../services/priceSelectionService";
 import { isZero } from "../../utils/decimalMath";
 import {
-  createSystemLedgerClock,
+  captureLedgerTime,
+  systemLedgerClock,
   type LedgerClock,
 } from "../../utils/ledgerDate";
 
 const defaultClient = createBinanceMarketDataClient();
-const defaultClock = createSystemLedgerClock();
 
 type MarketDataControlsProps = {
   ledgerData: LedgerData;
   ledgerEpoch: number;
+  todayKey?: string;
   isWritable: boolean;
   mode: ValuationPriceMode;
   onModeChange: (mode: ValuationPriceMode) => void;
   applyLedgerMutation: (
     mutation: (current: LedgerData) => LedgerData,
+    timeSnapshot?: ReturnType<typeof captureLedgerTime>,
   ) => ApplyLedgerActionResult;
   client?: BinanceMarketDataClient;
   clock?: LedgerClock;
@@ -67,14 +69,16 @@ const INITIAL_REFRESH_STATE: RefreshState = {
 export function MarketDataControls({
   ledgerData,
   ledgerEpoch,
+  todayKey,
   isWritable,
   mode,
   onModeChange,
   applyLedgerMutation,
   client = defaultClient,
-  clock = defaultClock,
+  clock = systemLedgerClock,
   generateId = () => globalThis.crypto.randomUUID(),
 }: Readonly<MarketDataControlsProps>) {
+  const activeTodayKey = todayKey ?? captureLedgerTime(clock).todayKey;
   const assets = ledgerData.assets;
   const mappingSignature = getBinanceMappingSignature(ledgerData);
   const [mappingDrafts, setMappingDrafts] = useState<Record<string, string>>(
@@ -160,7 +164,7 @@ export function MarketDataControls({
 
     const result = await refreshBinancePrices(
       requestLedger,
-      clock.todayKey(),
+      activeTodayKey,
       { client, clock },
       controller.signal,
     );
@@ -175,20 +179,29 @@ export function MarketDataControls({
     activeAbortRef.current = null;
 
     let appliedCount = 0;
-    const mutationResult = applyLedgerMutation((current) => {
-      if (
-        getBinanceMappingSignature(current) !== requestMappingSignature
-      ) {
-        return current;
-      }
-      const merged = mergeBinancePriceRefresh(
-        current,
-        result.successes,
-        generateId,
-      );
-      appliedCount = merged.appliedAssetSymbols.length;
-      return merged.ledgerData;
-    });
+    const acceptedTime = result.successes[0]
+      ? {
+          now: new Date(result.successes[0].fetchedAt),
+          todayKey: result.successes[0].recordedAt,
+        }
+      : undefined;
+    const mutationResult =
+      result.successes.length === 0
+        ? "noop"
+        : applyLedgerMutation((current) => {
+            if (
+              getBinanceMappingSignature(current) !== requestMappingSignature
+            ) {
+              return current;
+            }
+            const merged = mergeBinancePriceRefresh(
+              current,
+              result.successes,
+              generateId,
+            );
+            appliedCount = merged.appliedAssetSymbols.length;
+            return merged.ledgerData;
+          }, acceptedTime);
 
     if (result.successes.length > 0 && mutationResult === "rejected") {
       setRefreshState({
@@ -215,7 +228,7 @@ export function MarketDataControls({
           : `已更新 ${appliedCount} 项，失败 ${failedCount} 项。`,
       failures: result.failures,
     });
-  }, [applyLedgerMutation, client, clock, generateId]);
+  }, [activeTodayKey, applyLedgerMutation, client, clock, generateId]);
 
   useEffect(() => {
     if (!isWritable || autoAttemptedRef.current) {
@@ -266,13 +279,16 @@ export function MarketDataControls({
       return;
     }
 
-    const mutationResult = applyLedgerMutation((current) =>
-      setAssetBinanceMapping(
-        current,
-        assetSymbol,
-        result.mapping,
-        clock.now().toISOString(),
-      ),
+    const timeSnapshot = captureLedgerTime(clock);
+    const mutationResult = applyLedgerMutation(
+      (current) =>
+        setAssetBinanceMapping(
+          current,
+          assetSymbol,
+          result.mapping,
+          timeSnapshot.now.toISOString(),
+        ),
+      timeSnapshot,
     );
     setMappingMessages((current) => ({
       ...current,
@@ -290,13 +306,16 @@ export function MarketDataControls({
       return;
     }
     cancelActiveRefresh();
-    const mutationResult = applyLedgerMutation((current) =>
-      setAssetBinanceMapping(
-        current,
-        assetSymbol,
-        null,
-        clock.now().toISOString(),
-      ),
+    const timeSnapshot = captureLedgerTime(clock);
+    const mutationResult = applyLedgerMutation(
+      (current) =>
+        setAssetBinanceMapping(
+          current,
+          assetSymbol,
+          null,
+          timeSnapshot.now.toISOString(),
+        ),
+      timeSnapshot,
     );
     setMappingDrafts((current) => ({ ...current, [assetSymbol]: "" }));
     setMappingMessages((current) => ({
@@ -308,9 +327,8 @@ export function MarketDataControls({
     }));
   }
 
-  const todayKey = clock.todayKey();
   const currentPositions = getPositionsFromLedger(ledgerData, {
-    todayKey,
+    todayKey: activeTodayKey,
     mode,
   }).filter((position) => !isZero(position.quantity));
 
@@ -379,7 +397,7 @@ export function MarketDataControls({
                 ? selectPriceAsOf(
                     ledgerData.priceSnapshots,
                     asset,
-                    todayKey,
+                    activeTodayKey,
                     mode,
                   )
                 : undefined;

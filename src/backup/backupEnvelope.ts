@@ -3,7 +3,10 @@ import {
   validateLedgerImportPolicy,
   type LedgerImportPolicyError,
 } from "../policies/ledgerImportPolicy";
-import { createSystemLedgerClock } from "../utils/ledgerDate";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+} from "../utils/ledgerDate";
 import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
@@ -85,7 +88,7 @@ export function serializeBackupEnvelope(envelope: BackupEnvelopeV1): string {
 
 export function parseBackupJson(
   serializedBackup: string,
-  todayKey: string = createSystemLedgerClock().todayKey(),
+  todayKey: string = captureLedgerTime(systemLedgerClock).todayKey,
 ): BackupEnvelopeResult {
   const bytePolicy = evaluateLedgerJsonResourcePolicy(serializedBackup);
   if (!bytePolicy.ok) {
@@ -109,7 +112,7 @@ export function parseBackupJson(
 
 export function validateBackupEnvelope(
   input: unknown,
-  todayKey: string = createSystemLedgerClock().todayKey(),
+  todayKey: string = captureLedgerTime(systemLedgerClock).todayKey,
 ): BackupEnvelopeResult {
   if (!isRecord(input)) {
     return {
