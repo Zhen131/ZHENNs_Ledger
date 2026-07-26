@@ -7,7 +7,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  use: vi.fn(),
+  registerEChartsModules: vi.fn(),
   init: vi.fn(),
   setOption: vi.fn(),
   on: vi.fn(),
@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("echarts/core", () => ({
-  use: mocks.use,
+  use: mocks.registerEChartsModules,
   init: mocks.init,
 }));
 vi.mock("echarts/charts", () => ({

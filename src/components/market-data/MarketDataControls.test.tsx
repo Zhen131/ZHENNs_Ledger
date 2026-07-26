@@ -28,10 +28,10 @@ function createClient(
 ): BinanceMarketDataClient {
   return {
     validateSpotSymbol: vi.fn(async (assetSymbol, symbol) => ({
-      ok: true,
+      ok: true as const,
       value: {
         symbol,
-        status: "TRADING",
+        status: "TRADING" as const,
         baseAsset: assetSymbol,
         quoteAsset: "USDT",
         isSpotTradingAllowed: true,
@@ -58,7 +58,7 @@ describe("MarketDataControls", () => {
     const client = createClient();
     render(
       <MarketDataControls
-        applyLedgerMutation={vi.fn(() => "rejected")}
+        applyLedgerMutation={vi.fn(() => "rejected" as const)}
         client={client}
         clock={clock}
         isWritable={false}
@@ -156,9 +156,9 @@ describe("MarketDataControls", () => {
     ];
     const client = createClient({
       validateSpotSymbol: vi.fn(async (_assetSymbol, symbol) => ({
-        ok: false,
+        ok: false as const,
         error: {
-          code: "BINANCE_NETWORK_ERROR",
+          code: "BINANCE_NETWORK_ERROR" as const,
           symbol,
           message: "offline",
         },

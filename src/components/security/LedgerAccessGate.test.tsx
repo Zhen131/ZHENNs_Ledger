@@ -29,10 +29,10 @@ function createController(
   overrides: Partial<LedgerAccessController> = {},
 ): LedgerAccessController {
   return {
-    inspect: vi.fn(async () => ({ status: "setup-required" })),
-    setup: vi.fn(async () => ({ ok: true, repository })),
-    unlock: vi.fn(async () => ({ ok: true, repository })),
-    resetEncryptedLedger: vi.fn(async () => ({ ok: true })),
+    inspect: vi.fn(async () => ({ status: "setup-required" as const })),
+    setup: vi.fn(async () => ({ ok: true as const, repository })),
+    unlock: vi.fn(async () => ({ ok: true as const, repository })),
+    resetEncryptedLedger: vi.fn(async () => ({ ok: true as const })),
     ...overrides,
   };
 }
@@ -126,9 +126,9 @@ describe("LedgerAccessGate", () => {
   it("uses one generic message for an unlock failure and clears the password field", async () => {
     const user = userEvent.setup();
     const controller = createController({
-      inspect: vi.fn(async () => ({ status: "unlock-required" })),
+      inspect: vi.fn(async () => ({ status: "unlock-required" as const })),
       unlock: vi.fn(async () => ({
-        ok: false,
+        ok: false as const,
         code: LEDGER_ACCESS_ERROR_CODES.UNLOCK_FAILED,
       })),
     });
@@ -159,7 +159,7 @@ describe("LedgerAccessGate", () => {
         ),
     );
     const controller = createController({
-      inspect: vi.fn(async () => ({ status: "unlock-required" })),
+      inspect: vi.fn(async () => ({ status: "unlock-required" as const })),
       unlock,
     });
     render(<LedgerAccessGate accessController={controller} />);
@@ -186,7 +186,7 @@ describe("LedgerAccessGate", () => {
       })
       .mockResolvedValueOnce({ ok: true });
     const controller = createController({
-      inspect: vi.fn(async () => ({ status: "unlock-required" })),
+      inspect: vi.fn(async () => ({ status: "unlock-required" as const })),
       resetEncryptedLedger,
     });
     render(<LedgerAccessGate accessController={controller} />);
