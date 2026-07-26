@@ -56,4 +56,42 @@ describe("validateTradeRemoval", () => {
     });
     expect(ledgerData.trades).toEqual(sampleTrades);
   });
+
+  it("blocks deleting a future buy that supports a later future sell", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      {
+        ...sampleTrades[0],
+        id: "future-buy",
+        occurredAt: "2099-01-01",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "1",
+        price: "100",
+        totalValue: "100",
+      },
+      {
+        ...sampleTrades[0],
+        id: "future-sell",
+        occurredAt: "2099-01-02",
+        type: "sell",
+        assetSymbol: "BTC",
+        quantity: "1",
+        price: "110",
+        totalValue: "110",
+      },
+    ];
+
+    expect(validateTradeRemoval("future-buy", ledgerData)).toEqual({
+      ok: false,
+      error: {
+        code: TRADE_REMOVAL_ERROR_CODES.BREAKS_LEDGER_TIMELINE,
+        message: expect.any(String),
+      },
+    });
+    expect(validateTradeRemoval("future-sell", ledgerData)).toEqual({
+      ok: true,
+      tradeId: "future-sell",
+    });
+  });
 });

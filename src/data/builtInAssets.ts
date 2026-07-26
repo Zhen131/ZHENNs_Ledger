@@ -8,6 +8,12 @@ const BUILT_IN_ASSET_DEFINITIONS = [
     symbol: "BTC",
     name: "Bitcoin",
     quoteCurrency: "USD",
+    binanceMapping: {
+      provider: "binance",
+      symbol: "BTCUSDT",
+      baseAsset: "BTC",
+      quoteAsset: "USDT",
+    },
     createdAt: BUILT_IN_ASSET_TIMESTAMP,
     updatedAt: BUILT_IN_ASSET_TIMESTAMP,
   },
@@ -16,6 +22,12 @@ const BUILT_IN_ASSET_DEFINITIONS = [
     symbol: "ETH",
     name: "Ethereum",
     quoteCurrency: "USD",
+    binanceMapping: {
+      provider: "binance",
+      symbol: "ETHUSDT",
+      baseAsset: "ETH",
+      quoteAsset: "USDT",
+    },
     createdAt: BUILT_IN_ASSET_TIMESTAMP,
     updatedAt: BUILT_IN_ASSET_TIMESTAMP,
   },
@@ -24,11 +36,20 @@ const BUILT_IN_ASSET_DEFINITIONS = [
     symbol: "ADA",
     name: "Cardano",
     quoteCurrency: "USD",
+    binanceMapping: {
+      provider: "binance",
+      symbol: "ADAUSDT",
+      baseAsset: "ADA",
+      quoteAsset: "USDT",
+    },
     createdAt: BUILT_IN_ASSET_TIMESTAMP,
     updatedAt: BUILT_IN_ASSET_TIMESTAMP,
   },
 ] satisfies readonly Asset[];
 
 export function createBuiltInAssets(): Asset[] {
-  return BUILT_IN_ASSET_DEFINITIONS.map((asset) => ({ ...asset }));
+  return BUILT_IN_ASSET_DEFINITIONS.map((asset) => ({
+    ...asset,
+    binanceMapping: { ...asset.binanceMapping },
+  }));
 }

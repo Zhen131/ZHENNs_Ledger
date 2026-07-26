@@ -70,6 +70,26 @@ export function evaluateLedgerResourcePolicy(
       asset.quoteCurrency,
       limits.currency,
     );
+    if (asset.binanceMapping) {
+      checkString(
+        errors,
+        `${path}.binanceMapping.symbol`,
+        asset.binanceMapping.symbol,
+        limits.symbol,
+      );
+      checkString(
+        errors,
+        `${path}.binanceMapping.baseAsset`,
+        asset.binanceMapping.baseAsset,
+        limits.symbol,
+      );
+      checkString(
+        errors,
+        `${path}.binanceMapping.quoteAsset`,
+        asset.binanceMapping.quoteAsset,
+        limits.currency,
+      );
+    }
   }
 
   for (let index = 0; index < ledgerData.trades.length; index += 1) {
@@ -105,6 +125,20 @@ export function evaluateLedgerResourcePolicy(
       limits.currency,
     );
     checkOptionalString(errors, `${path}.note`, priceSnapshot.note, limits.note);
+    if (priceSnapshot.binanceProvenance) {
+      checkString(
+        errors,
+        `${path}.binanceProvenance.symbol`,
+        priceSnapshot.binanceProvenance.symbol,
+        limits.symbol,
+      );
+      checkString(
+        errors,
+        `${path}.binanceProvenance.sourceQuoteCurrency`,
+        priceSnapshot.binanceProvenance.sourceQuoteCurrency,
+        limits.currency,
+      );
+    }
   }
 
   for (let index = 0; index < ledgerData.feeRules.length; index += 1) {

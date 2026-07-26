@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LedgerData } from "../models";
+import { createBuiltInAssets } from "../data/builtInAssets";
 import {
   createPriceSnapshot,
   sampleTrades,
@@ -12,7 +13,7 @@ function createLedgerData(
 ): LedgerData {
   return {
     schemaVersion: 1,
-    assets: [],
+    assets: createBuiltInAssets(),
     trades: [],
     priceSnapshots: [],
     feeRules: [],

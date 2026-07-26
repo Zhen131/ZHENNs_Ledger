@@ -8,6 +8,21 @@ export type TimePrecision = "day" | "minute" | "second";
 export type TradeType = "buy" | "sell";
 export type PriceSource = "manual" | "api";
 export type FeeRuleType = "percentage";
+export type ValuationPriceMode = "auto" | "manual";
+
+export type BinanceMarketMapping = {
+  provider: "binance";
+  symbol: string;
+  baseAsset: string;
+  quoteAsset: "USDT";
+};
+
+export type BinancePriceProvenance = {
+  provider: "binance";
+  symbol: string;
+  sourceQuoteCurrency: "USDT";
+  fetchedAt: ISODateTimeString;
+};
 
 export type Asset = {
   id: string;
@@ -15,6 +30,7 @@ export type Asset = {
   name: string;
   quoteCurrency: CurrencyCode;
   decimals?: number;
+  binanceMapping?: BinanceMarketMapping | null;
   createdAt: ISODateTimeString;
   updatedAt: ISODateTimeString;
 };
@@ -63,6 +79,7 @@ export type PriceSnapshot = {
   currency: CurrencyCode;
   recordedAt: ISODateString | ISODateTimeString;
   source: PriceSource;
+  binanceProvenance?: BinancePriceProvenance;
   note?: string;
   createdAt: ISODateTimeString;
   updatedAt: ISODateTimeString;
@@ -74,6 +91,7 @@ export type PriceSnapshotDraft = {
   currency: CurrencyCode;
   recordedAt: ISODateString | ISODateTimeString;
   source: PriceSource;
+  binanceProvenance?: BinancePriceProvenance;
   note?: string;
 };
 

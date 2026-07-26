@@ -13,11 +13,19 @@ import type {
   PriceSnapshotValidationError,
   PriceSnapshotValidationField,
 } from "../../validators/priceSnapshotValidator";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+  type LedgerClock,
+  type LedgerTimeSnapshot,
+} from "../../utils/ledgerDate";
 
 type PriceFormProps = Readonly<{
+  clock?: LedgerClock;
   ledgerData: LedgerData;
   onPriceSnapshotCreated: (
     priceSnapshot: PriceSnapshot,
+    timeSnapshot: LedgerTimeSnapshot,
   ) => ApplyLedgerActionResult;
 }>;
 
@@ -36,6 +44,7 @@ const fieldLabels: Record<keyof PriceSnapshotDraft, string> = {
   currency: "计价货币",
   recordedAt: "价格日期",
   source: "价格来源",
+  binanceProvenance: "Binance 来源证据",
   note: "价格备注",
 };
 
@@ -60,6 +69,7 @@ function toPriceFormField(
     case "input":
     case "currency":
     case "source":
+    case "binanceProvenance":
       return "form";
   }
 }
@@ -80,12 +90,20 @@ function formatValidationError(
       return "计价货币与资产设置不一致";
     case "PRICE_SNAPSHOT_INVALID_SOURCE":
       return "价格来源不受支持";
+    case "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE":
+    case "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED":
+      return "Binance 价格来源证据无效";
+    case "PRICE_SNAPSHOT_FUTURE_FACT":
+      return "价格日期不能晚于今天";
+    case "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY":
+      return "当前仅支持 USD/USDT 估值";
     case "PRICE_SNAPSHOT_INVALID_INPUT":
       return `${label}不能为空或格式不正确`;
   }
 }
 
 export function PriceForm({
+  clock = systemLedgerClock,
   ledgerData,
   onPriceSnapshotCreated,
 }: PriceFormProps) {
@@ -131,6 +149,7 @@ export function PriceForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const timeSnapshot = captureLedgerTime(clock);
 
     const result = createValidatedPriceSnapshot(
       {
@@ -142,6 +161,11 @@ export function PriceForm({
         ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
       },
       ledgerData,
+      {
+        generateId: () => globalThis.crypto.randomUUID(),
+        now: () => timeSnapshot.now.toISOString(),
+        todayKey: () => timeSnapshot.todayKey,
+      },
     );
 
     if (!result.ok) {
@@ -160,7 +184,10 @@ export function PriceForm({
       return;
     }
 
-    const mutationResult = onPriceSnapshotCreated(result.priceSnapshot);
+    const mutationResult = onPriceSnapshotCreated(
+      result.priceSnapshot,
+      timeSnapshot,
+    );
 
     if (mutationResult !== "applied") {
       setErrors({

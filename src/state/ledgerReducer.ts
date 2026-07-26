@@ -15,6 +15,14 @@ export type LedgerAction =
       priceSnapshot: PriceSnapshot;
     }
   | {
+      type: "priceSnapshot/delete";
+      priceSnapshotId: string;
+    }
+  | {
+      type: "futureFacts/deleteAll";
+      todayKey: string;
+    }
+  | {
       type: "ledger/replace";
       ledgerData: LedgerData;
     }
@@ -51,6 +59,36 @@ export function ledgerReducer(
         ...state,
         priceSnapshots: [...state.priceSnapshots, action.priceSnapshot],
       };
+    case "priceSnapshot/delete": {
+      const nextPriceSnapshots = state.priceSnapshots.filter(
+        (snapshot) => snapshot.id !== action.priceSnapshotId,
+      );
+
+      return nextPriceSnapshots.length === state.priceSnapshots.length
+        ? state
+        : { ...state, priceSnapshots: nextPriceSnapshots };
+    }
+    case "futureFacts/deleteAll": {
+      const nextTrades = state.trades.filter(
+        (trade) => trade.occurredAt.slice(0, 10) <= action.todayKey,
+      );
+      const nextPriceSnapshots = state.priceSnapshots.filter(
+        (snapshot) => snapshot.recordedAt.slice(0, 10) <= action.todayKey,
+      );
+
+      if (
+        nextTrades.length === state.trades.length &&
+        nextPriceSnapshots.length === state.priceSnapshots.length
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        trades: nextTrades,
+        priceSnapshots: nextPriceSnapshots,
+      };
+    }
     case "ledger/replace":
       return action.ledgerData;
     case "ledger/reset":

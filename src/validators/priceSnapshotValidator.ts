@@ -1,9 +1,12 @@
 import type {
   Asset,
+  BinancePriceProvenance,
   PriceSnapshotDraft,
   PriceSource,
 } from "../models";
 import { isPositive } from "../utils/decimalMath";
+import { isLedgerFactInFuture } from "../utils/ledgerDate";
+import { isSupportedValuationCurrency } from "../policies/ledgerFactPolicy";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
 
 export const PRICE_SNAPSHOT_VALIDATION_ERROR_CODES = {
@@ -13,6 +16,12 @@ export const PRICE_SNAPSHOT_VALIDATION_ERROR_CODES = {
   VALUE_MUST_BE_POSITIVE: "PRICE_SNAPSHOT_VALUE_MUST_BE_POSITIVE",
   CURRENCY_MISMATCH: "PRICE_SNAPSHOT_CURRENCY_MISMATCH",
   INVALID_SOURCE: "PRICE_SNAPSHOT_INVALID_SOURCE",
+  INVALID_BINANCE_PROVENANCE: "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE",
+  FUTURE_FACT: "PRICE_SNAPSHOT_FUTURE_FACT",
+  UNSUPPORTED_VALUATION_CURRENCY:
+    "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY",
+  BINANCE_PROVENANCE_REQUIRED:
+    "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED",
 } as const;
 
 export type PriceSnapshotValidationField =
@@ -26,7 +35,11 @@ export type PriceSnapshotValidationError = {
     | "PRICE_SNAPSHOT_INVALID_DECIMAL"
     | "PRICE_SNAPSHOT_VALUE_MUST_BE_POSITIVE"
     | "PRICE_SNAPSHOT_CURRENCY_MISMATCH"
-    | "PRICE_SNAPSHOT_INVALID_SOURCE";
+    | "PRICE_SNAPSHOT_INVALID_SOURCE"
+    | "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE"
+    | "PRICE_SNAPSHOT_FUTURE_FACT"
+    | "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY"
+    | "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED";
   field: PriceSnapshotValidationField;
   message: string;
 };
@@ -41,9 +54,16 @@ export type PriceSnapshotValidationResult =
       errors: PriceSnapshotValidationError[];
     };
 
+export type PriceSnapshotValidationOptions = {
+  todayKey?: string;
+  requireSupportedValuationCurrency?: boolean;
+  requireApiProvenance?: boolean;
+};
+
 export function validatePriceSnapshotDraft(
   input: unknown,
   assets: readonly Asset[],
+  options: PriceSnapshotValidationOptions = {},
 ): PriceSnapshotValidationResult {
   if (!isRecord(input)) {
     return {
@@ -64,6 +84,11 @@ export function validatePriceSnapshotDraft(
   const currency = readRequiredString(input.currency, "currency", errors);
   const recordedAt = readRecordedAt(input.recordedAt, errors);
   const source = readSource(input.source, errors);
+  const binanceProvenance = readBinanceProvenance(
+    input.binanceProvenance,
+    source,
+    errors,
+  );
   const note = readOptionalNote(input.note, errors);
 
   if (assetSymbol !== undefined && currency !== undefined) {
@@ -78,6 +103,48 @@ export function validatePriceSnapshotDraft(
         ),
       );
     }
+  }
+
+  if (
+    recordedAt !== undefined &&
+    options.todayKey !== undefined &&
+    isLedgerFactInFuture(recordedAt, options.todayKey)
+  ) {
+    errors.push(
+      createError(
+        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.FUTURE_FACT,
+        "recordedAt",
+        `recordedAt cannot be later than ${options.todayKey}`,
+      ),
+    );
+  }
+
+  if (
+    options.requireSupportedValuationCurrency &&
+    currency !== undefined &&
+    !isSupportedValuationCurrency(currency)
+  ) {
+    errors.push(
+      createError(
+        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.UNSUPPORTED_VALUATION_CURRENCY,
+        "currency",
+        "Only USD/USDT valuation is supported",
+      ),
+    );
+  }
+
+  if (
+    options.requireApiProvenance &&
+    source === "api" &&
+    binanceProvenance === undefined
+  ) {
+    errors.push(
+      createError(
+        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.BINANCE_PROVENANCE_REQUIRED,
+        "binanceProvenance",
+        "Binance API prices require provenance",
+      ),
+    );
   }
 
   if (
@@ -99,8 +166,56 @@ export function validatePriceSnapshotDraft(
       currency,
       recordedAt,
       source,
+      ...(binanceProvenance === undefined ? {} : { binanceProvenance }),
       ...(note === undefined ? {} : { note }),
     },
+  };
+}
+
+function readBinanceProvenance(
+  value: unknown,
+  source: PriceSource | undefined,
+  errors: PriceSnapshotValidationError[],
+): BinancePriceProvenance | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (source !== "api" || !isRecord(value)) {
+    errors.push(
+      createError(
+        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_BINANCE_PROVENANCE,
+        "binanceProvenance",
+        "binanceProvenance is only valid for api prices",
+      ),
+    );
+    return undefined;
+  }
+
+  if (
+    value.provider !== "binance" ||
+    typeof value.symbol !== "string" ||
+    value.symbol.length === 0 ||
+    value.sourceQuoteCurrency !== "USDT" ||
+    typeof value.fetchedAt !== "string" ||
+    !value.fetchedAt.includes("T") ||
+    !isValidISODateOrDateTime(value.fetchedAt)
+  ) {
+    errors.push(
+      createError(
+        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_BINANCE_PROVENANCE,
+        "binanceProvenance",
+        "binanceProvenance must contain provider, symbol, USDT quote and ISO fetchedAt",
+      ),
+    );
+    return undefined;
+  }
+
+  return {
+    provider: "binance",
+    symbol: value.symbol,
+    sourceQuoteCurrency: "USDT",
+    fetchedAt: value.fetchedAt,
   };
 }
 
