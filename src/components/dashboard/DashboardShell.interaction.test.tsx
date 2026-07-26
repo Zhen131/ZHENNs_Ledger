@@ -114,6 +114,34 @@ function createCompleteLedger(): LedgerData {
   };
 }
 
+function createFutureCorrectionLedger(): LedgerData {
+  const ledgerData = createInitialLedgerData();
+  ledgerData.assets = ledgerData.assets.map((asset) => ({
+    ...asset,
+    binanceMapping: null,
+  }));
+  ledgerData.trades = [
+    createSimpleTrade("normal-btc", "buy", "BTC", "2", "2026-07-14"),
+    createSimpleTrade("future-eth-a", "buy", "ETH", "1", "2026-07-26"),
+    createSimpleTrade("future-eth-b", "buy", "ETH", "2", "2026-07-26"),
+  ];
+  ledgerData.priceSnapshots = [
+    createPriceSnapshot(
+      "future-price-btc-a",
+      "BTC",
+      "70000",
+      "2026-07-26",
+    ),
+    createPriceSnapshot(
+      "future-price-btc-b",
+      "BTC",
+      "71000",
+      "2026-07-26",
+    ),
+  ];
+  return ledgerData;
+}
+
 function createBackupFile(ledgerData: LedgerData): File {
   const envelope = createBackupEnvelope(ledgerData, {
     appVersion: "0.1.0",
@@ -398,15 +426,15 @@ describe("DashboardShell trade interactions", () => {
     const rowsBefore = within(tradeSection).getAllByRole("row");
     expect(rowsBefore).toHaveLength(3);
 
-    await user.click(
-      within(tradeSection).getByRole("button", {
-        name: "删除 买入 BTC 2026-07-14",
-      }),
-    );
+    const unsafeDelete = within(tradeSection).getByRole("button", {
+      name: "删除 买入 BTC 2026-07-14",
+    });
+    await user.click(unsafeDelete);
+    await user.click(unsafeDelete);
 
     expect(
       within(tradeSection).getByText(
-        "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效",
+        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
       ),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(3);
@@ -419,11 +447,11 @@ describe("DashboardShell trade interactions", () => {
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
     const tradeSection = getSection("交易列表");
-    await user.click(
-      within(tradeSection).getByRole("button", {
-        name: "删除 买入 BTC 2026-07-14",
-      }),
-    );
+    const safeDelete = within(tradeSection).getByRole("button", {
+      name: "删除 买入 BTC 2026-07-14",
+    });
+    await user.click(safeDelete);
+    await user.click(safeDelete);
 
     expect(
       within(tradeSection).getByText(
@@ -545,11 +573,11 @@ describe("DashboardShell trade interactions", () => {
     expect(within(positionSection).getByText("10 USD")).not.toBeNull();
 
     const secondUser = userEvent.setup();
-    await secondUser.click(
-      within(tradeSection).getByRole("button", {
-        name: "删除 买入 BTC 2026-07-14",
-      }),
-    );
+    const persistedDelete = within(tradeSection).getByRole("button", {
+      name: "删除 买入 BTC 2026-07-14",
+    });
+    await secondUser.click(persistedDelete);
+    await secondUser.click(persistedDelete);
     await waitFor(async () => {
       const savedLedger = await secondRepository.load();
       expect(savedLedger?.trades).toEqual([]);
@@ -640,6 +668,200 @@ describe("DashboardShell trade interactions", () => {
     const restoredSection = getSection("交易列表");
     expect(within(restoredSection).getByText("BTC")).not.toBeNull();
     expect(within(restoredSection).getByText("ETH")).not.toBeNull();
+  });
+});
+
+describe("DashboardShell future fact correction", () => {
+  it("deletes only the named future trade or price after two activations and persists across remount", async () => {
+    const repository = createMemoryRepository(createFutureCorrectionLedger());
+    const view = await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    expect(screen.getByText("未来事实纠正模式")).not.toBeNull();
+    expect(within(getSection("资产汇总")).queryByText("ETH")).toBeNull();
+    const tradeDelete = screen.getByRole("button", {
+      name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+    });
+    const priceDelete = screen.getByRole("button", {
+      name: "删除未来价格 BTC 2026-07-26 future-price-btc-a",
+    });
+
+    await user.click(tradeDelete);
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", {
+        name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+      }),
+    ).not.toBeNull();
+    await user.click(tradeDelete);
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledTimes(1);
+      expect(
+        screen.queryByRole("button", {
+          name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+        }),
+      ).toBeNull();
+    });
+    expect(
+      screen.getByRole("button", {
+        name: "删除未来交易 ETH 2026-07-26 future-eth-b",
+      }),
+    ).not.toBeNull();
+
+    await user.click(priceDelete);
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    await user.click(priceDelete);
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledTimes(2);
+    });
+    const stored = await repository.load();
+    expect(stored?.trades.map((trade) => trade.id)).toEqual([
+      "normal-btc",
+      "future-eth-b",
+    ]);
+    expect(stored?.priceSnapshots.map((snapshot) => snapshot.id)).toEqual([
+      "future-price-btc-b",
+    ]);
+
+    view.unmount();
+    await renderDashboard(repository);
+    expect(
+      screen.queryByRole("button", {
+        name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", {
+        name: "删除未来交易 ETH 2026-07-26 future-eth-b",
+      }),
+    ).not.toBeNull();
+  });
+
+  it("keeps delete-all two-stage and restores ordinary writes after the final future fact", async () => {
+    const repository = createMemoryRepository(createFutureCorrectionLedger());
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+    const deleteAll = screen.getByRole("button", {
+      name: "删除全部无效未来事实",
+    });
+
+    await user.click(deleteAll);
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(screen.getByText("未来事实纠正模式")).not.toBeNull();
+    await user.click(deleteAll);
+
+    await waitFor(() => {
+      expect(screen.queryByText("未来事实纠正模式")).toBeNull();
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(screen.getByText("已保存到本地")).not.toBeNull();
+    });
+    expect(
+      (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
+        .disabled,
+    ).toBe(false);
+    expect((await repository.load())?.trades.map((trade) => trade.id)).toEqual([
+      "normal-btc",
+    ]);
+    expect((await repository.load())?.priceSnapshots).toEqual([]);
+  });
+
+  it("rejects deleting a future buy until its dependent future sell is removed", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assets = ledgerData.assets.map((asset) => ({
+      ...asset,
+      binanceMapping: null,
+    }));
+    ledgerData.trades = [
+      createSimpleTrade("future-buy", "buy", "BTC", "1", "2026-07-26"),
+      createSimpleTrade("future-sell", "sell", "BTC", "1", "2026-07-27"),
+    ];
+    const repository = createMemoryRepository(ledgerData);
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+
+    const buyDelete = screen.getByRole("button", {
+      name: "删除未来交易 BTC 2026-07-26 future-buy",
+    });
+    await user.click(buyDelete);
+    await user.click(buyDelete);
+    expect(
+      screen.getByText(
+        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
+      ),
+    ).not.toBeNull();
+    expect(repository.save).not.toHaveBeenCalled();
+
+    const sellDelete = screen.getByRole("button", {
+      name: "删除未来交易 BTC 2026-07-27 future-sell",
+    });
+    await user.click(sellDelete);
+    await user.click(sellDelete);
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledTimes(1);
+    });
+
+    const remainingBuyDelete = screen.getByRole("button", {
+      name: "删除未来交易 BTC 2026-07-26 future-buy",
+    });
+    await user.click(remainingBuyDelete);
+    await user.click(remainingBuyDelete);
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText("未来事实纠正模式")).toBeNull();
+    });
+  });
+
+  it("keeps the final single-delete dirty after save failure and confirms persistence only after retry", async () => {
+    const initialLedger = createInitialLedgerData();
+    initialLedger.assets = initialLedger.assets.map((asset) => ({
+      ...asset,
+      binanceMapping: null,
+    }));
+    initialLedger.priceSnapshots = [
+      createPriceSnapshot(
+        "future-final-price",
+        "BTC",
+        "70000",
+        "2026-07-26",
+      ),
+    ];
+    let storedLedger = structuredClone(initialLedger);
+    let saveAttempts = 0;
+    const repository: LedgerRepository = {
+      load: vi.fn(async () => structuredClone(storedLedger)),
+      save: vi.fn(async (ledgerData) => {
+        saveAttempts += 1;
+        if (saveAttempts === 1) {
+          throw new Error("first save fails");
+        }
+        storedLedger = structuredClone(ledgerData);
+      }),
+      clear: vi.fn(async () => undefined),
+    };
+    const view = await renderDashboard(repository);
+    const user = userEvent.setup();
+    const remove = screen.getByRole("button", {
+      name: "删除未来价格 BTC 2026-07-26 future-final-price",
+    });
+
+    await user.click(remove);
+    await user.click(remove);
+    expect(screen.queryByText("未来事实纠正模式")).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "重试保存" })).not.toBeNull();
+    });
+    expect(screen.queryByText("已保存到本地")).toBeNull();
+    expect(storedLedger.priceSnapshots).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "重试保存" }));
+    await waitFor(() => {
+      expect(screen.getByText("已保存到本地")).not.toBeNull();
+    });
+    expect(storedLedger.priceSnapshots).toEqual([]);
+
+    view.unmount();
+    await renderDashboard(repository);
+    expect(screen.queryByText("未来事实纠正模式")).toBeNull();
   });
 });
 

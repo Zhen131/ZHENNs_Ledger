@@ -11,6 +11,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BinanceMarketDataClient } from "../../marketData/binanceMarketDataClient";
+import type { BinanceTickerBatchResult } from "../../marketData/binanceMarketDataTypes";
 import type { LedgerData } from "../../models";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
 import { createSimpleTrade } from "../../test/fixtures";
@@ -465,5 +466,58 @@ describe("MarketDataControls", () => {
     );
     expect(latestLedger.assets[0].binanceMapping?.symbol).toBe("BTCUSDT");
     expect(screen.getByText(/不会发送交易、数量、成本、密码或完整账本/)).toBeTruthy();
+  });
+
+  it("does not abort an active refresh or clear the mapping draft on first delete activation", async () => {
+    let latestLedger = createLedgerWithBtc();
+    let refreshSignal: AbortSignal | undefined;
+    const client = createClient({
+      fetchLatestPrices: vi.fn(
+        async (symbols, signal) =>
+          new Promise<BinanceTickerBatchResult>((resolve) => {
+            void symbols;
+            refreshSignal = signal;
+            void resolve;
+          }),
+      ),
+    });
+    const applyLedgerMutation = vi.fn();
+    render(
+      <MarketDataControls
+        applyLedgerMutation={(mutation, snapshot) => {
+          const previous = latestLedger;
+          const next = mutation(previous);
+          latestLedger = next;
+          applyLedgerMutation(mutation, snapshot);
+          return next === previous ? "noop" : "applied";
+        }}
+        client={client}
+        clock={clock}
+        isWritable
+        ledgerData={latestLedger}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
+    });
+
+    const input = screen.getByLabelText("BTC") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "CUSTOM" } });
+    const remove = screen.getByRole("button", {
+      name: "删除 BTC Binance 映射",
+    });
+    fireEvent.click(remove);
+
+    expect(refreshSignal?.aborted).toBe(false);
+    expect(input.value).toBe("CUSTOM");
+    expect(applyLedgerMutation).not.toHaveBeenCalled();
+
+    fireEvent.click(remove);
+    expect(refreshSignal?.aborted).toBe(true);
+    expect(input.value).toBe("");
+    expect(latestLedger.assets[0].binanceMapping).toBeNull();
   });
 });
