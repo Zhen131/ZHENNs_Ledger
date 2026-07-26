@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -38,6 +44,139 @@ function createController(
 }
 
 describe("LedgerAccessGate", () => {
+  it("keeps all setup fields masked and reveals only the held field without replacing it", async () => {
+    const user = userEvent.setup();
+    render(<LedgerAccessGate accessController={createController()} />);
+
+    const password = (await screen.findByLabelText(
+      "设置密码",
+    )) as HTMLInputElement;
+    const confirmation = screen.getByLabelText(
+      "再次输入密码",
+    ) as HTMLInputElement;
+    const revealPassword = screen.getByRole("button", {
+      name: "按住查看设置密码",
+    });
+    const revealConfirmation = screen.getByRole("button", {
+      name: "按住查看再次输入密码",
+    });
+    const testValue = "a".repeat(12);
+
+    expect(password.type).toBe("password");
+    expect(confirmation.type).toBe("password");
+    expect(revealPassword.getAttribute("type")).toBe("button");
+    expect(revealConfirmation.getAttribute("type")).toBe("button");
+
+    await user.type(password, testValue);
+    password.focus();
+    const originalPasswordNode = password;
+    const originalAutoComplete = password.autocomplete;
+
+    fireEvent.pointerDown(revealPassword);
+    expect(screen.getByLabelText("设置密码")).toBe(originalPasswordNode);
+    expect(password.type).toBe("text");
+    expect(confirmation.type).toBe("password");
+    expect(password.value).toBe(testValue);
+    expect(password.autocomplete).toBe(originalAutoComplete);
+    expect(document.activeElement).toBe(password);
+
+    fireEvent.pointerUp(revealPassword);
+    expect(password.type).toBe("password");
+    fireEvent.pointerDown(revealPassword);
+    fireEvent.pointerLeave(revealPassword);
+    expect(password.type).toBe("password");
+    fireEvent.pointerDown(revealPassword);
+    fireEvent.pointerCancel(revealPassword);
+    expect(password.type).toBe("password");
+    fireEvent.pointerDown(revealPassword);
+    fireEvent.blur(revealPassword);
+    expect(password.type).toBe("password");
+    fireEvent.pointerDown(revealPassword);
+    fireEvent.click(revealPassword);
+    expect(password.type).toBe("password");
+  });
+
+  it("hides a revealed password on keyboard release, blur, and hidden visibility", async () => {
+    render(<LedgerAccessGate accessController={createController()} />);
+
+    const password = (await screen.findByLabelText(
+      "设置密码",
+    )) as HTMLInputElement;
+    const reveal = screen.getByRole("button", {
+      name: "按住查看设置密码",
+    });
+
+    fireEvent.keyDown(reveal, { key: "Enter" });
+    expect(password.type).toBe("text");
+    fireEvent.keyUp(reveal, { key: "Enter" });
+    expect(password.type).toBe("password");
+
+    fireEvent.keyDown(reveal, { key: " " });
+    expect(password.type).toBe("text");
+    fireEvent.keyUp(reveal, { key: " " });
+    expect(password.type).toBe("password");
+
+    fireEvent.pointerDown(reveal);
+    fireEvent(window, new Event("blur"));
+    expect(password.type).toBe("password");
+
+    const originalVisibilityState = document.visibilityState;
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    fireEvent.pointerDown(reveal);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(password.type).toBe("password");
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: originalVisibilityState,
+    });
+  });
+
+  it("masks the unlock field immediately when submission disables it", async () => {
+    let resolveUnlock:
+      | ((value: { ok: true; repository: LedgerRepository }) => void)
+      | undefined;
+    const unlock = vi.fn(
+      () =>
+        new Promise<{ ok: true; repository: LedgerRepository }>(
+          (resolve) => {
+            resolveUnlock = resolve;
+          },
+        ),
+    );
+    const controller = createController({
+      inspect: vi.fn(async () => ({ status: "unlock-required" as const })),
+      unlock,
+    });
+    const user = userEvent.setup();
+    render(<LedgerAccessGate accessController={controller} />);
+
+    const password = (await screen.findByLabelText(
+      "账本密码",
+    )) as HTMLInputElement;
+    const reveal = screen.getByRole("button", {
+      name: "按住查看账本密码",
+    });
+    await user.type(password, "a".repeat(12));
+    expect(password.type).toBe("password");
+
+    fireEvent.pointerDown(reveal);
+    expect(password.type).toBe("text");
+    fireEvent.submit(password.closest("form") as HTMLFormElement);
+
+    await waitFor(() => {
+      expect(password.type).toBe("password");
+      expect(password.disabled).toBe(true);
+      expect((reveal as HTMLButtonElement).disabled).toBe(true);
+    });
+    expect(unlock).toHaveBeenCalledOnce();
+
+    resolveUnlock?.({ ok: true, repository });
+    expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
+  });
+
   it("shows setup only for an empty ledger and mounts Dashboard after verified setup", async () => {
     const user = userEvent.setup();
     const controller = createController();
