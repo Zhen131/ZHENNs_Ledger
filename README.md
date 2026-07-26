@@ -4,15 +4,15 @@
 
 ## 当前状态
 
-截至 2026-07-26，Week 10 的开发侧收尾修复已在功能分支
-`zhennn/week10-charts-binance` 完成。当前解析版本为 Next `15.5.22`、
-React / React DOM `19.2.8`、ESLint `9.39.5` 和 eslint-config-next `15.5.22`。
-02B 指出的 Next WebSocket upgrade SSRF 已通过升级关闭；旧未来事实已提供
-逐条纠正入口，普通危险删除统一为两段确认。当前状态仍是“待独立复验”，
-不表示独立验收通过，也不可进入合并审查。本轮修复提交仅存在于本地，未 push。
+截至 2026-07-26，Week 10 的三图、Binance 行情与收尾修复均已完成。当前解析版本为
+Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5` 和
+eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通过升级关闭；
+旧未来事实已提供逐条纠正入口，普通危险删除统一为两段确认。03D 独立验收没有发现 P0，
+形式上的两个 P1 是长按 Enter 后取消会吞掉下一次点击，以及常驻备份警告少写
+“应用不主动上传”；产品负责人已接受这些低风险项并批准主线收口，不再追加开发或复验。
 `LedgerData.schemaVersion` 仍为 `1`，Week 9 的 IndexedDB V2 静态加密主链保持不变。
 
-当前功能分支已实现：
+当前已实现：
 
 - 交易表单：校验成功后写入 `LedgerData.trades`，列表和持仓同步更新。
 - 统一删除确认：普通交易、Binance 映射、未来事实逐条删除和删除全部未来事实均使用共享两段按钮；第一次确认不 mutation、不保存。
@@ -68,7 +68,7 @@ npm run lint  -> 无 warning / error
 git diff --check -> 通过
 ```
 
-前次独立补充测试与本轮处理：
+独立测试与最终处置：
 
 ```text
 前次 T0 -> 41 files / 362 tests、lint、build、diff-check 通过
@@ -77,7 +77,9 @@ T2 -> timeout / offline / 418 / 429 / 500 / partial 全部通过
 T4 -> mapping / 整账替换 / 并发普通交易的旧响应保护通过
 T5 -> 响应式与重新解锁恢复通过；raw V2 envelope 证据 BLOCKED
 前次 T6 -> Next WebSocket SSRF 为 production 可达 P1
-本轮开发侧 -> T3 缺口与 T6 框架漏洞已修复并回归；仍待独立复验
+本轮开发侧 -> T3 缺口与 T6 框架漏洞已修复；42 files / 383 tests 与质量 Gate 通过
+03D 复验 -> 真实下载、reduced-motion、V2、备份恢复、真实 Binance 和多数受控场景取得证据
+最终处置 -> 无 P0；产品负责人接受两个形式 P1、两个 P2 与测试基础设施 BLOCKED，批准收口
 ```
 
 生产 UI 验收结果：
@@ -275,8 +277,9 @@ git diff --check
   未使用 `next/image` 或直接调用 sharp，也没有不可信 CSS / 图片处理入口，因此没有识别出
   可达的 production high / critical；这不是声称 audit 归零。本轮未执行 `npm audit fix`。
 
-## Git 状态
+## Week 10 发布基线
 
-- 当前源码分支：`zhennn/week10-charts-binance`。
-- 本轮收尾修复的本地功能提交为 `39a0ab6`、`bf77864`、`ad8c5ff`、`c88f06a`、`225434f`。
-- 当前分支跟踪同名远端，但本轮提交未 push；未 merge、未 rebase，完成开发侧 Gate 后仍等待独立复验。
+- Week 10 功能源码验收基线：`5a21529c10d4a27048e4d26d07c7a1641e4c7b87`。
+- 收尾修复功能提交：`39a0ab6`、`bf77864`、`ad8c5ff`、`c88f06a`、`225434f`。
+- 03D 保留独立测试的原始“不通过”事实；产品负责人随后接受剩余低风险并批准合并发布。
+- 实际分支、远端同步和发布状态以 Git 当前 `main` 为准，不再由 README 保存易过时的“未合并”快照。
