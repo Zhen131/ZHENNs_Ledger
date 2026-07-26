@@ -1,5 +1,5 @@
 import type { LedgerData } from "../models";
-import { getPositionsFromLedger } from "./positionService";
+import { replayPositions } from "../calculators/positionReplay";
 
 export const TRADE_REMOVAL_ERROR_CODES = {
   NOT_FOUND: "TRADE_REMOVAL_NOT_FOUND",
@@ -22,7 +22,7 @@ export type TradeRemovalResult =
     };
 
 /**
- * 删除交易前验证候选账本仍然可以完成全部持仓计算。
+ * 删除交易前重放候选账本的完整交易时间线，包括被界面隔离的未来事实。
  *
  * reducer 只负责不可变更新；会影响后续卖出时间线的业务判断放在 service。
  */
@@ -46,7 +46,7 @@ export function validateTradeRemoval(
   };
 
   try {
-    getPositionsFromLedger(candidateLedger);
+    replayPositions(candidateLedger.trades);
   } catch {
     return {
       ok: false,

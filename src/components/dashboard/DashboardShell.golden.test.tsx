@@ -220,24 +220,27 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("ADA", 3, "21.297822152886115445");
     expectPositionDecimal("ADA", 4, "-0.702177847113884555");
 
-    await user.click(
-      within(tradeSection).getByRole("button", {
-        name: "删除 买入 ADA 2026-04-09",
-      }),
-    );
+    const supportedBuyDeleteButton = within(tradeSection).getByRole("button", {
+      name: "删除 买入 ADA 2026-04-09",
+    });
+    await user.click(supportedBuyDeleteButton);
+    await user.click(supportedBuyDeleteButton);
 
     expect(
       within(tradeSection).getByText(
-        "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效",
+        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
       ),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
 
-    await user.click(
-      within(tradeSection).getByRole("button", {
+    const independentBuyDeleteButton = within(tradeSection).getByRole(
+      "button",
+      {
         name: "删除 买入 BTC 2026-04-02",
-      }),
+      },
     );
+    await user.click(independentBuyDeleteButton);
+    await user.click(independentBuyDeleteButton);
 
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(5);
     expect(within(getSection("资产汇总")).queryByText("BTC")).toBeNull();

@@ -24,10 +24,18 @@ import { TradeForm } from "../trades/TradeForm";
 import { BackupControls } from "../backup/BackupControls";
 import { ChartsOverview } from "../charts/ChartsOverview";
 import { MarketDataControls } from "../market-data/MarketDataControls";
+import {
+  ConfirmDeleteButton,
+  type ConfirmDeleteOutcome,
+} from "../common/ConfirmDeleteButton";
 
 const CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 
 type ClearConfirmationMode = "normal" | "recovery";
+
+function shortLedgerId(id: string): string {
+  return id.length <= 12 ? id : `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
 
 function Section({
   title,
@@ -55,7 +63,9 @@ export function TradeTable({
   todayKey,
 }: Readonly<{
   trades: readonly Trade[];
-  onDelete?: (tradeId: string) => void;
+  onDelete?: (
+    tradeId: string,
+  ) => ConfirmDeleteOutcome | Promise<ConfirmDeleteOutcome>;
   deleteDisabled?: boolean;
   todayKey?: string;
 }>) {
@@ -108,17 +118,14 @@ export function TradeTable({
                 </td>
                 {onDelete ? (
                   <td className="py-3">
-                    <button
-                      aria-label={`删除 ${
+                    <ConfirmDeleteButton
+                      ariaLabel={`删除 ${
                         trade.type === "buy" ? "买入" : "卖出"
                       } ${trade.assetSymbol} ${trade.occurredAt}`}
-                      className="text-sm font-medium text-red-700 hover:text-red-900 disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={deleteDisabled}
-                      onClick={() => onDelete(trade.id)}
-                      type="button"
-                    >
-                      删除
-                    </button>
+                      label="删除"
+                      onConfirm={() => onDelete(trade.id)}
+                    />
                   </td>
                 ) : null}
               </tr>
@@ -166,6 +173,7 @@ export function DashboardShell({
     null,
   );
   const [tradeRemovalError, setTradeRemovalError] = useState("");
+  const [futureCorrectionError, setFutureCorrectionError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
     useState<ClearConfirmationMode | null>(null);
   const [clearConfirmationValue, setClearConfirmationValue] = useState("");
@@ -200,6 +208,12 @@ export function DashboardShell({
     !repositorySwitchBlocked &&
     !isReadOnly &&
     !isFutureFactCorrectionMode;
+  const canCorrectFutureFacts =
+    hydrationStatus === "ready" &&
+    persistenceOperation === "idle" &&
+    !repositorySwitchBlocked &&
+    !isReadOnly &&
+    isFutureFactCorrectionMode;
   const positions = getPositionsFromLedger(ledgerData, {
     todayKey,
     mode: valuationPriceMode,
@@ -226,24 +240,73 @@ export function DashboardShell({
     isLedgerFactInFuture(snapshot.recordedAt, todayKey),
   );
 
-  function handleDeleteTrade(tradeId: string) {
-    if (!isWritable) {
-      return;
-    }
-
+  function removeValidatedTrade(
+    tradeId: string,
+    setError: (message: string) => void,
+  ): ConfirmDeleteOutcome {
     const result = validateTradeRemoval(tradeId, ledgerData);
 
     if (!result.ok) {
-      setTradeRemovalError(
+      setError(
         result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
-          ? "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效"
+          ? "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出"
           : "无法删除：没有找到这笔交易",
       );
-      return;
+      return "rejected";
     }
 
-    applyLedgerAction({ type: "trade/delete", tradeId: result.tradeId });
-    setTradeRemovalError("");
+    const outcome = applyLedgerAction({
+      type: "trade/delete",
+      tradeId: result.tradeId,
+    });
+    setError(
+      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+    );
+    return outcome;
+  }
+
+  function handleDeleteTrade(tradeId: string): ConfirmDeleteOutcome {
+    if (!isWritable) {
+      return "rejected";
+    }
+    return removeValidatedTrade(tradeId, setTradeRemovalError);
+  }
+
+  function handleDeleteFutureTrade(tradeId: string): ConfirmDeleteOutcome {
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+    return removeValidatedTrade(tradeId, setFutureCorrectionError);
+  }
+
+  function handleDeleteFuturePrice(
+    priceSnapshotId: string,
+  ): ConfirmDeleteOutcome {
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+    const outcome = applyLedgerAction({
+      type: "priceSnapshot/delete",
+      priceSnapshotId,
+    });
+    setFutureCorrectionError(
+      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+    );
+    return outcome;
+  }
+
+  function handleDeleteAllFutureFacts(): ConfirmDeleteOutcome {
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+    const outcome = applyLedgerAction({
+      type: "futureFacts/deleteAll",
+      todayKey,
+    });
+    setFutureCorrectionError(
+      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+    );
+    return outcome;
   }
 
   function openClearConfirmation(mode: ClearConfirmationMode) {
@@ -298,6 +361,7 @@ export function DashboardShell({
     }
 
     setTradeRemovalError("");
+    setSelectedTradeDate(null);
     setClearConfirmationMode(null);
     setClearConfirmationValue("");
     setClearSuccessMessage("账本已清空");
@@ -415,33 +479,66 @@ export function DashboardShell({
             <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
               <p className="font-semibold">未来事实纠正模式</p>
               <p>
-                未来交易和价格不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可救援导出、导入合法整账、清空或删除全部无效未来事实。
+                未来交易和价格不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可逐条删除未来事实、救援导出、导入合法整账、清空或删除全部无效未来事实。
               </p>
+              {futureCorrectionError ? (
+                <p
+                  aria-live="polite"
+                  className="rounded-md border border-red-300 bg-white px-3 py-2 text-red-900"
+                >
+                  {futureCorrectionError}
+                </p>
+              ) : null}
               <ul className="grid gap-1">
                 {futureTrades.map((trade) => (
-                  <li key={trade.id}>
-                    未来交易：{trade.occurredAt} · {trade.assetSymbol} · {trade.type}
+                  <li
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-white p-3"
+                    key={trade.id}
+                  >
+                    <span>
+                      未来交易：{trade.type === "buy" ? "买入" : "卖出"} ·{" "}
+                      {trade.assetSymbol} · 数量 {trade.quantity} · 价格{" "}
+                      {trade.price} {trade.currency} · {trade.occurredAt} · ID{" "}
+                      {shortLedgerId(trade.id)}
+                    </span>
+                    <ConfirmDeleteButton
+                      ariaLabel={`删除未来交易 ${trade.assetSymbol} ${trade.occurredAt} ${trade.id}`}
+                      disabled={!canCorrectFutureFacts}
+                      label="删除未来交易"
+                      onConfirm={() => handleDeleteFutureTrade(trade.id)}
+                    />
                   </li>
                 ))}
                 {futurePriceSnapshots.map((snapshot) => (
-                  <li key={snapshot.id}>
-                    未来价格：{snapshot.recordedAt} · {snapshot.assetSymbol} · {snapshot.price} {snapshot.currency}
+                  <li
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-white p-3"
+                    key={snapshot.id}
+                  >
+                    <span>
+                      未来价格：{snapshot.assetSymbol} · {snapshot.price}{" "}
+                      {snapshot.currency} · 来源{" "}
+                      {snapshot.source === "api" ? "Binance API" : "手动"} ·{" "}
+                      {snapshot.recordedAt} · ID {shortLedgerId(snapshot.id)}
+                    </span>
+                    <ConfirmDeleteButton
+                      ariaLabel={`删除未来价格 ${snapshot.assetSymbol} ${snapshot.recordedAt} ${snapshot.id}`}
+                      disabled={!canCorrectFutureFacts}
+                      label="删除未来价格"
+                      onConfirm={() =>
+                        handleDeleteFuturePrice(snapshot.id)
+                      }
+                    />
                   </li>
                 ))}
               </ul>
-              <button
-                className="w-fit rounded-md bg-red-800 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={persistenceOperation !== "idle" || isReadOnly}
-                onClick={() =>
-                  applyLedgerAction({
-                    type: "futureFacts/deleteAll",
-                    todayKey,
-                  })
-                }
-                type="button"
-              >
-                删除全部无效未来事实
-              </button>
+              <div className="w-fit">
+                <ConfirmDeleteButton
+                  ariaLabel="删除全部无效未来事实"
+                  disabled={!canCorrectFutureFacts}
+                  label="删除全部无效未来事实"
+                  onConfirm={handleDeleteAllFutureFacts}
+                />
+              </div>
             </div>
           ) : null}
 

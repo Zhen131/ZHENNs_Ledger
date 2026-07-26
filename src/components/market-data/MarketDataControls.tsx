@@ -35,6 +35,10 @@ import {
   systemLedgerClock,
   type LedgerClock,
 } from "../../utils/ledgerDate";
+import {
+  ConfirmDeleteButton,
+  type ConfirmDeleteOutcome,
+} from "../common/ConfirmDeleteButton";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -301,9 +305,9 @@ export function MarketDataControls({
     }));
   }
 
-  function removeMapping(assetSymbol: string) {
+  function removeMapping(assetSymbol: string): ConfirmDeleteOutcome {
     if (!isWritable) {
-      return;
+      return "rejected";
     }
     cancelActiveRefresh();
     const timeSnapshot = captureLedgerTime(clock);
@@ -317,14 +321,19 @@ export function MarketDataControls({
         ),
       timeSnapshot,
     );
-    setMappingDrafts((current) => ({ ...current, [assetSymbol]: "" }));
+    if (mutationResult === "applied") {
+      setMappingDrafts((current) => ({ ...current, [assetSymbol]: "" }));
+    }
     setMappingMessages((current) => ({
       ...current,
       [assetSymbol]:
         mutationResult === "applied"
           ? "映射已删除；历史 API 价格仍保留。"
-          : "映射未发生变化。",
+          : mutationResult === "noop"
+            ? "映射未发生变化。"
+            : "账本当前不可写，映射未删除。",
     }));
+    return mutationResult;
   }
 
   const currentPositions = getPositionsFromLedger(ledgerData, {
@@ -454,14 +463,12 @@ export function MarketDataControls({
               >
                 验证并保存
               </button>
-              <button
-                className="rounded-md border border-red-300 px-3 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              <ConfirmDeleteButton
+                ariaLabel={`删除 ${asset.symbol} Binance 映射`}
                 disabled={!isWritable || asset.binanceMapping == null}
-                onClick={() => removeMapping(asset.symbol)}
-                type="button"
-              >
-                删除映射
-              </button>
+                label="删除映射"
+                onConfirm={() => removeMapping(asset.symbol)}
+              />
               {mappingMessages[asset.symbol] ? (
                 <p
                   aria-live="polite"
