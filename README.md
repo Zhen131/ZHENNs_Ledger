@@ -4,18 +4,20 @@
 
 ## 当前状态
 
-截至 2026-07-25，Week 10 的日期兼容、Binance 最新行情、统一价格选择、共享持仓重放、
-三张 ECharts 图与持久化安全回归已经在功能分支
-`zhennn/week10-charts-binance` 完成。该分支已推送并跟踪同名远端分支，但尚未合并。
-02B 独立补充测试总判定为“不通过”：`next@14.2.35` 存在当前 `next start`
-部署面可达的 WebSocket upgrade SSRF 高危漏洞；旧未来事实虽能正确隔离，
-但正式 UI 不能逐条删除未来交易和价格。修复并重新独立测试前，不进入合并审查。
+截至 2026-07-26，Week 10 的开发侧收尾修复已在功能分支
+`zhennn/week10-charts-binance` 完成。当前解析版本为 Next `15.5.22`、
+React / React DOM `19.2.8`、ESLint `9.39.5` 和 eslint-config-next `15.5.22`。
+02B 指出的 Next WebSocket upgrade SSRF 已通过升级关闭；旧未来事实已提供
+逐条纠正入口，普通危险删除统一为两段确认。当前状态仍是“待独立复验”，
+不表示独立验收通过，也不可进入合并审查。本轮修复提交仅存在于本地，未 push。
 `LedgerData.schemaVersion` 仍为 `1`，Week 9 的 IndexedDB V2 静态加密主链保持不变。
 
 当前功能分支已实现：
 
 - 交易表单：校验成功后写入 `LedgerData.trades`，列表和持仓同步更新。
-- 安全删除：删除后若会破坏后续卖出时间线，则拒绝删除。
+- 统一删除确认：普通交易、Binance 映射、未来事实逐条删除和删除全部未来事实均使用共享两段按钮；第一次确认不 mutation、不保存。
+- 安全删除：普通或未来交易在第二次确认后都先重放完整交易时间线；若会破坏后续卖出依赖则拒绝删除。
+- 未来事实纠正：未来交易和未来价格可按完整 ID 逐条删除，同日期同资产记录仍可区分，失败保存保持 dirty 并可重试。
 - 价格表单：写入 `PriceSnapshot` 后更新最新价格、市值和未实现盈亏。
 - 真实交互回归：覆盖合法新增、非法输入、超卖、安全删除、价格联动。
 - 整账运行时校验：保存或恢复前检查 schema、实体、Decimal、日期、引用、唯一性和交易时间线。
@@ -24,6 +26,7 @@
 - 启动访问门禁：严格区分首次设置、已有密文解锁、旧/未知格式、损坏密文与读取失败。
 - 首次设密恢复：密文写入成功但验证回读失败时保留 V2 record，页面自动转入重新解锁，不再停留在首次设置死路。
 - 会话边界：密码和 `CryptoKey` 不持久化，刷新或关闭后必须重新输入密码。
+- 密码临时核对：设置、确认和解锁三处密码均支持小眼睛按住查看，松开、失焦、页面隐藏、disabled 或 submit 后立即恢复遮蔽。
 - 忘记密码重置：未解锁状态必须输入固定确认文本，只删除当前加密账本记录。
 - 安全 hydration：恢复数据真正进入 reducer 前保持 `loading`，禁止 dispatch 和自动保存。
 - 串行自动保存：快速连续修改按顺序写入；失败时保留页面状态并显示错误。
@@ -38,6 +41,7 @@
 - clear 生命周期保护：覆盖排队写入、前置保存失败、clear 失败、Repository 切换和组件卸载。
 - clear 后空库保护：清空成功不自动保存初始账本；第一次新用户写入才重新生成 record。
 - 完整账本备份：`BackupEnvelopeV1` 只包含版本元数据与完整 `LedgerData`，不包含 `Position[]`。
+- 明文备份边界：备份区常驻提示未加密风险；导出只声明已发起浏览器下载，并要求核对实际结果、保存位置和同步目录风险。
 - 原子恢复：复用 Repository 整账 `save`，写入成功后才替换页面；失败保留页面和旧 record。
 - 导入失效保护：取消、卸载、Repository 切换和旧 `File.text()` 完成均不得修改当前页面。
 - 只读救援边界：允许导出当前内存账本，并明确超限备份可能无法由当前版本重新导入。
@@ -58,22 +62,22 @@
 当前自动化结果：
 
 ```text
-Week 10 最终验收：41 个测试文件、362 项测试
+Week 10 收尾修复开发侧回归：42 个测试文件、383 项测试
+npm run typecheck -> 0 error
 npm run lint  -> 无 warning / error
-npm run build -> Compiled successfully
 git diff --check -> 通过
 ```
 
-独立补充测试结果：
+前次独立补充测试与本轮处理：
 
 ```text
-T0 -> 41 files / 362 tests、lint、build、diff-check 通过
+前次 T0 -> 41 files / 362 tests、lint、build、diff-check 通过
 T2 -> timeout / offline / 418 / 429 / 500 / partial 全部通过
-T3 -> 未来事实隔离与整体恢复通过；交易/价格逐条删除 FAIL
+前次 T3 -> 未来事实隔离与整体恢复通过；交易/价格逐条删除 FAIL
 T4 -> mapping / 整账替换 / 并发普通交易的旧响应保护通过
 T5 -> 响应式与重新解锁恢复通过；raw V2 envelope 证据 BLOCKED
-T6 -> Next WebSocket SSRF 为 production 可达 P1
-总判定 -> 不通过；不可进入合并审查，需要独立修复计划
+前次 T6 -> Next WebSocket SSRF 为 production 可达 P1
+本轮开发侧 -> T3 缺口与 T6 框架漏洞已修复并回归；仍待独立复验
 ```
 
 生产 UI 验收结果：
@@ -106,7 +110,8 @@ Week 8 production DevTools 历史证据：旧 `ledger:v1` record 为
 - Binance 是可失败的外部输入，不是本地账本可用性的前置条件。
 - UI、Service 和 Reducer 不直接操作 IndexedDB。
 - IndexedDB whole-blob 使用 AES-256-GCM 静态加密；Noop EncryptionService 仅供隔离测试。
-- 明文备份不属于 IndexedDB 静态加密范围，导出 UI 必须持续提示“备份为明文，未加密”。
+- 明文备份不属于 IndexedDB 静态加密范围，备份 UI 必须在操作前常驻披露未加密、浏览器保存位置和同步目录风险。
+- `dev` / `start` 的项目脚本默认显式绑定 `127.0.0.1`，减少开发者误暴露；使用者仍可通过额外命令行参数覆盖 hostname，这不是绝对网络隔离。
 - Week 7 只保证单标签页内的顺序与 clear 安全；另一标签页可能在 clear 后把旧状态重新写回。
 
 ## 已实现数据流
@@ -234,23 +239,24 @@ src/
 
 ## 本地运行
 
-建议使用 Node.js 20、22 或 24+。
+建议使用 Node.js 20、22 或 24+。项目脚本默认只监听本机 loopback：
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
 浏览器访问：
 
 ```text
-http://localhost:3000
+http://127.0.0.1:3000
 ```
 
 完整检查：
 
 ```bash
 npm test
+npm run typecheck
 npm run lint
 npm run build
 git diff --check
@@ -259,15 +265,18 @@ git diff --check
 ## 已知限制与后续范围
 
 - Binance 只读取最新公开价格，不读取历史 Kline/OHLC，不轮询、不使用 WebSocket；网络、地区、限流或 CORS 失败时保留旧事实并继续使用本地账本。
-- production UI 能证明未来新事实拒绝；独立测试确认既有 future 事实不会进入持仓和三图，但当前未来交易删除按钮被禁用、未来价格无单删入口。
+- production UI 能证明未来新事实拒绝；受控测试确认既有 future 事实不会进入持仓和三图，并能按 ID 逐条删除未来交易和价格。
 - 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
 - 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
 - 分页、virtual list 和大账本性能预算仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
 - 情景价格、未来价格模拟、动画、主题、K 线、指标、dataZoom、账户、订单和下单不在 Week 10 范围。
-- T6 已完成 npm high 在线归因：`next@14.2.35` 存在当前 `next start` 部署面可达的 WebSocket upgrade SSRF；`postcss` 为当前 production 输入不可达的构建期剩余风险。本轮未执行 `npm audit fix`。
+- 开发侧在线复核确认原 Next SSRF advisory 不再命中。`npm audit --omit=dev`
+  仍将 Next 的传递 `postcss` / `sharp` 链聚合为 high：当前应用仅处理仓库内受信任 CSS，
+  未使用 `next/image` 或直接调用 sharp，也没有不可信 CSS / 图片处理入口，因此没有识别出
+  可达的 production high / critical；这不是声称 audit 归零。本轮未执行 `npm audit fix`。
 
 ## Git 状态
 
 - 当前源码分支：`zhennn/week10-charts-binance`。
-- Week 10 从 `main@7f974e0` 分出；功能、测试与说明提交为 `bdc7a84`、`375a96f`、`dfa75a0`、`247eb8e`、`28eb0fe`、`45f2359`、`06cef3b`、`fd5391e`。
-- 当前功能分支已推送并跟踪 `origin/zhennn/week10-charts-binance`；未合并、未 rebase，等待独立修复计划。
+- 本轮收尾修复的本地功能提交为 `39a0ab6`、`bf77864`、`ad8c5ff`、`c88f06a`、`225434f`。
+- 当前分支跟踪同名远端，但本轮提交未 push；未 merge、未 rebase，完成开发侧 Gate 后仍等待独立复验。
