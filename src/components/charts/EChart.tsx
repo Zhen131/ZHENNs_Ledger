@@ -6,7 +6,7 @@ import {
 } from "react";
 import {
   init,
-  use,
+  use as registerEChartsModules,
   type EChartsCoreOption,
   type EChartsType,
 } from "echarts/core";
@@ -25,7 +25,7 @@ import {
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
-use([
+registerEChartsModules([
   CanvasRenderer,
   PieChart,
   LineChart,

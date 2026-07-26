@@ -35,7 +35,13 @@ function exchangeInfo(overrides: Record<string, unknown> = {}) {
 
 describe("Binance market data client", () => {
   it("uses only the public data host without credentials", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(exchangeInfo()));
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        void input;
+        void init;
+        return jsonResponse(exchangeInfo());
+      },
+    );
     const client = createBinanceMarketDataClient({ fetch: fetchMock });
 
     await expect(client.validateSpotSymbol("BTC", "BTCUSDT")).resolves.toEqual(
