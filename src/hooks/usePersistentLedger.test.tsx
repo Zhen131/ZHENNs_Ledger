@@ -29,7 +29,16 @@ import {
   createSimpleTrade,
   sampleTrades,
 } from "../test/fixtures";
-import { usePersistentLedger } from "./usePersistentLedger";
+import type { LedgerClock } from "../utils/ledgerDate";
+import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
+
+const fixedClock: LedgerClock = {
+  now: () => new Date("2026-07-25T12:00:00"),
+};
+
+function usePersistentLedger(repository: LedgerRepository) {
+  return usePersistentLedgerRuntime(repository, fixedClock);
+}
 
 afterEach(() => {
   cleanup();
@@ -181,6 +190,65 @@ function createCompleteBackupLedger(): LedgerData {
 }
 
 describe("usePersistentLedger hydration safety", () => {
+  it("refreshes the shared day at local midnight and recalibrates on focus or visibility", async () => {
+    vi.useFakeTimers();
+    const repository = createRepository();
+    let currentTime = new Date(2026, 6, 25, 23, 59, 59, 900);
+    const clock: LedgerClock = {
+      now: vi.fn(() => new Date(currentTime)),
+    };
+    const originalVisibility = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+
+    try {
+      const { result, unmount } = renderHook(() =>
+        usePersistentLedgerRuntime(repository, clock),
+      );
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.todayKey).toBe("2026-07-25");
+
+      currentTime = new Date(2026, 6, 26, 0, 0, 0, 0);
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      expect(result.current.todayKey).toBe("2026-07-26");
+
+      currentTime = new Date(2026, 6, 27, 9, 0, 0, 0);
+      act(() => {
+        window.dispatchEvent(new Event("focus"));
+      });
+      expect(result.current.todayKey).toBe("2026-07-27");
+
+      currentTime = new Date(2026, 6, 28, 9, 0, 0, 0);
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "visible",
+      });
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      expect(result.current.todayKey).toBe("2026-07-28");
+
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      if (originalVisibility) {
+        Object.defineProperty(
+          document,
+          "visibilityState",
+          originalVisibility,
+        );
+      }
+      vi.useRealTimers();
+    }
+  });
+
   it("persists one multi-price market refresh as one mutation and one save", async () => {
     const repository = createRepository();
     const { result } = renderHook(() => usePersistentLedger(repository));

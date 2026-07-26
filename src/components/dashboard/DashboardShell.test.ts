@@ -7,6 +7,7 @@ import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
 import { ledgerReducer } from "../../state/ledgerReducer";
+import type { LedgerClock } from "../../utils/ledgerDate";
 import { DashboardShell, TradeTable } from "./DashboardShell";
 
 vi.mock("../../services/positionService", () => ({
@@ -19,6 +20,9 @@ const staticRepository: LedgerRepository = {
   load: async () => null,
   save: async () => undefined,
   clear: async () => undefined,
+};
+const fixedClock: LedgerClock = {
+  now: () => new Date("2026-07-25T12:00:00Z"),
 };
 
 const pricedPosition: Position = {
@@ -155,7 +159,10 @@ describe("DashboardShell ledger views", () => {
     ]);
 
     const html = renderToStaticMarkup(
-      createElement(DashboardShell, { repository: staticRepository }),
+      createElement(DashboardShell, {
+        repository: staticRepository,
+        clock: fixedClock,
+      }),
     );
 
     expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
@@ -183,7 +190,10 @@ describe("DashboardShell ledger views", () => {
     getPositionsFromLedgerMock.mockReturnValue([]);
 
     const html = renderToStaticMarkup(
-      createElement(DashboardShell, { repository: staticRepository }),
+      createElement(DashboardShell, {
+        repository: staticRepository,
+        clock: fixedClock,
+      }),
     );
 
     expect(html).toContain(
@@ -195,7 +205,10 @@ describe("DashboardShell ledger views", () => {
     getPositionsFromLedgerMock.mockReturnValue([]);
 
     const html = renderToStaticMarkup(
-      createElement(DashboardShell, { repository: staticRepository }),
+      createElement(DashboardShell, {
+        repository: staticRepository,
+        clock: fixedClock,
+      }),
     );
 
     expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
@@ -211,7 +224,10 @@ describe("DashboardShell ledger views", () => {
     getPositionsFromLedgerMock.mockReturnValue([pricedPosition]);
 
     const html = renderToStaticMarkup(
-      createElement(DashboardShell, { repository: staticRepository }),
+      createElement(DashboardShell, {
+        repository: staticRepository,
+        clock: fixedClock,
+      }),
     );
 
     expect(html).not.toContain("lg:w-60 lg:shrink-0");
@@ -226,7 +242,10 @@ describe("DashboardShell ledger views", () => {
     getPositionsFromLedgerMock.mockReturnValue([]);
 
     const html = renderToStaticMarkup(
-      createElement(DashboardShell, { repository: staticRepository }),
+      createElement(DashboardShell, {
+        repository: staticRepository,
+        clock: fixedClock,
+      }),
     );
 
     expect(html).not.toContain("Browser-only MVP shell");

@@ -20,6 +20,12 @@ import type { PersistenceOperation } from "../../hooks/usePersistentLedger";
 import type { LedgerData } from "../../models";
 import type { HydrationStatus } from "../../state/hydrationState";
 import {
+  captureLedgerTime,
+  systemLedgerClock,
+  type LedgerClock,
+  type LedgerTimeSnapshot,
+} from "../../utils/ledgerDate";
+import {
   evaluateLedgerByteLengthResourcePolicy,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
@@ -35,13 +41,17 @@ type ImportState =
   | "write-error";
 
 type BackupControlsProps = {
+  clock?: LedgerClock;
   ledgerData: LedgerData;
   hydrationStatus: HydrationStatus;
   persistenceOperation: PersistenceOperation;
   persistenceStatus: "idle" | "saving" | "saved" | "error";
   isReadOnly: boolean;
   isDirty: boolean;
-  onImport: (candidate: LedgerData) => Promise<{
+  onImport: (
+    candidate: LedgerData,
+    timeSnapshot?: LedgerTimeSnapshot,
+  ) => Promise<{
     ok: boolean;
     code?: string;
     errors?: BackupEnvelopeError[];
@@ -49,6 +59,7 @@ type BackupControlsProps = {
 };
 
 export function BackupControls({
+  clock = systemLedgerClock,
   ledgerData,
   hydrationStatus,
   persistenceOperation,
@@ -89,7 +100,7 @@ export function BackupControls({
   }
 
   function handleExport() {
-    const exportedAt = new Date().toISOString();
+    const exportedAt = captureLedgerTime(clock).now.toISOString();
     const envelopeResult = createBackupEnvelope(ledgerData, {
       appVersion: packageJson.version,
       exportedAt,
@@ -127,6 +138,7 @@ export function BackupControls({
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    const selectionTimeSnapshot = captureLedgerTime(clock);
     const selectionGeneration = selectionGenerationRef.current + 1;
     selectionGenerationRef.current = selectionGeneration;
     selectedEnvelopeRef.current = null;
@@ -159,7 +171,7 @@ export function BackupControls({
           return;
         }
 
-        const result = parseBackupJson(text);
+        const result = parseBackupJson(text, selectionTimeSnapshot.todayKey);
         if (!result.ok) {
           setImportState("invalid");
           setMessage("无法导入：备份文件格式或内容无效。");
@@ -191,7 +203,10 @@ export function BackupControls({
 
     setImportState("importing");
     setMessage("");
-    const result = await onImport(selectedEnvelope.ledgerData);
+    const result = await onImport(
+      selectedEnvelope.ledgerData,
+      captureLedgerTime(clock),
+    );
     if (!mountedRef.current) {
       return;
     }

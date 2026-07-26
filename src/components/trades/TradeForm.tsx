@@ -9,10 +9,20 @@ import type {
   TradeValidationError,
   TradeValidationField,
 } from "../../validators/tradeValidator";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+  type LedgerClock,
+  type LedgerTimeSnapshot,
+} from "../../utils/ledgerDate";
 
 type TradeFormProps = Readonly<{
+  clock?: LedgerClock;
   ledgerData: LedgerData;
-  onTradeCreated: (trade: Trade) => ApplyLedgerActionResult;
+  onTradeCreated: (
+    trade: Trade,
+    timeSnapshot: LedgerTimeSnapshot,
+  ) => ApplyLedgerActionResult;
 }>;
 
 type TradeFormState = {
@@ -112,6 +122,7 @@ function toTradeFormField(field: TradeValidationField): TradeFormField {
 }
 
 export function TradeForm({
+  clock = systemLedgerClock,
   ledgerData,
   onTradeCreated,
 }: TradeFormProps) {
@@ -157,6 +168,7 @@ export function TradeForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const timeSnapshot = captureLedgerTime(clock);
 
     const result = createValidatedTrade(
       {
@@ -173,6 +185,11 @@ export function TradeForm({
         ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
       },
       ledgerData,
+      {
+        generateId: () => globalThis.crypto.randomUUID(),
+        now: () => timeSnapshot.now.toISOString(),
+        todayKey: () => timeSnapshot.todayKey,
+      },
     );
 
     if (!result.ok) {
@@ -191,7 +208,7 @@ export function TradeForm({
       return;
     }
 
-    const mutationResult = onTradeCreated(result.trade);
+    const mutationResult = onTradeCreated(result.trade, timeSnapshot);
 
     if (mutationResult !== "applied") {
       setErrors({

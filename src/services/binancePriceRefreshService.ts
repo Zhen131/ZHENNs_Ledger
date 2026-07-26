@@ -12,7 +12,7 @@ import {
 } from "../policies/ledgerFactPolicy";
 import { isZero } from "../utils/decimalMath";
 import {
-  formatLocalDateKey,
+  captureLedgerTime,
   getLedgerDateKey,
   type LedgerClock,
 } from "../utils/ledgerDate";
@@ -108,9 +108,9 @@ export async function refreshBinancePrices(
     }
   }
 
-  const responseTime = dependencies.clock.now();
-  const fetchedAt = responseTime.toISOString();
-  const recordedAt = formatLocalDateKey(responseTime);
+  const responseTime = captureLedgerTime(dependencies.clock);
+  const fetchedAt = responseTime.now.toISOString();
+  const recordedAt = responseTime.todayKey;
   const successes = tickerResult.prices.flatMap((ticker) => {
     const target = targetByMarketSymbol.get(ticker.symbol);
     return target

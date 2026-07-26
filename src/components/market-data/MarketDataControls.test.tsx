@@ -21,7 +21,6 @@ afterEach(cleanup);
 
 const clock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00Z"),
-  todayKey: () => "2026-07-25",
 };
 
 function createClient(

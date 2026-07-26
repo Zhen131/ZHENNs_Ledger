@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
+  captureLedgerTime,
   compareLedgerFactOrder,
   createSystemLedgerClock,
   getLedgerDateKey,
+  millisecondsUntilNextLocalMidnight,
 } from "./ledgerDate";
 
 describe("ledgerDate", () => {
@@ -58,10 +60,36 @@ describe("ledgerDate", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("derives today from an injectable local clock at year end", () => {
+  it("captures now and local today from one clock read at year end", () => {
+    const now = vi.fn(() => new Date(2026, 11, 31, 23, 59, 59));
     const clock = createSystemLedgerClock(
-      () => new Date(2026, 11, 31, 23, 59, 59),
+      now,
     );
-    expect(clock.todayKey()).toBe("2026-12-31");
+    const snapshot = captureLedgerTime(clock);
+
+    expect(snapshot.todayKey).toBe("2026-12-31");
+    expect(snapshot.now).toBe(now.mock.results[0]?.value);
+    expect(now).toHaveBeenCalledOnce();
+  });
+
+  it("does not mix two dates when an injected clock would cross midnight", () => {
+    const now = vi
+      .fn<() => Date>()
+      .mockReturnValueOnce(new Date(2026, 6, 25, 23, 59, 59, 999))
+      .mockReturnValueOnce(new Date(2026, 6, 26, 0, 0, 0, 1));
+
+    const snapshot = captureLedgerTime(createSystemLedgerClock(now));
+
+    expect(snapshot.todayKey).toBe("2026-07-25");
+    expect(snapshot.now.getDate()).toBe(25);
+    expect(now).toHaveBeenCalledOnce();
+  });
+
+  it("calculates the remaining delay to the next local midnight", () => {
+    expect(
+      millisecondsUntilNextLocalMidnight(
+        new Date(2026, 6, 25, 23, 59, 59, 500),
+      ),
+    ).toBe(500);
   });
 });

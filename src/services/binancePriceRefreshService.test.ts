@@ -17,7 +17,6 @@ const TODAY = "2026-07-25";
 const RESPONSE_TIME = new Date(2026, 6, 26, 0, 0, 1);
 const clock: LedgerClock = {
   now: () => RESPONSE_TIME,
-  todayKey: () => TODAY,
 };
 
 function success(

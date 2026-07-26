@@ -14,9 +14,10 @@ import {
 import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
 import {
-  createSystemLedgerClock,
   getLedgerDateKey,
   isLedgerFactInFuture,
+  systemLedgerClock,
+  type LedgerClock,
 } from "../../utils/ledgerDate";
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
@@ -131,8 +132,10 @@ export function TradeTable({
 
 export function DashboardShell({
   repository,
+  clock = systemLedgerClock,
 }: Readonly<{
   repository: LedgerRepository;
+  clock?: LedgerClock;
 }>) {
   const {
     ledgerData,
@@ -154,7 +157,8 @@ export function DashboardShell({
     compatibilityWarnings,
     isFutureFactCorrectionMode,
     ledgerEpoch,
-  } = usePersistentLedger(repository);
+    todayKey,
+  } = usePersistentLedger(repository, clock);
   const [valuationPriceMode, setValuationPriceMode] =
     useState<ValuationPriceMode>("auto");
   const [chartRange, setChartRange] = useState<ChartRange>("30d");
@@ -196,7 +200,6 @@ export function DashboardShell({
     !repositorySwitchBlocked &&
     !isReadOnly &&
     !isFutureFactCorrectionMode;
-  const todayKey = createSystemLedgerClock().todayKey();
   const positions = getPositionsFromLedger(ledgerData, {
     todayKey,
     mode: valuationPriceMode,
@@ -446,11 +449,13 @@ export function DashboardShell({
             <Section title="图表总览与 Binance 行情">
               <MarketDataControls
                 applyLedgerMutation={applyLedgerMutation}
+                clock={clock}
                 isWritable={isWritable}
                 ledgerData={ledgerData}
                 ledgerEpoch={ledgerEpoch}
                 mode={valuationPriceMode}
                 onModeChange={setValuationPriceMode}
+                todayKey={todayKey}
               />
             </Section>
 
@@ -545,12 +550,13 @@ export function DashboardShell({
                   disabled={!isWritable}
                 >
                   <PriceForm
+                    clock={clock}
                     ledgerData={ledgerData}
-                    onPriceSnapshotCreated={(priceSnapshot) =>
+                    onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
                       applyLedgerAction({
                         type: "priceSnapshot/add",
                         priceSnapshot,
-                      })
+                      }, timeSnapshot)
                     }
                   />
                 </fieldset>
@@ -563,9 +569,13 @@ export function DashboardShell({
                 disabled={!isWritable}
               >
                 <TradeForm
+                  clock={clock}
                   ledgerData={ledgerData}
-                  onTradeCreated={(trade) =>
-                    applyLedgerAction({ type: "trade/add", trade })
+                  onTradeCreated={(trade, timeSnapshot) =>
+                    applyLedgerAction(
+                      { type: "trade/add", trade },
+                      timeSnapshot,
+                    )
                   }
                 />
               </fieldset>
@@ -603,6 +613,7 @@ export function DashboardShell({
                 </p>
 
                 <BackupControls
+                  clock={clock}
                   hydrationStatus={hydrationStatus}
                   isDirty={isDirty}
                   isReadOnly={isReadOnly}
