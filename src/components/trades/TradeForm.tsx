@@ -9,10 +9,20 @@ import type {
   TradeValidationError,
   TradeValidationField,
 } from "../../validators/tradeValidator";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+  type LedgerClock,
+  type LedgerTimeSnapshot,
+} from "../../utils/ledgerDate";
 
 type TradeFormProps = Readonly<{
+  clock?: LedgerClock;
   ledgerData: LedgerData;
-  onTradeCreated: (trade: Trade) => ApplyLedgerActionResult;
+  onTradeCreated: (
+    trade: Trade,
+    timeSnapshot: LedgerTimeSnapshot,
+  ) => ApplyLedgerActionResult;
 }>;
 
 type TradeFormState = {
@@ -80,6 +90,10 @@ function formatValidationError(error: TradeValidationError): string {
       return "卖出数量超过该时间点的可用持仓";
     case "CURRENCY_MISMATCH":
       return "计价货币与资产或已有交易不一致";
+    case "FUTURE_FACT":
+      return "交易日期不能晚于今天";
+    case "UNSUPPORTED_VALUATION_CURRENCY":
+      return "当前仅支持 USD/USDT 估值";
     case "INVALID_INPUT":
       return `${label}不能为空或格式不正确`;
   }
@@ -108,6 +122,7 @@ function toTradeFormField(field: TradeValidationField): TradeFormField {
 }
 
 export function TradeForm({
+  clock = systemLedgerClock,
   ledgerData,
   onTradeCreated,
 }: TradeFormProps) {
@@ -153,6 +168,7 @@ export function TradeForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const timeSnapshot = captureLedgerTime(clock);
 
     const result = createValidatedTrade(
       {
@@ -169,6 +185,11 @@ export function TradeForm({
         ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
       },
       ledgerData,
+      {
+        generateId: () => globalThis.crypto.randomUUID(),
+        now: () => timeSnapshot.now.toISOString(),
+        todayKey: () => timeSnapshot.todayKey,
+      },
     );
 
     if (!result.ok) {
@@ -187,7 +208,7 @@ export function TradeForm({
       return;
     }
 
-    const mutationResult = onTradeCreated(result.trade);
+    const mutationResult = onTradeCreated(result.trade, timeSnapshot);
 
     if (mutationResult !== "applied") {
       setErrors({

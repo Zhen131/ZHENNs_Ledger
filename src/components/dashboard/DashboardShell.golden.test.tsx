@@ -14,7 +14,28 @@ import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { sampleTradeDrafts } from "../../test/fixtures";
 import { isWithinTolerance } from "../../utils/decimalMath";
-import { DashboardShell } from "./DashboardShell";
+import type { LedgerClock } from "../../utils/ledgerDate";
+import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
+
+const fixedClock: LedgerClock = {
+  now: () => new Date("2026-07-25T12:00:00"),
+};
+
+function DashboardShell({
+  repository,
+}: {
+  repository: LedgerRepository;
+}) {
+  return (
+    <DashboardShellRuntime clock={fixedClock} repository={repository} />
+  );
+}
+
+vi.mock("../charts/EChart", () => ({
+  EChart: ({ ariaLabel }: { ariaLabel: string }) => (
+    <div aria-label={ariaLabel} role="img" />
+  ),
+}));
 
 afterEach(() => {
   cleanup();
@@ -177,6 +198,9 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("BTC", 5, "70000");
     expectPositionDecimal("BTC", 6, "11.4716");
     expectPositionDecimal("BTC", 7, "0.4716");
+    expect(screen.getByText(/已估值 1 项，总市值 11.4716 USD 等值/)).not.toBeNull();
+    expect(screen.getByText("未估值资产：ADA、ETH。")).not.toBeNull();
+    expect(screen.getByText(/共 365 个自然日、5 笔交易/)).not.toBeNull();
 
     await fillTradeForm({
       type: "sell",
@@ -196,24 +220,27 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("ADA", 3, "21.297822152886115445");
     expectPositionDecimal("ADA", 4, "-0.702177847113884555");
 
-    await user.click(
-      within(tradeSection).getByRole("button", {
-        name: "删除 买入 ADA 2026-04-09",
-      }),
-    );
+    const supportedBuyDeleteButton = within(tradeSection).getByRole("button", {
+      name: "删除 买入 ADA 2026-04-09",
+    });
+    await user.click(supportedBuyDeleteButton);
+    await user.click(supportedBuyDeleteButton);
 
     expect(
       within(tradeSection).getByText(
-        "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效",
+        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
       ),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
 
-    await user.click(
-      within(tradeSection).getByRole("button", {
+    const independentBuyDeleteButton = within(tradeSection).getByRole(
+      "button",
+      {
         name: "删除 买入 BTC 2026-04-02",
-      }),
+      },
     );
+    await user.click(independentBuyDeleteButton);
+    await user.click(independentBuyDeleteButton);
 
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(5);
     expect(within(getSection("资产汇总")).queryByText("BTC")).toBeNull();

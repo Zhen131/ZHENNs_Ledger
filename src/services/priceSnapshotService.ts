@@ -7,6 +7,10 @@ import {
   type PriceSnapshotValidationError,
   validatePriceSnapshotDraft,
 } from "../validators/priceSnapshotValidator";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+} from "../utils/ledgerDate";
 
 const MAX_PRICE_ID_GENERATION_ATTEMPTS = 3;
 
@@ -18,6 +22,7 @@ export const PRICE_SNAPSHOT_SERVICE_ERROR_CODES = {
 export type PriceSnapshotServiceDependencies = {
   generateId: () => string;
   now: () => ISODateTimeString;
+  todayKey?: () => string;
 };
 
 export type CreatePriceSnapshotResult =
@@ -42,19 +47,30 @@ export type CreatePriceSnapshotResult =
       };
     };
 
-const defaultDependencies: PriceSnapshotServiceDependencies = {
-  generateId: () => globalThis.crypto.randomUUID(),
-  now: () => new Date().toISOString(),
-};
-
 export function createValidatedPriceSnapshot(
   input: unknown,
   ledgerData: LedgerData,
-  dependencies: PriceSnapshotServiceDependencies = defaultDependencies,
+  providedDependencies?: PriceSnapshotServiceDependencies,
 ): CreatePriceSnapshotResult {
+  const defaultTimeSnapshot = providedDependencies
+    ? undefined
+    : captureLedgerTime(systemLedgerClock);
+  const dependencies: PriceSnapshotServiceDependencies =
+    providedDependencies ?? {
+      generateId: () => globalThis.crypto.randomUUID(),
+      now: () => defaultTimeSnapshot!.now.toISOString(),
+      todayKey: () => defaultTimeSnapshot!.todayKey,
+    };
   const validationResult = validatePriceSnapshotDraft(
     input,
     ledgerData.assets,
+    {
+      todayKey:
+        dependencies.todayKey?.() ??
+        captureLedgerTime(systemLedgerClock).todayKey,
+      requireSupportedValuationCurrency: true,
+      requireApiProvenance: true,
+    },
   );
 
   if (!validationResult.ok) {

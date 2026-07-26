@@ -3,38 +3,52 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { usePersistentLedger } from "../../hooks/usePersistentLedger";
-import type { Trade } from "../../models";
+import type { Trade, ValuationPriceMode } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import {
+  buildHoldingAllocation,
+  buildHoldingHistory,
+  buildTradeHeatmap,
+  type ChartRange,
+} from "../../services/chartDataService";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
+import {
+  getLedgerDateKey,
+  isLedgerFactInFuture,
+  systemLedgerClock,
+  type LedgerClock,
+} from "../../utils/ledgerDate";
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
 import { BackupControls } from "../backup/BackupControls";
+import { ChartsOverview } from "../charts/ChartsOverview";
+import { MarketDataControls } from "../market-data/MarketDataControls";
+import {
+  ConfirmDeleteButton,
+  type ConfirmDeleteOutcome,
+} from "../common/ConfirmDeleteButton";
 
-const navItems = ["总览", "买入", "卖出", "交易记录", "价格", "报告", "设置"];
 const CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 
 type ClearConfirmationMode = "normal" | "recovery";
 
+function shortLedgerId(id: string): string {
+  return id.length <= 12 ? id : `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
 function Section({
   title,
-  eyebrow,
   children,
 }: Readonly<{
   title: string;
-  eyebrow?: string;
   children: ReactNode;
 }>) {
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          {eyebrow ? (
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-              {eyebrow}
-            </p>
-          ) : null}
-          <h2 className="mt-1 text-lg font-semibold text-slate-950">{title}</h2>
+          <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
         </div>
       </div>
       {children}
@@ -46,10 +60,14 @@ export function TradeTable({
   trades,
   onDelete,
   deleteDisabled = false,
+  todayKey,
 }: Readonly<{
   trades: readonly Trade[];
-  onDelete?: (tradeId: string) => void;
+  onDelete?: (
+    tradeId: string,
+  ) => ConfirmDeleteOutcome | Promise<ConfirmDeleteOutcome>;
   deleteDisabled?: boolean;
+  todayKey?: string;
 }>) {
   const columnCount = onDelete ? 7 : 6;
 
@@ -80,7 +98,15 @@ export function TradeTable({
           ) : (
             trades.map((trade) => (
               <tr key={trade.id}>
-                <td className="py-3 text-slate-600">{trade.occurredAt}</td>
+                <td className="py-3 text-slate-600">
+                  {trade.occurredAt}
+                  {todayKey &&
+                  isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
+                    <span className="ml-2 font-medium text-red-700">
+                      无效未来事实
+                    </span>
+                  ) : null}
+                </td>
                 <td className="py-3 text-slate-600">
                   {trade.type === "buy" ? "买入" : "卖出"}
                 </td>
@@ -92,17 +118,14 @@ export function TradeTable({
                 </td>
                 {onDelete ? (
                   <td className="py-3">
-                    <button
-                      aria-label={`删除 ${
+                    <ConfirmDeleteButton
+                      ariaLabel={`删除 ${
                         trade.type === "buy" ? "买入" : "卖出"
                       } ${trade.assetSymbol} ${trade.occurredAt}`}
-                      className="text-sm font-medium text-red-700 hover:text-red-900 disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={deleteDisabled}
-                      onClick={() => onDelete(trade.id)}
-                      type="button"
-                    >
-                      删除
-                    </button>
+                      label="删除"
+                      onConfirm={() => onDelete(trade.id)}
+                    />
                   </td>
                 ) : null}
               </tr>
@@ -116,12 +139,15 @@ export function TradeTable({
 
 export function DashboardShell({
   repository,
+  clock = systemLedgerClock,
 }: Readonly<{
   repository: LedgerRepository;
+  clock?: LedgerClock;
 }>) {
   const {
     ledgerData,
     applyLedgerAction,
+    applyLedgerMutation,
     hydrationStatus,
     persistenceError,
     resourcePolicyError,
@@ -135,8 +161,19 @@ export function DashboardShell({
     isDirty,
     repositorySwitchBlocked,
     discardDirtyChangesAndSwitchRepository,
-  } = usePersistentLedger(repository);
+    compatibilityWarnings,
+    isFutureFactCorrectionMode,
+    ledgerEpoch,
+    todayKey,
+  } = usePersistentLedger(repository, clock);
+  const [valuationPriceMode, setValuationPriceMode] =
+    useState<ValuationPriceMode>("auto");
+  const [chartRange, setChartRange] = useState<ChartRange>("30d");
+  const [selectedTradeDate, setSelectedTradeDate] = useState<string | null>(
+    null,
+  );
   const [tradeRemovalError, setTradeRemovalError] = useState("");
+  const [futureCorrectionError, setFutureCorrectionError] = useState("");
   const [clearConfirmationMode, setClearConfirmationMode] =
     useState<ClearConfirmationMode | null>(null);
   const [clearConfirmationValue, setClearConfirmationValue] = useState("");
@@ -161,31 +198,115 @@ export function DashboardShell({
     setClearSuccessMessage("");
   }, [repository]);
 
+  useEffect(() => {
+    setSelectedTradeDate(null);
+  }, [ledgerEpoch]);
+
   const isWritable =
     hydrationStatus === "ready" &&
     persistenceOperation === "idle" &&
     !repositorySwitchBlocked &&
-    !isReadOnly;
-  const positions = getPositionsFromLedger(ledgerData);
+    !isReadOnly &&
+    !isFutureFactCorrectionMode;
+  const canCorrectFutureFacts =
+    hydrationStatus === "ready" &&
+    persistenceOperation === "idle" &&
+    !repositorySwitchBlocked &&
+    !isReadOnly &&
+    isFutureFactCorrectionMode;
+  const positions = getPositionsFromLedger(ledgerData, {
+    todayKey,
+    mode: valuationPriceMode,
+  });
+  const allocation = buildHoldingAllocation(ledgerData, {
+    todayKey,
+    mode: valuationPriceMode,
+  });
+  const history = buildHoldingHistory(ledgerData, {
+    todayKey,
+    mode: valuationPriceMode,
+    range: chartRange,
+  });
+  const heatmap = buildTradeHeatmap(ledgerData, todayKey);
+  const displayedTrades = selectedTradeDate
+    ? ledgerData.trades.filter(
+        (trade) => getLedgerDateKey(trade.occurredAt) === selectedTradeDate,
+      )
+    : ledgerData.trades;
+  const futureTrades = ledgerData.trades.filter((trade) =>
+    isLedgerFactInFuture(trade.occurredAt, todayKey),
+  );
+  const futurePriceSnapshots = ledgerData.priceSnapshots.filter((snapshot) =>
+    isLedgerFactInFuture(snapshot.recordedAt, todayKey),
+  );
 
-  function handleDeleteTrade(tradeId: string) {
-    if (!isWritable) {
-      return;
-    }
-
+  function removeValidatedTrade(
+    tradeId: string,
+    setError: (message: string) => void,
+  ): ConfirmDeleteOutcome {
     const result = validateTradeRemoval(tradeId, ledgerData);
 
     if (!result.ok) {
-      setTradeRemovalError(
+      setError(
         result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
-          ? "无法删除：这笔交易支撑了后续卖出，删除后持仓时间线会失效"
+          ? "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出"
           : "无法删除：没有找到这笔交易",
       );
-      return;
+      return "rejected";
     }
 
-    applyLedgerAction({ type: "trade/delete", tradeId: result.tradeId });
-    setTradeRemovalError("");
+    const outcome = applyLedgerAction({
+      type: "trade/delete",
+      tradeId: result.tradeId,
+    });
+    setError(
+      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+    );
+    return outcome;
+  }
+
+  function handleDeleteTrade(tradeId: string): ConfirmDeleteOutcome {
+    if (!isWritable) {
+      return "rejected";
+    }
+    return removeValidatedTrade(tradeId, setTradeRemovalError);
+  }
+
+  function handleDeleteFutureTrade(tradeId: string): ConfirmDeleteOutcome {
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+    return removeValidatedTrade(tradeId, setFutureCorrectionError);
+  }
+
+  function handleDeleteFuturePrice(
+    priceSnapshotId: string,
+  ): ConfirmDeleteOutcome {
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+    const outcome = applyLedgerAction({
+      type: "priceSnapshot/delete",
+      priceSnapshotId,
+    });
+    setFutureCorrectionError(
+      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+    );
+    return outcome;
+  }
+
+  function handleDeleteAllFutureFacts(): ConfirmDeleteOutcome {
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+    const outcome = applyLedgerAction({
+      type: "futureFacts/deleteAll",
+      todayKey,
+    });
+    setFutureCorrectionError(
+      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+    );
+    return outcome;
   }
 
   function openClearConfirmation(mode: ClearConfirmationMode) {
@@ -240,6 +361,7 @@ export function DashboardShell({
     }
 
     setTradeRemovalError("");
+    setSelectedTradeDate(null);
     setClearConfirmationMode(null);
     setClearConfirmationValue("");
     setClearSuccessMessage("账本已清空");
@@ -247,55 +369,18 @@ export function DashboardShell({
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
-        <aside className="border-b border-slate-200 bg-white px-5 py-4 lg:w-60 lg:shrink-0 lg:border-b-0 lg:border-r">
-          <div className="mb-6">
-            <p className="text-sm font-semibold text-slate-950">Local Ledger</p>
-            <p className="mt-1 text-xs text-slate-500">Browser-only MVP shell</p>
-          </div>
-          <nav className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
-            {navItems.map((item) => (
-              <a
-                className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                href="#"
-                key={item}
-              >
-                {item}
-              </a>
-            ))}
-          </nav>
-          <div className="mt-8 hidden border-t border-slate-200 pt-4 text-sm text-slate-500 lg:block">
-            <p>帮助</p>
-            <p className="mt-2">快捷键</p>
-            <p className="mt-2">切换账本</p>
-          </div>
-        </aside>
-
-        <div className="min-w-0 flex-1 px-5 py-6 sm:px-8 lg:px-10">
-          <header className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Local-first ledger
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-                Local-First Trading Ledger
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                本地记录交易和价格，持仓与盈亏由同一份账本事实实时推导。
-              </p>
-            </div>
-            <div className="flex w-full rounded-md border border-slate-200 bg-white p-1 text-sm md:w-auto">
-              {["Today", "This Month", "All"].map((item) => (
-                <button
-                  className="flex-1 rounded px-3 py-2 text-slate-600 first:bg-slate-950 first:text-white md:flex-none"
-                  key={item}
-                  type="button"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </header>
+      <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
+        <header className="mb-6 border-b border-slate-200 pb-6">
+          <p className="text-sm font-medium text-slate-500">
+            本地优先交易账本
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            Local-First Trading Ledger
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            本地记录交易和真实价格事实，持仓、盈亏与图表由同一份账本实时推导。
+          </p>
+        </header>
 
           {hydrationStatus === "loading" ? (
             <p
@@ -375,24 +460,116 @@ export function DashboardShell({
               </button>
             </div>
           ) : null}
+          {compatibilityWarnings.length > 0 ? (
+            <div
+              aria-live="assertive"
+              className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+            >
+              <p className="font-semibold">旧账本兼容警告</p>
+              <ul className="mt-2 grid gap-1">
+                {compatibilityWarnings.slice(0, 8).map((warning, index) => (
+                  <li key={`${warning.code}-${warning.path}-${index}`}>
+                    <code>{warning.path}</code> · {warning.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {isFutureFactCorrectionMode ? (
+            <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
+              <p className="font-semibold">未来事实纠正模式</p>
+              <p>
+                未来交易和价格不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可逐条删除未来事实、救援导出、导入合法整账、清空或删除全部无效未来事实。
+              </p>
+              {futureCorrectionError ? (
+                <p
+                  aria-live="polite"
+                  className="rounded-md border border-red-300 bg-white px-3 py-2 text-red-900"
+                >
+                  {futureCorrectionError}
+                </p>
+              ) : null}
+              <ul className="grid gap-1">
+                {futureTrades.map((trade) => (
+                  <li
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-white p-3"
+                    key={trade.id}
+                  >
+                    <span>
+                      未来交易：{trade.type === "buy" ? "买入" : "卖出"} ·{" "}
+                      {trade.assetSymbol} · 数量 {trade.quantity} · 价格{" "}
+                      {trade.price} {trade.currency} · {trade.occurredAt} · ID{" "}
+                      {shortLedgerId(trade.id)}
+                    </span>
+                    <ConfirmDeleteButton
+                      ariaLabel={`删除未来交易 ${trade.assetSymbol} ${trade.occurredAt} ${trade.id}`}
+                      disabled={!canCorrectFutureFacts}
+                      label="删除未来交易"
+                      onConfirm={() => handleDeleteFutureTrade(trade.id)}
+                    />
+                  </li>
+                ))}
+                {futurePriceSnapshots.map((snapshot) => (
+                  <li
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-white p-3"
+                    key={snapshot.id}
+                  >
+                    <span>
+                      未来价格：{snapshot.assetSymbol} · {snapshot.price}{" "}
+                      {snapshot.currency} · 来源{" "}
+                      {snapshot.source === "api" ? "Binance API" : "手动"} ·{" "}
+                      {snapshot.recordedAt} · ID {shortLedgerId(snapshot.id)}
+                    </span>
+                    <ConfirmDeleteButton
+                      ariaLabel={`删除未来价格 ${snapshot.assetSymbol} ${snapshot.recordedAt} ${snapshot.id}`}
+                      disabled={!canCorrectFutureFacts}
+                      label="删除未来价格"
+                      onConfirm={() =>
+                        handleDeleteFuturePrice(snapshot.id)
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+              <div className="w-fit">
+                <ConfirmDeleteButton
+                  ariaLabel="删除全部无效未来事实"
+                  disabled={!canCorrectFutureFacts}
+                  label="删除全部无效未来事实"
+                  onConfirm={handleDeleteAllFutureFacts}
+                />
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid gap-5">
-            <Section eyebrow="Future chart area" title="资产走势">
-              <div className="flex min-h-48 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                <div>
-                  <p className="font-medium text-slate-700">
-                    未来这里显示资产净值曲线和 K 线。
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Day 4 only reserves the space. No API, no live market data,
-                    no chart logic yet.
-                  </p>
-                </div>
-              </div>
+            <Section title="图表总览与 Binance 行情">
+              <MarketDataControls
+                applyLedgerMutation={applyLedgerMutation}
+                clock={clock}
+                isWritable={isWritable}
+                ledgerData={ledgerData}
+                ledgerEpoch={ledgerEpoch}
+                mode={valuationPriceMode}
+                onModeChange={setValuationPriceMode}
+                todayKey={todayKey}
+              />
+            </Section>
+
+            <Section title="账本图表">
+              <ChartsOverview
+                allocation={allocation}
+                heatmap={heatmap}
+                history={history}
+                onRangeChange={setChartRange}
+                onSelectedTradeDateChange={setSelectedTradeDate}
+                range={chartRange}
+                selectedTradeDate={selectedTradeDate}
+              />
             </Section>
 
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-              <Section eyebrow="Calculated later" title="资产汇总">
+              <Section title="资产汇总">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[960px] text-left text-sm">
                     <thead className="border-b border-slate-200 text-slate-500">
@@ -464,39 +641,50 @@ export function DashboardShell({
                 </div>
               </Section>
 
-              <Section eyebrow="Manual source" title="价格输入">
+              <Section title="价格输入">
                 <fieldset
                   className={isWritable ? "" : "opacity-60"}
                   disabled={!isWritable}
                 >
                   <PriceForm
+                    clock={clock}
                     ledgerData={ledgerData}
-                    onPriceSnapshotCreated={(priceSnapshot) =>
+                    onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
                       applyLedgerAction({
                         type: "priceSnapshot/add",
                         priceSnapshot,
-                      })
+                      }, timeSnapshot)
                     }
                   />
                 </fieldset>
               </Section>
             </div>
 
-            <Section eyebrow="Trade draft" title="新增交易">
+            <Section title="新增交易">
               <fieldset
                 className={isWritable ? "" : "opacity-60"}
                 disabled={!isWritable}
               >
                 <TradeForm
+                  clock={clock}
                   ledgerData={ledgerData}
-                  onTradeCreated={(trade) =>
-                    applyLedgerAction({ type: "trade/add", trade })
+                  onTradeCreated={(trade, timeSnapshot) =>
+                    applyLedgerAction(
+                      { type: "trade/add", trade },
+                      timeSnapshot,
+                    )
                   }
                 />
               </fieldset>
             </Section>
 
-            <Section eyebrow="LedgerData source" title="交易列表">
+            <Section
+              title={
+                selectedTradeDate
+                  ? `交易列表 · ${selectedTradeDate}`
+                  : "交易列表"
+              }
+            >
               {tradeRemovalError ? (
                 <p
                   aria-live="polite"
@@ -510,17 +698,19 @@ export function DashboardShell({
                 onDelete={
                   hydrationStatus === "ready" ? handleDeleteTrade : undefined
                 }
-                trades={ledgerData.trades}
+                trades={displayedTrades}
+                todayKey={todayKey}
               />
             </Section>
 
-            <Section eyebrow="Local data" title="数据管理">
+            <Section title="数据管理">
               <div className="grid gap-4 text-sm text-slate-700">
                 <p>
                   本区只管理当前浏览器 origin 下的完整本地账本记录。
                 </p>
 
                 <BackupControls
+                  clock={clock}
                   hydrationStatus={hydrationStatus}
                   isDirty={isDirty}
                   isReadOnly={isReadOnly}
@@ -622,7 +812,6 @@ export function DashboardShell({
               </div>
             </Section>
           </div>
-        </div>
       </div>
     </main>
   );

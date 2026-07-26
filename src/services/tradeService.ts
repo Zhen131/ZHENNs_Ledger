@@ -7,6 +7,10 @@ import {
   type TradeValidationError,
   validateTradeDraft,
 } from "../validators/tradeValidator";
+import {
+  captureLedgerTime,
+  systemLedgerClock,
+} from "../utils/ledgerDate";
 
 const MAX_TRADE_ID_GENERATION_ATTEMPTS = 3;
 
@@ -18,6 +22,7 @@ export const TRADE_SERVICE_ERROR_CODES = {
 export type TradeServiceDependencies = {
   generateId: () => string;
   now: () => ISODateTimeString;
+  todayKey?: () => string;
 };
 
 export type TradeServiceOperationalError =
@@ -47,19 +52,26 @@ export type CreateTradeResult =
       error: TradeServiceOperationalError;
     };
 
-const defaultDependencies: TradeServiceDependencies = {
-  generateId: () => globalThis.crypto.randomUUID(),
-  now: () => new Date().toISOString(),
-};
-
 export function createValidatedTrade(
   input: unknown,
   ledgerData: LedgerData,
-  dependencies: TradeServiceDependencies = defaultDependencies,
+  providedDependencies?: TradeServiceDependencies,
 ): CreateTradeResult {
+  const defaultTimeSnapshot = providedDependencies
+    ? undefined
+    : captureLedgerTime(systemLedgerClock);
+  const dependencies: TradeServiceDependencies = providedDependencies ?? {
+    generateId: () => globalThis.crypto.randomUUID(),
+    now: () => defaultTimeSnapshot!.now.toISOString(),
+    todayKey: () => defaultTimeSnapshot!.todayKey,
+  };
   const validationResult = validateTradeDraft(input, {
     assets: ledgerData.assets,
     priorTrades: ledgerData.trades,
+    todayKey:
+      dependencies.todayKey?.() ??
+      captureLedgerTime(systemLedgerClock).todayKey,
+    requireSupportedValuationCurrency: true,
   });
 
   if (!validationResult.ok) {

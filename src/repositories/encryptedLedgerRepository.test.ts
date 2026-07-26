@@ -31,6 +31,24 @@ function createLedger() {
   return {
     ...createInitialLedgerData(),
     trades: structuredClone(sampleTrades),
+    priceSnapshots: [
+      {
+        id: "price-binance-btc",
+        assetSymbol: "BTC",
+        price: "70000",
+        currency: "USD",
+        recordedAt: "2026-07-25",
+        source: "api" as const,
+        binanceProvenance: {
+          provider: "binance" as const,
+          symbol: "BTCUSDT",
+          sourceQuoteCurrency: "USDT" as const,
+          fetchedAt: "2026-07-25T12:00:00Z",
+        },
+        createdAt: "2026-07-25T12:00:00Z",
+        updatedAt: "2026-07-25T12:00:00Z",
+      },
+    ],
   };
 }
 
@@ -45,10 +63,27 @@ describe("encrypted LedgerRepository integration", () => {
     await repository.save(ledger);
 
     const serializedRecord = JSON.stringify(storage.stored);
+    expect((storage.stored as StoredLedgerEnvelopeV2).formatVersion).toBe(2);
+    expect((storage.stored as StoredLedgerEnvelopeV2).ledgerSchemaVersion).toBe(
+      1,
+    );
     expect(serializedRecord).not.toContain('"schemaVersion"');
     expect(serializedRecord).not.toContain('"trades"');
     expect(serializedRecord).not.toContain("Bitcoin");
-    await expect(repository.load()).resolves.toEqual(ledger);
+    expect(serializedRecord).not.toContain("BTCUSDT");
+    expect(serializedRecord).not.toContain("70000");
+
+    const storedEnvelope = storage.stored as StoredLedgerEnvelopeV2;
+    const unlockedEncryption =
+      await WebCryptoEncryptionService.createForUnlock(
+        PASSPHRASE,
+        storedEnvelope.kdf.saltBase64Url,
+      );
+    const remountedRepository = new DefaultLedgerRepository(
+      storage,
+      unlockedEncryption,
+    );
+    await expect(remountedRepository.load()).resolves.toEqual(ledger);
   });
 
   it("uses a fresh IV for each save while retaining the session salt", async () => {

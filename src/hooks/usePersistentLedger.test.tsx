@@ -29,7 +29,16 @@ import {
   createSimpleTrade,
   sampleTrades,
 } from "../test/fixtures";
-import { usePersistentLedger } from "./usePersistentLedger";
+import type { LedgerClock } from "../utils/ledgerDate";
+import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
+
+const fixedClock: LedgerClock = {
+  now: () => new Date("2026-07-25T12:00:00"),
+};
+
+function usePersistentLedger(repository: LedgerRepository) {
+  return usePersistentLedgerRuntime(repository, fixedClock);
+}
 
 afterEach(() => {
   cleanup();
@@ -160,12 +169,183 @@ function createCompleteBackupLedger(): LedgerData {
     priceSnapshots: [
       createPriceSnapshot("price-backup-btc", "BTC", "80000", "2026-07-16"),
       createPriceSnapshot("price-backup-eth", "ETH", "2200", "2026-07-16"),
+      {
+        ...createPriceSnapshot(
+          "price-backup-binance",
+          "ADA",
+          "0.75",
+          "2026-07-17",
+        ),
+        source: "api",
+        binanceProvenance: {
+          provider: "binance",
+          symbol: "ADAUSDT",
+          sourceQuoteCurrency: "USDT",
+          fetchedAt: "2026-07-17T08:00:00Z",
+        },
+      },
     ],
     feeRules: [feeRule],
   };
 }
 
 describe("usePersistentLedger hydration safety", () => {
+  it("refreshes the shared day at local midnight and recalibrates on focus or visibility", async () => {
+    vi.useFakeTimers();
+    const repository = createRepository();
+    let currentTime = new Date(2026, 6, 25, 23, 59, 59, 900);
+    const clock: LedgerClock = {
+      now: vi.fn(() => new Date(currentTime)),
+    };
+    const originalVisibility = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+
+    try {
+      const { result, unmount } = renderHook(() =>
+        usePersistentLedgerRuntime(repository, clock),
+      );
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(result.current.hydrationStatus).toBe("ready");
+      expect(result.current.todayKey).toBe("2026-07-25");
+
+      currentTime = new Date(2026, 6, 26, 0, 0, 0, 0);
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      expect(result.current.todayKey).toBe("2026-07-26");
+
+      currentTime = new Date(2026, 6, 27, 9, 0, 0, 0);
+      act(() => {
+        window.dispatchEvent(new Event("focus"));
+      });
+      expect(result.current.todayKey).toBe("2026-07-27");
+
+      currentTime = new Date(2026, 6, 28, 9, 0, 0, 0);
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "visible",
+      });
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      expect(result.current.todayKey).toBe("2026-07-28");
+
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      if (originalVisibility) {
+        Object.defineProperty(
+          document,
+          "visibilityState",
+          originalVisibility,
+        );
+      }
+      vi.useRealTimers();
+    }
+  });
+
+  it("persists one multi-price market refresh as one mutation and one save", async () => {
+    const repository = createRepository();
+    const { result } = renderHook(() => usePersistentLedger(repository));
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    act(() => {
+      expect(
+        result.current.applyLedgerMutation((current) => ({
+          ...current,
+          priceSnapshots: [
+            ...current.priceSnapshots,
+            createPriceSnapshot("btc-batch", "BTC", "70000", "2026-07-25"),
+            createPriceSnapshot("eth-batch", "ETH", "2000", "2026-07-25"),
+          ],
+        })),
+      ).toBe("applied");
+    });
+
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+    expect(result.current.mutationVersion).toBe(1);
+    expect(result.current.persistedVersion).toBe(1);
+    expect(repository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceSnapshots: expect.arrayContaining([
+          expect.objectContaining({ id: "btc-batch" }),
+          expect.objectContaining({ id: "eth-batch" }),
+        ]),
+      }),
+    );
+  });
+
+  it("increments ledgerEpoch only for whole-ledger replacement and enforces future correction mode", async () => {
+    const futureLedger = createInitialLedgerData();
+    futureLedger.trades = [
+      createSimpleTrade("future-trade", "buy", "BTC", "1", "2099-01-01"),
+    ];
+    const repository = createRepository({
+      load: vi.fn(async () => futureLedger),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    expect(result.current.ledgerEpoch).toBe(1);
+    expect(result.current.isFutureFactCorrectionMode).toBe(true);
+    expect(
+      result.current.compatibilityWarnings.some(
+        (warning) => warning.path === "trades[0].occurredAt",
+      ),
+    ).toBe(true);
+
+    act(() => {
+      expect(
+        addTrade(
+          result.current.applyLedgerAction,
+          createSimpleTrade("normal-trade", "buy", "BTC", "1", "2020-01-01"),
+        ),
+      ).toBe("rejected");
+      expect(
+        result.current.applyLedgerAction({
+          type: "trade/delete",
+          tradeId: "normal-trade",
+        }),
+      ).toBe("rejected");
+      expect(
+        result.current.applyLedgerAction({
+          type: "futureFacts/deleteAll",
+          todayKey: "2026-07-25",
+        }),
+      ).toBe("applied");
+    });
+
+    await waitFor(() => {
+      expect(result.current.persistenceStatus).toBe("saved");
+    });
+    expect(result.current.isFutureFactCorrectionMode).toBe(false);
+    expect(result.current.ledgerEpoch).toBe(1);
+
+    await act(async () => {
+      await expect(
+        result.current.replaceLedgerFromBackup(createInitialLedgerData()),
+      ).resolves.toEqual({ ok: true });
+    });
+    expect(result.current.ledgerEpoch).toBe(2);
+
+    await act(async () => {
+      await expect(result.current.clearLedger()).resolves.toEqual({ ok: true });
+    });
+    expect(result.current.ledgerEpoch).toBe(3);
+  });
+
   it("reports rejected, noop, and applied mutations with versioned persistence", async () => {
     const loadDeferred = createDeferred<LedgerData | null>();
     const saveDeferred = createDeferred<void>();
@@ -1541,12 +1721,36 @@ describe("usePersistentLedger backup import", () => {
       serializeBackupEnvelope(reexportedEnvelope.value),
     );
     expect(reparsed).toEqual(parsed);
+    if (!reparsed.ok) return;
+    expect(reparsed.value.ledgerData.assets[0].binanceMapping?.symbol).toBe(
+      "BTCUSDT",
+    );
     expect(
-      Object.prototype.hasOwnProperty.call(
-        reparsed.ok ? reparsed.value.ledgerData : {},
-        "positions",
-      ),
-    ).toBe(false);
+      reparsed.value.ledgerData.priceSnapshots.find(
+        (snapshot) => snapshot.id === "price-backup-binance",
+      )?.binanceProvenance,
+    ).toEqual({
+      provider: "binance",
+      symbol: "ADAUSDT",
+      sourceQuoteCurrency: "USDT",
+      fetchedAt: "2026-07-17T08:00:00Z",
+    });
+    expect(reparsed.value.ledgerData.feeRules).toEqual([fixture.feeRules[0]]);
+    for (const forbiddenKey of [
+      "positions",
+      "allocationSlices",
+      "holdingHistory",
+      "tradeHeatmap",
+      "valuationPriceMode",
+      "selectedTradeDate",
+    ]) {
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          reparsed.value.ledgerData,
+          forbiddenKey,
+        ),
+      ).toBe(false);
+    }
     remounted.unmount();
   });
 });
