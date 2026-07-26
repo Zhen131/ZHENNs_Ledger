@@ -17,10 +17,16 @@ import { BackupControls } from "./BackupControls";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 const FIXED_EXPORTED_AT = "2026-07-23T12:34:56.000Z";
+const FIXED_BACKUP_FILENAME =
+  "local-first-trading-ledger-backup-v1-20260723-123456Z.json";
+const fixedClock = {
+  now: () => new Date(FIXED_EXPORTED_AT),
+};
 
 function byteLength(serialized: string): number {
   return new TextEncoder().encode(serialized).byteLength;
@@ -107,6 +113,40 @@ function stubBlobConstructor() {
   return blobConstructor;
 }
 
+function stubBackupDownload() {
+  const createObjectURL = vi.fn(() => "blob:backup");
+  const revokeObjectURL = vi.fn();
+  const blobConstructor = stubBlobConstructor();
+  let filename = "";
+
+  vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+    function captureDownloadFilename(this: HTMLAnchorElement) {
+      filename = this.download;
+    },
+  );
+
+  return {
+    blobConstructor,
+    createObjectURL,
+    getFilename: () => filename,
+    revokeObjectURL,
+  };
+}
+
+function getDownloadedEnvelope(blobConstructor: ReturnType<typeof vi.fn>) {
+  const parts = blobConstructor.mock.calls[0]?.[0] as BlobPart[] | undefined;
+  const serialized = parts?.[0];
+  if (typeof serialized !== "string") {
+    throw new Error("Expected serialized backup JSON in the download Blob");
+  }
+  const parsed = parseBackupJson(serialized);
+  if (!parsed.ok) {
+    throw new Error("Downloaded backup fixture must remain valid");
+  }
+  return parsed.value;
+}
+
 function renderControls(
   overrides: Partial<ComponentProps<typeof BackupControls>> = {},
 ) {
@@ -127,21 +167,69 @@ function renderControls(
 }
 
 describe("BackupControls", () => {
+  it.each(["loading", "ready", "error"] as const)(
+    "keeps the plaintext backup risk visible while hydration is %s",
+    (hydrationStatus) => {
+      renderControls({ hydrationStatus });
+
+      expect(
+        screen.getByText(
+          /账本备份是未加密明文，任何能访问文件的人都可能读取完整资产、交易和价格/,
+        ),
+      ).not.toBeNull();
+      expect(screen.getByText(/导出只会发起浏览器下载/)).not.toBeNull();
+      expect(screen.getByText(/同步目录，系统可能自动上传或同步/)).not.toBeNull();
+    },
+  );
+
   it("exports the current in-memory ledger rather than reading the repository", async () => {
-    const createObjectURL = vi.fn(() => "blob:backup");
-    const revokeObjectURL = vi.fn();
-    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    const download = stubBackupDownload();
     const ledgerData = {
       ...createInitialLedgerData(),
       trades: [createSimpleTrade("current-page", "buy", "BTC", "1")],
     };
-    renderControls({ ledgerData });
+    renderControls({ clock: fixedClock, ledgerData });
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
 
-    expect(createObjectURL).toHaveBeenCalledOnce();
-    expect(screen.getByText("已导出备份。备份为明文，未加密。")).not.toBeNull();
+    expect(download.createObjectURL).toHaveBeenCalledOnce();
+    expect(download.revokeObjectURL).toHaveBeenCalledOnce();
+    expect(download.getFilename()).toBe(FIXED_BACKUP_FILENAME);
+    expect(
+      getDownloadedEnvelope(download.blobConstructor).ledgerData.trades[0]?.id,
+    ).toBe("current-page");
+    const message = screen.getByText(/已发起备份下载/).textContent;
+    expect(message).toContain("备份为明文、未加密");
+    expect(message).toContain("检查浏览器下载是否成功及实际保存位置");
+    expect(message).toContain("移至安全位置或在不再需要时删除");
+  });
+
+  it("downloads the dirty in-memory ledger as a clearly labeled rescue backup", async () => {
+    const download = stubBackupDownload();
+    const ledgerData = {
+      ...createInitialLedgerData(),
+      trades: [createSimpleTrade("dirty-page", "buy", "BTC", "1")],
+    };
+    renderControls({
+      clock: fixedClock,
+      isDirty: true,
+      ledgerData,
+      persistenceStatus: "error",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+
+    expect(download.createObjectURL).toHaveBeenCalledOnce();
+    expect(download.getFilename()).toBe(FIXED_BACKUP_FILENAME);
+    expect(
+      getDownloadedEnvelope(download.blobConstructor).ledgerData.trades[0]?.id,
+    ).toBe("dirty-page");
+    const message = screen.getByText(/已发起救援备份下载/).textContent;
+    expect(message).toContain("备份为明文、未加密");
+    expect(message).toContain("可能新于最后成功保存的版本");
+    expect(message).toContain("实际保存位置");
   });
 
   it("creates one backup Blob when the serialized envelope is exactly 8 MiB", async () => {
@@ -274,6 +362,9 @@ describe("BackupControls", () => {
     expect(screen.getByText("交易")).not.toBeNull();
     expect(screen.getByText("价格快照")).not.toBeNull();
     expect(screen.getByText("手续费规则")).not.toBeNull();
+    expect(screen.getByText(/原备份文件仍是未加密明文/)).not.toBeNull();
+    expect(screen.getByText(/本应用不会移动、删除或主动上传该文件/)).not.toBeNull();
+    expect(screen.getByText(/同步目录，系统可能自动同步/)).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
@@ -411,9 +502,8 @@ describe("BackupControls", () => {
   );
 
   it("states that a read-only rescue backup may not be importable", async () => {
-    const createObjectURL = vi.fn(() => "blob:backup");
-    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL: vi.fn() });
-    renderControls({ isReadOnly: true });
+    const download = stubBackupDownload();
+    renderControls({ clock: fixedClock, isReadOnly: true });
     const user = userEvent.setup();
 
     expect(screen.getByRole("button", { name: "导出完整账本备份" })).not.toBeNull();
@@ -426,12 +516,19 @@ describe("BackupControls", () => {
 
     await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
 
-    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(download.createObjectURL).toHaveBeenCalledOnce();
+    expect(download.getFilename()).toBe(FIXED_BACKUP_FILENAME);
     expect(
-      screen.getByText(
-        /已导出只读救援备份.*可能因集合或字符串超限而无法由当前版本重新导入/,
-      ),
-    ).not.toBeNull();
+      getDownloadedEnvelope(download.blobConstructor).ledgerData,
+    ).toEqual(createInitialLedgerData());
+    const message = screen.getByText(
+      /已发起只读救援备份下载/,
+    ).textContent;
+    expect(message).toContain(
+      "可能因集合或字符串超限而无法由当前版本重新导入",
+    );
+    expect(message).toContain("备份为明文、未加密");
+    expect(message).toContain("实际保存位置");
   });
 
   it("shows recovery import but no export after hydration fails", () => {

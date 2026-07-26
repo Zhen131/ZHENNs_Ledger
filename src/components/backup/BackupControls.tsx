@@ -129,10 +129,12 @@ export function BackupControls({
     downloadBackupJson(serialized, exportedAt);
     setMessage(
       isReadOnly
-        ? "已导出只读救援备份。备份为明文，可能因集合或字符串超限而无法由当前版本重新导入；当前只读保护禁止导入覆盖超限账本。"
-        : persistenceStatus === "saving" || persistenceStatus === "error"
-          ? "已导出救援备份。备份为明文，可能新于最后成功保存的版本。"
-          : "已导出备份。备份为明文，未加密。",
+        ? "已发起只读救援备份下载。备份为明文、未加密，可能因集合或字符串超限而无法由当前版本重新导入；请检查浏览器下载是否成功及实际保存位置，并将文件移至安全位置或在不再需要时删除。"
+        : isDirty ||
+            persistenceStatus === "saving" ||
+              persistenceStatus === "error"
+          ? "已发起救援备份下载。备份为明文、未加密，包含当前页面数据，可能新于最后成功保存的版本；请检查浏览器下载是否成功及实际保存位置，并将文件移至安全位置或在不再需要时删除。"
+          : "已发起备份下载。备份为明文、未加密；请检查浏览器下载是否成功及实际保存位置，并将文件移至安全位置或在不再需要时删除。",
     );
   }
 
@@ -232,6 +234,10 @@ export function BackupControls({
 
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950">
+        账本备份是未加密明文，任何能访问文件的人都可能读取完整资产、交易和价格。导出只会发起浏览器下载，请确认实际下载结果和保存位置，并将文件移至安全位置或在不再需要时删除。若保存到
+        iCloud Drive、OneDrive 等同步目录，系统可能自动上传或同步。
+      </p>
       <div className="flex flex-wrap gap-3">
         {showExport ? (
           <button
@@ -290,6 +296,10 @@ export function BackupControls({
               : isDirty
                 ? "导入将完整覆盖当前账本，不合并数据。页面中尚未落盘的数据也会被覆盖；可先导出救援备份。"
                 : "导入将完整覆盖当前账本，不合并数据。"}
+          </p>
+          <p className="text-sm leading-6 text-amber-900">
+            你选择的原备份文件仍是未加密明文；本应用不会移动、删除或主动上传该文件。若原文件位于
+            iCloud Drive、OneDrive 等同步目录，系统可能自动同步。
           </p>
           <dl className="grid grid-cols-2 gap-2 text-sm text-slate-700">
             <div><dt className="text-slate-500">应用版本</dt><dd>{selectedEnvelopeRef.current?.appVersion}</dd></div>
