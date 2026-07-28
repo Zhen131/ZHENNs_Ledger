@@ -12,6 +12,11 @@ eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通�
 “应用不主动上传”；产品负责人已接受这些低风险项并批准主线收口，不再追加开发或复验。
 `LedgerData.schemaVersion` 仍为 `1`，Week 9 的 IndexedDB V2 静态加密主链保持不变。
 
+Week 11 的产品共识和总需求快照保存在外层规划仓库，不代表对应源码已经实现。当前正式持久化
+仍是 IndexedDB V2；用户选择的 `.lftl` 加密工作文件、C/B 迁移、含手续费净盈亏、单条编辑、
+新首页、历史 K 线和 NLP 录入仍属于待选择、待拆批和待验收范围。本 README 只陈述源码事实，
+不能替代外层 000、00A、00B 或未来 NNA 执行文档。
+
 当前已实现：
 
 - 交易表单：校验成功后写入 `LedgerData.trades`，列表和持仓同步更新。
@@ -270,8 +275,9 @@ git diff --check
 - production UI 能证明未来新事实拒绝；受控测试确认既有 future 事实不会进入持仓和三图，并能按 ID 逐条删除未来交易和价格。
 - 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
 - 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
-- 分页、virtual list 和大账本性能预算仍待 Week 11 benchmark 定义，不能据此宣称 25,000 笔交易流畅。
-- 情景价格、未来价格模拟、动画、主题、K 线、指标、dataZoom、账户、订单和下单不在 Week 10 范围。
+- `.lftl` C 文件尚未实现；当前 IndexedDB 密文和明文 B 不能表述成已经完成的正式 C、iCloud 自动同步或多设备协调。
+- 分页、virtual list 和大账本性能预算仍待后续 benchmark 定义，不能据此宣称 25,000 笔交易流畅；benchmark 已保留但不再是当前 Week 11 的直接开发入口。
+- 历史 K 线和单资产详情页已经进入外层产品共识，但源码仍未实现；情景价格、未来价格模拟、动画、主题、指标、dataZoom、账户、订单和下单同样不属于当前能力。
 - 开发侧在线复核确认原 Next SSRF advisory 不再命中。`npm audit --omit=dev`
   仍将 Next 的传递 `postcss` / `sharp` 链聚合为 high：当前应用仅处理仓库内受信任 CSS，
   未使用 `next/image` 或直接调用 sharp，也没有不可信 CSS / 图片处理入口，因此没有识别出
