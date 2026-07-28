@@ -4,7 +4,12 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { usePersistentLedger } from "../../hooks/usePersistentLedger";
 import type { Trade, ValuationPriceMode } from "../../models";
-import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import {
+  INDEXED_DB_LEDGER_CAPABILITIES,
+  type LedgerRepository,
+  type LedgerSessionCapabilities,
+  type LedgerStorageKind,
+} from "../../repositories/ledgerRepository";
 import {
   buildHoldingAllocation,
   buildHoldingHistory,
@@ -140,9 +145,13 @@ export function TradeTable({
 export function DashboardShell({
   repository,
   clock = systemLedgerClock,
+  capabilities = INDEXED_DB_LEDGER_CAPABILITIES,
+  storageKind = "indexeddb",
 }: Readonly<{
   repository: LedgerRepository;
   clock?: LedgerClock;
+  capabilities?: LedgerSessionCapabilities;
+  storageKind?: LedgerStorageKind;
 }>) {
   const {
     ledgerData,
@@ -165,7 +174,7 @@ export function DashboardShell({
     isFutureFactCorrectionMode,
     ledgerEpoch,
     todayKey,
-  } = usePersistentLedger(repository, clock);
+  } = usePersistentLedger(repository, clock, capabilities);
   const [valuationPriceMode, setValuationPriceMode] =
     useState<ValuationPriceMode>("auto");
   const [chartRange, setChartRange] = useState<ChartRange>("30d");
@@ -706,10 +715,13 @@ export function DashboardShell({
             <Section title="数据管理">
               <div className="grid gap-4 text-sm text-slate-700">
                 <p>
-                  本区只管理当前浏览器 origin 下的完整本地账本记录。
+                  {storageKind === "ledger-file"
+                    ? "当前实验会话只写入你选择的一个 .lftl 文件；IndexedDB 仍是尚未迁移用户的正式路径，本批没有完成全局接管。"
+                    : "本区只管理当前浏览器 origin 下的完整本地账本记录。"}
                 </p>
 
                 <BackupControls
+                  canImportBackup={capabilities.canImportBackup}
                   clock={clock}
                   hydrationStatus={hydrationStatus}
                   isDirty={isDirty}
@@ -720,11 +732,13 @@ export function DashboardShell({
                   persistenceStatus={persistenceStatus}
                 />
 
-                {hydrationStatus === "loading" ? (
+                {capabilities.canClear &&
+                hydrationStatus === "loading" ? (
                   <p aria-live="polite">本地账本读取完成前不可清空。</p>
                 ) : null}
 
-                {hydrationStatus === "ready" ? (
+                {capabilities.canClear &&
+                hydrationStatus === "ready" ? (
                   <button
                     className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={
@@ -739,7 +753,8 @@ export function DashboardShell({
                   </button>
                 ) : null}
 
-                {hydrationStatus === "error" ? (
+                {capabilities.canClear &&
+                hydrationStatus === "error" ? (
                   <button
                     className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={persistenceOperation !== "idle"}

@@ -10,13 +10,24 @@ import {
   type ReactNode,
 } from "react";
 
-import { getDefaultLedgerAccessController } from "../../composition/ledgerAccessComposition";
+import {
+  getDefaultLedgerAccessController,
+  getDefaultLedgerFileAccessController,
+} from "../../composition/ledgerAccessComposition";
 import {
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
   type LedgerAccessErrorCode,
 } from "../../composition/ledgerAccessController";
-import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import {
+  LEDGER_FILE_ACCESS_ERROR_CODES,
+  type LedgerFileAccessController,
+  type LedgerFileAccessErrorCode,
+} from "../../composition/ledgerFileAccessController";
+import {
+  createIndexedDbLedgerSession,
+  type LedgerSession,
+} from "../../repositories/ledgerRepository";
 import { DashboardShell } from "../dashboard/DashboardShell";
 
 const RESET_CONFIRMATION_TEXT = "清空本地加密账本";
@@ -25,13 +36,21 @@ type AccessState =
   | { status: "checking" }
   | { status: "setup-required" }
   | { status: "unlock-required"; notice?: string }
-  | { status: "unlocked"; repository: LedgerRepository }
+  | { status: "unlocked"; session: LedgerSession }
   | { status: "error"; code: LedgerAccessErrorCode };
+
+type AccessPath =
+  | "choice"
+  | "indexeddb"
+  | "file-create"
+  | "file-open-unlock";
 
 export function LedgerAccessGate({
   accessController = getDefaultLedgerAccessController(),
+  fileAccessController = getDefaultLedgerFileAccessController(),
 }: Readonly<{
   accessController?: LedgerAccessController;
+  fileAccessController?: LedgerFileAccessController;
 }> = {}) {
   const [accessState, setAccessState] = useState<AccessState>({
     status: "checking",
@@ -42,6 +61,7 @@ export function LedgerAccessGate({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [resetConfirmation, setResetConfirmation] = useState("");
+  const [accessPath, setAccessPath] = useState<AccessPath>("choice");
   const mountedRef = useRef(true);
   const operationRef = useRef(false);
 
@@ -96,7 +116,9 @@ export function LedgerAccessGate({
       if (result.ok) {
         setAccessState({
           status: "unlocked",
-          repository: result.repository,
+          session:
+            result.session ??
+            createIndexedDbLedgerSession(result.repository),
         });
       } else if (
         result.code ===
@@ -140,7 +162,9 @@ export function LedgerAccessGate({
       if (result.ok) {
         setAccessState({
           status: "unlocked",
-          repository: result.repository,
+          session:
+            result.session ??
+            createIndexedDbLedgerSession(result.repository),
         });
       } else if (
         result.code === LEDGER_ACCESS_ERROR_CODES.READ_FAILED ||
@@ -192,8 +216,109 @@ export function LedgerAccessGate({
     operationRef.current = false;
   }
 
+  async function submitFileCreate(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    if (operationRef.current) {
+      return;
+    }
+    if (passphrase !== confirmation) {
+      setFormError("两次输入的密码不一致");
+      return;
+    }
+    const codePointLength = Array.from(passphrase).length;
+    if (codePointLength < 12 || codePointLength > 128) {
+      setFormError("密码必须为 12 至 128 个字符");
+      return;
+    }
+
+    operationRef.current = true;
+    setIsSubmitting(true);
+    setFormError("");
+    const result = await fileAccessController.create(passphrase);
+    setPassphrase("");
+    setConfirmation("");
+
+    if (mountedRef.current) {
+      if (result.ok) {
+        setAccessState({ status: "unlocked", session: result.session });
+      } else if (
+        result.code === LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
+      ) {
+        setAccessPath("choice");
+      } else {
+        setFormError(getFileAccessErrorMessage(result.code));
+      }
+      setIsSubmitting(false);
+    }
+    operationRef.current = false;
+  }
+
+  async function selectFileToOpen() {
+    if (operationRef.current) {
+      return;
+    }
+    operationRef.current = true;
+    setIsSubmitting(true);
+    setFormError("");
+    const result = await fileAccessController.selectExisting();
+
+    if (mountedRef.current) {
+      if (result.ok) {
+        setAccessPath("file-open-unlock");
+      } else if (
+        result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
+      ) {
+        setFormError(getFileAccessErrorMessage(result.code));
+      }
+      setIsSubmitting(false);
+    }
+    operationRef.current = false;
+  }
+
+  async function submitFileUnlock(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    if (operationRef.current) {
+      return;
+    }
+
+    operationRef.current = true;
+    setIsSubmitting(true);
+    setFormError("");
+    const result =
+      await fileAccessController.unlockSelected(passphrase);
+    setPassphrase("");
+
+    if (mountedRef.current) {
+      if (result.ok) {
+        setAccessState({ status: "unlocked", session: result.session });
+      } else {
+        setFormError(getFileAccessErrorMessage(result.code));
+      }
+      setIsSubmitting(false);
+    }
+    operationRef.current = false;
+  }
+
+  function returnToChoice() {
+    fileAccessController.cancelPendingSelection();
+    setPassphrase("");
+    setConfirmation("");
+    setFormError("");
+    setAccessPath("choice");
+  }
+
   if (accessState.status === "unlocked") {
-    return <DashboardShell repository={accessState.repository} />;
+    return (
+      <DashboardShell
+        capabilities={accessState.session.capabilities}
+        repository={accessState.session.repository}
+        storageKind={accessState.session.storageKind}
+      />
+    );
   }
 
   if (accessState.status === "checking") {
@@ -205,6 +330,124 @@ export function LedgerAccessGate({
         <p aria-live="polite" className="text-sm text-slate-600">
           请稍候…
         </p>
+      </AccessPanel>
+    );
+  }
+
+  if (accessPath === "choice") {
+    return (
+      <AccessPanel
+        description="IndexedDB 仍是现有正式浏览器账本；C 文件入口用于本批实验验证，不代表已经完成全局迁移。"
+        title="选择账本存储"
+      >
+        <div className="grid gap-3">
+          <button
+            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+            onClick={() => {
+              setFormError("");
+              setAccessPath("indexeddb");
+            }}
+            type="button"
+          >
+            继续浏览器账本
+          </button>
+          <button
+            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
+            onClick={() => {
+              setFormError("");
+              setAccessPath("file-create");
+            }}
+            type="button"
+          >
+            新建 C（.lftl）
+          </button>
+          <button
+            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+            disabled={isSubmitting}
+            onClick={() => void selectFileToOpen()}
+            type="button"
+          >
+            {isSubmitting ? "正在选择…" : "选择 C（.lftl）"}
+          </button>
+          <FormError message={formError} />
+        </div>
+      </AccessPanel>
+    );
+  }
+
+  if (accessPath === "file-create") {
+    return (
+      <AccessPanel
+        description="C 使用一个核心密码加密。没有恢复码或后门；忘记密码将永久失去对此 C 的访问。"
+        title="新建加密工作文件 C"
+      >
+        <form className="space-y-4" onSubmit={submitFileCreate}>
+          <PasswordField
+            autoComplete="new-password"
+            disabled={isSubmitting}
+            label="设置 C 核心密码"
+            onChange={setPassphrase}
+            value={passphrase}
+          />
+          <PasswordField
+            autoComplete="new-password"
+            disabled={isSubmitting}
+            label="再次输入 C 核心密码"
+            onChange={setConfirmation}
+            value={confirmation}
+          />
+          <FormError message={formError} />
+          <button
+            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "正在创建并复读…" : "选择位置并创建"}
+          </button>
+          <button
+            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700"
+            disabled={isSubmitting}
+            onClick={returnToChoice}
+            type="button"
+          >
+            返回
+          </button>
+        </form>
+      </AccessPanel>
+    );
+  }
+
+  if (accessPath === "file-open-unlock") {
+    return (
+      <AccessPanel
+        description="只会打开刚才明确选择的一个 C。密码错误或文件认证失败不会写入该文件。"
+        title="解锁所选 C"
+      >
+        <form className="space-y-4" onSubmit={submitFileUnlock}>
+          <PasswordField
+            autoComplete="current-password"
+            disabled={isSubmitting}
+            label="C 核心密码"
+            onChange={setPassphrase}
+            value={passphrase}
+          />
+          <FormError message={formError} />
+          <button
+            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "正在认证…" : "解锁所选 C"}
+          </button>
+          <button
+            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700"
+            disabled={isSubmitting}
+            onClick={returnToChoice}
+            type="button"
+          >
+            返回
+          </button>
+        </form>
       </AccessPanel>
     );
   }
@@ -585,5 +828,30 @@ function getAccessErrorMessage(code: LedgerAccessErrorCode): string {
       return "本地加密记录结构无效或已损坏。系统不会尝试覆盖。";
     default:
       return "本地加密账本暂时无法打开。";
+  }
+}
+
+function getFileAccessErrorMessage(
+  code: LedgerFileAccessErrorCode,
+): string {
+  switch (code) {
+    case LEDGER_FILE_ACCESS_ERROR_CODES.PICKER_UNAVAILABLE:
+      return "当前浏览器不支持 C 文件选择，请使用受支持的 Chrome。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_EXTENSION:
+      return "请选择扩展名为 .lftl 的 C 文件。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.NON_EMPTY_CREATE_TARGET:
+      return "为防止覆盖已有文件，本次未创建；请选择新文件名，或使用“选择 C”打开已有文件。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:
+      return "所选文件不是合法 C，或文件结构已经损坏；未写入任何内容。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED:
+      return "密码错误或文件认证失败；未写入所选 C。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION:
+      return "请重新选择要打开的 C。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.CREATE_FAILED:
+      return "C 创建、关闭或复读验证失败，不能进入账本。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED:
+      return "";
+    default:
+      return "C 文件操作失败，未报告保存成功。";
   }
 }

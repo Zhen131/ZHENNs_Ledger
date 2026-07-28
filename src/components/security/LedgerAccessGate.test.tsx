@@ -14,7 +14,14 @@ import {
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
 } from "../../composition/ledgerAccessController";
-import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import {
+  LEDGER_FILE_ACCESS_ERROR_CODES,
+  type LedgerFileAccessController,
+} from "../../composition/ledgerFileAccessController";
+import {
+  LEDGER_FILE_CAPABILITIES,
+  type LedgerRepository,
+} from "../../repositories/ledgerRepository";
 import { LedgerAccessGate } from "./LedgerAccessGate";
 
 vi.mock("../dashboard/DashboardShell", () => ({
@@ -43,10 +50,173 @@ function createController(
   };
 }
 
+function createFileController(
+  overrides: Partial<LedgerFileAccessController> = {},
+): LedgerFileAccessController {
+  return {
+    create: vi.fn(async () => ({
+      ok: true as const,
+      session: {
+        storageKind: "ledger-file" as const,
+        repository,
+        capabilities: LEDGER_FILE_CAPABILITIES,
+      },
+    })),
+    selectExisting: vi.fn(async () => ({ ok: true as const })),
+    unlockSelected: vi.fn(async () => ({
+      ok: true as const,
+      session: {
+        storageKind: "ledger-file" as const,
+        repository,
+        capabilities: LEDGER_FILE_CAPABILITIES,
+      },
+    })),
+    cancelPendingSelection: vi.fn(),
+    ...overrides,
+  };
+}
+
+async function chooseBrowserLedger() {
+  await screen.findByRole("heading", { name: "选择账本存储" });
+  fireEvent.click(
+    screen.getByRole("button", { name: "继续浏览器账本" }),
+  );
+}
+
 describe("LedgerAccessGate", () => {
+  it("starts with three mutually exclusive storage entries", async () => {
+    render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={createFileController()}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "选择账本存储" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "继续浏览器账本" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "新建 C（.lftl）" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "选择 C（.lftl）" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+  });
+
+  it("creates C only after the password warning and direct create action", async () => {
+    const user = userEvent.setup();
+    const fileController = createFileController();
+    render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+    );
+    expect(
+      screen.getByText(/忘记密码将永久失去对此 C 的访问/),
+    ).toBeTruthy();
+    await user.type(
+      screen.getByLabelText("设置 C 核心密码"),
+      "correct horse battery staple",
+    );
+    await user.type(
+      screen.getByLabelText("再次输入 C 核心密码"),
+      "correct horse battery staple",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "选择位置并创建" }),
+    );
+
+    expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
+    expect(fileController.create).toHaveBeenCalledWith(
+      "correct horse battery staple",
+    );
+  });
+
+  it("keeps file-picker cancellation on the choice page without mounting Dashboard", async () => {
+    const user = userEvent.setup();
+    const fileController = createFileController({
+      selectExisting: vi.fn(async () => ({
+        ok: false as const,
+        code: LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED,
+      })),
+    });
+    render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "选择账本存储" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+  });
+
+  it("selects C before password entry, clears failed passwords, and never mounts before full unlock", async () => {
+    const user = userEvent.setup();
+    const unlockSelected = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false as const,
+        code: LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED,
+      })
+      .mockResolvedValueOnce({
+        ok: true as const,
+        session: {
+          storageKind: "ledger-file" as const,
+          repository,
+          capabilities: LEDGER_FILE_CAPABILITIES,
+        },
+      });
+    const fileController = createFileController({ unlockSelected });
+    render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "解锁所选 C" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+
+    const password = screen.getByLabelText("C 核心密码");
+    await user.type(password, "wrong but valid password");
+    await user.click(screen.getByRole("button", { name: "解锁所选 C" }));
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "密码错误或文件认证失败",
+    );
+    expect((password as HTMLInputElement).value).toBe("");
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+
+    await user.type(password, "correct horse battery staple");
+    await user.click(screen.getByRole("button", { name: "解锁所选 C" }));
+    expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
+    expect(unlockSelected).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps all setup fields masked and reveals only the held field without replacing it", async () => {
     const user = userEvent.setup();
     render(<LedgerAccessGate accessController={createController()} />);
+    await chooseBrowserLedger();
 
     const password = (await screen.findByLabelText(
       "设置密码",
@@ -98,6 +268,7 @@ describe("LedgerAccessGate", () => {
 
   it("hides a revealed password on keyboard release, blur, and hidden visibility", async () => {
     render(<LedgerAccessGate accessController={createController()} />);
+    await chooseBrowserLedger();
 
     const password = (await screen.findByLabelText(
       "设置密码",
@@ -152,6 +323,7 @@ describe("LedgerAccessGate", () => {
     });
     const user = userEvent.setup();
     render(<LedgerAccessGate accessController={controller} />);
+    await chooseBrowserLedger();
 
     const password = (await screen.findByLabelText(
       "账本密码",
@@ -181,6 +353,7 @@ describe("LedgerAccessGate", () => {
     const user = userEvent.setup();
     const controller = createController();
     render(<LedgerAccessGate accessController={controller} />);
+    await chooseBrowserLedger();
 
     expect(
       await screen.findByRole("heading", {
@@ -231,6 +404,7 @@ describe("LedgerAccessGate", () => {
     const unlock = vi.fn(async () => ({ ok: true as const, repository }));
     const controller = createController({ setup, unlock });
     render(<LedgerAccessGate accessController={controller} />);
+    await chooseBrowserLedger();
 
     await user.type(
       await screen.findByLabelText("设置密码"),
@@ -272,6 +446,7 @@ describe("LedgerAccessGate", () => {
       })),
     });
     render(<LedgerAccessGate accessController={controller} />);
+    await chooseBrowserLedger();
 
     const password = await screen.findByLabelText("账本密码");
     await user.type(password, "wrong but long password");
@@ -302,6 +477,7 @@ describe("LedgerAccessGate", () => {
       unlock,
     });
     render(<LedgerAccessGate accessController={controller} />);
+    await chooseBrowserLedger();
 
     await user.type(
       await screen.findByLabelText("账本密码"),
@@ -329,6 +505,7 @@ describe("LedgerAccessGate", () => {
       resetEncryptedLedger,
     });
     render(<LedgerAccessGate accessController={controller} />);
+    await chooseBrowserLedger();
 
     await user.click(
       await screen.findByRole("button", {
@@ -373,6 +550,7 @@ describe("LedgerAccessGate", () => {
     });
     const user = userEvent.setup();
     render(<LedgerAccessGate accessController={controller} />);
+    await chooseBrowserLedger();
 
     await screen.findByRole("button", { name: "重新检查" });
     expect(
