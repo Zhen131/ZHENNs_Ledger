@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-截至 2026-07-26，Week 10 的三图、Binance 行情与收尾修复均已完成。当前解析版本为
+截至 2026-07-28，Week 10 的三图、Binance 行情与收尾修复均已完成。当前解析版本为
 Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5` 和
 eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通过升级关闭；
 旧未来事实已提供逐条纠正入口，普通危险删除统一为两段确认。03D 独立验收没有发现 P0，
@@ -12,10 +12,20 @@ eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通�
 “应用不主动上传”；产品负责人已接受这些低风险项并批准主线收口，不再追加开发或复验。
 `LedgerData.schemaVersion` 仍为 `1`，Week 9 的 IndexedDB V2 静态加密主链保持不变。
 
-Week 11 的产品共识和总需求快照保存在外层规划仓库，不代表对应源码已经实现。当前正式持久化
-仍是 IndexedDB V2；用户选择的 `.lftl` 加密工作文件、C/B 迁移、含手续费净盈亏、单条编辑、
-新首页、历史 K 线和 NLP 录入仍属于待选择、待拆批和待验收范围。本 README 只陈述源码事实，
-不能替代外层 000、00A、00B 或未来 NNA 执行文档。
+Week 11 第一批 `.lftl` C 文件候选实现已保存在功能分支
+`zhennn/w11-c-file-core-save`，但独立 01D 验收结论为 `FAIL`，不得表述为正式能力或合入
+`main`。当前正式发布基线的持久化仍是 IndexedDB V2；C/B 迁移、含手续费净盈亏、单条编辑、
+新首页、历史 K 线和 NLP 录入仍属于待实现或待验收范围。本 README 只陈述源码事实，不能替代
+外层 000、00A、00B 或批次执行与独立审查文档。
+
+Week 11 第一批候选实现与独立结论：
+
+- 候选实现包含 `.lftl V1` 文件合同、唯一文件句柄、current + previous 双代、保存后同句柄复读，以及 C 会话 capability 接入。
+- 开发侧与独立重跑的既有自动化均通过：48 个测试文件、434 项测试，typecheck、lint、production build 和 diff-check 通过。
+- 01D 复现 P0：磁盘 `crypto.kdf.salt` 漂移后，创建、普通保存或 reconcile 可能被错误确认，Hook 可发布 `saved`，但正确密码无法重新打开文件。
+- 01D 复现 P1：较早发起、较晚完成的文件选择可在新选择、取消、Gate 卸载或成功创建之后重新绑定旧句柄。
+- 01D 记录 P2：正式测试缺少 salt 三路径、Hook 状态门和四个 deferred stale-selection 场景，导致全量测试全绿仍未发现 P0/P1。
+- 本批不回写外层 00B；修复与独立复测通过前，`.lftl` 只能作为已知失败的功能分支候选。
 
 当前已实现：
 
@@ -67,6 +77,9 @@ Week 11 的产品共识和总需求快照保存在外层规划仓库，不代表
 当前自动化结果：
 
 ```text
+Week 11 第一批既有自动化：48 个测试文件、434 项测试
+Week 11 独立对抗测试：salt 三路径与 Hook 状态门 FAIL；4 个 stale-selection 场景 FAIL
+Week 11 独立结论：FAIL（P0 × 1、P1 × 1、P2 × 1）
 Week 10 收尾修复开发侧回归：42 个测试文件、383 项测试
 npm run typecheck -> 0 error
 npm run lint  -> 无 warning / error
@@ -212,9 +225,9 @@ src/
   services/      事实写入、行情刷新、统一选价、持仓与图表纯派生
   state/         初始账本、reducer、replace 与 hydration 状态
   repositories/  整账 load / save / clear 与运行时校验边界
-  encryption/    V2 envelope、Base64URL、密码规则、PBKDF2 与 AES-GCM
-  adapters/      原生 IndexedDB whole-blob 适配器
-  composition/   具体 Adapter、加密与 Repository 的唯一组装点
+  encryption/    IndexedDB V2 与候选 .lftl 文件合同、Base64URL、PBKDF2 和 AES-GCM
+  adapters/      原生 IndexedDB whole-blob 与候选文件句柄适配器
+  composition/   IndexedDB 访问链与候选 C 文件访问链的组装点
   test/          共享 golden fixtures
 ```
 
@@ -275,7 +288,7 @@ git diff --check
 - production UI 能证明未来新事实拒绝；受控测试确认既有 future 事实不会进入持仓和三图，并能按 ID 逐条删除未来交易和价格。
 - 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
 - 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
-- `.lftl` C 文件尚未实现；当前 IndexedDB 密文和明文 B 不能表述成已经完成的正式 C、iCloud 自动同步或多设备协调。
+- `.lftl` C 文件已有功能分支候选，但 01D 已判定 FAIL；当前 IndexedDB 密文和明文 B 不能表述成已经完成的正式 C、iCloud 自动同步或多设备协调。
 - 分页、virtual list 和大账本性能预算仍待后续 benchmark 定义，不能据此宣称 25,000 笔交易流畅；benchmark 已保留但不再是当前 Week 11 的直接开发入口。
 - 历史 K 线和单资产详情页已经进入外层产品共识，但源码仍未实现；情景价格、未来价格模拟、动画、主题、指标、dataZoom、账户、订单和下单同样不属于当前能力。
 - 开发侧在线复核确认原 Next SSRF advisory 不再命中。`npm audit --omit=dev`
