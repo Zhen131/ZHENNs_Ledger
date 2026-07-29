@@ -9,7 +9,9 @@ import {
   type CryptoProvider,
 } from "../encryption/webCryptoEncryptionService";
 import {
+  createIndexedDbLedgerSession,
   DefaultLedgerRepository,
+  type LedgerSession,
   type LedgerRepository,
 } from "../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
@@ -33,7 +35,11 @@ export type LedgerAccessInspection =
   | { status: "error"; code: LedgerAccessErrorCode };
 
 export type LedgerAccessOperationResult =
-  | { ok: true; repository: LedgerRepository }
+  | {
+      ok: true;
+      repository: LedgerRepository;
+      session?: LedgerSession;
+    }
   | { ok: false; code: LedgerAccessErrorCode };
 
 export type LedgerAccessResetResult =
@@ -111,7 +117,11 @@ export class DefaultLedgerAccessController
         return this.reconcileSetupFailure();
       }
 
-      return { ok: true, repository };
+      return {
+        ok: true,
+        repository,
+        session: createIndexedDbLedgerSession(repository),
+      };
     } catch {
       return this.reconcileSetupFailure();
     }
@@ -178,7 +188,11 @@ export class DefaultLedgerAccessController
         };
       }
 
-      return { ok: true, repository };
+      return {
+        ok: true,
+        repository,
+        session: createIndexedDbLedgerSession(repository),
+      };
     } catch {
       return {
         ok: false,

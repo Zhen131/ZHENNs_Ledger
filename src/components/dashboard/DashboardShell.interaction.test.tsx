@@ -17,7 +17,11 @@ import {
 } from "../../backup/backupEnvelope";
 import { createTestLedgerRepository } from "../../test/createTestLedgerRepository";
 import type { LedgerData } from "../../models";
-import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import type {
+  LedgerRepository,
+  LedgerSessionCapabilities,
+  LedgerStorageKind,
+} from "../../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
 import {
   createAsset,
@@ -33,11 +37,20 @@ const fixedClock: LedgerClock = {
 
 function DashboardShell({
   repository,
+  capabilities,
+  storageKind,
 }: {
   repository: LedgerRepository;
+  capabilities?: LedgerSessionCapabilities;
+  storageKind?: LedgerStorageKind;
 }) {
   return (
-    <DashboardShellRuntime clock={fixedClock} repository={repository} />
+    <DashboardShellRuntime
+      capabilities={capabilities}
+      clock={fixedClock}
+      repository={repository}
+      storageKind={storageKind}
+    />
   );
 }
 
@@ -866,6 +879,33 @@ describe("DashboardShell future fact correction", () => {
 });
 
 describe("DashboardShell data management", () => {
+  it("keeps C experimental, export-only, and free of clear or B import entry points", async () => {
+    const repository = createMemoryRepository();
+    render(
+      <DashboardShell
+        capabilities={{
+          canClear: false,
+          canImportBackup: false,
+        }}
+        repository={repository}
+        storageKind="ledger-file"
+      />,
+    );
+
+    expect(
+      await screen.findByText(/当前实验会话只写入你选择的一个 .lftl 文件/),
+    ).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: "导出完整账本备份" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByLabelText("选择账本备份文件"),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "清空本地账本" }),
+    ).toBeNull();
+  });
+
   it("imports a confirmed backup through the UI and updates every dashboard view", async () => {
     const repository = createMemoryRepository();
     const candidate = createCompleteLedger();

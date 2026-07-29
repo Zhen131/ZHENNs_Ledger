@@ -42,6 +42,39 @@ export interface LedgerRepository {
   clear(): Promise<void>;
 }
 
+export type LedgerStorageKind = "indexeddb" | "ledger-file";
+
+export type LedgerSessionCapabilities = {
+  canClear: boolean;
+  canImportBackup: boolean;
+};
+
+export type LedgerSession = {
+  storageKind: LedgerStorageKind;
+  repository: LedgerRepository;
+  capabilities: LedgerSessionCapabilities;
+};
+
+export const INDEXED_DB_LEDGER_CAPABILITIES: LedgerSessionCapabilities = {
+  canClear: true,
+  canImportBackup: true,
+};
+
+export const LEDGER_FILE_CAPABILITIES: LedgerSessionCapabilities = {
+  canClear: false,
+  canImportBackup: false,
+};
+
+export function createIndexedDbLedgerSession(
+  repository: LedgerRepository,
+): LedgerSession {
+  return {
+    storageKind: "indexeddb",
+    repository,
+    capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+  };
+}
+
 export class DefaultLedgerRepository implements LedgerRepository {
   constructor(
     private readonly storageAdapter: StorageAdapter,
