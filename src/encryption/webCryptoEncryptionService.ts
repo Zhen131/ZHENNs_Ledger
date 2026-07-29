@@ -7,8 +7,20 @@ import {
   validateStoredLedgerEnvelopeV2,
 } from "./cryptoEnvelope";
 import type { EncryptionService } from "./encryptionService";
+import {
+  deriveLedgerKeyWithParameters,
+  type CryptoProvider,
+} from "./ledgerKeyDerivation";
 
-export type CryptoProvider = Pick<Crypto, "getRandomValues" | "subtle">;
+export type { CryptoProvider } from "./ledgerKeyDerivation";
+
+const INDEXED_DB_V2_KEY_DERIVATION_PARAMETERS = {
+  kdfName: LEDGER_CRYPTO_CONSTANTS.kdfName,
+  kdfHash: LEDGER_CRYPTO_CONSTANTS.kdfHash,
+  kdfIterations: LEDGER_CRYPTO_CONSTANTS.kdfIterations,
+  cipherName: LEDGER_CRYPTO_CONSTANTS.cipherName,
+  keyLength: LEDGER_CRYPTO_CONSTANTS.keyLength,
+} as const;
 
 export class WebCryptoEncryptionService implements EncryptionService {
   private constructor(
@@ -110,28 +122,11 @@ export async function deriveLedgerKey(
   salt: Uint8Array,
   cryptoProvider: CryptoProvider = globalThis.crypto,
 ): Promise<CryptoKey> {
-  const baseKey = await cryptoProvider.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(passphrase),
-    LEDGER_CRYPTO_CONSTANTS.kdfName,
-    false,
-    ["deriveKey"],
-  );
-
-  return cryptoProvider.subtle.deriveKey(
-    {
-      name: LEDGER_CRYPTO_CONSTANTS.kdfName,
-      hash: LEDGER_CRYPTO_CONSTANTS.kdfHash,
-      iterations: LEDGER_CRYPTO_CONSTANTS.kdfIterations,
-      salt: toArrayBuffer(salt),
-    },
-    baseKey,
-    {
-      name: LEDGER_CRYPTO_CONSTANTS.cipherName,
-      length: LEDGER_CRYPTO_CONSTANTS.keyLength,
-    },
-    false,
-    ["encrypt", "decrypt"],
+  return deriveLedgerKeyWithParameters(
+    passphrase,
+    salt,
+    INDEXED_DB_V2_KEY_DERIVATION_PARAMETERS,
+    cryptoProvider,
   );
 }
 

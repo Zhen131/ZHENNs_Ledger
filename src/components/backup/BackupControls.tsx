@@ -48,6 +48,7 @@ type BackupControlsProps = {
   persistenceStatus: "idle" | "saving" | "saved" | "error";
   isReadOnly: boolean;
   isDirty: boolean;
+  canImportBackup?: boolean;
   onImport: (
     candidate: LedgerData,
     timeSnapshot?: LedgerTimeSnapshot,
@@ -66,6 +67,7 @@ export function BackupControls({
   persistenceStatus,
   isReadOnly,
   isDirty,
+  canImportBackup = true,
   onImport,
 }: Readonly<BackupControlsProps>) {
   const [importState, setImportState] = useState<ImportState>("idle");
@@ -86,7 +88,9 @@ export function BackupControls({
 
   const showExport = hydrationStatus === "ready";
   const showImport =
-    (hydrationStatus === "ready" && !isReadOnly) || hydrationStatus === "error";
+    canImportBackup &&
+    ((hydrationStatus === "ready" && !isReadOnly) ||
+      hydrationStatus === "error");
   const canExport = showExport && persistenceOperation === "idle";
   const canImport = showImport && persistenceOperation === "idle";
   function resetFileSelection() {

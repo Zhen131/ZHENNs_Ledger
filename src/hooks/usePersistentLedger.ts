@@ -21,6 +21,8 @@ import {
 } from "../policies/ledgerImportPolicy";
 import {
   LEDGER_REPOSITORY_ERROR_CODES,
+  INDEXED_DB_LEDGER_CAPABILITIES,
+  type LedgerSessionCapabilities,
   type LedgerRepository,
 } from "../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
@@ -131,6 +133,8 @@ export type ImportLedgerResult =
 export function usePersistentLedger(
   requestedRepository: LedgerRepository,
   clock: LedgerClock = systemLedgerClock,
+  capabilities: LedgerSessionCapabilities =
+    INDEXED_DB_LEDGER_CAPABILITIES,
 ): PersistentLedgerState {
   const [ledgerData, reducerDispatch] = useReducer(
     ledgerReducer,
@@ -775,6 +779,13 @@ export function usePersistentLedger(
   }, [requestedRepository]);
 
   const clearLedger = useCallback((): Promise<ClearLedgerResult> => {
+    if (!capabilities.canClear) {
+      return Promise.resolve({
+        ok: false,
+        code: LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED,
+      });
+    }
+
     if (
       operationRef.current === "clearing" &&
       operationRepositoryRef.current === activeRepository &&
@@ -891,6 +902,7 @@ export function usePersistentLedger(
     return clearPromise;
   }, [
     activeRepository,
+    capabilities.canClear,
     hydrationStatus,
     publishPersistenceVersionState,
   ]);
@@ -900,6 +912,13 @@ export function usePersistentLedger(
       candidate: unknown,
       timeSnapshot?: LedgerTimeSnapshot,
     ): Promise<ImportLedgerResult> => {
+      if (!capabilities.canImportBackup) {
+        return Promise.resolve({
+          ok: false,
+          code: "LEDGER_IMPORT_NOT_ALLOWED",
+        });
+      }
+
       if (
         operationRef.current === "importing" &&
         operationRepositoryRef.current === activeRepository &&
@@ -1030,6 +1049,7 @@ export function usePersistentLedger(
     },
     [
       activeRepository,
+      capabilities.canImportBackup,
       clock,
       hydrationStatus,
       publishPersistenceVersionState,
