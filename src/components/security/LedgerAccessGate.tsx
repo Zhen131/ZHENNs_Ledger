@@ -83,8 +83,9 @@ export function LedgerAccessGate({
 
     return () => {
       mountedRef.current = false;
+      fileAccessController.cancelPendingSelection();
     };
-  }, [inspect]);
+  }, [fileAccessController, inspect]);
 
   async function submitSetup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

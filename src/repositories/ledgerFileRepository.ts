@@ -455,6 +455,13 @@ async function verifyLedgerFile(
   crypto: LedgerFileCrypto,
   expected?: VerificationExpectation,
 ): Promise<VerifiedLedgerFile> {
+  if (!crypto.matchesCryptoMetadata(file.crypto)) {
+    throw new LedgerFileRepositoryError(
+      LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+      "Ledger file crypto metadata does not match the bound session",
+    );
+  }
+
   if (expected && file.fileId !== expected.fileId) {
     throw new LedgerFileRepositoryError(
       LEDGER_FILE_REPOSITORY_ERROR_CODES.FILE_ID_MISMATCH,

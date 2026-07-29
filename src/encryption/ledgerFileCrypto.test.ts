@@ -2,11 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
 import {
+  LEDGER_FILE_V1_CONSTANTS,
   type EncryptedLedgerGenerationV1,
   type LedgerFileCryptoV1,
 } from "./ledgerFileContract";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
-import type { CryptoProvider } from "./webCryptoEncryptionService";
+import type { CryptoProvider } from "./ledgerKeyDerivation";
 
 const PASSPHRASE = "correct horse battery staple";
 
@@ -140,6 +141,55 @@ describe("LedgerFileCrypto", () => {
     );
 
     expect(deriveKey).toHaveBeenCalledOnce();
+    expect(deriveKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: LEDGER_FILE_V1_CONSTANTS.kdfName,
+        hash: LEDGER_FILE_V1_CONSTANTS.kdfHash,
+        iterations: LEDGER_FILE_V1_CONSTANTS.kdfIterations,
+      }),
+      expect.anything(),
+      {
+        name: LEDGER_FILE_V1_CONSTANTS.cipherName,
+        length: LEDGER_FILE_V1_CONSTANTS.keyLength,
+      },
+      false,
+      ["encrypt", "decrypt"],
+    );
+  });
+
+  it("decrypts a C V1 fixture generated before key derivation was decoupled", async () => {
+    const metadata: LedgerFileCryptoV1 = {
+      cryptoVersion: 1,
+      kdf: {
+        name: "PBKDF2",
+        hash: "SHA-256",
+        iterations: 600_000,
+        saltBase64Url: "BwcHBwcHBwcHBwcHBwcHBw",
+      },
+      cipher: {
+        name: "AES-GCM",
+        keyLength: 256,
+        tagLength: 128,
+      },
+    };
+    const generation: EncryptedLedgerGenerationV1 = {
+      revisionId: "fixture-revision",
+      parentRevisionId: null,
+      ledgerSchemaVersion: 1,
+      ivBase64Url: "CQkJCQkJCQkJCQkJ",
+      ciphertextBase64Url:
+        "9zhn4OlMwPmw33DWGPkNJm1YjvAmEOulk7Hfig8ONwFt8kUmMLcJkwwEDBIJ3KIVBPOP4kMWp7TgDWoGyM7h05jLEJ6yt7vGksvXJ8OCnfLyPRpr_cLE7bamZ9FBu1OSv7LpiUFVqvVLdGjpEnBBG90RuplgmJTElLEZo7KCHXnWap0dpalQmD4SyfsICT5Akw",
+    };
+    const crypto = await LedgerFileCrypto.createForUnlock(
+      PASSPHRASE,
+      metadata,
+    );
+
+    await expect(
+      crypto.decryptGeneration("fixture-file", generation),
+    ).resolves.toBe(
+      '{"savedAt":"2026-07-29T00:00:00.000Z","ledgerData":{"schemaVersion":1,"assets":[],"trades":[],"priceSnapshots":[],"feeRules":[]}}',
+    );
   });
 });
 
