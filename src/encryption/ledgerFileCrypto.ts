@@ -7,9 +7,17 @@ import {
   type LedgerFileCryptoV1,
 } from "./ledgerFileContract";
 import {
-  deriveLedgerKey,
+  deriveLedgerKeyWithParameters,
   type CryptoProvider,
-} from "./webCryptoEncryptionService";
+} from "./ledgerKeyDerivation";
+
+const LEDGER_FILE_V1_KEY_DERIVATION_PARAMETERS = {
+  kdfName: LEDGER_FILE_V1_CONSTANTS.kdfName,
+  kdfHash: LEDGER_FILE_V1_CONSTANTS.kdfHash,
+  kdfIterations: LEDGER_FILE_V1_CONSTANTS.kdfIterations,
+  cipherName: LEDGER_FILE_V1_CONSTANTS.cipherName,
+  keyLength: LEDGER_FILE_V1_CONSTANTS.keyLength,
+} as const;
 
 export class LedgerFileCrypto {
   private constructor(
@@ -25,7 +33,12 @@ export class LedgerFileCrypto {
     const salt = cryptoProvider.getRandomValues(
       new Uint8Array(LEDGER_FILE_V1_CONSTANTS.saltBytes),
     );
-    const key = await deriveLedgerKey(passphrase, salt, cryptoProvider);
+    const key = await deriveLedgerKeyWithParameters(
+      passphrase,
+      salt,
+      LEDGER_FILE_V1_KEY_DERIVATION_PARAMETERS,
+      cryptoProvider,
+    );
     return new LedgerFileCrypto(
       key,
       createLedgerFileCryptoV1(bytesToBase64Url(salt)),
@@ -43,16 +56,25 @@ export class LedgerFileCrypto {
       throw new Error("Invalid ledger file salt");
     }
 
-    const key = await deriveLedgerKey(passphrase, salt, cryptoProvider);
-    return new LedgerFileCrypto(key, metadata, cryptoProvider);
+    const key = await deriveLedgerKeyWithParameters(
+      passphrase,
+      salt,
+      LEDGER_FILE_V1_KEY_DERIVATION_PARAMETERS,
+      cryptoProvider,
+    );
+    return new LedgerFileCrypto(
+      key,
+      cloneLedgerFileCryptoMetadata(metadata),
+      cryptoProvider,
+    );
   }
 
   getCryptoMetadata(): LedgerFileCryptoV1 {
-    return {
-      cryptoVersion: this.metadata.cryptoVersion,
-      kdf: { ...this.metadata.kdf },
-      cipher: { ...this.metadata.cipher },
-    };
+    return cloneLedgerFileCryptoMetadata(this.metadata);
+  }
+
+  matchesCryptoMetadata(metadata: LedgerFileCryptoV1): boolean {
+    return sameLedgerFileCryptoMetadata(this.metadata, metadata);
   }
 
   async encryptGeneration(
@@ -131,6 +153,32 @@ export class LedgerFileCrypto {
 
     return new TextDecoder("utf-8", { fatal: true }).decode(decrypted);
   }
+}
+
+export function sameLedgerFileCryptoMetadata(
+  left: LedgerFileCryptoV1,
+  right: LedgerFileCryptoV1,
+): boolean {
+  return (
+    left.cryptoVersion === right.cryptoVersion &&
+    left.kdf.name === right.kdf.name &&
+    left.kdf.hash === right.kdf.hash &&
+    left.kdf.iterations === right.kdf.iterations &&
+    left.kdf.saltBase64Url === right.kdf.saltBase64Url &&
+    left.cipher.name === right.cipher.name &&
+    left.cipher.keyLength === right.cipher.keyLength &&
+    left.cipher.tagLength === right.cipher.tagLength
+  );
+}
+
+function cloneLedgerFileCryptoMetadata(
+  metadata: LedgerFileCryptoV1,
+): LedgerFileCryptoV1 {
+  return {
+    cryptoVersion: metadata.cryptoVersion,
+    kdf: { ...metadata.kdf },
+    cipher: { ...metadata.cipher },
+  };
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {

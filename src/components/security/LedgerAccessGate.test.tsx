@@ -11,10 +11,17 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  LedgerFileHandleAdapter,
+  type LedgerFileHandle,
+  type LedgerFilePickerProvider,
+  type LedgerFileWritable,
+} from "../../adapters/ledgerFileHandleAdapter";
+import {
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
 } from "../../composition/ledgerAccessController";
 import {
+  DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
 } from "../../composition/ledgerFileAccessController";
@@ -22,7 +29,11 @@ import {
   LEDGER_FILE_CAPABILITIES,
   type LedgerRepository,
 } from "../../repositories/ledgerRepository";
+import { LedgerFileRepository } from "../../repositories/ledgerFileRepository";
+import { createInitialLedgerData } from "../../state/initialLedgerData";
 import { LedgerAccessGate } from "./LedgerAccessGate";
+
+const PASSPHRASE = "correct horse battery staple";
 
 vi.mock("../dashboard/DashboardShell", () => ({
   DashboardShell: () => <div>dashboard-mounted</div>,
@@ -74,6 +85,46 @@ function createFileController(
     cancelPendingSelection: vi.fn(),
     ...overrides,
   };
+}
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+};
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+class MemoryLedgerFileHandle implements LedgerFileHandle {
+  bytes = new Uint8Array();
+
+  constructor(readonly name = "gate-a.lftl") {}
+
+  async getFile() {
+    const snapshot = this.bytes.slice();
+    return {
+      size: snapshot.byteLength,
+      arrayBuffer: async () => snapshot.buffer,
+    };
+  }
+
+  async createWritable(): Promise<LedgerFileWritable> {
+    let pending = this.bytes;
+    return {
+      write: async (serialized) => {
+        pending = new TextEncoder().encode(serialized);
+      },
+      close: async () => {
+        this.bytes = pending;
+      },
+      abort: async () => undefined,
+    };
+  }
 }
 
 async function chooseBrowserLedger() {
@@ -164,6 +215,71 @@ describe("LedgerAccessGate", () => {
       screen.getByRole("heading", { name: "选择账本存储" }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
+  });
+
+  it("invalidates the real controller selection on unmount before slow A resolves", async () => {
+    const handleA = new MemoryLedgerFileHandle();
+    await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handleA,
+      PASSPHRASE,
+      createInitialLedgerData(),
+      {
+        generateId: vi
+          .fn()
+          .mockReturnValueOnce("file-gate-a")
+          .mockReturnValueOnce("revision-gate-a"),
+        now: () => new Date("2026-07-28T10:00:00.000Z"),
+      },
+    );
+    const deferredPicker = createDeferred<LedgerFileHandle[]>();
+    const provider: LedgerFilePickerProvider = {
+      showSaveFilePicker: vi.fn(async () => new MemoryLedgerFileHandle()),
+      showOpenFilePicker: vi.fn(() => deferredPicker.promise),
+    };
+    const realController = new DefaultLedgerFileAccessController(
+      new LedgerFileHandleAdapter(provider),
+    );
+    let selectionPromise: Promise<
+      Awaited<ReturnType<typeof realController.selectExisting>>
+    > | null = null;
+    const cancelPendingSelection = vi.fn(() => {
+      realController.cancelPendingSelection();
+    });
+    const fileController: LedgerFileAccessController = {
+      create: (passphrase) => realController.create(passphrase),
+      selectExisting: () => {
+        selectionPromise = realController.selectExisting();
+        return selectionPromise;
+      },
+      unlockSelected: (passphrase) =>
+        realController.unlockSelected(passphrase),
+      cancelPendingSelection,
+    };
+    const rendered = render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={fileController}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+    );
+    await waitFor(() => {
+      expect(provider.showOpenFilePicker).toHaveBeenCalledOnce();
+    });
+    rendered.unmount();
+    expect(cancelPendingSelection).toHaveBeenCalledOnce();
+    deferredPicker.resolve([handleA]);
+    await selectionPromise;
+
+    await expect(
+      realController.unlockSelected(PASSPHRASE),
+    ).resolves.toEqual({
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
+    });
   });
 
   it("selects C before password entry, clears failed passwords, and never mounts before full unlock", async () => {

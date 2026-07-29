@@ -57,6 +57,7 @@ export class DefaultLedgerFileAccessController
   implements LedgerFileAccessController
 {
   private pendingSelection: PendingSelection | null = null;
+  private operationGeneration = 0;
 
   constructor(
     private readonly adapter: LedgerFileHandleAdapter,
@@ -66,6 +67,7 @@ export class DefaultLedgerFileAccessController
   async create(
     passphrase: string,
   ): Promise<LedgerFileAccessSessionResult> {
+    const operation = this.beginOperation();
     if (!validatePassphrase(passphrase).ok) {
       return {
         ok: false,
@@ -75,6 +77,9 @@ export class DefaultLedgerFileAccessController
 
     try {
       const picked = await this.adapter.pickNewLedgerFile();
+      if (!this.isCurrentOperation(operation)) {
+        return staleOperationResult();
+      }
       if (picked.status === "cancelled") {
         return {
           ok: false,
@@ -89,6 +94,9 @@ export class DefaultLedgerFileAccessController
         createInitialLedgerData(),
         this.dependencies,
       );
+      if (!this.isCurrentOperation(operation)) {
+        return staleOperationResult();
+      }
       this.pendingSelection = null;
       return {
         ok: true,
@@ -99,6 +107,9 @@ export class DefaultLedgerFileAccessController
         },
       };
     } catch (error) {
+      if (!this.isCurrentOperation(operation)) {
+        return staleOperationResult();
+      }
       return {
         ok: false,
         code: mapCreateError(error),
@@ -107,8 +118,12 @@ export class DefaultLedgerFileAccessController
   }
 
   async selectExisting(): Promise<LedgerFileSelectionResult> {
+    const operation = this.beginOperation();
     try {
       const picked = await this.adapter.pickExistingLedgerFile();
+      if (!this.isCurrentOperation(operation)) {
+        return staleOperationResult();
+      }
       if (picked.status === "cancelled") {
         return {
           ok: false,
@@ -117,12 +132,18 @@ export class DefaultLedgerFileAccessController
       }
 
       const file = await inspectLedgerFile(this.adapter, picked.handle);
+      if (!this.isCurrentOperation(operation)) {
+        return staleOperationResult();
+      }
       this.pendingSelection = {
         handle: picked.handle,
         fileId: file.fileId,
       };
       return { ok: true };
     } catch (error) {
+      if (!this.isCurrentOperation(operation)) {
+        return staleOperationResult();
+      }
       this.pendingSelection = null;
       return {
         ok: false,
@@ -141,6 +162,7 @@ export class DefaultLedgerFileAccessController
         code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
       };
     }
+    const operation = this.operationGeneration;
     if (!validatePassphrase(passphrase).ok) {
       return {
         ok: false,
@@ -158,6 +180,15 @@ export class DefaultLedgerFileAccessController
           expectedFileId: pending.fileId,
         },
       );
+      if (
+        !this.isCurrentOperation(operation) ||
+        this.pendingSelection !== pending
+      ) {
+        return {
+          ok: false,
+          code: LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED,
+        };
+      }
       this.pendingSelection = null;
       return {
         ok: true,
@@ -176,8 +207,29 @@ export class DefaultLedgerFileAccessController
   }
 
   cancelPendingSelection(): void {
+    this.operationGeneration += 1;
     this.pendingSelection = null;
   }
+
+  private beginOperation(): number {
+    this.operationGeneration += 1;
+    this.pendingSelection = null;
+    return this.operationGeneration;
+  }
+
+  private isCurrentOperation(operation: number): boolean {
+    return this.operationGeneration === operation;
+  }
+}
+
+function staleOperationResult(): {
+  ok: false;
+  code: typeof LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED;
+} {
+  return {
+    ok: false,
+    code: LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED,
+  };
 }
 
 function mapCreateError(error: unknown): LedgerFileAccessErrorCode {

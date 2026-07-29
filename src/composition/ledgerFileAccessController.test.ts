@@ -6,7 +6,9 @@ import {
   type LedgerFilePickerProvider,
   type LedgerFileWritable,
 } from "../adapters/ledgerFileHandleAdapter";
+import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createSimpleTrade } from "../test/fixtures";
 import {
   DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,
@@ -69,6 +71,93 @@ function createController(
       },
     ),
   };
+}
+
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason?: unknown) => void;
+};
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+async function createExistingLedgerHandle(
+  marker: string,
+): Promise<MemoryFileHandle> {
+  const handle = new MemoryFileHandle(`${marker}.lftl`);
+  const ledger = {
+    ...createInitialLedgerData(),
+    trades: [
+      createSimpleTrade(
+        `trade-${marker}`,
+        "buy",
+        "BTC",
+        "1",
+      ),
+    ],
+  };
+  await LedgerFileRepository.create(
+    new LedgerFileHandleAdapter(),
+    handle,
+    PASSPHRASE,
+    ledger,
+    {
+      generateId: vi
+        .fn()
+        .mockReturnValueOnce(`file-${marker}`)
+        .mockReturnValueOnce(`revision-${marker}`),
+      now: () => new Date("2026-07-28T10:00:00.000Z"),
+    },
+  );
+  handle.writes = 0;
+  return handle;
+}
+
+function createDeferredSelectionController(
+  openResults: Array<Promise<LedgerFileHandle[]>>,
+  saveHandle = new MemoryFileHandle("created.lftl"),
+) {
+  const provider: LedgerFilePickerProvider = {
+    showSaveFilePicker: vi.fn(async () => saveHandle),
+    showOpenFilePicker: vi.fn(() => {
+      const next = openResults.shift();
+      if (!next) throw new Error("test picker sequence exhausted");
+      return next;
+    }),
+  };
+  return {
+    controller: new DefaultLedgerFileAccessController(
+      new LedgerFileHandleAdapter(provider),
+      {
+        generateId: vi
+          .fn()
+          .mockReturnValueOnce("file-created")
+          .mockReturnValueOnce("revision-created"),
+        now: () => new Date("2026-07-28T10:00:00.000Z"),
+      },
+    ),
+    provider,
+  };
+}
+
+async function expectSelectedTrade(
+  controller: DefaultLedgerFileAccessController,
+  tradeId: string,
+): Promise<void> {
+  const result = await controller.unlockSelected(PASSPHRASE);
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  await expect(result.session.repository.load()).resolves.toMatchObject({
+    trades: [expect.objectContaining({ id: tradeId })],
+  });
 }
 
 describe("DefaultLedgerFileAccessController", () => {
@@ -188,5 +277,88 @@ describe("DefaultLedgerFileAccessController", () => {
       ok: false,
       code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
     });
+  });
+
+  it("keeps fast B selected when slow A resolves after B", async () => {
+    const handleA = await createExistingLedgerHandle("a");
+    const handleB = await createExistingLedgerHandle("b");
+    const deferredA = createDeferred<LedgerFileHandle[]>();
+    const deferredB = createDeferred<LedgerFileHandle[]>();
+    const { controller } = createDeferredSelectionController([
+      deferredA.promise,
+      deferredB.promise,
+    ]);
+
+    const selectA = controller.selectExisting();
+    const selectB = controller.selectExisting();
+    deferredB.resolve([handleB]);
+    await expect(selectB).resolves.toEqual({ ok: true });
+    deferredA.resolve([handleA]);
+    await selectA;
+
+    await expectSelectedTrade(controller, "trade-b");
+  });
+
+  it("does not revive A when A resolves after cancellation", async () => {
+    const handleA = await createExistingLedgerHandle("a");
+    const deferredA = createDeferred<LedgerFileHandle[]>();
+    const { controller } = createDeferredSelectionController([
+      deferredA.promise,
+    ]);
+
+    const selectA = controller.selectExisting();
+    controller.cancelPendingSelection();
+    deferredA.resolve([handleA]);
+    await selectA;
+
+    await expect(controller.unlockSelected(PASSPHRASE)).resolves.toEqual({
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
+    });
+  });
+
+  it("does not revive A after successfully creating new C", async () => {
+    const handleA = await createExistingLedgerHandle("a");
+    const deferredA = createDeferred<LedgerFileHandle[]>();
+    const created = new MemoryFileHandle("created.lftl");
+    const { controller } = createDeferredSelectionController(
+      [deferredA.promise],
+      created,
+    );
+
+    const selectA = controller.selectExisting();
+    const createResult = await controller.create(PASSPHRASE);
+    expect(createResult.ok).toBe(true);
+    if (createResult.ok) {
+      await expect(
+        createResult.session.repository.load(),
+      ).resolves.toEqual(createInitialLedgerData());
+    }
+    deferredA.resolve([handleA]);
+    await selectA;
+
+    await expect(controller.unlockSelected(PASSPHRASE)).resolves.toEqual({
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
+    });
+  });
+
+  it("does not let a stale A rejection clear a newer B selection", async () => {
+    const handleB = await createExistingLedgerHandle("b");
+    const deferredA = createDeferred<LedgerFileHandle[]>();
+    const deferredB = createDeferred<LedgerFileHandle[]>();
+    const { controller } = createDeferredSelectionController([
+      deferredA.promise,
+      deferredB.promise,
+    ]);
+
+    const selectA = controller.selectExisting();
+    const selectB = controller.selectExisting();
+    deferredB.resolve([handleB]);
+    await expect(selectB).resolves.toEqual({ ok: true });
+    deferredA.reject(new Error("old picker failed"));
+    await selectA;
+
+    await expectSelectedTrade(controller, "trade-b");
   });
 });
