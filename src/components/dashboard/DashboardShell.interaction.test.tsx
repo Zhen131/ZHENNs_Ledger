@@ -19,9 +19,19 @@ import { createTestLedgerRepository } from "../../test/createTestLedgerRepositor
 import type { LedgerData } from "../../models";
 import type {
   LedgerRepository,
+  LedgerReadyClearDriver,
+  LedgerSession,
   LedgerSessionCapabilities,
   LedgerStorageKind,
+  SessionQuiesceReason,
 } from "../../repositories/ledgerRepository";
+import {
+  claimReadyLedgerClearExecutionContextForDriver,
+  createLedgerSession,
+  createReadyLedgerClearAuthorizationForDriver,
+  LEDGER_FILE_CAPABILITIES,
+} from "../../repositories/ledgerRepository";
+import type { PersistentLedgerState } from "../../hooks/usePersistentLedger";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
 import {
   createAsset,
@@ -39,16 +49,25 @@ function DashboardShell({
   repository,
   capabilities,
   storageKind,
+  session,
+  onFinalLock,
 }: {
-  repository: LedgerRepository;
+  repository?: LedgerRepository;
   capabilities?: LedgerSessionCapabilities;
   storageKind?: LedgerStorageKind;
+  session?: LedgerSession;
+  onFinalLock?: (
+    drain: PersistentLedgerState["drainForSessionQuiesce"],
+    reason: SessionQuiesceReason,
+  ) => Promise<void>;
 }) {
   return (
     <DashboardShellRuntime
       capabilities={capabilities}
       clock={fixedClock}
+      onFinalLock={onFinalLock}
       repository={repository}
+      session={session}
       storageKind={storageKind}
     />
   );
@@ -273,6 +292,175 @@ async function createTrade(input: {
   await user.click(screen.getByRole("button", { name: "保存交易" }));
   return user;
 }
+
+describe("DashboardShell immediate lock decision B", () => {
+  it("does not begin locking on the first dirty click and uses the same final action only after explicit discard", async () => {
+    const saveDeferred = createDeferred<void>();
+    const repository = createMemoryRepository();
+    repository.save = vi.fn(() => saveDeferred.promise);
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "dashboard-dirty-lock",
+    });
+    const onFinalLock = vi.fn<
+      (
+        drain: PersistentLedgerState["drainForSessionQuiesce"],
+        reason: SessionQuiesceReason,
+      ) => Promise<void>
+    >(async () => undefined);
+    render(
+      <DashboardShell
+        onFinalLock={onFinalLock}
+        session={session}
+      />,
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          "正在读取本地账本，完成前不会写入任何数据。",
+        ),
+      ).toBeNull();
+    });
+    const user = await fillBuyTrade();
+    await user.click(
+      screen.getByRole("button", { name: "保存交易" }),
+    );
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "立即锁定" }),
+    );
+    expect(
+      screen.getByRole("region", {
+        name: "未保存修改锁定确认",
+      }),
+    ).toBeTruthy();
+    expect(onFinalLock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(
+      screen.queryByRole("region", {
+        name: "未保存修改锁定确认",
+      }),
+    ).toBeNull();
+    expect(onFinalLock).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", { name: "立即锁定" }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "我确定不要了，继续锁定",
+      }),
+    );
+    expect(onFinalLock).toHaveBeenCalledOnce();
+    expect(onFinalLock.mock.calls[0]?.[1]).toBe("immediate-lock");
+    expect(onFinalLock.mock.calls[0]?.[0]).toEqual(
+      expect.any(Function),
+    );
+  });
+
+  it("lets a dirty user retry saving without beginning the final lock", async () => {
+    const repository = createMemoryRepository();
+    repository.save = vi
+      .fn<LedgerRepository["save"]>()
+      .mockRejectedValueOnce(new Error("save failed"))
+      .mockResolvedValueOnce(undefined);
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "dashboard-retry-lock",
+    });
+    const onFinalLock = vi.fn<
+      (
+        drain: PersistentLedgerState["drainForSessionQuiesce"],
+        reason: SessionQuiesceReason,
+      ) => Promise<void>
+    >(async () => undefined);
+    render(
+      <DashboardShell
+        onFinalLock={onFinalLock}
+        session={session}
+      />,
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          "正在读取本地账本，完成前不会写入任何数据。",
+        ),
+      ).toBeNull();
+    });
+    const user = await fillBuyTrade();
+    await user.click(
+      screen.getByRole("button", { name: "保存交易" }),
+    );
+    await screen.findByText(
+      "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "立即锁定" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "重新保存" }),
+    );
+
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledTimes(2);
+      expect(
+        screen.queryByRole("region", {
+          name: "未保存修改锁定确认",
+        }),
+      ).toBeNull();
+    });
+    expect(onFinalLock).not.toHaveBeenCalled();
+  });
+
+  it("locks a clean file session directly without a discard confirmation", async () => {
+    const repository = createMemoryRepository();
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "dashboard-clean-lock",
+    });
+    const onFinalLock = vi.fn<
+      (
+        drain: PersistentLedgerState["drainForSessionQuiesce"],
+        reason: SessionQuiesceReason,
+      ) => Promise<void>
+    >(async () => undefined);
+    render(
+      <DashboardShell
+        onFinalLock={onFinalLock}
+        session={session}
+      />,
+    );
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          "正在读取本地账本，完成前不会写入任何数据。",
+        ),
+      ).toBeNull();
+    });
+
+    await userEvent.setup().click(
+      screen.getByRole("button", { name: "立即锁定" }),
+    );
+
+    expect(onFinalLock).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("region", {
+        name: "未保存修改锁定确认",
+      }),
+    ).toBeNull();
+  });
+});
 
 describe("DashboardShell trade interactions", () => {
   it("separates an accepted trade from pending and completed local persistence", async () => {
@@ -879,12 +1067,13 @@ describe("DashboardShell future fact correction", () => {
 });
 
 describe("DashboardShell data management", () => {
-  it("keeps C experimental, export-only, and free of clear or B import entry points", async () => {
+  it("describes C as the only full ledger and keeps B import fail-closed", async () => {
     const repository = createMemoryRepository();
     render(
       <DashboardShell
         capabilities={{
-          canClear: false,
+          canClearReadyLedger: false,
+          canClearHydrationError: false,
           canImportBackup: false,
         }}
         repository={repository}
@@ -893,7 +1082,9 @@ describe("DashboardShell data management", () => {
     );
 
     expect(
-      await screen.findByText(/当前实验会话只写入你选择的一个 .lftl 文件/),
+      await screen.findByText(
+        /当前 .lftl 文件是唯一正式完整账本/,
+      ),
     ).toBeTruthy();
     expect(
       await screen.findByRole("button", { name: "导出完整账本备份" }),
@@ -903,6 +1094,95 @@ describe("DashboardShell data management", () => {
     ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "清空本地账本" }),
+    ).toBeNull();
+  });
+
+  it("clears only the current C through fixed confirmation and accurate two-generation wording", async () => {
+    const repository = createMemoryRepository(
+      createCompleteLedger(),
+    );
+    const authorizeReadyClear = vi.fn((context) =>
+      createReadyLedgerClearAuthorizationForDriver(context, {
+        fileId: "dashboard-file",
+        verifiedRevisionId: "dashboard-revision",
+      }),
+    );
+    const readyClearDriver: LedgerReadyClearDriver = {
+      authorizeReadyClear,
+      clearReadyLedger: vi.fn(
+        async (authorization, executionContext) => {
+          if (
+            !claimReadyLedgerClearExecutionContextForDriver(
+              executionContext,
+              authorization,
+              readyClearDriver,
+            )
+          ) {
+            throw new Error("invalid ready clear execution");
+          }
+        },
+      ),
+    };
+    const { clearReadyLedger } = readyClearDriver;
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      readyClearDriver,
+      createSessionId: () => "dashboard-ready-clear",
+    });
+    render(<DashboardShell session={session} />);
+    const user = userEvent.setup();
+    await screen.findByText(/当前 .lftl 文件是唯一正式完整账本/);
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "清空当前 C 账本",
+      }),
+    );
+    expect(
+      screen.getByText(
+        /这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C/,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/上一可用版/)).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", {
+        name: "确认清空当前 C 内容",
+      }),
+    );
+    expect(
+      screen.getByText(
+        "请输入完整确认文本“清空当前C账本”",
+      ),
+    ).toBeTruthy();
+    expect(authorizeReadyClear).not.toHaveBeenCalled();
+
+    await user.type(
+      screen.getByLabelText("输入清空确认文本"),
+      "清空当前C账本",
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: "确认清空当前 C 内容",
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText("当前 C 账本内容已清空"),
+      ).toBeTruthy();
+    });
+    expect(authorizeReadyClear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmationNonce: "清空当前C账本",
+        sessionId: "dashboard-ready-clear",
+        generation: 0,
+      }),
+    );
+    expect(clearReadyLedger).toHaveBeenCalledOnce();
+    expect(repository.clear).not.toHaveBeenCalled();
+    expect(
+      screen.queryByLabelText("选择账本备份文件"),
     ).toBeNull();
   });
 

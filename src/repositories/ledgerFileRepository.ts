@@ -3,6 +3,7 @@ import {
   type LedgerFileHandle,
   type LedgerFileHandleAdapter,
 } from "../adapters/ledgerFileHandleAdapter";
+import type { LedgerFileSessionLease } from "../coordination/ledgerFileSessionCoordinator";
 import {
   createCanonicalLedgerPayloadV1,
   type CanonicalLedgerPayloadV1,
@@ -16,10 +17,19 @@ import { LedgerFileCrypto } from "../encryption/ledgerFileCrypto";
 import type { CryptoProvider } from "../encryption/webCryptoEncryptionService";
 import type { LedgerData } from "../models";
 import {
+  claimReadyLedgerClearExecutionContextForDriver,
+  createReadyLedgerClearAuthorizationForDriver,
+  isReadyLedgerClearAuthorizationContextForDriver,
   LEDGER_REPOSITORY_ERROR_CODES,
   LedgerRepositoryError,
+  READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
+  type LedgerReadyClearDriver,
   type LedgerRepository,
+  type ReadyLedgerClearAuthorization,
+  type ReadyLedgerClearAuthorizationContext,
+  type ReadyLedgerClearExecutionContext,
 } from "./ledgerRepository";
+import { createInitialLedgerData } from "../state/initialLedgerData";
 
 export const LEDGER_FILE_REPOSITORY_ERROR_CODES = {
   INVALID_CANDIDATE: "LEDGER_FILE_INVALID_CANDIDATE",
@@ -27,9 +37,12 @@ export const LEDGER_FILE_REPOSITORY_ERROR_CODES = {
   AUTHENTICATION_FAILED: "LEDGER_FILE_AUTHENTICATION_FAILED",
   FILE_ID_MISMATCH: "LEDGER_FILE_ID_MISMATCH",
   REVISION_MISMATCH: "LEDGER_FILE_REVISION_MISMATCH",
+  EXTERNAL_CHANGE: "LEDGER_FILE_EXTERNAL_CHANGE",
   WRITE_FAILED: "LEDGER_FILE_WRITE_FAILED",
   READBACK_FAILED: "LEDGER_FILE_READBACK_FAILED",
   CLEAR_UNSUPPORTED: "LEDGER_FILE_CLEAR_UNSUPPORTED",
+  CLEAR_AUTHORIZATION_FAILED:
+    "LEDGER_FILE_CLEAR_AUTHORIZATION_FAILED",
 } as const;
 
 export type LedgerFileRepositoryErrorCode =
@@ -40,7 +53,6 @@ export class LedgerFileRepositoryError extends Error {
     readonly code: LedgerFileRepositoryErrorCode,
     message: string,
     readonly cause?: unknown,
-    readonly recoveryAvailable = false,
   ) {
     super(message);
     this.name = "LedgerFileRepositoryError";
@@ -53,6 +65,11 @@ export type LedgerFileRepositoryDependencies = {
   now?: () => Date;
 };
 
+export type LedgerFileRepositorySessionDependencies =
+  LedgerFileRepositoryDependencies & {
+    sessionLease: LedgerFileSessionLease;
+  };
+
 type VerifiedGeneration = {
   generation: EncryptedLedgerGenerationV1;
   payload: DecryptedLedgerPayloadV1;
@@ -64,114 +81,198 @@ type VerifiedLedgerFile = {
   file: LedgerFileV1;
   current: VerifiedGeneration;
   previous: VerifiedGeneration | null;
+  serializedFile: string;
 };
 
 type PendingSaveIntent = {
   key: string;
   baseFile: LedgerFileV1;
+  baseSerializedFile: string;
   baseCurrent: VerifiedGeneration;
   file: LedgerFileV1;
   serializedFile: string;
   expectedCurrent: CanonicalLedgerPayloadV1;
 };
 
-export class LedgerFileRepository implements LedgerRepository {
+type PendingRecoveryIntent = {
+  file: LedgerFileV1;
+  serializedFile: string;
+  expectedCurrent: CanonicalLedgerPayloadV1;
+};
+
+type PendingClearIntent = PendingSaveIntent & {
+  authorization: ReadyLedgerClearAuthorization;
+};
+
+type ReadyClearAuthorizationRuntime = {
+  readonly repository: LedgerFileRepository;
+  readonly authorization: ReadyLedgerClearAuthorization;
+  state: "authorized" | "in-flight" | "consumed";
+  promise: Promise<void> | null;
+};
+
+const readyClearAuthorizationRuntimes = new WeakMap<
+  ReadyLedgerClearAuthorization,
+  ReadyClearAuthorizationRuntime
+>();
+
+export type LedgerFileOpenResult =
+  | { status: "opened"; repository: LedgerFileRepository }
+  | {
+      status: "recovery-required";
+      candidate: LedgerFileRecoveryCandidate;
+    };
+
+export class LedgerFileRepository
+  implements LedgerRepository, LedgerReadyClearDriver
+{
   private pendingIntent: PendingSaveIntent | null = null;
+  private pendingClearIntent: PendingClearIntent | null = null;
+  private activeClearAuthorization:
+    | ReadyLedgerClearAuthorization
+    | null = null;
+  private latestSaveRequest = 0;
 
   private constructor(
     private readonly adapter: LedgerFileHandleAdapter,
     private readonly handle: LedgerFileHandle,
     private readonly crypto: LedgerFileCrypto,
     private verified: VerifiedLedgerFile,
+    private readonly sessionLease: LedgerFileSessionLease,
     private readonly generateId: () => string,
     private readonly now: () => Date,
   ) {}
+
+  getVerifiedFileId(): string {
+    return this.verified.file.fileId;
+  }
+
+  getVerifiedRevisionId(): string {
+    return this.verified.file.current.revisionId;
+  }
+
+  verifyCurrentDiskState(): Promise<void> {
+    return this.sessionLease.runExclusiveWrite(() =>
+      this.assertDiskMatchesVerified(),
+    );
+  }
 
   static async create(
     adapter: LedgerFileHandleAdapter,
     handle: LedgerFileHandle,
     passphrase: string,
     initialLedgerData: unknown,
-    dependencies: LedgerFileRepositoryDependencies = {},
+    dependencies: LedgerFileRepositorySessionDependencies,
   ): Promise<LedgerFileRepository> {
-    await adapter.assertEmptyCreateTarget(handle);
-    const crypto = await LedgerFileCrypto.createForSetup(
-      passphrase,
-      dependencies.cryptoProvider,
-    );
-    const generateId = dependencies.generateId ?? defaultGenerateId;
-    const now = dependencies.now ?? (() => new Date());
-    const fileId = generateId();
-    const revisionId = generateId();
-    const payloadResult = createCanonicalLedgerPayloadV1(
-      initialLedgerData,
-      now().toISOString(),
-    );
-
-    if (!payloadResult.ok) {
-      throw new LedgerFileRepositoryError(
-        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
-        "Initial ledger data failed the file payload contract",
-        payloadResult.errors,
+    const { sessionLease } = dependencies;
+    return sessionLease.runExclusiveWrite(async () => {
+      await adapter.assertEmptyCreateTarget(handle);
+      const crypto = await LedgerFileCrypto.createForSetup(
+        passphrase,
+        dependencies.cryptoProvider,
       );
-    }
+      const generateId = dependencies.generateId ?? defaultGenerateId;
+      const now = dependencies.now ?? (() => new Date());
+      const fileId = generateId();
+      const revisionId = generateId();
+      const payloadResult = createCanonicalLedgerPayloadV1(
+        initialLedgerData,
+        now().toISOString(),
+      );
 
-    const current = await crypto.encryptGeneration(
-      fileId,
-      {
-        revisionId,
-        parentRevisionId: null,
-        ledgerSchemaVersion: 1,
-      },
-      payloadResult.value.serializedPayload,
-    );
-    const file: LedgerFileV1 = {
-      fileFormatVersion: 1,
-      fileId,
-      crypto: crypto.getCryptoMetadata(),
-      current,
-      previous: null,
-    };
-    assertValidLedgerFile(file);
-    const serializedFile = serializeLedgerFile(file);
-    let readback: string;
-    try {
-      readback = (await adapter.writeAndReadBack(handle, serializedFile)).text;
-    } catch (error) {
-      throw mapAdapterWriteError(error);
-    }
+      if (!payloadResult.ok) {
+        throw new LedgerFileRepositoryError(
+          LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+          "Initial ledger data failed the file payload contract",
+          payloadResult.errors,
+        );
+      }
 
-    const verified = await verifySerializedLedgerFile(
-      readback,
-      crypto,
-      {
+      const current = await crypto.encryptGeneration(
         fileId,
-        currentRevisionId: revisionId,
-        currentParentRevisionId: null,
-        currentPayload: payloadResult.value,
-        previousGeneration: null,
-        previousPayload: null,
-      },
-    );
+        {
+          revisionId,
+          parentRevisionId: null,
+          ledgerSchemaVersion: 1,
+        },
+        payloadResult.value.serializedPayload,
+      );
+      const file: LedgerFileV1 = {
+        fileFormatVersion: 1,
+        fileId,
+        crypto: crypto.getCryptoMetadata(),
+        current,
+        previous: null,
+      };
+      assertValidLedgerFile(file);
+      const serializedFile = serializeLedgerFile(file);
+      let readback: string;
+      try {
+        readback = (
+          await adapter.writeAndReadBack(handle, serializedFile)
+        ).text;
+      } catch (error) {
+        throw mapAdapterWriteError(error);
+      }
 
-    return new LedgerFileRepository(
-      adapter,
-      handle,
-      crypto,
-      verified,
-      generateId,
-      now,
-    );
+      const verified = await verifySerializedLedgerFile(
+        readback,
+        crypto,
+        {
+          fileId,
+          currentRevisionId: revisionId,
+          currentParentRevisionId: null,
+          currentGeneration: current,
+          currentPayload: payloadResult.value,
+          previousGeneration: null,
+          previousPayload: null,
+        },
+      );
+
+      return new LedgerFileRepository(
+        adapter,
+        handle,
+        crypto,
+        verified,
+        sessionLease,
+        generateId,
+        now,
+      );
+    });
   }
 
   static async open(
     adapter: LedgerFileHandleAdapter,
     handle: LedgerFileHandle,
     passphrase: string,
-    dependencies: LedgerFileRepositoryDependencies & {
+    dependencies: LedgerFileRepositorySessionDependencies & {
       expectedFileId?: string;
-    } = {},
+    },
   ): Promise<LedgerFileRepository> {
+    const result = await LedgerFileRepository.openForAccess(
+      adapter,
+      handle,
+      passphrase,
+      dependencies,
+    );
+    if (result.status === "opened") {
+      return result.repository;
+    }
+    await result.candidate.cancel();
+    throw new LedgerFileRepositoryError(
+      LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+      "Current ledger file generation requires explicit recovery",
+    );
+  }
+
+  static async openForAccess(
+    adapter: LedgerFileHandleAdapter,
+    handle: LedgerFileHandle,
+    passphrase: string,
+    dependencies: LedgerFileRepositorySessionDependencies & {
+      expectedFileId?: string;
+    },
+  ): Promise<LedgerFileOpenResult> {
     const read = await adapter.read(handle);
     const file = parseAndValidateLedgerFile(read.text);
     if (
@@ -189,15 +290,61 @@ export class LedgerFileRepository implements LedgerRepository {
       file.crypto,
       dependencies.cryptoProvider,
     );
-    const verified = await verifyLedgerFile(file, crypto);
+    const verified = await verifyLedgerFileForOpen(
+      file,
+      read.text,
+      crypto,
+    );
+    const generateId = dependencies.generateId ?? defaultGenerateId;
+    const now = dependencies.now ?? (() => new Date());
+    if (verified.status === "recovery-required") {
+      return {
+        status: "recovery-required",
+        candidate: new LedgerFileRecoveryCandidate(
+          adapter,
+          handle,
+          crypto,
+          file,
+          read.text,
+          verified.previous,
+          dependencies.sessionLease,
+          generateId,
+          now,
+        ),
+      };
+    }
 
+    return {
+      status: "opened",
+      repository: new LedgerFileRepository(
+        adapter,
+        handle,
+        crypto,
+        verified.verified,
+        dependencies.sessionLease,
+        generateId,
+        now,
+      ),
+    };
+  }
+
+  static fromRecoveredState(
+    adapter: LedgerFileHandleAdapter,
+    handle: LedgerFileHandle,
+    crypto: LedgerFileCrypto,
+    verified: VerifiedLedgerFile,
+    sessionLease: LedgerFileSessionLease,
+    generateId: () => string,
+    now: () => Date,
+  ): LedgerFileRepository {
     return new LedgerFileRepository(
       adapter,
       handle,
       crypto,
       verified,
-      dependencies.generateId ?? defaultGenerateId,
-      dependencies.now ?? (() => new Date()),
+      sessionLease,
+      generateId,
+      now,
     );
   }
 
@@ -206,6 +353,33 @@ export class LedgerFileRepository implements LedgerRepository {
   }
 
   async save(candidate: LedgerData): Promise<void> {
+    const candidateValidation = createCanonicalLedgerPayloadV1(
+      candidate,
+      this.verified.current.payload.savedAt,
+    );
+    if (!candidateValidation.ok) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+        "Ledger data failed validation before file save",
+        candidateValidation.errors,
+      );
+    }
+    const saveRequest = this.latestSaveRequest + 1;
+    this.latestSaveRequest = saveRequest;
+    return this.sessionLease.runExclusiveWrite(() =>
+      saveRequest === this.latestSaveRequest
+        ? this.saveExclusive(candidate)
+        : Promise.resolve(),
+    );
+  }
+
+  private async saveExclusive(candidate: LedgerData): Promise<void> {
+    if (this.pendingClearIntent) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.CLEAR_AUTHORIZATION_FAILED,
+        "A ledger-file clear intent must be reconciled before saving",
+      );
+    }
     const candidateForComparison = createCanonicalLedgerPayloadV1(
       candidate,
       this.verified.current.payload.savedAt,
@@ -240,6 +414,8 @@ export class LedgerFileRepository implements LedgerRepository {
         }
         this.pendingIntent = null;
       }
+    } else {
+      await this.assertDiskMatchesVerified();
     }
 
     if (
@@ -294,6 +470,7 @@ export class LedgerFileRepository implements LedgerRepository {
         payloadResult.value.serializedLedgerData,
       ),
       baseFile,
+      baseSerializedFile: this.verified.serializedFile,
       baseCurrent: this.verified.current,
       file: nextFile,
       serializedFile: serializeLedgerFile(nextFile),
@@ -314,6 +491,275 @@ export class LedgerFileRepository implements LedgerRepository {
     );
   }
 
+  authorizeReadyClear(
+    context: ReadyLedgerClearAuthorizationContext,
+  ): ReadyLedgerClearAuthorization | null {
+    if (
+      context.confirmationNonce !==
+        READY_LEDGER_CLEAR_CONFIRMATION_TEXT ||
+      !isReadyLedgerClearAuthorizationContextForDriver(
+        context,
+        this,
+      ) ||
+      this.pendingIntent
+    ) {
+      return null;
+    }
+
+    if (this.pendingClearIntent && this.activeClearAuthorization) {
+      const existing = this.activeClearAuthorization;
+      const runtime = readyClearAuthorizationRuntimes.get(existing);
+      return runtime &&
+        runtime.repository === this &&
+        runtime.state === "authorized" &&
+        existing.sessionId === context.sessionId &&
+        existing.generation === context.generation &&
+        existing.confirmationNonce === context.confirmationNonce
+        ? existing
+        : null;
+    }
+
+    if (this.activeClearAuthorization) {
+      const runtime = readyClearAuthorizationRuntimes.get(
+        this.activeClearAuthorization,
+      );
+      if (runtime && runtime.state === "authorized") {
+        const existing = this.activeClearAuthorization;
+        return existing.sessionId === context.sessionId &&
+          existing.generation === context.generation &&
+          existing.confirmationNonce === context.confirmationNonce
+          ? existing
+          : null;
+      }
+      if (runtime && runtime.state === "in-flight") {
+        return null;
+      }
+      this.activeClearAuthorization = null;
+    }
+
+    const authorization =
+      createReadyLedgerClearAuthorizationForDriver(context, {
+        fileId: this.verified.file.fileId,
+        verifiedRevisionId:
+          this.verified.file.current.revisionId,
+      });
+    readyClearAuthorizationRuntimes.set(authorization, {
+      repository: this,
+      authorization,
+      state: "authorized",
+      promise: null,
+    });
+    this.activeClearAuthorization = authorization;
+    return authorization;
+  }
+
+  clearReadyLedger(
+    authorization: ReadyLedgerClearAuthorization,
+    executionContext: ReadyLedgerClearExecutionContext,
+  ): Promise<void> {
+    const runtime =
+      readyClearAuthorizationRuntimes.get(authorization);
+    if (
+      !claimReadyLedgerClearExecutionContextForDriver(
+        executionContext,
+        authorization,
+        this,
+      ) ||
+      !runtime ||
+      runtime.repository !== this ||
+      runtime.authorization !== authorization ||
+      this.activeClearAuthorization !== authorization
+    ) {
+      return Promise.reject(clearAuthorizationError());
+    }
+    if (runtime.state === "consumed") {
+      return Promise.reject(clearAuthorizationError());
+    }
+    if (runtime.state === "in-flight") {
+      return runtime.promise ?? Promise.reject(clearAuthorizationError());
+    }
+
+    runtime.state = "in-flight";
+    const promise = this.sessionLease
+      .runExclusiveWrite(() =>
+        this.clearReadyLedgerExclusive(authorization),
+      )
+      .then(
+        () => {
+          runtime.state = "consumed";
+        },
+        (error: unknown) => {
+          runtime.state = "authorized";
+          throw error;
+        },
+      )
+      .finally(() => {
+        runtime.promise = null;
+      });
+    runtime.promise = promise;
+    return promise;
+  }
+
+  private async clearReadyLedgerExclusive(
+    authorization: ReadyLedgerClearAuthorization,
+  ): Promise<void> {
+    const runtime =
+      readyClearAuthorizationRuntimes.get(authorization);
+    if (
+      !runtime ||
+      runtime.repository !== this ||
+      runtime.state !== "in-flight" ||
+      this.activeClearAuthorization !== authorization
+    ) {
+      throw clearAuthorizationError();
+    }
+
+    if (this.pendingClearIntent) {
+      if (
+        this.pendingClearIntent.authorization !== authorization
+      ) {
+        throw clearAuthorizationError();
+      }
+      const result = await this.reconcilePendingClearIntent();
+      if (result === "committed") {
+        return;
+      }
+      await this.writePendingClearIntent(this.pendingClearIntent);
+      return;
+    }
+
+    if (
+      authorization.fileId !== this.verified.file.fileId ||
+      authorization.verifiedRevisionId !==
+        this.verified.file.current.revisionId
+    ) {
+      throw clearAuthorizationError();
+    }
+
+    await this.assertDiskMatchesVerified();
+    const baseFile = this.verified.file;
+    const baseCurrent = this.verified.current;
+    const payloadResult = createCanonicalLedgerPayloadV1(
+      createInitialLedgerData(),
+      this.now().toISOString(),
+    );
+    if (!payloadResult.ok) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+        "Initial ledger data failed the clear payload contract",
+        payloadResult.errors,
+      );
+    }
+    const revisionId = this.generateId();
+    if (
+      revisionId === baseFile.current.revisionId ||
+      revisionId === baseFile.previous?.revisionId
+    ) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+        "Revision generator returned an existing clear revision",
+      );
+    }
+    const current = await this.crypto.encryptGeneration(
+      baseFile.fileId,
+      {
+        revisionId,
+        parentRevisionId: baseFile.current.revisionId,
+        ledgerSchemaVersion: 1,
+      },
+      payloadResult.value.serializedPayload,
+    );
+    const nextFile: LedgerFileV1 = {
+      fileFormatVersion: 1,
+      fileId: baseFile.fileId,
+      crypto: baseFile.crypto,
+      current,
+      previous: baseFile.current,
+    };
+    assertValidLedgerFile(nextFile);
+    const pending: PendingClearIntent = {
+      authorization,
+      key: createIntentKey(
+        baseFile.fileId,
+        baseFile.current.revisionId,
+        payloadResult.value.serializedLedgerData,
+      ),
+      baseFile,
+      baseSerializedFile: this.verified.serializedFile,
+      baseCurrent,
+      file: nextFile,
+      serializedFile: serializeLedgerFile(nextFile),
+      expectedCurrent: payloadResult.value,
+    };
+    this.pendingClearIntent = pending;
+    await this.writePendingClearIntent(pending);
+  }
+
+  private async reconcilePendingClearIntent(): Promise<
+    "base" | "committed"
+  > {
+    const pending = this.pendingClearIntent;
+    if (!pending) {
+      throw new Error("No pending ledger file clear intent");
+    }
+    let readText: string;
+    try {
+      readText = (await this.adapter.read(this.handle)).text;
+    } catch (error) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+        "Could not reconcile the previous ledger file clear intent",
+        error,
+      );
+    }
+    if (readText === pending.serializedFile) {
+      this.verified = await verifySerializedLedgerFile(
+        readText,
+        this.crypto,
+        expectedFromPending(pending),
+      );
+      this.pendingClearIntent = null;
+      return "committed";
+    }
+    if (readText !== pending.baseSerializedFile) {
+      throw externalChangeError(
+        "Ledger file changed while retrying a clear",
+      );
+    }
+    await verifyLedgerFile(
+      parseAndValidateLedgerFile(readText),
+      this.crypto,
+      undefined,
+      readText,
+    );
+    return "base";
+  }
+
+  private async writePendingClearIntent(
+    pending: PendingClearIntent,
+  ): Promise<void> {
+    await this.assertDiskMatchesVerified();
+    let readback: string;
+    try {
+      readback = (
+        await this.adapter.writeAndReadBack(
+          this.handle,
+          pending.serializedFile,
+        )
+      ).text;
+    } catch (error) {
+      throw mapAdapterWriteError(error);
+    }
+    this.verified = await verifySerializedLedgerFile(
+      readback,
+      this.crypto,
+      expectedFromPending(pending),
+    );
+    if (this.pendingClearIntent === pending) {
+      this.pendingClearIntent = null;
+    }
+  }
+
   private async reconcilePendingIntent(): Promise<"base" | "committed"> {
     const pending = this.pendingIntent;
     if (!pending) {
@@ -331,38 +777,27 @@ export class LedgerFileRepository implements LedgerRepository {
       );
     }
 
-    const diskFile = parseAndValidateLedgerFile(readText);
-    if (diskFile.fileId !== pending.file.fileId) {
-      throw new LedgerFileRepositoryError(
-        LEDGER_FILE_REPOSITORY_ERROR_CODES.FILE_ID_MISMATCH,
-        "Ledger file identity changed while retrying a save",
-      );
-    }
-
-    if (diskFile.current.revisionId === pending.file.current.revisionId) {
+    if (readText === pending.serializedFile) {
+      const diskFile = parseAndValidateLedgerFile(readText);
       const verified = await verifyLedgerFile(
         diskFile,
         this.crypto,
         expectedFromPending(pending),
+        readText,
       );
       this.verified = verified;
       this.pendingIntent = null;
       return "committed";
     }
 
-    if (
-      diskFile.current.revisionId !==
-        pending.baseFile.current.revisionId ||
-      serializeLedgerFile(diskFile) !==
-        serializeLedgerFile(pending.baseFile)
-    ) {
-      throw new LedgerFileRepositoryError(
-        LEDGER_FILE_REPOSITORY_ERROR_CODES.REVISION_MISMATCH,
-        "Ledger file revision changed while retrying a save",
+    if (readText !== pending.baseSerializedFile) {
+      throw externalChangeError(
+        "Ledger file changed while retrying a save",
       );
     }
 
-    await verifyLedgerFile(diskFile, this.crypto);
+    const diskFile = parseAndValidateLedgerFile(readText);
+    await verifyLedgerFile(diskFile, this.crypto, undefined, readText);
     return "base";
   }
 
@@ -404,6 +839,227 @@ export class LedgerFileRepository implements LedgerRepository {
       this.pendingIntent = null;
     }
   }
+
+  private async assertDiskMatchesVerified(): Promise<void> {
+    let readText: string;
+    try {
+      readText = (await this.adapter.read(this.handle)).text;
+    } catch (error) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+        "Could not re-read the ledger file before saving",
+        error,
+      );
+    }
+
+    if (readText !== this.verified.serializedFile) {
+      throw externalChangeError(
+        "Ledger file changed outside the current session",
+      );
+    }
+    const diskFile = parseAndValidateLedgerFile(readText);
+    try {
+      await verifyLedgerFile(
+        diskFile,
+        this.crypto,
+        undefined,
+        readText,
+      );
+    } catch (error) {
+      throw externalChangeError(
+        "Ledger file no longer matches the verified session baseline",
+        error,
+      );
+    }
+  }
+}
+
+export class LedgerFileRecoveryCandidate {
+  private pendingIntent: PendingRecoveryIntent | null = null;
+  private confirmationPromise: Promise<LedgerFileRepository> | null =
+    null;
+  private recoveredRepository: LedgerFileRepository | null = null;
+  private cancelled = false;
+
+  constructor(
+    private readonly adapter: LedgerFileHandleAdapter,
+    private readonly handle: LedgerFileHandle,
+    private readonly crypto: LedgerFileCrypto,
+    private readonly damagedFile: LedgerFileV1,
+    private readonly serializedBaseline: string,
+    private readonly verifiedPrevious: VerifiedGeneration,
+    private readonly sessionLease: LedgerFileSessionLease,
+    private readonly generateId: () => string,
+    private readonly now: () => Date,
+  ) {}
+
+  confirm(): Promise<LedgerFileRepository> {
+    if (this.recoveredRepository) {
+      return Promise.resolve(this.recoveredRepository);
+    }
+    if (this.cancelled) {
+      return Promise.reject(
+        new LedgerFileRepositoryError(
+          LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+          "Ledger file recovery candidate is no longer active",
+        ),
+      );
+    }
+    if (this.confirmationPromise) {
+      return this.confirmationPromise;
+    }
+
+    const confirmation = this.sessionLease
+      .runExclusiveWrite(() => this.confirmExclusive())
+      .then((repository) => {
+        this.recoveredRepository = repository;
+        return repository;
+      });
+    this.confirmationPromise = confirmation.finally(() => {
+      if (!this.recoveredRepository) {
+        this.confirmationPromise = null;
+      }
+    });
+    return this.confirmationPromise;
+  }
+
+  async cancel(): Promise<void> {
+    this.cancelled = true;
+    await this.sessionLease.release();
+  }
+
+  private async confirmExclusive(): Promise<LedgerFileRepository> {
+    if (this.cancelled) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+        "Ledger file recovery candidate was cancelled",
+      );
+    }
+
+    const diskText = await this.readForRecovery();
+    if (
+      this.pendingIntent &&
+      diskText === this.pendingIntent.serializedFile
+    ) {
+      const verified = await verifySerializedLedgerFile(
+        diskText,
+        this.crypto,
+        expectedFromRecovery(
+          this.pendingIntent,
+          this.damagedFile.previous!,
+          this.verifiedPrevious,
+        ),
+      );
+      return this.createRepository(verified);
+    }
+    if (diskText !== this.serializedBaseline) {
+      throw externalChangeError(
+        "Ledger file changed after recovery was offered",
+      );
+    }
+
+    if (!this.pendingIntent) {
+      const payloadResult = createCanonicalLedgerPayloadV1(
+        this.verifiedPrevious.payload.ledgerData,
+        this.now().toISOString(),
+      );
+      if (!payloadResult.ok) {
+        throw new LedgerFileRepositoryError(
+          LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+          "Verified previous generation could not form a recovery payload",
+          payloadResult.errors,
+        );
+      }
+      const revisionId = this.generateId();
+      if (
+        revisionId === this.damagedFile.current.revisionId ||
+        revisionId === this.damagedFile.previous!.revisionId
+      ) {
+        throw new LedgerFileRepositoryError(
+          LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+          "Revision generator returned an existing recovery revision",
+        );
+      }
+      const current = await this.crypto.encryptGeneration(
+        this.damagedFile.fileId,
+        {
+          revisionId,
+          parentRevisionId:
+            this.damagedFile.previous!.revisionId,
+          ledgerSchemaVersion: 1,
+        },
+        payloadResult.value.serializedPayload,
+      );
+      const recoveredFile: LedgerFileV1 = {
+        fileFormatVersion: 1,
+        fileId: this.damagedFile.fileId,
+        crypto: this.damagedFile.crypto,
+        current,
+        previous: this.damagedFile.previous,
+      };
+      assertValidLedgerFile(recoveredFile);
+      this.pendingIntent = {
+        file: recoveredFile,
+        serializedFile: serializeLedgerFile(recoveredFile),
+        expectedCurrent: payloadResult.value,
+      };
+    }
+
+    if (this.cancelled) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+        "Ledger file recovery candidate was cancelled before writing",
+      );
+    }
+
+    let readback: string;
+    try {
+      readback = (
+        await this.adapter.writeAndReadBack(
+          this.handle,
+          this.pendingIntent.serializedFile,
+        )
+      ).text;
+    } catch (error) {
+      throw mapAdapterWriteError(error);
+    }
+    const verified = await verifySerializedLedgerFile(
+      readback,
+      this.crypto,
+      expectedFromRecovery(
+        this.pendingIntent,
+        this.damagedFile.previous!,
+        this.verifiedPrevious,
+      ),
+    );
+    return this.createRepository(verified);
+  }
+
+  private async readForRecovery(): Promise<string> {
+    try {
+      return (await this.adapter.read(this.handle)).text;
+    } catch (error) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+        "Could not re-read the ledger file before recovery",
+        error,
+      );
+    }
+  }
+
+  private createRepository(
+    verified: VerifiedLedgerFile,
+  ): LedgerFileRepository {
+    return LedgerFileRepository.fromRecoveredState(
+      this.adapter,
+      this.handle,
+      this.crypto,
+      verified,
+      this.sessionLease,
+      this.generateId,
+      this.now,
+    );
+  }
 }
 
 export async function inspectLedgerFile(
@@ -420,9 +1076,26 @@ function expectedFromPending(pending: PendingSaveIntent) {
     currentRevisionId: pending.file.current.revisionId,
     currentParentRevisionId:
       pending.baseFile.current.revisionId,
+    currentGeneration: pending.file.current,
     currentPayload: pending.expectedCurrent,
     previousGeneration: pending.baseFile.current,
     previousPayload: pending.baseCurrent,
+  };
+}
+
+function expectedFromRecovery(
+  pending: PendingRecoveryIntent,
+  previousGeneration: EncryptedLedgerGenerationV1,
+  previousPayload: VerifiedGeneration,
+): VerificationExpectation {
+  return {
+    fileId: pending.file.fileId,
+    currentRevisionId: pending.file.current.revisionId,
+    currentParentRevisionId: previousGeneration.revisionId,
+    currentGeneration: pending.file.current,
+    currentPayload: pending.expectedCurrent,
+    previousGeneration,
+    previousPayload,
   };
 }
 
@@ -435,6 +1108,7 @@ async function verifySerializedLedgerFile(
     parseAndValidateLedgerFile(serialized),
     crypto,
     expected,
+    serialized,
   );
 }
 
@@ -442,6 +1116,7 @@ type VerificationExpectation = {
   fileId: string;
   currentRevisionId: string;
   currentParentRevisionId: string | null;
+  currentGeneration: EncryptedLedgerGenerationV1;
   currentPayload: CanonicalLedgerPayloadV1;
   previousGeneration: EncryptedLedgerGenerationV1 | null;
   previousPayload: Pick<
@@ -454,6 +1129,7 @@ async function verifyLedgerFile(
   file: LedgerFileV1,
   crypto: LedgerFileCrypto,
   expected?: VerificationExpectation,
+  serializedFile = serializeLedgerFile(file),
 ): Promise<VerifiedLedgerFile> {
   if (!crypto.matchesCryptoMetadata(file.crypto)) {
     throw new LedgerFileRepositoryError(
@@ -493,7 +1169,6 @@ async function verifyLedgerFile(
       LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
       "Current ledger file generation could not be authenticated and validated",
       currentError,
-      previous !== null,
     );
   }
 
@@ -514,6 +1189,13 @@ async function verifyLedgerFile(
       throw new LedgerFileRepositoryError(
         LEDGER_FILE_REPOSITORY_ERROR_CODES.REVISION_MISMATCH,
         "Readback current revision does not match the save intent",
+      );
+    }
+
+    if (!sameGeneration(file.current, expected.currentGeneration)) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+        "Readback current generation does not match the exact encrypted save intent",
       );
     }
 
@@ -552,7 +1234,72 @@ async function verifyLedgerFile(
     }
   }
 
-  return { file, current, previous };
+  return { file, current, previous, serializedFile };
+}
+
+async function verifyLedgerFileForOpen(
+  file: LedgerFileV1,
+  serializedFile: string,
+  crypto: LedgerFileCrypto,
+): Promise<
+  | { status: "verified"; verified: VerifiedLedgerFile }
+  | {
+      status: "recovery-required";
+      previous: VerifiedGeneration;
+    }
+> {
+  if (!crypto.matchesCryptoMetadata(file.crypto)) {
+    throw new LedgerFileRepositoryError(
+      LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+      "Ledger file crypto metadata does not match the unlock attempt",
+    );
+  }
+
+  let current: VerifiedGeneration | null = null;
+  let previous: VerifiedGeneration | null = null;
+  let currentError: unknown;
+  let previousError: unknown;
+
+  try {
+    current = await verifyGeneration(file, file.current, crypto);
+  } catch (error) {
+    currentError = error;
+  }
+  if (file.previous) {
+    try {
+      previous = await verifyGeneration(file, file.previous, crypto);
+    } catch (error) {
+      previousError = error;
+    }
+  }
+
+  if (!current) {
+    if (file.previous && previous) {
+      return { status: "recovery-required", previous };
+    }
+    throw new LedgerFileRepositoryError(
+      LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+      "Ledger file generations could not be authenticated and validated",
+      currentError ?? previousError,
+    );
+  }
+  if (file.previous && !previous) {
+    throw new LedgerFileRepositoryError(
+      LEDGER_FILE_REPOSITORY_ERROR_CODES.AUTHENTICATION_FAILED,
+      "Ledger file generations could not be authenticated and validated",
+      previousError,
+    );
+  }
+
+  return {
+    status: "verified",
+    verified: {
+      file,
+      current,
+      previous,
+      serializedFile,
+    },
+  };
 }
 
 async function verifyGeneration(
@@ -706,6 +1453,24 @@ function mapAdapterWriteError(error: unknown): LedgerFileRepositoryError {
     LEDGER_FILE_REPOSITORY_ERROR_CODES.WRITE_FAILED,
     "Ledger file write or close failed",
     error,
+  );
+}
+
+function externalChangeError(
+  message: string,
+  cause?: unknown,
+): LedgerFileRepositoryError {
+  return new LedgerFileRepositoryError(
+    LEDGER_FILE_REPOSITORY_ERROR_CODES.EXTERNAL_CHANGE,
+    message,
+    cause,
+  );
+}
+
+function clearAuthorizationError(): LedgerFileRepositoryError {
+  return new LedgerFileRepositoryError(
+    LEDGER_FILE_REPOSITORY_ERROR_CODES.CLEAR_AUTHORIZATION_FAILED,
+    "Ready ledger clear authorization is invalid, stale, or already used",
   );
 }
 

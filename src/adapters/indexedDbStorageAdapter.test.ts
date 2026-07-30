@@ -18,6 +18,7 @@ function createAdapter(
     databaseName?: string;
     databaseVersion?: number;
     storeName?: string;
+    recordKey?: IDBValidKey;
   } = {},
 ) {
   const adapter = new IndexedDbStorageAdapter({
@@ -25,6 +26,7 @@ function createAdapter(
     databaseName: options.databaseName ?? "ledger-test",
     databaseVersion: options.databaseVersion,
     storeName: options.storeName,
+    recordKey: options.recordKey,
   });
   adapters.push(adapter);
   return adapter;
@@ -53,6 +55,64 @@ describe("IndexedDbStorageAdapter", () => {
     await adapter.clear();
 
     await expect(adapter.read()).resolves.toBeNull();
+  });
+
+  it("deletes only the exact legacy envelope verified earlier", async () => {
+    const adapter = createAdapter();
+    const verified = createNoopStoredLedgerEnvelope("verified");
+    await adapter.write(verified);
+
+    await expect(
+      adapter.deleteIfUnchanged(verified),
+    ).resolves.toBe("deleted");
+    await expect(adapter.read()).resolves.toBeNull();
+  });
+
+  it("retains a legacy record that changed after verification", async () => {
+    const adapter = createAdapter();
+    const verified = createNoopStoredLedgerEnvelope("verified");
+    const changed = createNoopStoredLedgerEnvelope("changed");
+    await adapter.write(verified);
+    await adapter.write(changed);
+
+    await expect(
+      adapter.deleteIfUnchanged(verified),
+    ).resolves.toBe("changed");
+    await expect(adapter.read()).resolves.toEqual(changed);
+  });
+
+  it("reports a missing legacy record without inventing deletion success", async () => {
+    const adapter = createAdapter();
+
+    await expect(
+      adapter.deleteIfUnchanged(
+        createNoopStoredLedgerEnvelope("verified"),
+      ),
+    ).resolves.toBe("missing");
+    await expect(adapter.read()).resolves.toBeNull();
+  });
+
+  it("does not delete another record in the same store", async () => {
+    const factory = new IDBFactory();
+    const legacy = createAdapter(factory, {
+      databaseName: "conditional-delete-key-scope",
+      recordKey: "ledger:v1",
+    });
+    const other = createAdapter(factory, {
+      databaseName: "conditional-delete-key-scope",
+      recordKey: "other",
+    });
+    const legacyEnvelope =
+      createNoopStoredLedgerEnvelope("legacy");
+    const otherEnvelope = createNoopStoredLedgerEnvelope("other");
+    await legacy.write(legacyEnvelope);
+    await other.write(otherEnvelope);
+
+    await expect(
+      legacy.deleteIfUnchanged(legacyEnvelope),
+    ).resolves.toBe("deleted");
+    await expect(legacy.read()).resolves.toBeNull();
+    await expect(other.read()).resolves.toEqual(otherEnvelope);
   });
 
   it("creates the ledger store during a database version upgrade", async () => {

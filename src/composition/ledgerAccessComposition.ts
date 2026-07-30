@@ -4,7 +4,12 @@ import {
 } from "../adapters/indexedDbStorageAdapter";
 import { LedgerFileHandleAdapter } from "../adapters/ledgerFileHandleAdapter";
 import {
-  DefaultLedgerAccessController,
+  IndexedDbLedgerFileConnectionAdapter,
+  type IndexedDbLedgerFileConnectionAdapterOptions,
+} from "../adapters/ledgerFileConnectionAdapter";
+import { DefaultLedgerFileSessionCoordinator } from "../coordination/ledgerFileSessionCoordinator";
+import {
+  DefaultLegacyLedgerExitController,
   type LedgerAccessController,
 } from "./ledgerAccessController";
 import {
@@ -18,9 +23,27 @@ let defaultFileAccessController: LedgerFileAccessController | undefined;
 export function createApplicationLedgerAccessController(
   storageOptions: IndexedDbStorageAdapterOptions = {},
 ): LedgerAccessController {
-  return new DefaultLedgerAccessController(
+  const legacyExitController = new DefaultLegacyLedgerExitController(
     new IndexedDbStorageAdapter(storageOptions),
   );
+  return Object.freeze({
+    inspect: () => legacyExitController.inspect(),
+    unlockLegacyForMigration: (passphrase: string) =>
+      legacyExitController.unlockLegacyForMigration(passphrase),
+    authorizeLegacyMigrationDeletion: (
+      ...args: Parameters<
+        DefaultLegacyLedgerExitController["authorizeLegacyMigrationDeletion"]
+      >
+    ) =>
+      legacyExitController.authorizeLegacyMigrationDeletion(
+        ...args,
+      ),
+    deleteLegacyAfterMigration: (
+      ...args: Parameters<
+        DefaultLegacyLedgerExitController["deleteLegacyAfterMigration"]
+      >
+    ) => legacyExitController.deleteLegacyAfterMigration(...args),
+  });
 }
 
 export function getDefaultLedgerAccessController(): LedgerAccessController {
@@ -28,9 +51,15 @@ export function getDefaultLedgerAccessController(): LedgerAccessController {
   return defaultAccessController;
 }
 
-export function createApplicationLedgerFileAccessController(): LedgerFileAccessController {
+export function createApplicationLedgerFileAccessController(
+  connectionOptions: IndexedDbLedgerFileConnectionAdapterOptions = {},
+): LedgerFileAccessController {
   return new DefaultLedgerFileAccessController(
     new LedgerFileHandleAdapter(),
+    {},
+    new DefaultLedgerFileSessionCoordinator(),
+    undefined,
+    new IndexedDbLedgerFileConnectionAdapter(connectionOptions),
   );
 }
 

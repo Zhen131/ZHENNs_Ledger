@@ -234,7 +234,61 @@ describe("DefaultLedgerAccessController", () => {
     expect(storage.write).not.toHaveBeenCalled();
   });
 
-  it("keeps the record when reset fails and clears it only on success", async () => {
+  it("unlocks a detached read-only legacy migration candidate and never publishes a writable session", async () => {
+    const storage = new MemoryStorageAdapter();
+    const controller = new DefaultLedgerAccessController(storage);
+    const setup = await controller.setup(PASSPHRASE);
+    expect(setup.ok).toBe(true);
+    if (!setup.ok) return;
+    const ledgerData = {
+      ...createInitialLedgerData(),
+      trades: [
+        {
+          id: "legacy-migration-trade",
+          occurredAt: "2026-07-01",
+          timePrecision: "day" as const,
+          type: "buy" as const,
+          assetSymbol: "BTC",
+          quantity: "1",
+          price: "10",
+          totalValue: "10",
+          currency: "USD",
+          fee: "0",
+          feeCurrency: "USD",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      ],
+    };
+    await setup.repository.save(ledgerData);
+    const exactSource = structuredClone(storage.stored);
+    storage.write.mockClear();
+    storage.clear.mockClear();
+
+    await expect(
+      controller.unlockLegacyForMigration(
+        "another valid passphrase",
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      code: LEDGER_ACCESS_ERROR_CODES.MIGRATION_UNLOCK_FAILED,
+    });
+    const result =
+      await controller.unlockLegacyForMigration(PASSPHRASE);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.candidate.readLedgerData()).toEqual(ledgerData);
+    const detached = result.candidate.readLedgerData();
+    detached.trades.length = 0;
+    expect(result.candidate.readLedgerData()).toEqual(ledgerData);
+    expect(storage.write).not.toHaveBeenCalled();
+    expect(storage.clear).not.toHaveBeenCalled();
+    expect(storage.stored).toEqual(exactSource);
+    expect("repository" in result.candidate).toBe(false);
+    expect("session" in result.candidate).toBe(false);
+  });
+
+  it("keeps legacy reset fail-closed even when storage clear would succeed", async () => {
     const original = createNoopStoredLedgerEnvelope("{}");
     const failingStorage = new MemoryStorageAdapter(original);
     failingStorage.clear.mockRejectedValueOnce(new Error("clear failed"));
@@ -253,7 +307,11 @@ describe("DefaultLedgerAccessController", () => {
       new DefaultLedgerAccessController(
         failingStorage,
       ).resetEncryptedLedger(),
-    ).resolves.toEqual({ ok: true });
-    expect(failingStorage.stored).toBeNull();
+    ).resolves.toEqual({
+      ok: false,
+      code: LEDGER_ACCESS_ERROR_CODES.RESET_FAILED,
+    });
+    expect(failingStorage.clear).not.toHaveBeenCalled();
+    expect(failingStorage.stored).toEqual(original);
   });
 });

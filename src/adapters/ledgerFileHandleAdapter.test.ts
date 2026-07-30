@@ -49,12 +49,19 @@ class AtomicFakeHandle implements LedgerFileHandle {
     };
     return writable;
   });
+  permissionState: "granted" | "prompt" | "denied" = "granted";
+  readonly queryPermission = vi.fn(async () => this.permissionState);
+  readonly requestPermission = vi.fn(async () => this.permissionState);
 
   constructor(
     readonly name: string,
     initial = "",
   ) {
     this.bytes = new TextEncoder().encode(initial);
+  }
+
+  async isSameEntry(other: LedgerFileHandle): Promise<boolean> {
+    return other === this;
   }
 }
 
@@ -88,6 +95,64 @@ describe("LedgerFileHandleAdapter", () => {
         suggestedName: "local-first-trading-ledger.lftl",
       }),
     );
+  });
+
+  it("preserves native entry identity comparison instead of inferring it from name or bytes", async () => {
+    const original = new AtomicFakeHandle("same-name.lftl", "{}");
+    const byteCopy = new AtomicFakeHandle("same-name.lftl", "{}");
+    const adapter = new LedgerFileHandleAdapter(
+      createPickerProvider(original, original),
+    );
+    const picked = await adapter.pickExistingLedgerFile();
+    expect(picked.status).toBe("selected");
+    if (picked.status !== "selected") return;
+
+    await expect(
+      picked.handle.isSameEntry(original),
+    ).resolves.toBe(true);
+    await expect(
+      picked.handle.isSameEntry(byteCopy),
+    ).resolves.toBe(false);
+  });
+
+  it("queries and requests readwrite permission only through the bound handle", async () => {
+    const handle = new AtomicFakeHandle("ledger.lftl");
+    const adapter = new LedgerFileHandleAdapter();
+    handle.permissionState = "prompt";
+
+    await expect(adapter.queryPermission(handle)).resolves.toBe("prompt");
+    expect(handle.queryPermission).toHaveBeenCalledWith({
+      mode: "readwrite",
+    });
+
+    handle.permissionState = "granted";
+    await expect(adapter.requestPermission(handle)).resolves.toBe("granted");
+    expect(handle.requestPermission).toHaveBeenCalledWith({
+      mode: "readwrite",
+    });
+  });
+
+  it("fails closed when permission methods are unavailable or return an invalid state", async () => {
+    const adapter = new LedgerFileHandleAdapter();
+    const unavailable = new AtomicFakeHandle("unavailable.lftl");
+    Object.defineProperty(unavailable, "queryPermission", {
+      value: undefined,
+    });
+    Object.defineProperty(unavailable, "requestPermission", {
+      value: undefined,
+    });
+    await expect(adapter.queryPermission(unavailable)).rejects.toMatchObject({
+      stage: "permission-query",
+    });
+    await expect(adapter.requestPermission(unavailable)).rejects.toMatchObject({
+      stage: "permission-request",
+    });
+
+    const invalid = new AtomicFakeHandle("invalid.lftl");
+    invalid.queryPermission.mockResolvedValueOnce("unknown" as never);
+    await expect(adapter.queryPermission(invalid)).rejects.toMatchObject({
+      stage: "permission-query",
+    });
   });
 
   it("treats picker cancellation as a no-side-effect result", async () => {
