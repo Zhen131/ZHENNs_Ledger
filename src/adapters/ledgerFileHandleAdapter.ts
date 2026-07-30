@@ -9,6 +9,9 @@ export type LedgerFilePickerResult =
   | { status: "selected"; handle: LedgerFileHandle }
   | { status: "cancelled" };
 
+export type LedgerFilePermissionMode = "read" | "readwrite";
+export type LedgerFilePermissionState = "granted" | "prompt" | "denied";
+
 export interface LedgerFileLike {
   readonly size: number;
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -26,6 +29,13 @@ export interface LedgerFileHandle {
   createWritable(options?: {
     keepExistingData?: boolean;
   }): Promise<LedgerFileWritable>;
+  isSameEntry(other: LedgerFileHandle): Promise<boolean>;
+  queryPermission?(options: {
+    mode: LedgerFilePermissionMode;
+  }): Promise<LedgerFilePermissionState>;
+  requestPermission?(options: {
+    mode: LedgerFilePermissionMode;
+  }): Promise<LedgerFilePermissionState>;
 }
 
 export interface LedgerFilePickerProvider {
@@ -58,7 +68,9 @@ export type LedgerFileAdapterErrorStage =
   | "create-writable"
   | "write"
   | "close"
-  | "readback";
+  | "readback"
+  | "permission-query"
+  | "permission-request";
 
 export class LedgerFileAdapterError extends Error {
   constructor(
@@ -137,6 +149,60 @@ export class LedgerFileHandleAdapter {
       throw new LedgerFileAdapterError(
         "picker",
         "Could not choose an existing ledger file",
+        error,
+      );
+    }
+  }
+
+  async queryPermission(
+    handle: LedgerFileHandle,
+    mode: LedgerFilePermissionMode = "readwrite",
+  ): Promise<LedgerFilePermissionState> {
+    if (typeof handle.queryPermission !== "function") {
+      throw new LedgerFileAdapterError(
+        "permission-query",
+        "File permission query is unavailable",
+      );
+    }
+    try {
+      return assertPermissionState(
+        await handle.queryPermission({ mode }),
+        "permission-query",
+      );
+    } catch (error) {
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
+      throw new LedgerFileAdapterError(
+        "permission-query",
+        "Could not query ledger file permission",
+        error,
+      );
+    }
+  }
+
+  async requestPermission(
+    handle: LedgerFileHandle,
+    mode: LedgerFilePermissionMode = "readwrite",
+  ): Promise<LedgerFilePermissionState> {
+    if (typeof handle.requestPermission !== "function") {
+      throw new LedgerFileAdapterError(
+        "permission-request",
+        "File permission request is unavailable",
+      );
+    }
+    try {
+      return assertPermissionState(
+        await handle.requestPermission({ mode }),
+        "permission-request",
+      );
+    } catch (error) {
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
+      throw new LedgerFileAdapterError(
+        "permission-request",
+        "Could not request ledger file permission",
         error,
       );
     }
@@ -302,6 +368,19 @@ export class LedgerFileHandleAdapter {
 
     return candidate as LedgerFilePickerProvider;
   }
+}
+
+function assertPermissionState(
+  value: unknown,
+  stage: "permission-query" | "permission-request",
+): LedgerFilePermissionState {
+  if (value === "granted" || value === "prompt" || value === "denied") {
+    return value;
+  }
+  throw new LedgerFileAdapterError(
+    stage,
+    "File permission API returned an invalid state",
+  );
 }
 
 async function bestEffortAbort(

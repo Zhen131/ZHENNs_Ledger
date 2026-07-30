@@ -1,13 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
-import { usePersistentLedger } from "../../hooks/usePersistentLedger";
+import {
+  usePersistentLedger,
+  type PersistentLedgerState,
+} from "../../hooks/usePersistentLedger";
 import type { Trade, ValuationPriceMode } from "../../models";
 import {
   INDEXED_DB_LEDGER_CAPABILITIES,
+  READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
+  type LedgerSession,
   type LedgerRepository,
   type LedgerSessionCapabilities,
+  type SessionQuiesceReason,
   type LedgerStorageKind,
 } from "../../repositories/ledgerRepository";
 import {
@@ -34,7 +46,7 @@ import {
   type ConfirmDeleteOutcome,
 } from "../common/ConfirmDeleteButton";
 
-const CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
+const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 
 type ClearConfirmationMode = "normal" | "recovery";
 
@@ -143,16 +155,40 @@ export function TradeTable({
 }
 
 export function DashboardShell({
-  repository,
+  repository: providedRepository,
   clock = systemLedgerClock,
-  capabilities = INDEXED_DB_LEDGER_CAPABILITIES,
-  storageKind = "indexeddb",
+  capabilities: providedCapabilities = INDEXED_DB_LEDGER_CAPABILITIES,
+  storageKind: providedStorageKind = "indexeddb",
+  session,
+  onFinalLock,
+  onSessionDrainReady,
 }: Readonly<{
-  repository: LedgerRepository;
+  repository?: LedgerRepository;
   clock?: LedgerClock;
   capabilities?: LedgerSessionCapabilities;
   storageKind?: LedgerStorageKind;
+  session?: LedgerSession;
+  onFinalLock?: (
+    drain: PersistentLedgerState["drainForSessionQuiesce"],
+    reason: SessionQuiesceReason,
+  ) => Promise<void>;
+  onSessionDrainReady?: (
+    session: LedgerSession,
+    drain: PersistentLedgerState["drainForSessionQuiesce"],
+  ) => void;
 }>) {
+  const repository = session?.repository ?? providedRepository;
+  if (!repository) {
+    throw new Error("DashboardShell requires a LedgerSession or repository");
+  }
+  const capabilities =
+    session?.capabilities ?? providedCapabilities;
+  const storageKind =
+    session?.storageKind ?? providedStorageKind;
+  const clearConfirmationText =
+    storageKind === "ledger-file"
+      ? READY_LEDGER_CLEAR_CONFIRMATION_TEXT
+      : LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT;
   const {
     ledgerData,
     applyLedgerAction,
@@ -174,7 +210,14 @@ export function DashboardShell({
     isFutureFactCorrectionMode,
     ledgerEpoch,
     todayKey,
-  } = usePersistentLedger(repository, clock, capabilities);
+    lifecycleStatus,
+    drainForSessionQuiesce,
+  } = usePersistentLedger(
+    repository,
+    clock,
+    capabilities,
+    session,
+  );
   const [valuationPriceMode, setValuationPriceMode] =
     useState<ValuationPriceMode>("auto");
   const [chartRange, setChartRange] = useState<ChartRange>("30d");
@@ -188,6 +231,8 @@ export function DashboardShell({
   const [clearConfirmationValue, setClearConfirmationValue] = useState("");
   const [clearConfirmationError, setClearConfirmationError] = useState("");
   const [clearSuccessMessage, setClearSuccessMessage] = useState("");
+  const [showLockConfirmation, setShowLockConfirmation] =
+    useState(false);
   const mountedRef = useRef(true);
   const currentRepositoryRef = useRef(repository);
   currentRepositoryRef.current = repository;
@@ -199,6 +244,12 @@ export function DashboardShell({
       mountedRef.current = false;
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (session) {
+      onSessionDrainReady?.(session, drainForSessionQuiesce);
+    }
+  }, [drainForSessionQuiesce, onSessionDrainReady, session]);
 
   useEffect(() => {
     setClearConfirmationMode(null);
@@ -212,6 +263,7 @@ export function DashboardShell({
   }, [ledgerEpoch]);
 
   const isWritable =
+    lifecycleStatus === "active" &&
     hydrationStatus === "ready" &&
     persistenceOperation === "idle" &&
     !repositorySwitchBlocked &&
@@ -346,9 +398,9 @@ export function DashboardShell({
   }
 
   async function handleClearLedger() {
-    if (clearConfirmationValue !== CLEAR_LEDGER_CONFIRMATION_TEXT) {
+    if (clearConfirmationValue !== clearConfirmationText) {
       setClearConfirmationError(
-        `请输入完整确认文本“${CLEAR_LEDGER_CONFIRMATION_TEXT}”`,
+        `请输入完整确认文本“${clearConfirmationText}”`,
       );
       return;
     }
@@ -356,7 +408,7 @@ export function DashboardShell({
     const operationRepository = repository;
     setClearConfirmationError("");
     setClearSuccessMessage("");
-    const result = await clearLedger();
+    const result = await clearLedger(clearConfirmationValue);
 
     if (
       !mountedRef.current ||
@@ -373,7 +425,53 @@ export function DashboardShell({
     setSelectedTradeDate(null);
     setClearConfirmationMode(null);
     setClearConfirmationValue("");
-    setClearSuccessMessage("账本已清空");
+    setClearSuccessMessage(
+      storageKind === "ledger-file"
+        ? "当前 C 账本内容已清空"
+        : "账本已清空",
+    );
+  }
+
+  function requestImmediateLock() {
+    if (!session || !onFinalLock || lifecycleStatus !== "active") {
+      return;
+    }
+    if (isDirty) {
+      setShowLockConfirmation(true);
+      return;
+    }
+    void onFinalLock(
+      drainForSessionQuiesce,
+      "immediate-lock",
+    );
+  }
+
+  function confirmDiscardAndLock() {
+    if (!session || !onFinalLock || lifecycleStatus !== "active") {
+      return;
+    }
+    setShowLockConfirmation(false);
+    void onFinalLock(
+      drainForSessionQuiesce,
+      "immediate-lock",
+    );
+  }
+
+  async function retrySaveBeforeLock() {
+    const saved = await retryPersistence();
+    if (saved && mountedRef.current) {
+      setShowLockConfirmation(false);
+    }
+  }
+
+  if (lifecycleStatus === "quiescing") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-950">
+        <p aria-live="polite" className="text-sm text-slate-700">
+          正在安全锁定：已停止新操作，正在等待已接受的保存收尾…
+        </p>
+      </main>
+    );
   }
 
   return (
@@ -389,7 +487,55 @@ export function DashboardShell({
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
             本地记录交易和真实价格事实，持仓、盈亏与图表由同一份账本实时推导。
           </p>
+          {session?.storageKind === "ledger-file" && onFinalLock ? (
+            <button
+              className="mt-4 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
+              onClick={requestImmediateLock}
+              type="button"
+            >
+              立即锁定
+            </button>
+          ) : null}
         </header>
+
+          {showLockConfirmation ? (
+            <section
+              aria-label="未保存修改锁定确认"
+              className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900"
+            >
+              <p className="font-medium">还有内容没保存</p>
+              <p className="mt-1 leading-6">
+                你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。
+              </p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <button
+                  className="rounded-md border border-red-300 bg-white px-3 py-2 font-medium disabled:opacity-50"
+                  disabled={
+                    !canRetryPersistence ||
+                    persistenceOperation !== "idle"
+                  }
+                  onClick={() => void retrySaveBeforeLock()}
+                  type="button"
+                >
+                  重新保存
+                </button>
+                <button
+                  className="rounded-md bg-red-700 px-3 py-2 font-medium text-white"
+                  onClick={confirmDiscardAndLock}
+                  type="button"
+                >
+                  我确定不要了，继续锁定
+                </button>
+                <button
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
+                  onClick={() => setShowLockConfirmation(false)}
+                  type="button"
+                >
+                  取消
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           {hydrationStatus === "loading" ? (
             <p
@@ -716,7 +862,7 @@ export function DashboardShell({
               <div className="grid gap-4 text-sm text-slate-700">
                 <p>
                   {storageKind === "ledger-file"
-                    ? "当前实验会话只写入你选择的一个 .lftl 文件；IndexedDB 仍是尚未迁移用户的正式路径，本批没有完成全局接管。"
+                    ? "当前 .lftl 文件是唯一正式完整账本；IndexedDB 只保存上次选择的文件句柄和少量连接信息。"
                     : "本区只管理当前浏览器 origin 下的完整本地账本记录。"}
                 </p>
 
@@ -732,12 +878,13 @@ export function DashboardShell({
                   persistenceStatus={persistenceStatus}
                 />
 
-                {capabilities.canClear &&
+                {(capabilities.canClearReadyLedger ||
+                  capabilities.canClearHydrationError) &&
                 hydrationStatus === "loading" ? (
                   <p aria-live="polite">本地账本读取完成前不可清空。</p>
                 ) : null}
 
-                {capabilities.canClear &&
+                {capabilities.canClearReadyLedger &&
                 hydrationStatus === "ready" ? (
                   <button
                     className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -749,11 +896,13 @@ export function DashboardShell({
                     onClick={() => openClearConfirmation("normal")}
                     type="button"
                   >
-                    清空本地账本
+                    {storageKind === "ledger-file"
+                      ? "清空当前 C 账本"
+                      : "清空本地账本"}
                   </button>
                 ) : null}
 
-                {capabilities.canClear &&
+                {capabilities.canClearHydrationError &&
                 hydrationStatus === "error" ? (
                   <button
                     className="w-fit rounded-md border border-red-300 px-4 py-2 font-medium text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -769,11 +918,13 @@ export function DashboardShell({
                   <div className="grid gap-3 rounded-md border border-red-200 bg-red-50 p-4">
                     <p className="font-medium text-red-900">
                       {clearConfirmationMode === "normal"
-                        ? "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。"
+                        ? storageKind === "ledger-file"
+                          ? "这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C。文件仍会保留清空前的上一可用版，之后若当前代损坏，恢复可能回到清空前数据。"
+                          : "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。"
                         : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。"}
                     </p>
                     <label className="grid gap-2 font-medium text-red-900">
-                      输入“{CLEAR_LEDGER_CONFIRMATION_TEXT}”以确认
+                      输入“{clearConfirmationText}”以确认
                       <input
                         aria-label="输入清空确认文本"
                         className="rounded-md border border-red-300 bg-white px-3 py-2 font-normal text-slate-950 outline-none focus:border-red-500"
@@ -802,7 +953,9 @@ export function DashboardShell({
                         onClick={() => void handleClearLedger()}
                         type="button"
                       >
-                        确认永久清空
+                        {storageKind === "ledger-file"
+                          ? "确认清空当前 C 内容"
+                          : "确认永久清空"}
                       </button>
                       <button
                         className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"

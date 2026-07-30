@@ -18,8 +18,12 @@ import {
 } from "../backup/backupEnvelope";
 import { createTestLedgerRepository } from "../test/createTestLedgerRepository";
 import {
+  createLedgerSession,
   DefaultLedgerRepository,
+  INDEXED_DB_LEDGER_CAPABILITIES,
+  LEDGER_FILE_CAPABILITIES,
   LEDGER_REPOSITORY_ERROR_CODES,
+  LedgerSessionLifecycleError,
   type LedgerRepository,
 } from "../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
@@ -2177,5 +2181,208 @@ describe("usePersistentLedger clear recovery and lifecycle", () => {
       expect.objectContaining({ path: "trades[0].note" }),
     );
     expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it("synchronously registers an accepted mutation before quiesce and drains it before issuing the release proof", async () => {
+    const saveDeferred = createDeferred<void>();
+    const release = vi.fn(async () => undefined);
+    const repository = createRepository({
+      save: vi.fn(() => saveDeferred.promise),
+    });
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "hook-file-session",
+      release,
+    });
+    const { result } = renderHook(() =>
+      usePersistentLedgerRuntime(
+        session.repository,
+        fixedClock,
+        session.capabilities,
+        session,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    let tokenPromise!: ReturnType<
+      typeof result.current.drainForSessionQuiesce
+    >;
+    act(() => {
+      expect(
+        addTrade(
+          result.current.applyLedgerAction,
+          createSimpleTrade(
+            "accepted-before-effect",
+            "buy",
+            "BTC",
+            "1",
+          ),
+        ),
+      ).toBe("applied");
+      const request =
+        session.beginQuiesce("immediate-lock");
+      tokenPromise =
+        result.current.drainForSessionQuiesce(request);
+    });
+
+    expect(repository.save).toHaveBeenCalledOnce();
+    expect(release).not.toHaveBeenCalled();
+    expect(result.current.lifecycleStatus).toBe("quiescing");
+    expect(
+      addTrade(
+        result.current.applyLedgerAction,
+        createSimpleTrade("too-late", "buy", "ETH", "1"),
+      ),
+    ).toBe("rejected");
+    await expect(result.current.retryPersistence()).resolves.toBe(false);
+
+    saveDeferred.resolve();
+    const token = await tokenPromise;
+    expect(release).not.toHaveBeenCalled();
+    await session.lockAfterQuiesce(token);
+    expect(release).toHaveBeenCalledOnce();
+    expect(() => session.repository.load()).toThrow(
+      LedgerSessionLifecycleError,
+    );
+    expect(repository.save).toHaveBeenCalledOnce();
+  });
+
+  it("waits for an admitted hydration read before issuing a quiesce token and ignores its late UI result", async () => {
+    const loadDeferred = createDeferred<LedgerData | null>();
+    const release = vi.fn(async () => undefined);
+    const savedLedger = {
+      ...createInitialLedgerData(),
+      trades: [
+        createSimpleTrade(
+          "hydrated-before-lock",
+          "buy",
+          "BTC",
+          "1",
+        ),
+      ],
+    };
+    const repository = createRepository({
+      load: vi.fn(() => loadDeferred.promise),
+    });
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "slow-hydration-session",
+      release,
+    });
+    const { result } = renderHook(() =>
+      usePersistentLedgerRuntime(
+        session.repository,
+        fixedClock,
+        session.capabilities,
+        session,
+      ),
+    );
+    await waitFor(() => {
+      expect(repository.load).toHaveBeenCalledOnce();
+    });
+    expect(result.current.hydrationStatus).toBe("loading");
+
+    let tokenPromise!: ReturnType<
+      typeof result.current.drainForSessionQuiesce
+    >;
+    act(() => {
+      const request =
+        session.beginQuiesce("immediate-lock");
+      tokenPromise =
+        result.current.drainForSessionQuiesce(request);
+    });
+    let tokenIssued = false;
+    void tokenPromise.then(() => {
+      tokenIssued = true;
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(tokenIssued).toBe(false);
+    expect(() => session.repository.load()).toThrow(
+      LedgerSessionLifecycleError,
+    );
+    expect(release).not.toHaveBeenCalled();
+
+    await act(async () => {
+      loadDeferred.resolve(savedLedger);
+      await loadDeferred.promise;
+    });
+    const token = await tokenPromise;
+    expect(result.current.lifecycleStatus).toBe("quiescing");
+    expect(result.current.ledgerData).toEqual(
+      createInitialLedgerData(),
+    );
+    await session.lockAfterQuiesce(token);
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("drains an active clear and rejects a request from another session without freezing the current Hook", async () => {
+    const clearDeferred = createDeferred<void>();
+    const release = vi.fn(async () => undefined);
+    const repository = createRepository({
+      clear: vi.fn(() => clearDeferred.promise),
+    });
+    const session = createLedgerSession({
+      storageKind: "indexeddb",
+      repository,
+      capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+      createSessionId: () => "hook-clear-session",
+      release,
+    });
+    const other = createLedgerSession({
+      storageKind: "indexeddb",
+      repository: createRepository(),
+      capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+      createSessionId: () => "other-session",
+    });
+    const { result } = renderHook(() =>
+      usePersistentLedgerRuntime(
+        session.repository,
+        fixedClock,
+        session.capabilities,
+        session,
+      ),
+    );
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+
+    const wrongRequest = other.beginQuiesce("route-leave");
+    expect(() =>
+      result.current.drainForSessionQuiesce(wrongRequest),
+    ).toThrow(LedgerSessionLifecycleError);
+    expect(result.current.lifecycleStatus).toBe("active");
+
+    let clearPromise!: ReturnType<typeof result.current.clearLedger>;
+    act(() => {
+      clearPromise = result.current.clearLedger();
+    });
+    await waitFor(() => {
+      expect(repository.clear).toHaveBeenCalledOnce();
+    });
+
+    const request = session.beginQuiesce("route-leave");
+    let tokenPromise!: ReturnType<
+      typeof result.current.drainForSessionQuiesce
+    >;
+    act(() => {
+      tokenPromise =
+        result.current.drainForSessionQuiesce(request);
+    });
+    expect(release).not.toHaveBeenCalled();
+    clearDeferred.resolve();
+    await expect(clearPromise).resolves.toEqual({ ok: true });
+    const token = await tokenPromise;
+    await session.releaseAfterQuiesce(token);
+    expect(release).toHaveBeenCalledOnce();
   });
 });

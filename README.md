@@ -4,19 +4,18 @@
 
 ## 当前状态
 
-截至 2026-07-29，Week 10 的三图、Binance 行情与收尾修复均已完成。当前解析版本为
+截至 2026-07-30，Week 10 的三图、Binance 行情与收尾修复均已完成。当前解析版本为
 Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5` 和
 eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通过升级关闭；
 旧未来事实已提供逐条纠正入口，普通危险删除统一为两段确认。03D 独立验收没有发现 P0，
 形式上的两个 P1 是长按 Enter 后取消会吞掉下一次点击，以及常驻备份警告少写
 “应用不主动上传”；产品负责人已接受这些低风险项并批准主线收口，不再追加开发或复验。
-`LedgerData.schemaVersion` 仍为 `1`，Week 9 的 IndexedDB V2 静态加密主链保持不变。
+`LedgerData.schemaVersion` 仍为 `1`。Week 9 的 IndexedDB V2 静态加密账本不再是正常入口：若检测到旧完整账本，用户只能先解锁并迁移到新的 C，待新 C 关闭、复读、身份和内容验证成功后，再以固定文本确认删除旧记录。
 
 Week 11 第一批 `.lftl` C 文件合同与安全保存已经通过 01D-6 最终独立复验：
 FILE-001、FILE-002、FILE-004、FILE-005 完成。用户可以通过系统文件选择器新建或选择一个
 `.lftl`；同名目标由操作系统询问是否替换，取消则不写入，用户主动确认替换后允许创建新 C。
-本批仍不让 C 全局取代 IndexedDB，正式接管属于 FILE-003；C/B 迁移、上一版恢复、单写入者、
-含手续费净盈亏、单条编辑、新首页、历史 K 线和 NLP 录入仍属于待实现或待验收范围。
+第二批开发候选已经完成 C 正式接管、上一版恢复、单写入者、重连、密码生命周期与安全清空；全量自动化为 51 个测试文件、596 项测试，typecheck、lint、production build 和 whitespace 均通过。它仍是未提交候选，尚未运行 02C 独立审查或真实 Chrome，不能表述为最终独立 PASS。含手续费净盈亏、单条编辑、新首页、历史 K 线和 NLP 录入仍属于待实现或待验收范围。
 本 README 只陈述源码事实，不能替代外层 000、00A、00B 或批次执行与独立审查文档。
 
 Week 11 第一批候选实现与独立结论：
@@ -28,6 +27,14 @@ Week 11 第一批候选实现与独立结论：
 - 修复前固定 C V1 密文兼容测试通过；独立全量为 49 个测试文件、445 项测试，typecheck、lint、production build 和 diff-check 通过。
 - 真实 Chrome 完成宿主可见 `.lftl`、外层保密、BTC / ETH / ADA 保存、错密零写入、正密重开、picker 取消和 300 / 301 / 302 双代闭环。
 - 01D-6 最终判定 PASS；FILE-001、FILE-002、FILE-004、FILE-005 已允许回写外层 00B。
+
+Week 11 第二批开发候选（待 02C 独立验收）：
+
+- 正常产品入口只使用用户选定的 `.lftl`；IndexedDB 仅保存独立的 C 连接记录（文件句柄和最小身份信息），不保存密码、解密材料、完整 `LedgerData` 或隐藏回退账本。
+- current 损坏、previous 有效时提供可取消的恢复；使用 `isSameEntry()`、跨页面 lease、短时写锁和写前复读，防止同一真实文件被双写或旧页面覆盖。
+- 刷新重连、权限丢失、文件移动 / 删除、错选文件和旧异步结果全部 fail closed；密码只活在当前运行期，立即锁定先处理未保存内容，再清除密码并释放文件。
+- 已迁移的 legacy IndexedDB 完整账本只在新 C 经过完整复核且用户固定文本确认后删除；取消、失败、源数据变化或卸载晚到时都保留 legacy。
+- 清空只允许 ready C 在明确确认后进行：保存合法空账本为新 current，旧 current 成为 previous，关闭和复读验证成功后才显示完成。
 
 当前已实现：
 
@@ -53,7 +60,7 @@ Week 11 第一批候选实现与独立结论：
 - ResourcePolicy：v1 限制文件 8 MiB、assets 500、trades 25,000、priceSnapshots 5,000、feeRules 500 和关键字符串长度。
 - 超限保护：既有结构合法但超限的账本只读恢复；新 mutation 在进入 reducer 前拒绝，禁止自动保存与 clear 覆盖旧数据。
 - 自动化重挂载验收：使用真实组装链和 fake IndexedDB 证明交易、价格可在卸载后恢复。
-- 安全 clear：正常状态和 hydration error 状态均使用固定文本二段确认，完整删除本地账本并恢复全新的内置资产初始账本。
+- 安全 clear：legacy IndexedDB 只在已验证迁移后以固定文本删除；ready C 的 clear 以固定文本二段确认，写入空账本的新 current，不删除 `.lftl` 文件。
 - 通用持久化操作互斥：dispatch、自动保存和 clear 共用同步 operation ref 与写队列；重复 clear 共享同一 Promise。
 - clear 生命周期保护：覆盖排队写入、前置保存失败、clear 失败、Repository 切换和组件卸载。
 - clear 后空库保护：清空成功不自动保存初始账本；第一次新用户写入才重新生成 record。
@@ -74,11 +81,12 @@ Week 11 第一批候选实现与独立结论：
 - 三张图：当前 USD 等值持仓饼图、总市值/持仓成本阶梯曲线、最近 365 天交易热力图；支持 1 日、7 日、30 日、365 日和全部范围。
 - 真实缺价表达：全缺价不渲染误导性饼图，部分缺价显式列出未估值资产，曲线缺价断开且不使用成交价、成本、未来价格或 `0` 回填。
 - 热力交互：点击日期过滤交易列表，再次点击取消；导入与 clear 会重置日期筛选。
-- 派生边界：`Position[]`、分配切片、曲线点、热力等级、当前估值模式和选中日期均不进入 `LedgerData`、IndexedDB 或备份。
+- 派生边界：`Position[]`、分配切片、曲线点、热力等级、当前估值模式和选中日期均不进入 `LedgerData`、C、连接记录或备份。
 
 当前自动化结果：
 
 ```text
+Week 11 第二批开发侧自动化：51 个测试文件、596 项测试（待 02C 独立复验）
 Week 11 第一批最终独立自动化：49 个测试文件、445 项测试
 Week 11 原 F-01～F-03 对抗测试：salt 三路径、Hook 状态门、5 类 stale-selection 场景 PASS
 Week 11 F-04 开发修复：C V1 / IndexedDB V2 参数显式分流，固定 C V1 fixture PASS
@@ -126,13 +134,13 @@ Week 8 production DevTools 历史证据：旧 `ledger:v1` record 为
 ## 核心原则
 
 - `Trade`、`PriceSnapshot` 和 Binance 映射是事实数据。
-- `Position[]` 与全部图表数据由事实临时推导，不写入 reducer、IndexedDB 或备份。
+- `Position[]` 与全部图表数据由事实临时推导，不写入 reducer、C、连接记录或备份。
 - 数量和金额使用 `DecimalString -> decimal.js`，不使用 JavaScript 浮点数重算账本。
 - 不可信表单、IndexedDB 和未来 JSON 输入必须先通过运行时校验。
 - 市场价缺失就是缺失；不得以成交价、成本、未来价格或 `0` 伪造。
 - Binance 是可失败的外部输入，不是本地账本可用性的前置条件。
-- UI、Service 和 Reducer 不直接操作 IndexedDB。
-- IndexedDB whole-blob 使用 AES-256-GCM 静态加密；Noop EncryptionService 仅供隔离测试。
+- UI、Service 和 Reducer 不直接操作 IndexedDB 或 File System Access API。
+- legacy IndexedDB whole-blob 使用 AES-256-GCM 静态加密；正常账本在 C，IndexedDB 只保存 C 的连接记录。Noop EncryptionService 仅供隔离测试。
 - 明文备份不属于 IndexedDB 静态加密范围，备份 UI 必须在操作前常驻披露未加密、浏览器保存位置和同步目录风险。
 - `dev` / `start` 的项目脚本默认显式绑定 `127.0.0.1`，减少开发者误暴露；使用者仍可通过额外命令行参数覆盖 hostname，这不是绝对网络隔离。
 - Week 7 只保证单标签页内的顺序与 clear 安全；另一标签页可能在 clear 后把旧状态重新写回。
@@ -227,10 +235,11 @@ src/
   validators/    交易、价格、ISO 日期和完整 LedgerData 运行时校验
   services/      事实写入、行情刷新、统一选价、持仓与图表纯派生
   state/         初始账本、reducer、replace 与 hydration 状态
-  repositories/  整账 load / save / clear 与运行时校验边界
+  repositories/  C 与 legacy 的整账 load / save / clear、迁移和运行时校验边界
   encryption/    IndexedDB V2 与候选 .lftl 文件合同、Base64URL、PBKDF2 和 AES-GCM
-  adapters/      原生 IndexedDB whole-blob 与候选文件句柄适配器
-  composition/   IndexedDB 访问链与候选 C 文件访问链的组装点
+  adapters/      legacy IndexedDB whole-blob、C 连接记录与文件句柄适配器
+  coordination/  同一真实 C 的跨页面 lease 与短时写锁
+  composition/   legacy 迁移与 C 正常入口的组装点
   test/          共享 golden fixtures
 ```
 
@@ -291,7 +300,7 @@ git diff --check
 - production UI 能证明未来新事实拒绝；受控测试确认既有 future 事实不会进入持仓和三图，并能按 ID 逐条删除未来交易和价格。
 - 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
 - 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
-- `.lftl` C 文件已有功能分支候选，但 01D 已判定 FAIL；当前 IndexedDB 密文和明文 B 不能表述成已经完成的正式 C、iCloud 自动同步或多设备协调。
+- `.lftl` C 文件第二批候选已完成开发侧 Gate，但 02C 尚未独立审查；不得将候选说成最终 PASS、iCloud 自动同步或多设备协调。B 仍是明文救援材料，不由应用自动上传或删除。
 - 分页、virtual list 和大账本性能预算仍待后续 benchmark 定义，不能据此宣称 25,000 笔交易流畅；benchmark 已保留但不再是当前 Week 11 的直接开发入口。
 - 历史 K 线和单资产详情页已经进入外层产品共识，但源码仍未实现；情景价格、未来价格模拟、动画、主题、指标、dataZoom、账户、订单和下单同样不属于当前能力。
 - 开发侧在线复核确认原 Next SSRF advisory 不再命中。`npm audit --omit=dev`

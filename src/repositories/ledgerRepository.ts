@@ -45,34 +45,771 @@ export interface LedgerRepository {
 export type LedgerStorageKind = "indexeddb" | "ledger-file";
 
 export type LedgerSessionCapabilities = {
-  canClear: boolean;
+  canClearReadyLedger: boolean;
+  canClearHydrationError: boolean;
   canImportBackup: boolean;
 };
 
-export type LedgerSession = {
+export const READY_LEDGER_CLEAR_CONFIRMATION_TEXT =
+  "清空当前C账本";
+
+const readyLedgerClearAuthorizationBrand = Symbol(
+  "ready-ledger-clear-authorization",
+);
+const readyLedgerClearExecutionContextBrand = Symbol(
+  "ready-ledger-clear-execution-context",
+);
+const sessionQuiesceRequestBrand = Symbol(
+  "ledger-session-quiesce-request",
+);
+const sessionQuiesceTokenBrand = Symbol(
+  "ledger-session-quiesce-token",
+);
+
+export type SessionQuiesceReason =
+  | "immediate-lock"
+  | "route-leave";
+
+export type SessionQuiesceRequest = Readonly<{
+  sessionId: string;
+  generation: number;
+  [sessionQuiesceRequestBrand]: true;
+}>;
+
+export type SessionQuiesceToken = Readonly<{
+  sessionId: string;
+  generation: number;
+  [sessionQuiesceTokenBrand]: true;
+}>;
+
+export type ReadyLedgerClearAuthorization = Readonly<{
+  sessionId: string;
+  generation: number;
+  fileId: string;
+  verifiedRevisionId: string;
+  confirmationNonce: string;
+  [readyLedgerClearAuthorizationBrand]: true;
+}>;
+
+export type ReadyLedgerClearAuthorizationContext = Readonly<{
+  sessionId: string;
+  generation: number;
+  confirmationNonce: string;
+}>;
+
+export type ReadyLedgerClearExecutionContext = Readonly<{
+  sessionId: string;
+  generation: number;
+  [readyLedgerClearExecutionContextBrand]: true;
+}>;
+
+export type LedgerReadyClearDriver = Readonly<{
+  authorizeReadyClear(
+    context: ReadyLedgerClearAuthorizationContext,
+  ): ReadyLedgerClearAuthorization | null;
+  clearReadyLedger(
+    authorization: ReadyLedgerClearAuthorization,
+    executionContext: ReadyLedgerClearExecutionContext,
+  ): Promise<void>;
+}>;
+
+export type LedgerReadyClearPort = Readonly<{
+  authorizeReadyClear(
+    confirmationNonce: string,
+  ): ReadyLedgerClearAuthorization | null;
+  clearReadyLedger(
+    authorization: ReadyLedgerClearAuthorization,
+  ): Promise<void>;
+}>;
+
+export function createReadyLedgerClearAuthorizationForDriver(
+  context: ReadyLedgerClearAuthorizationContext,
+  evidence: Readonly<{
+    fileId: string;
+    verifiedRevisionId: string;
+  }>,
+): ReadyLedgerClearAuthorization {
+  return Object.freeze({
+    sessionId: context.sessionId,
+    generation: context.generation,
+    fileId: evidence.fileId,
+    verifiedRevisionId: evidence.verifiedRevisionId,
+    confirmationNonce: context.confirmationNonce,
+    [readyLedgerClearAuthorizationBrand]: true as const,
+  });
+}
+
+export type LedgerSession = Readonly<{
+  sessionId: string;
+  generation: number;
   storageKind: LedgerStorageKind;
   repository: LedgerRepository;
   capabilities: LedgerSessionCapabilities;
+  readyClearPort: LedgerReadyClearPort | null;
+  beginQuiesce(reason: SessionQuiesceReason): SessionQuiesceRequest;
+  lockAfterQuiesce(token: SessionQuiesceToken): Promise<void>;
+  releaseAfterQuiesce(token: SessionQuiesceToken): Promise<void>;
+}>;
+
+/**
+ * Hook-owned capability for work that was admitted before quiesce began.
+ *
+ * This port is deliberately absent from LedgerSession. The public repository
+ * façade stops accepting calls synchronously at beginQuiesce(), while the
+ * single registered Hook owner can finish its already accepted queue and is
+ * the only boundary able to issue the corresponding drain token.
+ */
+export type LedgerSessionPersistencePort = Readonly<{
+  repository: LedgerRepository;
+  completeQuiesce(
+    request: SessionQuiesceRequest,
+    settledWork: PromiseLike<unknown>,
+  ): Promise<SessionQuiesceToken>;
+}>;
+
+export class LedgerSessionLifecycleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LedgerSessionLifecycleError";
+  }
+}
+
+type SessionPhase =
+  | "active"
+  | "quiescing"
+  | "drained"
+  | "revoked"
+  | "released";
+
+type SessionRuntime = {
+  readonly sessionId: string;
+  generation: number;
+  phase: SessionPhase;
+  repository: LedgerRepository | null;
+  readonly release: () => Promise<void>;
+  readonly onBeginQuiesce: () => void;
+  request: SessionQuiesceRequest | null;
+  completionKind: "lock" | "release" | null;
+  completionPromise: Promise<void> | null;
+  persistencePortOwner: object | null;
+  persistencePort: LedgerSessionPersistencePort | null;
+  readonly readyClearDriver: LedgerReadyClearDriver | null;
 };
 
+type QuiesceRequestRuntime = {
+  readonly session: LedgerSession;
+  readonly runtime: SessionRuntime;
+  readonly request: SessionQuiesceRequest;
+  readonly reason: SessionQuiesceReason;
+  drainPromise: Promise<SessionQuiesceToken> | null;
+  token: SessionQuiesceToken | null;
+};
+
+type QuiesceTokenRuntime = {
+  readonly session: LedgerSession;
+  readonly runtime: SessionRuntime;
+  readonly requestRuntime: QuiesceRequestRuntime;
+  readonly token: SessionQuiesceToken;
+};
+
+export type CreateLedgerSessionOptions = {
+  storageKind: LedgerStorageKind;
+  repository: LedgerRepository;
+  capabilities: LedgerSessionCapabilities;
+  readyClearDriver?: LedgerReadyClearDriver;
+  onBeginQuiesce?: () => void;
+  release?: () => Promise<void>;
+  createSessionId?: () => string;
+};
+
+const sessionRuntimes = new WeakMap<LedgerSession, SessionRuntime>();
+const quiesceRequestRuntimes = new WeakMap<
+  SessionQuiesceRequest,
+  QuiesceRequestRuntime
+>();
+const quiesceTokenRuntimes = new WeakMap<
+  SessionQuiesceToken,
+  QuiesceTokenRuntime
+>();
+const readyClearAuthorizationRuntimes = new WeakMap<
+  ReadyLedgerClearAuthorization,
+  {
+    readonly session: LedgerSession;
+    readonly runtime: SessionRuntime;
+    readonly driver: LedgerReadyClearDriver;
+  }
+>();
+const readyClearAuthorizationContextRuntimes = new WeakMap<
+  ReadyLedgerClearAuthorizationContext,
+  {
+    readonly session: LedgerSession;
+    readonly runtime: SessionRuntime;
+    readonly driver: LedgerReadyClearDriver;
+  }
+>();
+const readyClearExecutionContextRuntimes = new WeakMap<
+  ReadyLedgerClearExecutionContext,
+  {
+    readonly session: LedgerSession;
+    readonly runtime: SessionRuntime;
+    readonly driver: LedgerReadyClearDriver;
+    readonly authorization: ReadyLedgerClearAuthorization;
+    claimed: boolean;
+  }
+>();
+let fallbackSessionSequence = 0;
+
 export const INDEXED_DB_LEDGER_CAPABILITIES: LedgerSessionCapabilities = {
-  canClear: true,
+  canClearReadyLedger: true,
+  canClearHydrationError: true,
   canImportBackup: true,
 };
 
 export const LEDGER_FILE_CAPABILITIES: LedgerSessionCapabilities = {
-  canClear: false,
+  canClearReadyLedger: true,
+  canClearHydrationError: false,
   canImportBackup: false,
 };
+
+export function createLedgerSession(
+  options: CreateLedgerSessionOptions,
+): LedgerSession {
+  const runtime: SessionRuntime = {
+    sessionId:
+      options.createSessionId?.() ?? createRuntimeSessionId(),
+    generation: 0,
+    phase: "active",
+    repository: options.repository,
+    release: options.release ?? (async () => undefined),
+    onBeginQuiesce: options.onBeginQuiesce ?? (() => undefined),
+    request: null,
+    completionKind: null,
+    completionPromise: null,
+    persistencePortOwner: null,
+    persistencePort: null,
+    readyClearDriver: options.readyClearDriver ?? null,
+  };
+
+  const repositoryFacade: LedgerRepository = {
+    load: () => requireActiveRepository(runtime).load(),
+    save: (ledgerData) =>
+      requireActiveRepository(runtime).save(ledgerData),
+    clear: () => requireActiveRepository(runtime).clear(),
+  };
+
+  const readyClearPort: LedgerReadyClearPort | null =
+    runtime.readyClearDriver
+      ? Object.freeze({
+          authorizeReadyClear: (confirmationNonce: string) => {
+            const driver = requireActiveReadyClearDriver(runtime);
+            if (
+              confirmationNonce !==
+              READY_LEDGER_CLEAR_CONFIRMATION_TEXT
+            ) {
+              return null;
+            }
+            const context: ReadyLedgerClearAuthorizationContext =
+              Object.freeze({
+              sessionId: runtime.sessionId,
+              generation: runtime.generation,
+              confirmationNonce,
+              });
+            readyClearAuthorizationContextRuntimes.set(context, {
+              session,
+              runtime,
+              driver,
+            });
+            const authorization =
+              driver.authorizeReadyClear(context);
+            if (authorization) {
+              readyClearAuthorizationRuntimes.set(authorization, {
+                session,
+                runtime,
+                driver,
+              });
+            }
+            return authorization;
+          },
+          clearReadyLedger: (
+            authorization: ReadyLedgerClearAuthorization,
+          ) =>
+            clearReadyLedgerForSession(
+              session,
+              runtime,
+              authorization,
+            ),
+        })
+      : null;
+
+  const session: LedgerSession = Object.freeze({
+    get sessionId() {
+      return runtime.sessionId;
+    },
+    get generation() {
+      return runtime.generation;
+    },
+    storageKind: options.storageKind,
+    repository: repositoryFacade,
+    capabilities: options.capabilities,
+    readyClearPort,
+    beginQuiesce: (reason) =>
+      beginSessionQuiesce(session, runtime, reason),
+    lockAfterQuiesce: (token) =>
+      finishSessionQuiesce(session, runtime, token, "lock"),
+    releaseAfterQuiesce: (token) =>
+      finishSessionQuiesce(session, runtime, token, "release"),
+  });
+  sessionRuntimes.set(session, runtime);
+  return session;
+}
+
+function requireActiveReadyClearDriver(
+  runtime: SessionRuntime,
+): LedgerReadyClearDriver {
+  if (runtime.phase !== "active" || !runtime.readyClearDriver) {
+    throw new LedgerSessionLifecycleError(
+      "Ready ledger clear is unavailable for this session",
+    );
+  }
+  return runtime.readyClearDriver;
+}
+
+function clearReadyLedgerForSession(
+  session: LedgerSession,
+  runtime: SessionRuntime,
+  authorization: ReadyLedgerClearAuthorization,
+): Promise<void> {
+  const authorizationRuntime =
+    readyClearAuthorizationRuntimes.get(authorization);
+  const driver = requireActiveReadyClearDriver(runtime);
+  if (
+    !authorizationRuntime ||
+    authorizationRuntime.session !== session ||
+    authorizationRuntime.runtime !== runtime ||
+    authorizationRuntime.driver !== driver ||
+    authorization.sessionId !== runtime.sessionId ||
+    authorization.generation !== runtime.generation
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Ready ledger clear authorization is invalid, stale, or belongs to another session",
+    );
+  }
+  const executionContext: ReadyLedgerClearExecutionContext =
+    Object.freeze({
+      sessionId: runtime.sessionId,
+      generation: runtime.generation,
+      [readyLedgerClearExecutionContextBrand]: true as const,
+    });
+  readyClearExecutionContextRuntimes.set(executionContext, {
+    session,
+    runtime,
+    driver,
+    authorization,
+    claimed: false,
+  });
+  let clearPromise: Promise<void>;
+  try {
+    clearPromise = driver.clearReadyLedger(
+      authorization,
+      executionContext,
+    );
+  } catch (error) {
+    readyClearExecutionContextRuntimes.delete(executionContext);
+    throw error;
+  }
+  if (
+    !readyClearExecutionContextRuntimes.get(executionContext)
+      ?.claimed
+  ) {
+    readyClearExecutionContextRuntimes.delete(executionContext);
+    void Promise.resolve(clearPromise).catch(() => undefined);
+    throw new LedgerSessionLifecycleError(
+      "Ready ledger clear driver did not claim its execution context synchronously",
+    );
+  }
+  return clearPromise.finally(() => {
+    readyClearExecutionContextRuntimes.delete(executionContext);
+  });
+}
+
+export function isReadyLedgerClearAuthorizationContextForDriver(
+  context: ReadyLedgerClearAuthorizationContext,
+  driver: LedgerReadyClearDriver,
+): boolean {
+  const contextRuntime =
+    readyClearAuthorizationContextRuntimes.get(context);
+  return Boolean(
+    contextRuntime &&
+      contextRuntime.driver === driver &&
+      contextRuntime.runtime.readyClearDriver === driver &&
+      contextRuntime.runtime.phase === "active" &&
+      contextRuntime.session.sessionId === context.sessionId &&
+      contextRuntime.session.generation === context.generation &&
+      context.confirmationNonce ===
+        READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
+  );
+}
+
+export function claimReadyLedgerClearExecutionContextForDriver(
+  executionContext: ReadyLedgerClearExecutionContext,
+  authorization: ReadyLedgerClearAuthorization,
+  driver: LedgerReadyClearDriver,
+): boolean {
+  const executionRuntime =
+    readyClearExecutionContextRuntimes.get(executionContext);
+  const authorizationRuntime =
+    readyClearAuthorizationRuntimes.get(authorization);
+  if (
+    !executionRuntime ||
+    executionRuntime.claimed ||
+    executionRuntime.authorization !== authorization ||
+    executionRuntime.driver !== driver ||
+    executionRuntime.runtime.readyClearDriver !== driver ||
+    executionRuntime.runtime.phase !== "active" ||
+    executionRuntime.session.sessionId !==
+      executionContext.sessionId ||
+    executionRuntime.session.generation !==
+      executionContext.generation ||
+    authorization.sessionId !== executionContext.sessionId ||
+    authorization.generation !== executionContext.generation ||
+    !authorizationRuntime ||
+    authorizationRuntime.session !== executionRuntime.session ||
+    authorizationRuntime.runtime !== executionRuntime.runtime ||
+    authorizationRuntime.driver !== driver
+  ) {
+    return false;
+  }
+  executionRuntime.claimed = true;
+  return true;
+}
+
+export function claimLedgerSessionPersistencePort(
+  session: LedgerSession,
+  owner: object,
+): LedgerSessionPersistencePort {
+  const runtime = requireSessionRuntime(session);
+  if (
+    runtime.persistencePortOwner !== null &&
+    runtime.persistencePortOwner !== owner
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Ledger session persistence port already belongs to another owner",
+    );
+  }
+  if (runtime.persistencePort) {
+    return runtime.persistencePort;
+  }
+  if (runtime.phase !== "active") {
+    throw new LedgerSessionLifecycleError(
+      "Ledger session persistence port must be claimed while active",
+    );
+  }
+
+  const repository: LedgerRepository = {
+    load: () => requirePersistenceRepository(runtime).load(),
+    save: (ledgerData) =>
+      requirePersistenceRepository(runtime).save(ledgerData),
+    clear: () => requirePersistenceRepository(runtime).clear(),
+  };
+  const port: LedgerSessionPersistencePort = Object.freeze({
+    repository,
+    completeQuiesce: (request, settledWork) =>
+      completeSessionQuiesce(
+        session,
+        runtime,
+        port,
+        request,
+        settledWork,
+      ),
+  });
+  runtime.persistencePortOwner = owner;
+  runtime.persistencePort = port;
+  return port;
+}
 
 export function createIndexedDbLedgerSession(
   repository: LedgerRepository,
 ): LedgerSession {
-  return {
+  return createLedgerSession({
     storageKind: "indexeddb",
     repository,
     capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
-  };
+  });
+}
+
+export function assertSessionQuiesceRequest(
+  session: LedgerSession,
+  request: SessionQuiesceRequest,
+): void {
+  const runtime = requireSessionRuntime(session);
+  const requestRuntime = quiesceRequestRuntimes.get(request);
+  if (
+    !requestRuntime ||
+    requestRuntime.session !== session ||
+    requestRuntime.runtime !== runtime ||
+    requestRuntime.request !== request ||
+    runtime.request !== request ||
+    (runtime.phase !== "quiescing" &&
+      runtime.phase !== "drained") ||
+    request.sessionId !== runtime.sessionId ||
+    request.generation !== runtime.generation
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Session quiesce request is invalid, stale, or belongs to another session",
+    );
+  }
+}
+
+function completeSessionQuiesce(
+  session: LedgerSession,
+  runtime: SessionRuntime,
+  port: LedgerSessionPersistencePort,
+  request: SessionQuiesceRequest,
+  settledWork: PromiseLike<unknown>,
+): Promise<SessionQuiesceToken> {
+  const sessionRuntime = requireSessionRuntime(session);
+  if (
+    sessionRuntime !== runtime ||
+    runtime.persistencePort !== port ||
+    runtime.persistencePortOwner === null
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Ledger session persistence port is invalid or stale",
+    );
+  }
+  assertSessionQuiesceRequest(session, request);
+  const requestRuntime = quiesceRequestRuntimes.get(request)!;
+  if (requestRuntime.drainPromise) {
+    return requestRuntime.drainPromise;
+  }
+
+  const drainPromise = Promise.resolve(settledWork).then(
+    () => issueQuiesceToken(requestRuntime),
+    () => issueQuiesceToken(requestRuntime),
+  );
+  requestRuntime.drainPromise = drainPromise;
+  return drainPromise;
+}
+
+function beginSessionQuiesce(
+  session: LedgerSession,
+  runtime: SessionRuntime,
+  reason: SessionQuiesceReason,
+): SessionQuiesceRequest {
+  if (
+    runtime.phase === "quiescing" ||
+    runtime.phase === "drained"
+  ) {
+    if (!runtime.request) {
+      throw new LedgerSessionLifecycleError(
+        "Quiescing session lost its request",
+      );
+    }
+    return runtime.request;
+  }
+  if (runtime.phase !== "active") {
+    throw new LedgerSessionLifecycleError(
+      "Locked or released session cannot begin quiescing",
+    );
+  }
+
+  runtime.onBeginQuiesce();
+  runtime.generation += 1;
+  runtime.phase = "quiescing";
+  const request: SessionQuiesceRequest = Object.freeze({
+    sessionId: runtime.sessionId,
+    generation: runtime.generation,
+    [sessionQuiesceRequestBrand]: true as const,
+  });
+  runtime.request = request;
+  quiesceRequestRuntimes.set(request, {
+    session,
+    runtime,
+    request,
+    reason,
+    drainPromise: null,
+    token: null,
+  });
+  return request;
+}
+
+function issueQuiesceToken(
+  requestRuntime: QuiesceRequestRuntime,
+): SessionQuiesceToken {
+  const { runtime } = requestRuntime;
+  if (
+    runtime.phase !== "quiescing" ||
+    runtime.request !== requestRuntime.request
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Session changed before quiesce drain completed",
+    );
+  }
+  if (requestRuntime.token) {
+    return requestRuntime.token;
+  }
+  const token: SessionQuiesceToken = Object.freeze({
+    sessionId: runtime.sessionId,
+    generation: runtime.generation,
+    [sessionQuiesceTokenBrand]: true as const,
+  });
+  requestRuntime.token = token;
+  runtime.phase = "drained";
+  quiesceTokenRuntimes.set(token, {
+    session: requestRuntime.session,
+    runtime,
+    requestRuntime,
+    token,
+  });
+  return token;
+}
+
+function finishSessionQuiesce(
+  session: LedgerSession,
+  runtime: SessionRuntime,
+  token: SessionQuiesceToken,
+  kind: "lock" | "release",
+): Promise<void> {
+  const sessionRuntime = requireSessionRuntime(session);
+  const tokenRuntime = quiesceTokenRuntimes.get(token);
+  if (
+    sessionRuntime !== runtime ||
+    !tokenRuntime ||
+    tokenRuntime.session !== session ||
+    tokenRuntime.runtime !== runtime ||
+    tokenRuntime.token !== token ||
+    tokenRuntime.requestRuntime.token !== token ||
+    token.sessionId !== runtime.sessionId ||
+    token.generation !== runtime.generation
+  ) {
+    return Promise.reject(
+      new LedgerSessionLifecycleError(
+        "Session quiesce token is invalid, stale, or belongs to another session",
+      ),
+    );
+  }
+  if (
+    runtime.completionKind !== null &&
+    runtime.completionKind !== kind
+  ) {
+    return Promise.reject(
+      new LedgerSessionLifecycleError(
+        "Session quiesce token cannot be consumed by two completion modes",
+      ),
+    );
+  }
+  if (
+    (tokenRuntime.requestRuntime.reason === "immediate-lock" &&
+      kind !== "lock") ||
+    (tokenRuntime.requestRuntime.reason === "route-leave" &&
+      kind !== "release")
+  ) {
+    return Promise.reject(
+      new LedgerSessionLifecycleError(
+        "Session quiesce token completion does not match its reason",
+      ),
+    );
+  }
+  if (runtime.completionPromise) {
+    return runtime.completionPromise;
+  }
+  if (runtime.phase === "released") {
+    return Promise.resolve();
+  }
+  if (runtime.phase !== "drained" && runtime.phase !== "revoked") {
+    return Promise.reject(
+      new LedgerSessionLifecycleError(
+        "Session must be fully drained before release",
+      ),
+    );
+  }
+
+  runtime.completionKind = kind;
+  runtime.repository = null;
+  runtime.phase = "revoked";
+  const completion = invokeLifecyclePromise(runtime.release).then(
+    () => {
+      runtime.phase = "released";
+    },
+    (error: unknown) => {
+      if (runtime.completionPromise === completion) {
+        runtime.completionPromise = null;
+      }
+      throw error;
+    },
+  );
+  runtime.completionPromise = completion;
+  return completion;
+}
+
+function requireSessionRuntime(session: LedgerSession): SessionRuntime {
+  const runtime = sessionRuntimes.get(session);
+  if (!runtime) {
+    throw new LedgerSessionLifecycleError(
+      "Ledger session was not created by the lifecycle boundary",
+    );
+  }
+  return runtime;
+}
+
+function requireReachableRepository(
+  runtime: SessionRuntime,
+): LedgerRepository {
+  if (
+    runtime.repository === null ||
+    runtime.phase === "revoked" ||
+    runtime.phase === "released"
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Ledger session repository is no longer reachable",
+    );
+  }
+  return runtime.repository;
+}
+
+function requireActiveRepository(
+  runtime: SessionRuntime,
+): LedgerRepository {
+  if (runtime.phase !== "active") {
+    throw new LedgerSessionLifecycleError(
+      "Ledger session no longer accepts new repository operations",
+    );
+  }
+  return requireReachableRepository(runtime);
+}
+
+function requirePersistenceRepository(
+  runtime: SessionRuntime,
+): LedgerRepository {
+  if (
+    runtime.phase !== "active" &&
+    runtime.phase !== "quiescing"
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Ledger session persistence queue is no longer reachable",
+    );
+  }
+  return requireReachableRepository(runtime);
+}
+
+function invokeLifecyclePromise(
+  operation: () => Promise<void>,
+): Promise<void> {
+  try {
+    return operation();
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}
+
+function createRuntimeSessionId(): string {
+  if (
+    typeof globalThis.crypto?.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+  fallbackSessionSequence += 1;
+  return `ledger-session-${fallbackSessionSequence}`;
 }
 
 export class DefaultLedgerRepository implements LedgerRepository {

@@ -1,5 +1,11 @@
-import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
-import type { StorageAdapter } from "./storageAdapter";
+import {
+  type StoredLedgerEnvelopeV2,
+  validateStoredLedgerEnvelopeV2,
+} from "../encryption/cryptoEnvelope";
+import type {
+  LegacyLedgerConditionalDeleteResult,
+  LegacyLedgerExitStorageAdapter,
+} from "./storageAdapter";
 
 export const INDEXED_DB_STORAGE_DEFAULTS = {
   databaseName: "local-first-trading-ledger",
@@ -21,7 +27,9 @@ export type IndexedDbStorageAdapterOptions = {
  *
  * 它只保存一个固定 key 的 envelope，不解析账本、不调用加密、不计算业务数据。
  */
-export class IndexedDbStorageAdapter implements StorageAdapter {
+export class IndexedDbStorageAdapter
+  implements LegacyLedgerExitStorageAdapter
+{
   private readonly databaseName: string;
   private readonly databaseVersion: number;
   private readonly storeName: string;
@@ -128,6 +136,78 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     });
   }
 
+  async deleteIfUnchanged(
+    expectedEnvelope: StoredLedgerEnvelopeV2,
+  ): Promise<LegacyLedgerConditionalDeleteResult> {
+    const expectedValidation =
+      validateStoredLedgerEnvelopeV2(expectedEnvelope);
+    if (!expectedValidation.ok) {
+      throw new Error(
+        "Legacy ledger conditional delete requires a valid V2 envelope",
+      );
+    }
+    const database = await this.openDatabase();
+
+    return new Promise((resolve, reject) => {
+      let result: LegacyLedgerConditionalDeleteResult = "changed";
+      let transaction: IDBTransaction;
+      try {
+        transaction = database.transaction(
+          this.storeName,
+          "readwrite",
+        );
+        const store = transaction.objectStore(this.storeName);
+        const readRequest = store.get(this.recordKey);
+        readRequest.onsuccess = () => {
+          if (readRequest.result === undefined) {
+            result = "missing";
+            return;
+          }
+          const currentValidation =
+            validateStoredLedgerEnvelopeV2(readRequest.result);
+          if (
+            !currentValidation.ok ||
+            !sameStoredLedgerEnvelope(
+              currentValidation.value,
+              expectedValidation.value,
+            )
+          ) {
+            result = "changed";
+            return;
+          }
+          result = "deleted";
+          store.delete(this.recordKey);
+        };
+        readRequest.onerror = () => {
+          transaction.abort();
+        };
+      } catch (error) {
+        reject(error);
+        return;
+      }
+
+      transaction.oncomplete = () => {
+        resolve(result);
+      };
+      transaction.onerror = () => {
+        reject(
+          transaction.error ??
+            new Error(
+              "IndexedDB conditional delete transaction failed",
+            ),
+        );
+      };
+      transaction.onabort = () => {
+        reject(
+          transaction.error ??
+            new Error(
+              "IndexedDB conditional delete transaction aborted",
+            ),
+        );
+      };
+    });
+  }
+
   async close(): Promise<void> {
     if (!this.databasePromise) {
       return;
@@ -183,4 +263,24 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
 
     return this.databasePromise;
   }
+}
+
+function sameStoredLedgerEnvelope(
+  left: StoredLedgerEnvelopeV2,
+  right: StoredLedgerEnvelopeV2,
+): boolean {
+  return (
+    left.formatVersion === right.formatVersion &&
+    left.cryptoVersion === right.cryptoVersion &&
+    left.ledgerSchemaVersion === right.ledgerSchemaVersion &&
+    left.kdf.name === right.kdf.name &&
+    left.kdf.hash === right.kdf.hash &&
+    left.kdf.iterations === right.kdf.iterations &&
+    left.kdf.saltBase64Url === right.kdf.saltBase64Url &&
+    left.cipher.name === right.cipher.name &&
+    left.cipher.keyLength === right.cipher.keyLength &&
+    left.cipher.ivBase64Url === right.cipher.ivBase64Url &&
+    left.cipher.tagLength === right.cipher.tagLength &&
+    left.ciphertextBase64Url === right.ciphertextBase64Url
+  );
 }
