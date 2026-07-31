@@ -47,6 +47,11 @@ export type LedgerDataValidationResult =
       errors: LedgerDataValidationError[];
     };
 
+export type IndexedValidatedLedgerTrade = Readonly<{
+  originalIndex: number;
+  trade: Readonly<Trade>;
+}>;
+
 /**
  * JSON / IndexedDB 数据进入 reducer 前的完整运行时边界。
  *
@@ -152,6 +157,41 @@ export function validateLedgerData(
       feeRules,
     },
   };
+}
+
+/**
+ * 为只读导入预检提供可安全到达的交易投影。
+ *
+ * 完整 LedgerData 仍必须通过 validateLedgerData() 才能成为写入候选；本函数
+ * 只让预检在另一笔交易损坏时继续检查结构独立的合法交易，例如生成可疑重复告警。
+ */
+export function collectValidLedgerTradeProjections(
+  input: unknown,
+): readonly IndexedValidatedLedgerTrade[] {
+  if (!isRecord(input)) {
+    return [];
+  }
+
+  const errors: LedgerDataValidationError[] = [];
+  const rawAssets = readCollection(input, "assets", errors);
+  const rawTrades = readCollection(input, "trades", errors);
+  if (rawAssets === undefined || rawTrades === undefined) {
+    return [];
+  }
+
+  const assets = rawAssets
+    .map((value, index) => readAsset(value, index, errors))
+    .filter((value): value is Asset => value !== undefined);
+  const projections: IndexedValidatedLedgerTrade[] = [];
+
+  rawTrades.forEach((value, originalIndex) => {
+    const trade = readTrade(value, originalIndex, assets, errors);
+    if (trade !== undefined) {
+      projections.push({ originalIndex, trade });
+    }
+  });
+
+  return projections;
 }
 
 function readCollection(

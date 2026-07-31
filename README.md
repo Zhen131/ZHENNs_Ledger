@@ -1,6 +1,6 @@
 # Local-First Personal Trading Ledger
 
-一个使用 Next.js、React 和 TypeScript 构建的浏览器本地优先交易账本原型。
+一个使用 Next.js、React 和 TypeScript 构建的本地优先交易账本。当前实现仍运行在浏览器中；2026-07-31 已确认下一阶段优先讨论 Mac 桌面端，尚未开始桌面代码实施。
 
 ## 当前状态
 
@@ -15,7 +15,9 @@ eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通�
 Week 11 第一批 `.lftl` C 文件合同与安全保存已经通过 01D-6 最终独立复验：
 FILE-001、FILE-002、FILE-004、FILE-005 完成。用户可以通过系统文件选择器新建或选择一个
 `.lftl`；同名目标由操作系统询问是否替换，取消则不写入，用户主动确认替换后允许创建新 C。
-第二批实现已经完成 C 正式接管、上一版恢复、单写入者、重连、密码生命周期与安全清空；02C 独立复跑确认 51 个测试文件、596 项测试以及 typecheck、lint、production build 和 whitespace 全部通过，没有发现强制 FAIL。02D 最终仍判 BLOCKED：受自动化环境限制，真实 Google Chrome 没有弹出 macOS 系统文件选择器，因而缺少真实文件、权限、双标签页和 raw IndexedDB 等强制浏览器证据。该结论不能表述为最终独立 PASS，六个 FILE 目标也不能据此回写完成。含手续费净盈亏、单条编辑、新首页、历史 K 线和 NLP 录入仍属于待实现或待验收范围。
+第二批实现已经完成 C 正式接管、上一版恢复、单写入者、重连、密码生命周期与安全清空；02C 独立复跑确认 51 个测试文件、596 项测试以及 typecheck、lint、production build 和 whitespace 全部通过，没有发现强制 FAIL。02D 最终仍判 BLOCKED：受自动化环境限制，真实 Google Chrome 没有弹出 macOS 系统文件选择器，因而缺少真实文件、权限、双标签页和 raw IndexedDB 等强制浏览器证据。该结论不能表述为最终独立 PASS，六个 FILE 目标也不能据此回写完成。
+
+第三批已经实现完整 B 导出、只读预检、错误报告、可疑重复分组和新空 C 的整本导入。开发侧最终为 55 个测试文件、698 项测试，typecheck、lint、production build 和 whitespace 通过；真实 Chrome 已跑通 macOS Save/Open picker、新 C、合法 300 笔 B、导入后 hash / revision、锁定和重开。03B 仍判整批 BLOCKED：纯浏览器无法在 close 后进程死亡、权限永久丢失或外部程序抢先改写时保证旧 C 一定恢复。03C / 03D 未执行；源码收口不等于独立 PASS。含手续费净盈亏、单条编辑、新首页、历史 K 线和 NLP 录入仍属于待实现或待验收范围。
 本 README 只陈述源码事实，不能替代外层 000、00A、00B 或批次执行与独立审查文档。
 
 Week 11 第一批候选实现与独立结论：
@@ -35,6 +37,16 @@ Week 11 第二批实现与 02D BLOCKED 边界：
 - 刷新重连、权限丢失、文件移动 / 删除、错选文件和旧异步结果全部 fail closed；密码只活在当前运行期，立即锁定先处理未保存内容，再清除密码并释放文件。
 - 已迁移的 legacy IndexedDB 完整账本只在新 C 经过完整复核且用户固定文本确认后删除；取消、失败、源数据变化或卸载晚到时都保留 legacy。
 - 清空只允许 ready C 在明确确认后进行：保存合法空账本为新 current，旧 current 成为 previous，关闭和复读验证成功后才显示完成。
+
+Week 11 第三批实现与 03B BLOCKED 边界：
+
+- B 导出继续使用 `BackupEnvelopeV1`，导出完整 `LedgerData`；页面只声明已发起下载，并持续提示 B 是明文敏感文件。
+- B 预检在任何写入前完成 UTF-8 大小、SHA-256、JSON、envelope、完整 LedgerData、ResourcePolicy、ImportPolicy、`rawText` 和交易时间线校验；硬错误不产生 partial candidate。
+- 不同 ID 的高度相似交易只生成可疑组和集中报告，不自动删除、合并或去重；用户取消时 C 零写入。
+- 整本导入只允许当前会话中新建且仍为空的 C，并绑定 repository、session / hook generation、fileId、revision、B identity、候选 identity 和选择代次。
+- 写入前保存旧 C 的完整序列化 bytes、fileId、current revision 和 previous；新 candidate 只有在 write、close、readback、解密、Validator 和 lineage 全部通过后才替换页面。
+- post-close 失败只在磁盘仍是本事务精确 candidate 时补偿旧 C；补偿或最终复读无法证明时返回 `IMPORT_RECOVERY_BLOCKED`，当前 repository 后续读取和写入保持关闭。
+- 上述补偿是浏览器可执行范围内的安全上限，不是操作系统事务。严格桌面方向需要另行设计同目录临时文件、同步、原子替换、稳定文件锁和启动恢复。
 
 当前已实现：
 
@@ -86,6 +98,9 @@ Week 11 第二批实现与 02D BLOCKED 边界：
 当前自动化结果：
 
 ```text
+Week 11 第三批开发自动化：55 个测试文件、698 项测试通过
+Week 11 第三批真实成功链：macOS picker、新 C、合法 300 笔 B、hash/revision、锁定重开通过
+Week 11 第三批最终结论：03B BLOCKED（纯浏览器无法满足进程死亡后的绝对恢复合同；03C / 03D 未执行）
 Week 11 第二批独立自动化：51 个测试文件、596 项测试通过
 Week 11 第一批最终独立自动化：49 个测试文件、445 项测试
 Week 11 原 F-01～F-03 对抗测试：salt 三路径、Hook 状态门、5 类 stale-selection 场景 PASS
@@ -142,8 +157,10 @@ Week 8 production DevTools 历史证据：旧 `ledger:v1` record 为
 - UI、Service 和 Reducer 不直接操作 IndexedDB 或 File System Access API。
 - legacy IndexedDB whole-blob 使用 AES-256-GCM 静态加密；正常账本在 C，IndexedDB 只保存 C 的连接记录。Noop EncryptionService 仅供隔离测试。
 - 明文备份不属于 IndexedDB 静态加密范围，备份 UI 必须在操作前常驻披露未加密、浏览器保存位置和同步目录风险。
+- 导入成功必须整本等于已冻结并验证的 B；不合并、不部分导入、不跳过错误、不自动去重。
+- 浏览器补偿恢复无法证明时必须 fail closed，不能为了继续使用而假定磁盘等于旧版或新版。
 - `dev` / `start` 的项目脚本默认显式绑定 `127.0.0.1`，减少开发者误暴露；使用者仍可通过额外命令行参数覆盖 hostname，这不是绝对网络隔离。
-- Week 7 只保证单标签页内的顺序与 clear 安全；另一标签页可能在 clear 后把旧状态重新写回。
+- 当前跨页面协调使用 Web Locks、句柄身份比较和 revision 复读；它不是操作系统文件锁，也不能约束不参与协议的原生程序。
 
 ## 已实现数据流
 
@@ -194,30 +211,30 @@ LedgerData facts
 -> EChart(Canvas 生命周期适配层)
 ```
 
-启动与持久化：
+正常 C 启动与持久化：
 
 ```text
 page
 -> LedgerAccessGate
--> inspect / setup / unlock
+-> 新建 / 选择 / 重连 C
+-> file session lease + identity / revision
+-> setup / unlock
 -> PBKDF2 + non-extractable CryptoKey
 -> DashboardShell(required repository)
 -> usePersistentLedger
--> LedgerRepository
--> WebCryptoEncryptionService
--> IndexedDbStorageAdapter
--> IndexedDB StoredLedgerEnvelopeV2
+-> LedgerFileRepository
+-> LedgerFileHandleAdapter
+-> 用户选择的 .lftl
 ```
 
-恢复：
+legacy IndexedDB 只作为迁移入口：
 
 ```text
-IndexedDB
--> Repository 解包与整账校验
--> ledger/replace
--> 确认 reducer 已显示恢复快照
--> hydration ready
--> 才允许用户写入和自动保存
+IndexedDB StoredLedgerEnvelopeV2
+-> 解锁并完整校验旧 LedgerData
+-> 新建 C 并完成 write / close / readback / 身份与内容验证
+-> 用户固定文本确认
+-> 条件删除原 legacy record
 ```
 
 ## 目录职责
@@ -301,6 +318,8 @@ git diff --check
 - 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
 - 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
 - `.lftl` C 文件第二批已通过独立自动化与质量门，但 02D 因真实 Chrome / 系统 picker 关键证据缺失判 BLOCKED；不得将其说成最终 PASS、iCloud 自动同步或多设备协调。B 仍是明文救援材料，不由应用自动上传或删除。
+- 第三批 B 预检和浏览器正常导入链已经实现；03B 因严格事务能力超出浏览器边界判 BLOCKED。当前候选在无法证明磁盘状态时停止读取和后续写入，但不得称为操作系统级原子事务。
+- 下一阶段已确认优先讨论 Mac 桌面端，手机端暂缓。具体框架接线、原生事务合同、旧数据迁移、签名公证、更新和批次拆分尚未决定；README 不把计划方向写成已实现能力。
 - 分页、virtual list 和大账本性能预算仍待后续 benchmark 定义，不能据此宣称 25,000 笔交易流畅；benchmark 已保留但不再是当前 Week 11 的直接开发入口。
 - 历史 K 线和单资产详情页已经进入外层产品共识，但源码仍未实现；情景价格、未来价格模拟、动画、主题、指标、dataZoom、账户、订单和下单同样不属于当前能力。
 - 开发侧在线复核确认原 Next SSRF advisory 不再命中。`npm audit --omit=dev`

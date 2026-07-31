@@ -7,6 +7,7 @@ import {
   sampleTrades,
 } from "../test/fixtures";
 import {
+  collectValidLedgerTradeProjections,
   LEDGER_DATA_VALIDATION_ERROR_CODES,
   validateLedgerData,
 } from "./ledgerDataValidator";
@@ -209,6 +210,36 @@ describe("validateLedgerData", () => {
     deepFreeze(input);
 
     expect(() => validateLedgerData(input)).not.toThrow();
+  });
+
+  it("exposes only independently valid trades with their original indexes for read-only preflight", () => {
+    const input = createCompleteLedger();
+    input.trades = [
+      {
+        ...input.trades[0],
+        id: "invalid-first",
+        quantity: "not-a-decimal",
+      },
+      {
+        ...input.trades[0],
+        id: "valid-second",
+      },
+      {
+        ...input.trades[1],
+        id: "valid-third",
+      },
+    ];
+
+    expect(collectValidLedgerTradeProjections(input)).toEqual([
+      {
+        originalIndex: 1,
+        trade: expect.objectContaining({ id: "valid-second" }),
+      },
+      {
+        originalIndex: 2,
+        trade: expect.objectContaining({ id: "valid-third" }),
+      },
+    ]);
   });
 });
 

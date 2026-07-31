@@ -1067,7 +1067,7 @@ describe("DashboardShell future fact correction", () => {
 });
 
 describe("DashboardShell data management", () => {
-  it("describes C as the only full ledger and keeps B import fail-closed", async () => {
+  it("describes C as the only full ledger, opens pure B preflight and keeps B import fail-closed", async () => {
     const repository = createMemoryRepository();
     render(
       <DashboardShell
@@ -1080,6 +1080,7 @@ describe("DashboardShell data management", () => {
         storageKind="ledger-file"
       />,
     );
+    const user = userEvent.setup();
 
     expect(
       await screen.findByText(
@@ -1090,8 +1091,20 @@ describe("DashboardShell data management", () => {
       await screen.findByRole("button", { name: "导出完整账本备份" }),
     ).toBeTruthy();
     expect(
-      screen.queryByLabelText("选择账本备份文件"),
+      screen.getByLabelText("选择账本备份文件"),
+    ).toBeTruthy();
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFile(createInitialLedgerData()),
+    );
+    expect(
+      await screen.findByText("B 历史导入预检报告"),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "确认恢复备份" }),
     ).toBeNull();
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(repository.clear).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", { name: "清空本地账本" }),
     ).toBeNull();
@@ -1182,8 +1195,8 @@ describe("DashboardShell data management", () => {
     expect(clearReadyLedger).toHaveBeenCalledOnce();
     expect(repository.clear).not.toHaveBeenCalled();
     expect(
-      screen.queryByLabelText("选择账本备份文件"),
-    ).toBeNull();
+      screen.getByLabelText("选择账本备份文件"),
+    ).toBeTruthy();
   });
 
   it("imports a confirmed backup through the UI and updates every dashboard view", async () => {
@@ -1209,7 +1222,9 @@ describe("DashboardShell data management", () => {
     });
     expect(repository.save).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await user.click(
+      await screen.findByRole("button", { name: "确认恢复备份" }),
+    );
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledWith(candidate);
       expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
@@ -1238,11 +1253,15 @@ describe("DashboardShell data management", () => {
       screen.getByLabelText("选择账本备份文件"),
       createBackupFile(createInitialLedgerData()),
     );
-    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await user.click(
+      await screen.findByRole("button", { name: "确认恢复备份" }),
+    );
 
     await waitFor(() => {
       expect(
-        screen.getByText("恢复写入失败，当前页面与本地记录未变更。"),
+        screen.getByText(
+          "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
+        ),
       ).not.toBeNull();
     });
     expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
@@ -1288,7 +1307,7 @@ describe("DashboardShell data management", () => {
       createRawBackupFile("{", "corrupt.json"),
     );
     await waitFor(() => {
-      expect(screen.getByText("无法导入：备份文件格式或内容无效。")).not.toBeNull();
+      expect(screen.getByText("预检发现硬错误；不得继续导入。")).not.toBeNull();
       expect(screen.getByText(/BACKUP_BAD_JSON/)).not.toBeNull();
     });
 
@@ -1336,7 +1355,9 @@ describe("DashboardShell data management", () => {
       screen.getByLabelText("选择账本备份文件"),
       createBackupFile(candidate),
     );
-    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await user.click(
+      await screen.findByRole("button", { name: "确认恢复备份" }),
+    );
 
     await waitFor(() => {
       expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
@@ -1365,11 +1386,15 @@ describe("DashboardShell data management", () => {
       screen.getByLabelText("选择账本备份文件"),
       createBackupFile(createCompleteLedger()),
     );
-    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await user.click(
+      await screen.findByRole("button", { name: "确认恢复备份" }),
+    );
 
     await waitFor(() => {
       expect(
-        screen.getByText("恢复写入失败，当前页面与本地记录未变更。"),
+        screen.getByText(
+          "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
+        ),
       ).not.toBeNull();
     });
     expect(
@@ -1395,12 +1420,16 @@ describe("DashboardShell data management", () => {
       screen.getByLabelText("选择账本备份文件"),
       createBackupFile(createInitialLedgerData()),
     );
-    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await user.click(
+      await screen.findByRole("button", { name: "确认恢复备份" }),
+    );
 
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(
-        screen.getByText("正在恢复备份，请勿关闭页面。"),
+        screen.getByText(
+          /取消时会尝试恢复并复读导入前的完整 C；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
+        ),
       ).not.toBeNull();
     });
     expect(
