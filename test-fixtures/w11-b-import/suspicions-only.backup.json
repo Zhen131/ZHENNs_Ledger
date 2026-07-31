@@ -1,0 +1,176 @@
+{
+  "backupFormatVersion": 1,
+  "appVersion": "0.1.0",
+  "exportedAt": "2026-07-30T12:00:00Z",
+  "ledgerSchemaVersion": 1,
+  "ledgerData": {
+    "schemaVersion": 1,
+    "assets": [
+      {
+        "id": "asset-btc",
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "quoteCurrency": "USD",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "BTCUSDT",
+          "baseAsset": "BTC",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "asset-eth",
+        "symbol": "ETH",
+        "name": "Ethereum",
+        "quoteCurrency": "USD",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "ETHUSDT",
+          "baseAsset": "ETH",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "asset-ada",
+        "symbol": "ADA",
+        "name": "Cardano",
+        "quoteCurrency": "USD",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "ADAUSDT",
+          "baseAsset": "ADA",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      }
+    ],
+    "trades": [
+      {
+        "id": "high-day",
+        "occurredAt": "2026-04-02",
+        "timePrecision": "day",
+        "type": "buy",
+        "assetSymbol": "BTC",
+        "quantity": "1",
+        "price": "100",
+        "totalValue": "100",
+        "currency": "USD",
+        "fee": "0",
+        "feeCurrency": "USD",
+        "rawText": "虚构 BTC 日精度记录。",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "high-exact",
+        "occurredAt": "2026-04-02T10:00:00Z",
+        "timePrecision": "second",
+        "type": "buy",
+        "assetSymbol": "BTC",
+        "quantity": "1.0",
+        "price": "100.0",
+        "totalValue": "100.00",
+        "currency": "USD",
+        "fee": "0",
+        "feeCurrency": "USD",
+        "rawText": "虚构 BTC 精确时间记录。",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "general-a",
+        "occurredAt": "2026-04-03T10:00:00Z",
+        "timePrecision": "second",
+        "type": "buy",
+        "assetSymbol": "ETH",
+        "quantity": "2",
+        "price": "10",
+        "totalValue": "20",
+        "currency": "USD",
+        "fee": "0",
+        "feeCurrency": "USD",
+        "rawText": "虚构 ETH 一般可疑记录 A。",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "general-b",
+        "occurredAt": "2026-04-03T10:00:00.000Z",
+        "timePrecision": "second",
+        "type": "buy",
+        "assetSymbol": "ETH",
+        "quantity": "2.0",
+        "price": "10.0",
+        "totalValue": "20.00",
+        "currency": "USD",
+        "fee": "0.1",
+        "feeCurrency": "USD",
+        "rawText": "虚构 ETH 一般可疑记录 B。",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "ada-split-a",
+        "occurredAt": "2026-04-04",
+        "timePrecision": "day",
+        "type": "buy",
+        "assetSymbol": "ADA",
+        "quantity": "3",
+        "price": "2",
+        "totalValue": "6",
+        "currency": "USD",
+        "fee": "0",
+        "feeCurrency": "USD",
+        "rawText": "虚构 ADA 合法拆单 A。",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "ada-split-b",
+        "occurredAt": "2026-04-04",
+        "timePrecision": "day",
+        "type": "buy",
+        "assetSymbol": "ADA",
+        "quantity": "4",
+        "price": "2",
+        "totalValue": "8",
+        "currency": "USD",
+        "fee": "0",
+        "feeCurrency": "USD",
+        "rawText": "虚构 ADA 合法拆单 B。",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      }
+    ],
+    "priceSnapshots": [
+      {
+        "id": "fictional-price-btc",
+        "assetSymbol": "BTC",
+        "price": "70000",
+        "currency": "USD",
+        "recordedAt": "2026-07-13",
+        "source": "manual",
+        "note": "虚构价格，仅用于 W11 B 导入测试。",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      }
+    ],
+    "feeRules": [
+      {
+        "id": "fictional-fee-rule",
+        "name": "虚构手续费",
+        "platform": "测试平台",
+        "type": "percentage",
+        "rate": "0.001",
+        "currency": "USD",
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      }
+    ]
+  }
+}
