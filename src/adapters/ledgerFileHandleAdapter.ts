@@ -28,6 +28,7 @@ export interface LedgerFileHandle {
   getFile(): Promise<LedgerFileLike>;
   createWritable(options?: {
     keepExistingData?: boolean;
+    mode?: "exclusive" | "siloed";
   }): Promise<LedgerFileWritable>;
   isSameEntry(other: LedgerFileHandle): Promise<boolean>;
   queryPermission?(options: {
@@ -69,6 +70,7 @@ export type LedgerFileAdapterErrorStage =
   | "write"
   | "close"
   | "readback"
+  | "aborted"
   | "permission-query"
   | "permission-request";
 
@@ -284,8 +286,10 @@ export class LedgerFileHandleAdapter {
   async writeAndReadBack(
     handle: LedgerFileHandle,
     serializedFile: string,
+    signal?: AbortSignal,
   ): Promise<LedgerFileReadResult> {
     this.assertLedgerFileExtension(handle);
+    assertWriteNotAborted(signal);
     const byteLength = new TextEncoder().encode(serializedFile).byteLength;
     if (byteLength > MAX_LEDGER_FILE_V1_BYTES) {
       throw new LedgerFileAdapterError(
@@ -298,6 +302,7 @@ export class LedgerFileHandleAdapter {
     try {
       writable = await handle.createWritable({
         keepExistingData: false,
+        mode: "exclusive",
       });
     } catch (error) {
       throw new LedgerFileAdapterError(
@@ -307,9 +312,28 @@ export class LedgerFileHandleAdapter {
       );
     }
 
+    const abortWritable = () => {
+      void bestEffortAbort(writable, signal?.reason);
+    };
+    signal?.addEventListener("abort", abortWritable, {
+      once: true,
+    });
+
     try {
+      if (signal?.aborted) {
+        await bestEffortAbort(writable, signal.reason);
+        assertWriteNotAborted(signal);
+      }
       await writable.write(serializedFile);
+      if (signal?.aborted) {
+        await bestEffortAbort(writable, signal.reason);
+        assertWriteNotAborted(signal);
+      }
     } catch (error) {
+      signal?.removeEventListener("abort", abortWritable);
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
       await bestEffortAbort(writable, error);
       throw new LedgerFileAdapterError(
         "write",
@@ -319,8 +343,14 @@ export class LedgerFileHandleAdapter {
     }
 
     try {
+      assertWriteNotAborted(signal);
       await writable.close();
+      assertWriteNotAborted(signal);
     } catch (error) {
+      signal?.removeEventListener("abort", abortWritable);
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
       await bestEffortAbort(writable, error);
       throw new LedgerFileAdapterError(
         "close",
@@ -330,13 +360,20 @@ export class LedgerFileHandleAdapter {
     }
 
     try {
-      return await this.read(handle);
+      const readback = await this.read(handle);
+      assertWriteNotAborted(signal);
+      return readback;
     } catch (error) {
+      if (error instanceof LedgerFileAdapterError && error.stage === "aborted") {
+        throw error;
+      }
       throw new LedgerFileAdapterError(
         "readback",
         "Could not read the ledger file after closing the writable stream",
         error,
       );
+    } finally {
+      signal?.removeEventListener("abort", abortWritable);
     }
   }
 
@@ -396,6 +433,17 @@ async function bestEffortAbort(
   } catch {
     // The original write/close failure remains the authoritative error.
   }
+}
+
+function assertWriteNotAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) {
+    return;
+  }
+  throw new LedgerFileAdapterError(
+    "aborted",
+    "Ledger file write was cancelled before verification completed",
+    signal.reason,
+  );
 }
 
 function isPickerCancellation(error: unknown): boolean {

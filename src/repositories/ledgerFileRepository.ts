@@ -13,21 +13,29 @@ import {
   validateDecryptedLedgerPayloadV1,
   validateLedgerFileV1,
 } from "../encryption/ledgerFileContract";
+import { createLedgerDataContentIdentity } from "../backup/backupContentIdentity";
 import { LedgerFileCrypto } from "../encryption/ledgerFileCrypto";
 import type { CryptoProvider } from "../encryption/webCryptoEncryptionService";
 import type { LedgerData } from "../models";
 import {
+  claimReadyLedgerImportExecutionContextForDriver,
   claimReadyLedgerClearExecutionContextForDriver,
+  createReadyLedgerImportAuthorizationForDriver,
   createReadyLedgerClearAuthorizationForDriver,
+  isReadyLedgerImportAuthorizationContextForDriver,
   isReadyLedgerClearAuthorizationContextForDriver,
   LEDGER_REPOSITORY_ERROR_CODES,
   LedgerRepositoryError,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
   type LedgerReadyClearDriver,
+  type LedgerReadyImportDriver,
   type LedgerRepository,
   type ReadyLedgerClearAuthorization,
   type ReadyLedgerClearAuthorizationContext,
   type ReadyLedgerClearExecutionContext,
+  type ReadyLedgerImportAuthorization,
+  type ReadyLedgerImportAuthorizationContext,
+  type ReadyLedgerImportExecutionContext,
 } from "./ledgerRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
 
@@ -43,6 +51,12 @@ export const LEDGER_FILE_REPOSITORY_ERROR_CODES = {
   CLEAR_UNSUPPORTED: "LEDGER_FILE_CLEAR_UNSUPPORTED",
   CLEAR_AUTHORIZATION_FAILED:
     "LEDGER_FILE_CLEAR_AUTHORIZATION_FAILED",
+  IMPORT_AUTHORIZATION_FAILED:
+    "LEDGER_FILE_IMPORT_AUTHORIZATION_FAILED",
+  IMPORT_FAILED_BASE_RESTORED:
+    "LEDGER_FILE_IMPORT_FAILED_BASE_RESTORED",
+  IMPORT_RECOVERY_BLOCKED:
+    "LEDGER_FILE_IMPORT_RECOVERY_BLOCKED",
 } as const;
 
 export type LedgerFileRepositoryErrorCode =
@@ -104,6 +118,10 @@ type PendingClearIntent = PendingSaveIntent & {
   authorization: ReadyLedgerClearAuthorization;
 };
 
+type PendingImportIntent = PendingSaveIntent & {
+  authorization: ReadyLedgerImportAuthorization;
+};
+
 type ReadyClearAuthorizationRuntime = {
   readonly repository: LedgerFileRepository;
   readonly authorization: ReadyLedgerClearAuthorization;
@@ -116,6 +134,18 @@ const readyClearAuthorizationRuntimes = new WeakMap<
   ReadyClearAuthorizationRuntime
 >();
 
+type ReadyImportAuthorizationRuntime = {
+  readonly repository: LedgerFileRepository;
+  readonly authorization: ReadyLedgerImportAuthorization;
+  state: "authorized" | "in-flight" | "consumed" | "blocked";
+  promise: Promise<LedgerData> | null;
+};
+
+const readyImportAuthorizationRuntimes = new WeakMap<
+  ReadyLedgerImportAuthorization,
+  ReadyImportAuthorizationRuntime
+>();
+
 export type LedgerFileOpenResult =
   | { status: "opened"; repository: LedgerFileRepository }
   | {
@@ -124,12 +154,19 @@ export type LedgerFileOpenResult =
     };
 
 export class LedgerFileRepository
-  implements LedgerRepository, LedgerReadyClearDriver
+  implements
+    LedgerRepository,
+    LedgerReadyClearDriver,
+    LedgerReadyImportDriver
 {
   private pendingIntent: PendingSaveIntent | null = null;
   private pendingClearIntent: PendingClearIntent | null = null;
   private activeClearAuthorization:
     | ReadyLedgerClearAuthorization
+    | null = null;
+  private pendingImportIntent: PendingImportIntent | null = null;
+  private activeImportAuthorization:
+    | ReadyLedgerImportAuthorization
     | null = null;
   private latestSaveRequest = 0;
 
@@ -349,10 +386,28 @@ export class LedgerFileRepository
   }
 
   async load(): Promise<LedgerData> {
+    if (this.isImportRecoveryBlocked()) {
+      throw importRecoveryBlockedError(
+        "The current disk state is unknown after a blocked import recovery",
+      );
+    }
+    if (this.pendingImportIntent || this.isImportInFlight()) {
+      throw importAuthorizationError(
+        "A ledger-file import is still reconciling its disk state",
+      );
+    }
     return structuredClone(this.verified.current.payload.ledgerData);
   }
 
   async save(candidate: LedgerData): Promise<void> {
+    if (
+      this.pendingImportIntent ||
+      this.isImportAuthorizationActive()
+    ) {
+      throw importAuthorizationError(
+        "A ledger-file import authorization already owns the next write",
+      );
+    }
     const candidateValidation = createCanonicalLedgerPayloadV1(
       candidate,
       this.verified.current.payload.savedAt,
@@ -374,6 +429,14 @@ export class LedgerFileRepository
   }
 
   private async saveExclusive(candidate: LedgerData): Promise<void> {
+    if (
+      this.pendingImportIntent ||
+      this.isImportAuthorizationActive()
+    ) {
+      throw importAuthorizationError(
+        "A ledger-file import must finish recovery before saving",
+      );
+    }
     if (this.pendingClearIntent) {
       throw new LedgerFileRepositoryError(
         LEDGER_FILE_REPOSITORY_ERROR_CODES.CLEAR_AUTHORIZATION_FAILED,
@@ -501,7 +564,9 @@ export class LedgerFileRepository
         context,
         this,
       ) ||
-      this.pendingIntent
+      this.pendingIntent ||
+      this.pendingImportIntent ||
+      this.isImportAuthorizationActive()
     ) {
       return null;
     }
@@ -598,6 +663,452 @@ export class LedgerFileRepository
       });
     runtime.promise = promise;
     return promise;
+  }
+
+  authorizeReadyImport(
+    context: ReadyLedgerImportAuthorizationContext,
+  ): ReadyLedgerImportAuthorization | null {
+    if (
+      !isReadyLedgerImportAuthorizationContextForDriver(
+        context,
+        this,
+      ) ||
+      this.pendingIntent ||
+      this.pendingClearIntent ||
+      this.pendingImportIntent ||
+      this.isClearAuthorizationActive() ||
+      !this.isVerifiedNewEmptyLedger()
+    ) {
+      return null;
+    }
+
+    if (this.activeImportAuthorization) {
+      const existing = this.activeImportAuthorization;
+      const runtime = readyImportAuthorizationRuntimes.get(existing);
+      if (
+        runtime &&
+        runtime.repository === this &&
+        runtime.state === "authorized" &&
+        existing.sessionId === context.sessionId &&
+        existing.generation === context.generation &&
+        existing.hookGeneration === context.hookGeneration &&
+        existing.contentIdentity === context.contentIdentity &&
+        existing.candidateIdentity === context.candidateIdentity &&
+        existing.selectionGeneration === context.selectionGeneration &&
+        existing.suspiciousGroupIdentity ===
+          context.suspiciousGroupIdentity
+      ) {
+        return existing;
+      }
+      if (
+        runtime?.state === "in-flight" ||
+        runtime?.state === "blocked"
+      ) {
+        return null;
+      }
+      this.activeImportAuthorization = null;
+    }
+
+    const authorization =
+      createReadyLedgerImportAuthorizationForDriver(context, {
+        fileId: this.verified.file.fileId,
+        verifiedRevisionId:
+          this.verified.file.current.revisionId,
+      });
+    readyImportAuthorizationRuntimes.set(authorization, {
+      repository: this,
+      authorization,
+      state: "authorized",
+      promise: null,
+    });
+    this.activeImportAuthorization = authorization;
+    return authorization;
+  }
+
+  importReadyLedger(
+    authorization: ReadyLedgerImportAuthorization,
+    candidate: LedgerData,
+    executionContext: ReadyLedgerImportExecutionContext,
+  ): Promise<LedgerData> {
+    const runtime =
+      readyImportAuthorizationRuntimes.get(authorization);
+    if (
+      !runtime ||
+      runtime.repository !== this ||
+      runtime.authorization !== authorization ||
+      this.activeImportAuthorization !== authorization ||
+      runtime.state !== "authorized"
+    ) {
+      return Promise.reject(importAuthorizationError());
+    }
+
+    runtime.state = "in-flight";
+    const promise = this.sessionLease
+      .runExclusiveWrite(async () => {
+        if (
+          !claimReadyLedgerImportExecutionContextForDriver(
+            executionContext,
+            authorization,
+            this,
+          )
+        ) {
+          throw importAuthorizationError(
+            "Ready ledger import was cancelled before its exclusive claim",
+          );
+        }
+        return this.importReadyLedgerExclusive(
+          authorization,
+          candidate,
+          executionContext.signal,
+        );
+      })
+      .then(
+        (ledgerData) => {
+          runtime.state = "consumed";
+          if (this.activeImportAuthorization === authorization) {
+            this.activeImportAuthorization = null;
+          }
+          return ledgerData;
+        },
+        (error: unknown) => {
+          const blocked =
+            error instanceof LedgerFileRepositoryError &&
+            error.code ===
+              LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_RECOVERY_BLOCKED;
+          runtime.state = blocked ? "blocked" : "consumed";
+          if (
+            !blocked &&
+            this.activeImportAuthorization === authorization
+          ) {
+            this.activeImportAuthorization = null;
+          }
+          throw error;
+        },
+      )
+      .finally(() => {
+        runtime.promise = null;
+      });
+    runtime.promise = promise;
+    return promise;
+  }
+
+  private async importReadyLedgerExclusive(
+    authorization: ReadyLedgerImportAuthorization,
+    candidate: LedgerData,
+    signal: AbortSignal,
+  ): Promise<LedgerData> {
+    const runtime =
+      readyImportAuthorizationRuntimes.get(authorization);
+    if (
+      !runtime ||
+      runtime.repository !== this ||
+      runtime.state !== "in-flight" ||
+      this.activeImportAuthorization !== authorization ||
+      this.pendingIntent ||
+      this.pendingClearIntent ||
+      this.pendingImportIntent ||
+      this.isClearAuthorizationActive()
+    ) {
+      throw importAuthorizationError();
+    }
+    assertImportActive(signal);
+
+    if (
+      authorization.fileId !== this.verified.file.fileId ||
+      authorization.verifiedRevisionId !==
+        this.verified.file.current.revisionId ||
+      !this.isVerifiedNewEmptyLedger()
+    ) {
+      throw importAuthorizationError(
+        "Ready ledger import no longer targets the authorized new empty C",
+      );
+    }
+
+    const comparison = createCanonicalLedgerPayloadV1(
+      candidate,
+      this.verified.current.payload.savedAt,
+    );
+    if (
+      !comparison.ok
+    ) {
+      throw importAuthorizationError(
+        "Ready ledger import candidate no longer matches its authorization",
+      );
+    }
+    if (
+      comparison.value.value.ledgerData.trades.some(
+        (trade) =>
+          typeof trade.rawText !== "string" ||
+          trade.rawText.trim().length === 0,
+      )
+    ) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+        "Historical ledger-file import requires non-empty rawText for every trade",
+      );
+    }
+    const candidateIdentity = await createLedgerDataContentIdentity(
+      comparison.value.value.ledgerData,
+    );
+    assertImportActive(signal);
+    if (candidateIdentity !== authorization.candidateIdentity) {
+      throw importAuthorizationError(
+        "Ready ledger import candidate no longer matches its authorization",
+      );
+    }
+
+    await this.assertDiskMatchesVerified();
+    assertImportActive(signal);
+
+    const payloadResult = createCanonicalLedgerPayloadV1(
+      candidate,
+      this.now().toISOString(),
+    );
+    if (!payloadResult.ok) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+        "Ledger data failed the import payload contract",
+        payloadResult.errors,
+      );
+    }
+    const baseFile = this.verified.file;
+    const baseCurrent = this.verified.current;
+    const revisionId = this.generateId();
+    if (
+      revisionId === baseFile.current.revisionId ||
+      revisionId === baseFile.previous?.revisionId
+    ) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+        "Revision generator returned an existing import revision",
+      );
+    }
+    const current = await this.crypto.encryptGeneration(
+      baseFile.fileId,
+      {
+        revisionId,
+        parentRevisionId: baseFile.current.revisionId,
+        ledgerSchemaVersion: 1,
+      },
+      payloadResult.value.serializedPayload,
+    );
+    assertImportActive(signal);
+    await this.assertDiskMatchesVerified();
+    assertImportActive(signal);
+
+    const nextFile: LedgerFileV1 = {
+      fileFormatVersion: 1,
+      fileId: baseFile.fileId,
+      crypto: baseFile.crypto,
+      current,
+      previous: baseFile.current,
+    };
+    assertValidLedgerFile(nextFile);
+    const pending: PendingImportIntent = {
+      authorization,
+      key: createIntentKey(
+        baseFile.fileId,
+        baseFile.current.revisionId,
+        payloadResult.value.serializedLedgerData,
+      ),
+      baseFile,
+      baseSerializedFile: this.verified.serializedFile,
+      baseCurrent,
+      file: nextFile,
+      serializedFile: serializeLedgerFile(nextFile),
+      expectedCurrent: payloadResult.value,
+    };
+    this.pendingImportIntent = pending;
+    let writeAttempted = false;
+
+    try {
+      assertImportActive(signal);
+      writeAttempted = true;
+      const readback = (
+        await this.adapter.writeAndReadBack(
+          this.handle,
+          pending.serializedFile,
+          signal,
+        )
+      ).text;
+      assertImportActive(signal);
+      if (readback !== pending.serializedFile) {
+        throw new LedgerFileRepositoryError(
+          LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+          "Ledger-file import readback did not match the exact transaction bytes",
+        );
+      }
+      const verified = await verifySerializedLedgerFile(
+        readback,
+        this.crypto,
+        expectedFromPending(pending),
+      );
+      assertImportActive(signal);
+      this.verified = verified;
+      this.pendingImportIntent = null;
+      return structuredClone(verified.current.payload.ledgerData);
+    } catch (error) {
+      if (!writeAttempted) {
+        this.pendingImportIntent = null;
+        throw error;
+      }
+      await this.restoreImportBaseline(pending, error);
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_FAILED_BASE_RESTORED,
+        "Ledger-file import failed; the exact pre-import C was restored and verified",
+        error,
+      );
+    }
+  }
+
+  private async restoreImportBaseline(
+    pending: PendingImportIntent,
+    originalError: unknown,
+  ): Promise<void> {
+    let currentText: string;
+    try {
+      currentText = (await this.adapter.read(this.handle)).text;
+    } catch (firstReadError) {
+      throw importRecoveryBlockedError({
+        originalError,
+        firstReadError,
+      });
+    }
+    if (currentText === pending.baseSerializedFile) {
+      try {
+        this.verified = await verifySerializedLedgerFile(
+          currentText,
+          this.crypto,
+        );
+        this.pendingImportIntent = null;
+        return;
+      } catch (baseVerificationError) {
+        throw importRecoveryBlockedError({
+          originalError,
+          baseVerificationError,
+        });
+      }
+    }
+    if (currentText !== pending.serializedFile) {
+      throw importRecoveryBlockedError({
+        originalError,
+        firstRead:
+          "Disk bytes were neither the exact pre-import base nor this transaction's exact candidate",
+      });
+    }
+
+    let compensationError: unknown;
+    try {
+      const restored = (
+        await this.adapter.writeAndReadBack(
+          this.handle,
+          pending.baseSerializedFile,
+        )
+      ).text;
+      if (restored !== pending.baseSerializedFile) {
+        throw new Error(
+          "Compensation readback did not match the exact pre-import bytes",
+        );
+      }
+      this.verified = await verifySerializedLedgerFile(
+        restored,
+        this.crypto,
+      );
+      this.pendingImportIntent = null;
+      return;
+    } catch (error) {
+      compensationError = error;
+    }
+
+    try {
+      const finalText = (await this.adapter.read(this.handle)).text;
+      if (finalText !== pending.baseSerializedFile) {
+        throw new Error(
+          "Final compensation readback did not match the exact pre-import bytes",
+        );
+      }
+      this.verified = await verifySerializedLedgerFile(
+        finalText,
+        this.crypto,
+      );
+      this.pendingImportIntent = null;
+      return;
+    } catch (finalReadError) {
+      throw importRecoveryBlockedError({
+        originalError,
+        compensationError,
+        finalReadError,
+      });
+    }
+  }
+
+  private isVerifiedNewEmptyLedger(): boolean {
+    if (
+      this.verified.previous !== null ||
+      this.verified.file.previous !== null ||
+      this.verified.file.current.parentRevisionId !== null
+    ) {
+      return false;
+    }
+    const initial = createCanonicalLedgerPayloadV1(
+      createInitialLedgerData(),
+      this.verified.current.payload.savedAt,
+    );
+    return (
+      initial.ok &&
+      initial.value.serializedLedgerData ===
+        this.verified.current.serializedLedgerData
+    );
+  }
+
+  private isClearAuthorizationActive(): boolean {
+    if (!this.activeClearAuthorization) {
+      return false;
+    }
+    const runtime = readyClearAuthorizationRuntimes.get(
+      this.activeClearAuthorization,
+    );
+    return (
+      runtime?.state === "authorized" ||
+      runtime?.state === "in-flight"
+    );
+  }
+
+  private isImportInFlight(): boolean {
+    if (!this.activeImportAuthorization) {
+      return false;
+    }
+    const runtime = readyImportAuthorizationRuntimes.get(
+      this.activeImportAuthorization,
+    );
+    return (
+      runtime?.state === "in-flight"
+    );
+  }
+
+  private isImportRecoveryBlocked(): boolean {
+    if (!this.activeImportAuthorization) {
+      return false;
+    }
+    return (
+      readyImportAuthorizationRuntimes.get(
+        this.activeImportAuthorization,
+      )?.state === "blocked"
+    );
+  }
+
+  private isImportAuthorizationActive(): boolean {
+    if (!this.activeImportAuthorization) {
+      return false;
+    }
+    const runtime = readyImportAuthorizationRuntimes.get(
+      this.activeImportAuthorization,
+    );
+    return (
+      runtime?.state === "authorized" ||
+      runtime?.state === "in-flight" ||
+      runtime?.state === "blocked"
+    );
   }
 
   private async clearReadyLedgerExclusive(
@@ -1472,6 +1983,34 @@ function clearAuthorizationError(): LedgerFileRepositoryError {
     LEDGER_FILE_REPOSITORY_ERROR_CODES.CLEAR_AUTHORIZATION_FAILED,
     "Ready ledger clear authorization is invalid, stale, or already used",
   );
+}
+
+function importAuthorizationError(
+  message =
+    "Ready ledger import authorization is invalid, stale, cancelled, or already used",
+): LedgerFileRepositoryError {
+  return new LedgerFileRepositoryError(
+    LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_AUTHORIZATION_FAILED,
+    message,
+  );
+}
+
+function importRecoveryBlockedError(
+  cause: unknown,
+): LedgerFileRepositoryError {
+  return new LedgerFileRepositoryError(
+    LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_RECOVERY_BLOCKED,
+    "Ledger-file import could not safely restore and verify the exact pre-import C",
+    cause,
+  );
+}
+
+function assertImportActive(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw importAuthorizationError(
+      "Ready ledger import was cancelled by its bound lifecycle",
+    );
+  }
 }
 
 function defaultGenerateId(): string {

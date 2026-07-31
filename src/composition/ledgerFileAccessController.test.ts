@@ -817,9 +817,10 @@ describe("DefaultLedgerFileAccessController", () => {
       capabilities: {
         canClearReadyLedger: true,
         canClearHydrationError: false,
-        canImportBackup: false,
+        canImportBackup: true,
       },
     });
+    expect(result.session.readyImportPort).not.toBeNull();
     await expect(result.session.repository.load()).resolves.toEqual(
       createInitialLedgerData(),
     );
