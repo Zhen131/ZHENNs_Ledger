@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-截至 2026-07-30，Week 10 的三图、Binance 行情与收尾修复均已完成。当前解析版本为
+截至 2026-07-31，Week 10 的三图、Binance 行情与收尾修复均已完成。当前解析版本为
 Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5` 和
 eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通过升级关闭；
 旧未来事实已提供逐条纠正入口，普通危险删除统一为两段确认。03D 独立验收没有发现 P0，
@@ -15,7 +15,7 @@ eslint-config-next `15.5.22`。02B 指出的 Next WebSocket upgrade SSRF 已通�
 Week 11 第一批 `.lftl` C 文件合同与安全保存已经通过 01D-6 最终独立复验：
 FILE-001、FILE-002、FILE-004、FILE-005 完成。用户可以通过系统文件选择器新建或选择一个
 `.lftl`；同名目标由操作系统询问是否替换，取消则不写入，用户主动确认替换后允许创建新 C。
-第二批开发候选已经完成 C 正式接管、上一版恢复、单写入者、重连、密码生命周期与安全清空；全量自动化为 51 个测试文件、596 项测试，typecheck、lint、production build 和 whitespace 均通过。它仍是未提交候选，尚未运行 02C 独立审查或真实 Chrome，不能表述为最终独立 PASS。含手续费净盈亏、单条编辑、新首页、历史 K 线和 NLP 录入仍属于待实现或待验收范围。
+第二批实现已经完成 C 正式接管、上一版恢复、单写入者、重连、密码生命周期与安全清空；02C 独立复跑确认 51 个测试文件、596 项测试以及 typecheck、lint、production build 和 whitespace 全部通过，没有发现强制 FAIL。02D 最终仍判 BLOCKED：受自动化环境限制，真实 Google Chrome 没有弹出 macOS 系统文件选择器，因而缺少真实文件、权限、双标签页和 raw IndexedDB 等强制浏览器证据。该结论不能表述为最终独立 PASS，六个 FILE 目标也不能据此回写完成。含手续费净盈亏、单条编辑、新首页、历史 K 线和 NLP 录入仍属于待实现或待验收范围。
 本 README 只陈述源码事实，不能替代外层 000、00A、00B 或批次执行与独立审查文档。
 
 Week 11 第一批候选实现与独立结论：
@@ -28,7 +28,7 @@ Week 11 第一批候选实现与独立结论：
 - 真实 Chrome 完成宿主可见 `.lftl`、外层保密、BTC / ETH / ADA 保存、错密零写入、正密重开、picker 取消和 300 / 301 / 302 双代闭环。
 - 01D-6 最终判定 PASS；FILE-001、FILE-002、FILE-004、FILE-005 已允许回写外层 00B。
 
-Week 11 第二批开发候选（待 02C 独立验收）：
+Week 11 第二批实现与 02D BLOCKED 边界：
 
 - 正常产品入口只使用用户选定的 `.lftl`；IndexedDB 仅保存独立的 C 连接记录（文件句柄和最小身份信息），不保存密码、解密材料、完整 `LedgerData` 或隐藏回退账本。
 - current 损坏、previous 有效时提供可取消的恢复；使用 `isSameEntry()`、跨页面 lease、短时写锁和写前复读，防止同一真实文件被双写或旧页面覆盖。
@@ -86,11 +86,11 @@ Week 11 第二批开发候选（待 02C 独立验收）：
 当前自动化结果：
 
 ```text
-Week 11 第二批开发侧自动化：51 个测试文件、596 项测试（待 02C 独立复验）
+Week 11 第二批独立自动化：51 个测试文件、596 项测试通过
 Week 11 第一批最终独立自动化：49 个测试文件、445 项测试
 Week 11 原 F-01～F-03 对抗测试：salt 三路径、Hook 状态门、5 类 stale-selection 场景 PASS
 Week 11 F-04 开发修复：C V1 / IndexedDB V2 参数显式分流，固定 C V1 fixture PASS
-Week 11 最新独立结论：01D-6 PASS
+Week 11 最新独立结论：02D BLOCKED（真实 Chrome / 系统 picker 关键证据缺失；未发现强制 FAIL）
 Week 10 收尾修复开发侧回归：42 个测试文件、383 项测试
 npm run typecheck -> 0 error
 npm run lint  -> 无 warning / error
@@ -300,7 +300,7 @@ git diff --check
 - production UI 能证明未来新事实拒绝；受控测试确认既有 future 事实不会进入持仓和三图，并能按 ID 逐条删除未来交易和价格。
 - 手动/自动估值模式只属于当前解锁会话，刷新后回到自动模式。
 - 用户导出的备份仍是明文文件；加密备份不在 Week 10 范围。
-- `.lftl` C 文件第二批候选已完成开发侧 Gate，但 02C 尚未独立审查；不得将候选说成最终 PASS、iCloud 自动同步或多设备协调。B 仍是明文救援材料，不由应用自动上传或删除。
+- `.lftl` C 文件第二批已通过独立自动化与质量门，但 02D 因真实 Chrome / 系统 picker 关键证据缺失判 BLOCKED；不得将其说成最终 PASS、iCloud 自动同步或多设备协调。B 仍是明文救援材料，不由应用自动上传或删除。
 - 分页、virtual list 和大账本性能预算仍待后续 benchmark 定义，不能据此宣称 25,000 笔交易流畅；benchmark 已保留但不再是当前 Week 11 的直接开发入口。
 - 历史 K 线和单资产详情页已经进入外层产品共识，但源码仍未实现；情景价格、未来价格模拟、动画、主题、指标、dataZoom、账户、订单和下单同样不属于当前能力。
 - 开发侧在线复核确认原 Next SSRF advisory 不再命中。`npm audit --omit=dev`
