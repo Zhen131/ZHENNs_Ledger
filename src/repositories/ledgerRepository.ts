@@ -1,4 +1,8 @@
 import type { StorageAdapter } from "../adapters/storageAdapter";
+import {
+  inspectLedgerBackupImportEvidence,
+  type LedgerBackupImportEvidence,
+} from "../backup/backupImportPreflight";
 import { validateStoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 import type { EncryptionService } from "../encryption/encryptionService";
 import type { LedgerData } from "../models";
@@ -59,6 +63,12 @@ const readyLedgerClearAuthorizationBrand = Symbol(
 const readyLedgerClearExecutionContextBrand = Symbol(
   "ready-ledger-clear-execution-context",
 );
+const readyLedgerImportAuthorizationBrand = Symbol(
+  "ready-ledger-import-authorization",
+);
+const readyLedgerImportExecutionContextBrand = Symbol(
+  "ready-ledger-import-execution-context",
+);
 const sessionQuiesceRequestBrand = Symbol(
   "ledger-session-quiesce-request",
 );
@@ -103,6 +113,37 @@ export type ReadyLedgerClearExecutionContext = Readonly<{
   [readyLedgerClearExecutionContextBrand]: true;
 }>;
 
+export type { LedgerBackupImportEvidence } from "../backup/backupImportPreflight";
+
+export type ReadyLedgerImportAuthorization = Readonly<{
+  sessionId: string;
+  generation: number;
+  hookGeneration: number;
+  fileId: string;
+  verifiedRevisionId: string;
+  contentIdentity: string;
+  candidateIdentity: string;
+  selectionGeneration: number;
+  suspiciousGroupIdentity: string;
+  [readyLedgerImportAuthorizationBrand]: true;
+}>;
+
+export type ReadyLedgerImportAuthorizationContext =
+  LedgerBackupImportEvidence &
+    Readonly<{
+      sessionId: string;
+      generation: number;
+      hookGeneration: number;
+      candidateIdentity: string;
+    }>;
+
+export type ReadyLedgerImportExecutionContext = Readonly<{
+  sessionId: string;
+  generation: number;
+  signal: AbortSignal;
+  [readyLedgerImportExecutionContextBrand]: true;
+}>;
+
 export type LedgerReadyClearDriver = Readonly<{
   authorizeReadyClear(
     context: ReadyLedgerClearAuthorizationContext,
@@ -122,6 +163,30 @@ export type LedgerReadyClearPort = Readonly<{
   ): Promise<void>;
 }>;
 
+export type LedgerReadyImportDriver = Readonly<{
+  authorizeReadyImport(
+    context: ReadyLedgerImportAuthorizationContext,
+  ): ReadyLedgerImportAuthorization | null;
+  importReadyLedger(
+    authorization: ReadyLedgerImportAuthorization,
+    candidate: LedgerData,
+    executionContext: ReadyLedgerImportExecutionContext,
+  ): Promise<LedgerData>;
+}>;
+
+export type LedgerReadyImportPort = Readonly<{
+  authorizeReadyImport(
+    evidence: LedgerBackupImportEvidence,
+    hookGeneration: number,
+    candidateIdentity: string,
+  ): ReadyLedgerImportAuthorization | null;
+  importReadyLedger(
+    authorization: ReadyLedgerImportAuthorization,
+    candidate: LedgerData,
+    signal: AbortSignal,
+  ): Promise<LedgerData>;
+}>;
+
 export function createReadyLedgerClearAuthorizationForDriver(
   context: ReadyLedgerClearAuthorizationContext,
   evidence: Readonly<{
@@ -139,6 +204,27 @@ export function createReadyLedgerClearAuthorizationForDriver(
   });
 }
 
+export function createReadyLedgerImportAuthorizationForDriver(
+  context: ReadyLedgerImportAuthorizationContext,
+  evidence: Readonly<{
+    fileId: string;
+    verifiedRevisionId: string;
+  }>,
+): ReadyLedgerImportAuthorization {
+  return Object.freeze({
+    sessionId: context.sessionId,
+    generation: context.generation,
+    hookGeneration: context.hookGeneration,
+    fileId: evidence.fileId,
+    verifiedRevisionId: evidence.verifiedRevisionId,
+    contentIdentity: context.contentIdentity,
+    candidateIdentity: context.candidateIdentity,
+    selectionGeneration: context.selectionGeneration,
+    suspiciousGroupIdentity: context.suspiciousGroupIdentity,
+    [readyLedgerImportAuthorizationBrand]: true as const,
+  });
+}
+
 export type LedgerSession = Readonly<{
   sessionId: string;
   generation: number;
@@ -146,6 +232,7 @@ export type LedgerSession = Readonly<{
   repository: LedgerRepository;
   capabilities: LedgerSessionCapabilities;
   readyClearPort: LedgerReadyClearPort | null;
+  readyImportPort: LedgerReadyImportPort | null;
   beginQuiesce(reason: SessionQuiesceReason): SessionQuiesceRequest;
   lockAfterQuiesce(token: SessionQuiesceToken): Promise<void>;
   releaseAfterQuiesce(token: SessionQuiesceToken): Promise<void>;
@@ -194,6 +281,8 @@ type SessionRuntime = {
   persistencePortOwner: object | null;
   persistencePort: LedgerSessionPersistencePort | null;
   readonly readyClearDriver: LedgerReadyClearDriver | null;
+  readonly readyImportDriver: LedgerReadyImportDriver | null;
+  readonly activeImportControllers: Set<AbortController>;
 };
 
 type QuiesceRequestRuntime = {
@@ -217,6 +306,7 @@ export type CreateLedgerSessionOptions = {
   repository: LedgerRepository;
   capabilities: LedgerSessionCapabilities;
   readyClearDriver?: LedgerReadyClearDriver;
+  readyImportDriver?: LedgerReadyImportDriver;
   onBeginQuiesce?: () => void;
   release?: () => Promise<void>;
   createSessionId?: () => string;
@@ -257,6 +347,34 @@ const readyClearExecutionContextRuntimes = new WeakMap<
     claimed: boolean;
   }
 >();
+const readyImportAuthorizationRuntimes = new WeakMap<
+  ReadyLedgerImportAuthorization,
+  {
+    readonly session: LedgerSession;
+    readonly runtime: SessionRuntime;
+    readonly driver: LedgerReadyImportDriver;
+    readonly evidence: LedgerBackupImportEvidence;
+  }
+>();
+const readyImportAuthorizationContextRuntimes = new WeakMap<
+  ReadyLedgerImportAuthorizationContext,
+  {
+    readonly session: LedgerSession;
+    readonly runtime: SessionRuntime;
+    readonly driver: LedgerReadyImportDriver;
+    readonly evidence: LedgerBackupImportEvidence;
+  }
+>();
+const readyImportExecutionContextRuntimes = new WeakMap<
+  ReadyLedgerImportExecutionContext,
+  {
+    readonly session: LedgerSession;
+    readonly runtime: SessionRuntime;
+    readonly driver: LedgerReadyImportDriver;
+    readonly authorization: ReadyLedgerImportAuthorization;
+    claimed: boolean;
+  }
+>();
 let fallbackSessionSequence = 0;
 
 export const INDEXED_DB_LEDGER_CAPABILITIES: LedgerSessionCapabilities = {
@@ -270,6 +388,12 @@ export const LEDGER_FILE_CAPABILITIES: LedgerSessionCapabilities = {
   canClearHydrationError: false,
   canImportBackup: false,
 };
+
+export const LEDGER_FILE_READY_IMPORT_CAPABILITIES:
+  LedgerSessionCapabilities = {
+    ...LEDGER_FILE_CAPABILITIES,
+    canImportBackup: true,
+  };
 
 export function createLedgerSession(
   options: CreateLedgerSessionOptions,
@@ -288,6 +412,8 @@ export function createLedgerSession(
     persistencePortOwner: null,
     persistencePort: null,
     readyClearDriver: options.readyClearDriver ?? null,
+    readyImportDriver: options.readyImportDriver ?? null,
+    activeImportControllers: new Set(),
   };
 
   const repositoryFacade: LedgerRepository = {
@@ -340,6 +466,64 @@ export function createLedgerSession(
             ),
         })
       : null;
+  const readyImportPort: LedgerReadyImportPort | null =
+    runtime.readyImportDriver
+      ? Object.freeze({
+          authorizeReadyImport: (
+            evidence: LedgerBackupImportEvidence,
+            hookGeneration: number,
+            candidateIdentity: string,
+          ) => {
+            const driver = requireActiveReadyImportDriver(runtime);
+            if (
+              !isValidReadyImportEvidence(
+                evidence,
+                hookGeneration,
+                candidateIdentity,
+              )
+            ) {
+              return null;
+            }
+            const context: ReadyLedgerImportAuthorizationContext =
+              Object.freeze({
+                ...evidence,
+                sessionId: runtime.sessionId,
+                generation: runtime.generation,
+                hookGeneration,
+                candidateIdentity,
+              });
+            readyImportAuthorizationContextRuntimes.set(context, {
+              session,
+              runtime,
+              driver,
+              evidence,
+            });
+            const authorization =
+              driver.authorizeReadyImport(context);
+            if (authorization) {
+              readyImportAuthorizationRuntimes.set(authorization, {
+                session,
+                runtime,
+                driver,
+                evidence,
+              });
+            }
+            return authorization;
+          },
+          importReadyLedger: (
+            authorization: ReadyLedgerImportAuthorization,
+            candidate: LedgerData,
+            signal: AbortSignal,
+          ) =>
+            importReadyLedgerForSession(
+              session,
+              runtime,
+              authorization,
+              candidate,
+              signal,
+            ),
+        })
+      : null;
 
   const session: LedgerSession = Object.freeze({
     get sessionId() {
@@ -352,6 +536,7 @@ export function createLedgerSession(
     repository: repositoryFacade,
     capabilities: options.capabilities,
     readyClearPort,
+    readyImportPort,
     beginQuiesce: (reason) =>
       beginSessionQuiesce(session, runtime, reason),
     lockAfterQuiesce: (token) =>
@@ -372,6 +557,17 @@ function requireActiveReadyClearDriver(
     );
   }
   return runtime.readyClearDriver;
+}
+
+function requireActiveReadyImportDriver(
+  runtime: SessionRuntime,
+): LedgerReadyImportDriver {
+  if (runtime.phase !== "active" || !runtime.readyImportDriver) {
+    throw new LedgerSessionLifecycleError(
+      "Ready ledger import is unavailable for this session",
+    );
+  }
+  return runtime.readyImportDriver;
 }
 
 function clearReadyLedgerForSession(
@@ -432,6 +628,87 @@ function clearReadyLedgerForSession(
   });
 }
 
+function importReadyLedgerForSession(
+  session: LedgerSession,
+  runtime: SessionRuntime,
+  authorization: ReadyLedgerImportAuthorization,
+  candidate: LedgerData,
+  signal: AbortSignal,
+): Promise<LedgerData> {
+  const authorizationRuntime =
+    readyImportAuthorizationRuntimes.get(authorization);
+  const driver = requireActiveReadyImportDriver(runtime);
+  if (
+    signal.aborted ||
+    !authorizationRuntime ||
+    authorizationRuntime.session !== session ||
+    authorizationRuntime.runtime !== runtime ||
+    authorizationRuntime.driver !== driver ||
+    authorization.sessionId !== runtime.sessionId ||
+    authorization.generation !== runtime.generation
+  ) {
+    throw new LedgerSessionLifecycleError(
+      "Ready ledger import authorization is invalid, stale, cancelled, or belongs to another session",
+    );
+  }
+  let candidateSnapshot: LedgerData;
+  try {
+    candidateSnapshot = structuredClone(candidate);
+  } catch {
+    throw new LedgerSessionLifecycleError(
+      "Ready ledger import candidate could not be captured",
+    );
+  }
+  const lifecycleController = new AbortController();
+  const abortFromCaller = () => lifecycleController.abort(signal.reason);
+  signal.addEventListener("abort", abortFromCaller, { once: true });
+  runtime.activeImportControllers.add(lifecycleController);
+  const executionContext: ReadyLedgerImportExecutionContext =
+    Object.freeze({
+      sessionId: runtime.sessionId,
+      generation: runtime.generation,
+      signal: lifecycleController.signal,
+      [readyLedgerImportExecutionContextBrand]: true as const,
+    });
+  readyImportExecutionContextRuntimes.set(executionContext, {
+    session,
+    runtime,
+    driver,
+    authorization,
+    claimed: false,
+  });
+  let importPromise: Promise<LedgerData>;
+  try {
+    importPromise = driver.importReadyLedger(
+      authorization,
+      candidateSnapshot,
+      executionContext,
+    );
+  } catch (error) {
+    signal.removeEventListener("abort", abortFromCaller);
+    runtime.activeImportControllers.delete(lifecycleController);
+    readyImportExecutionContextRuntimes.delete(executionContext);
+    throw error;
+  }
+  return importPromise
+    .then((ledgerData) => {
+      if (
+        !readyImportExecutionContextRuntimes.get(executionContext)
+          ?.claimed
+      ) {
+        throw new LedgerSessionLifecycleError(
+          "Ready ledger import driver completed without a valid execution claim",
+        );
+      }
+      return ledgerData;
+    })
+    .finally(() => {
+      signal.removeEventListener("abort", abortFromCaller);
+      runtime.activeImportControllers.delete(lifecycleController);
+      readyImportExecutionContextRuntimes.delete(executionContext);
+    });
+}
+
 export function isReadyLedgerClearAuthorizationContextForDriver(
   context: ReadyLedgerClearAuthorizationContext,
   driver: LedgerReadyClearDriver,
@@ -476,6 +753,78 @@ export function claimReadyLedgerClearExecutionContextForDriver(
     authorizationRuntime.session !== executionRuntime.session ||
     authorizationRuntime.runtime !== executionRuntime.runtime ||
     authorizationRuntime.driver !== driver
+  ) {
+    return false;
+  }
+  executionRuntime.claimed = true;
+  return true;
+}
+
+export function isReadyLedgerImportAuthorizationContextForDriver(
+  context: ReadyLedgerImportAuthorizationContext,
+  driver: LedgerReadyImportDriver,
+): boolean {
+  const contextRuntime =
+    readyImportAuthorizationContextRuntimes.get(context);
+  return Boolean(
+    contextRuntime &&
+      contextRuntime.driver === driver &&
+      contextRuntime.runtime.readyImportDriver === driver &&
+      contextRuntime.runtime.phase === "active" &&
+      contextRuntime.session.sessionId === context.sessionId &&
+      contextRuntime.session.generation === context.generation &&
+      isValidReadyImportEvidence(
+        contextRuntime.evidence,
+        context.hookGeneration,
+        context.candidateIdentity,
+      ) &&
+      context.contentIdentity ===
+        contextRuntime.evidence.contentIdentity &&
+      context.selectionGeneration ===
+        contextRuntime.evidence.selectionGeneration &&
+      context.suspiciousGroupIdentity ===
+        contextRuntime.evidence.suspiciousGroupIdentity,
+  );
+}
+
+export function claimReadyLedgerImportExecutionContextForDriver(
+  executionContext: ReadyLedgerImportExecutionContext,
+  authorization: ReadyLedgerImportAuthorization,
+  driver: LedgerReadyImportDriver,
+): boolean {
+  const executionRuntime =
+    readyImportExecutionContextRuntimes.get(executionContext);
+  const authorizationRuntime =
+    readyImportAuthorizationRuntimes.get(authorization);
+  if (
+    executionContext.signal.aborted ||
+    !executionRuntime ||
+    executionRuntime.claimed ||
+    executionRuntime.authorization !== authorization ||
+    executionRuntime.driver !== driver ||
+    executionRuntime.runtime.readyImportDriver !== driver ||
+    executionRuntime.runtime.phase !== "active" ||
+    executionRuntime.session.sessionId !==
+      executionContext.sessionId ||
+    executionRuntime.session.generation !==
+      executionContext.generation ||
+    authorization.sessionId !== executionContext.sessionId ||
+    authorization.generation !== executionContext.generation ||
+    !authorizationRuntime ||
+    authorizationRuntime.session !== executionRuntime.session ||
+    authorizationRuntime.runtime !== executionRuntime.runtime ||
+    authorizationRuntime.driver !== driver ||
+    !isValidReadyImportEvidence(
+      authorizationRuntime.evidence,
+      authorization.hookGeneration,
+      authorization.candidateIdentity,
+    ) ||
+    authorization.contentIdentity !==
+      authorizationRuntime.evidence.contentIdentity ||
+    authorization.selectionGeneration !==
+      authorizationRuntime.evidence.selectionGeneration ||
+    authorization.suspiciousGroupIdentity !==
+      authorizationRuntime.evidence.suspiciousGroupIdentity
   ) {
     return false;
   }
@@ -613,6 +962,13 @@ function beginSessionQuiesce(
     );
   }
 
+  for (const controller of runtime.activeImportControllers) {
+    controller.abort(
+      new LedgerSessionLifecycleError(
+        "Ready ledger import was cancelled because its session began quiescing",
+      ),
+    );
+  }
   runtime.onBeginQuiesce();
   runtime.generation += 1;
   runtime.phase = "quiescing";
@@ -800,6 +1156,37 @@ function invokeLifecyclePromise(
   } catch (error) {
     return Promise.reject(error);
   }
+}
+
+function isValidReadyImportEvidence(
+  evidence: LedgerBackupImportEvidence,
+  hookGeneration: number,
+  candidateIdentity: string,
+): boolean {
+  const attestation =
+    inspectLedgerBackupImportEvidence(evidence);
+  if (
+    !attestation ||
+    !attestation.requireHistoricalRawText ||
+    evidence.hardErrorCount !== 0 ||
+    !Number.isSafeInteger(evidence.selectionGeneration) ||
+    evidence.selectionGeneration < 1 ||
+    !Number.isSafeInteger(evidence.suspiciousGroupCount) ||
+    evidence.suspiciousGroupCount < 0 ||
+    !Number.isSafeInteger(hookGeneration) ||
+    hookGeneration < 0 ||
+    evidence.contentIdentity.length === 0 ||
+    evidence.candidateIdentity !== candidateIdentity ||
+    candidateIdentity.length === 0 ||
+    evidence.suspiciousGroupIdentity.length === 0
+  ) {
+    return false;
+  }
+
+  return evidence.suspiciousGroupCount === 0
+    ? evidence.confirmedSuspiciousGroupIdentity === null
+    : evidence.confirmedSuspiciousGroupIdentity ===
+        evidence.suspiciousGroupIdentity;
 }
 
 function createRuntimeSessionId(): string {

@@ -18,7 +18,7 @@ import type { LedgerData } from "../models";
 import {
   claimLedgerSessionPersistencePort,
   createLedgerSession,
-  LEDGER_FILE_CAPABILITIES,
+  LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   type LedgerSession,
   type LedgerSessionPersistencePort,
   type SessionQuiesceToken,
@@ -935,8 +935,9 @@ export class DefaultLedgerFileAccessController
     const session = createLedgerSession({
       storageKind: "ledger-file",
       repository,
-      capabilities: LEDGER_FILE_CAPABILITIES,
+      capabilities: LEDGER_FILE_READY_IMPORT_CAPABILITIES,
       readyClearDriver: repository,
+      readyImportDriver: repository,
       onBeginQuiesce: () => {
         if (this.activeSession !== active) {
           throw new Error("Ledger file session is no longer active");

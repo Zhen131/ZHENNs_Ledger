@@ -876,6 +876,9 @@ export function DashboardShell({
                   onImport={replaceLedgerFromBackup}
                   persistenceOperation={persistenceOperation}
                   persistenceStatus={persistenceStatus}
+                  requiresHistoricalRawText={
+                    storageKind === "ledger-file"
+                  }
                 />
 
                 {(capabilities.canClearReadyLedger ||

@@ -75,6 +75,14 @@ function createPickerProvider(
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe("LedgerFileHandleAdapter", () => {
   it("returns exactly the selected handle and uses the lowercase .lftl suggestion", async () => {
     const save = new AtomicFakeHandle("created.lftl");
@@ -251,6 +259,10 @@ describe("LedgerFileHandleAdapter", () => {
     await expect(
       adapter.writeAndReadBack(handle, "new"),
     ).resolves.toMatchObject({ text: "new", byteLength: 3 });
+    expect(handle.createWritable).toHaveBeenCalledWith({
+      keepExistingData: false,
+      mode: "exclusive",
+    });
     expect(handle.events).toEqual([
       "createWritable",
       "write",
@@ -295,5 +307,80 @@ describe("LedgerFileHandleAdapter", () => {
     expect(handle.events.indexOf("close")).toBeLessThan(
       handle.events.indexOf("getFile"),
     );
+  });
+
+  it("rejects an already-cancelled write before createWritable", async () => {
+    const adapter = new LedgerFileHandleAdapter();
+    const handle = new AtomicFakeHandle("cancelled.lftl", "old");
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      adapter.writeAndReadBack(handle, "new", controller.signal),
+    ).rejects.toMatchObject({ stage: "aborted" });
+    expect(handle.createWritable).not.toHaveBeenCalled();
+    expect(handle.events).toEqual([]);
+  });
+
+  it("aborts a writable that arrives after cancellation and never calls write or close", async () => {
+    const adapter = new LedgerFileHandleAdapter();
+    const handle = new AtomicFakeHandle("delayed-writable.lftl", "old");
+    const writableReady = createDeferred<void>();
+    const write = vi.fn(async () => undefined);
+    const close = vi.fn(async () => undefined);
+    const abort = vi.fn(async () => undefined);
+    handle.createWritable.mockImplementationOnce(async () => {
+      await writableReady.promise;
+      return { write, close, abort };
+    });
+    const controller = new AbortController();
+
+    const writePromise = adapter.writeAndReadBack(
+      handle,
+      "new",
+      controller.signal,
+    );
+    controller.abort();
+    writableReady.resolve();
+
+    await expect(writePromise).rejects.toMatchObject({
+      stage: "aborted",
+    });
+    expect(abort).toHaveBeenCalled();
+    expect(write).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("does not call close when cancellation occurs while write is pending", async () => {
+    const adapter = new LedgerFileHandleAdapter();
+    const handle = new AtomicFakeHandle("pending-write.lftl", "old");
+    const writeStarted = createDeferred<void>();
+    const writeRelease = createDeferred<void>();
+    const close = vi.fn(async () => undefined);
+    const abort = vi.fn(async () => undefined);
+    handle.createWritable.mockImplementationOnce(async () => ({
+      write: vi.fn(async () => {
+        writeStarted.resolve();
+        await writeRelease.promise;
+      }),
+      close,
+      abort,
+    }));
+    const controller = new AbortController();
+
+    const writePromise = adapter.writeAndReadBack(
+      handle,
+      "new",
+      controller.signal,
+    );
+    await writeStarted.promise;
+    controller.abort();
+    writeRelease.resolve();
+
+    await expect(writePromise).rejects.toMatchObject({
+      stage: "aborted",
+    });
+    expect(abort).toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
   });
 });
