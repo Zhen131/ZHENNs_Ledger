@@ -36,9 +36,9 @@ export class LedgerRepositoryError extends Error {
 }
 
 /**
- * 上层唯一的整账持久化入口。
+ * The only whole-ledger persistence entry point for higher layers.
  *
- * load 的 null 明确表示“没有保存数据”；它与已保存的空账本不同。
+ * A null load result explicitly means "no saved data" and differs from a saved empty ledger.
  */
 export interface LedgerRepository {
   load(): Promise<LedgerData | null>;
@@ -55,7 +55,7 @@ export type LedgerSessionCapabilities = {
 };
 
 export const READY_LEDGER_CLEAR_CONFIRMATION_TEXT =
-  "清空当前C账本";
+  "CLEAR CURRENT C LEDGER";
 
 const readyLedgerClearAuthorizationBrand = Symbol(
   "ready-ledger-clear-authorization",

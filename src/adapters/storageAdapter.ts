@@ -1,9 +1,9 @@
 import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 
 /**
- * StorageAdapter 只负责外部存储，不理解 LedgerData 或加密内容。
+ * StorageAdapter owns external persistence only; it does not interpret LedgerData or encrypted content.
  *
- * 空库必须返回 null，不能伪装成已经保存过的空账本。
+ * An empty store must return null rather than pretending that an empty ledger was saved.
  */
 export interface StorageAdapter {
   read(): Promise<unknown | null>;

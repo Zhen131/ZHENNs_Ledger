@@ -23,9 +23,9 @@ export type IndexedDbStorageAdapterOptions = {
 };
 
 /**
- * 原生 IndexedDB whole-blob 实现。
+ * Native IndexedDB whole-blob implementation.
  *
- * 它只保存一个固定 key 的 envelope，不解析账本、不调用加密、不计算业务数据。
+ * It stores one envelope under a fixed key and never parses the ledger, invokes encryption, or calculates domain data.
  */
 export class IndexedDbStorageAdapter
   implements LegacyLedgerExitStorageAdapter

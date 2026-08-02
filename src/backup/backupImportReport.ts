@@ -9,47 +9,47 @@ export function formatBackupImportReportMarkdown(
   result: BackupImportPreflightResult,
 ): string {
   const lines: string[] = [
-    "# B 历史导入预检报告",
+    "# Historical B Import Preflight Report",
     "",
-    "> 隐私提醒：本报告可能包含交易日期、资产、买卖方向、数量和金额等敏感信息；复制或保存前请确认目标位置安全。",
+    "> Privacy notice: this report may contain sensitive trade dates, assets, directions, quantities, and amounts. Confirm the destination is secure before copying or saving it.",
     "",
-    "## 摘要",
+    "## Summary",
     "",
-    `- B 内容 SHA-256：\`${result.contentIdentity.sha256}\``,
-    `- UTF-8 字节数：${result.contentIdentity.utf8ByteLength}`,
-    `- 选择代次：${result.selectionGeneration}`,
-    `- 硬错误总数：${result.hardErrorCount}`,
-    `- 可疑重复组总数：${result.suspiciousGroupCount}`,
-    `- 详情总数：${result.totalDetailCount}`,
-    `- 报告保留详情：${result.retainedDetailCount}`,
-    `- 可疑组 identity：\`${result.suspiciousGroupIdentity}\``,
-    `- 结论：${formatConclusion(result)}`,
+    `- B content SHA-256: \`${result.contentIdentity.sha256}\``,
+    `- UTF-8 byte length: ${result.contentIdentity.utf8ByteLength}`,
+    `- Selection generation: ${result.selectionGeneration}`,
+    `- Hard error count: ${result.hardErrorCount}`,
+    `- Suspicious duplicate group count: ${result.suspiciousGroupCount}`,
+    `- Total detail count: ${result.totalDetailCount}`,
+    `- Retained report details: ${result.retainedDetailCount}`,
+    `- Suspicious group identity: \`${result.suspiciousGroupIdentity}\``,
+    `- Conclusion: ${formatConclusion(result)}`,
   ];
 
   if (result.metadata) {
     lines.push(
       "",
-      "## B 元数据",
+      "## B Metadata",
       "",
-      `- 应用版本：${textOrUnavailable(result.metadata.appVersion)}`,
-      `- 导出时间：${textOrUnavailable(result.metadata.exportedAt)}`,
-      `- 资产：${numberOrUnavailable(result.metadata.assetCount)}`,
-      `- 交易：${numberOrUnavailable(result.metadata.tradeCount)}`,
-      `- 价格快照：${numberOrUnavailable(result.metadata.priceSnapshotCount)}`,
-      `- 手续费规则：${numberOrUnavailable(result.metadata.feeRuleCount)}`,
+      `- App version: ${textOrUnavailable(result.metadata.appVersion)}`,
+      `- Exported at: ${textOrUnavailable(result.metadata.exportedAt)}`,
+      `- Assets: ${numberOrUnavailable(result.metadata.assetCount)}`,
+      `- Trades: ${numberOrUnavailable(result.metadata.tradeCount)}`,
+      `- Price snapshots: ${numberOrUnavailable(result.metadata.priceSnapshotCount)}`,
+      `- Fee rules: ${numberOrUnavailable(result.metadata.feeRuleCount)}`,
     );
   }
 
   if (result.skippedChecks.length > 0) {
-    lines.push("", "## 未执行的检查", "");
+    lines.push("", "## Skipped Checks", "");
     result.skippedChecks.forEach(({ check, reason }) => {
-      lines.push(`- \`${inline(check)}\`：${singleLine(reason)}`);
+      lines.push(`- \`${inline(check)}\`: ${singleLine(reason)}`);
     });
   }
 
-  lines.push("", "## 详情", "");
+  lines.push("", "## Details", "");
   if (result.retainedDetails.length === 0) {
-    lines.push("未发现硬错误或可疑重复组。");
+    lines.push("No hard errors or suspicious duplicate groups were found.");
   } else {
     result.retainedDetails.forEach((detail, index) => {
       if (detail.kind === "hard-error") {
@@ -63,13 +63,13 @@ export function formatBackupImportReportMarkdown(
   if (result.truncated) {
     lines.push(
       "",
-      `> 详情共 ${result.totalDetailCount} 项，本报告只保留前 ${result.retainedDetailCount} 项。第 1001 项后已截断，请修正后重新检查。`,
+      `> ${result.totalDetailCount} details were found. This report retains the first ${result.retainedDetailCount}. Details after item 1000 were truncated; correct the data and run the check again.`,
     );
   }
 
   lines.push(
     "",
-    "> 可疑重复只是提示。本应用没有自动修改、删除、合并或去重任何交易，也没有修改、移动、删除或主动上传原 B 文件。",
+    "> Suspicious duplicates are warnings only. The app did not automatically modify, delete, merge, or deduplicate any trade, and it did not modify, move, delete, or upload the original B file.",
     "",
   );
   return lines.join("\n");
@@ -81,20 +81,20 @@ function appendHardError(
   number: number,
 ): void {
   lines.push(
-    `### ${number}. 硬错误`,
+    `### ${number}. Hard Error`,
     "",
-    `- 错误码：\`${inline(error.code)}\``,
-    `- 路径：\`${inline(error.path)}\``,
-    `- 说明：${singleLine(error.message)}`,
+    `- Error code: \`${inline(error.code)}\``,
+    `- Path: \`${inline(error.path)}\``,
+    `- Description: ${singleLine(error.message)}`,
   );
   if (error.line !== undefined && error.column !== undefined) {
-    lines.push(`- JSON 位置：第 ${error.line} 行，第 ${error.column} 列`);
+    lines.push(`- JSON location: line ${error.line}, column ${error.column}`);
   }
   if (error.limit !== undefined && error.actual !== undefined) {
-    lines.push(`- 资源边界：限制 ${error.limit}，实际 ${error.actual}`);
+    lines.push(`- Resource boundary: limit ${error.limit}, actual ${error.actual}`);
   }
   if (error.summary) {
-    lines.push(`- 交易摘要：${formatTradeSummary(error.summary)}`);
+    lines.push(`- Trade summary: ${formatTradeSummary(error.summary)}`);
   }
   lines.push("");
 }
@@ -106,72 +106,74 @@ function appendSuspiciousGroup(
 ): void {
   lines.push(
     `### ${number}. ${
-      detail.group.level === "high" ? "高度可疑" : "一般可疑"
-    }重复组`,
+      detail.group.level === "high" ? "Highly Suspicious" : "Suspicious"
+    } Duplicate Group`,
     "",
-    `- 原始路径：${detail.group.tradeIndices
+    `- Source paths: ${detail.group.tradeIndices
       .map((index) => `\`trades[${index}]\``)
-      .join("、")}`,
-    `- 交易 ID：${detail.group.tradeIds
+      .join(", ")}`,
+    `- Trade IDs: ${detail.group.tradeIds
       .map((id) => `\`${inline(id)}\``)
-      .join("、")}`,
-    `- 真实触发关系：${detail.group.triggerEdges
+      .join(", ")}`,
+    `- Trigger edges: ${detail.group.triggerEdges
       .map(
         (edge) =>
-          `\`trades[${edge.leftIndex}]\` ↔ \`trades[${edge.rightIndex}]\`（${
+          `\`trades[${edge.leftIndex}]\` ↔ \`trades[${edge.rightIndex}]\` (${
             edge.relation === "same-exact-time"
-              ? "精确时间相同"
-              : "同日且至少一笔为 day 精度"
-          }）`,
+              ? "same exact time"
+              : "same day with at least one day-precision trade"
+          })`,
       )
-      .join("；")}`,
+      .join("; ")}`,
   );
   detail.summaries.forEach((summary, index) => {
     lines.push(
-      `- trades[${detail.group.tradeIndices[index]}] 摘要：${formatTradeSummary(
+      `- trades[${detail.group.tradeIndices[index]}] summary: ${formatTradeSummary(
         summary,
       )}`,
     );
   });
-  lines.push(`- 说明：${singleLine(detail.message)}`, "");
+  lines.push(`- Description: ${singleLine(detail.message)}`, "");
 }
 
 function formatConclusion(result: BackupImportPreflightResult): string {
   if (result.hardErrorCount > 0) {
-    return "BLOCKED；存在硬错误，不得继续导入。";
+    return "BLOCKED: hard errors exist, so import must not continue.";
   }
   if (result.suspiciousGroupCount > 0) {
-    return "预检结构通过，但必须先对当前可疑组做一次明确确认。";
+    return "The structural preflight passed, but the current suspicious groups require explicit confirmation.";
   }
-  return "预检通过；本报告本身不代表已经写入 C。";
+  return "Preflight passed. This report does not prove that C was written.";
 }
 
 function formatTradeSummary(summary: BackupTradeSummary): string {
   const values = [
-    summary.occurredAt ? `日期 ${singleLine(summary.occurredAt)}` : undefined,
+    summary.occurredAt ? `Date ${singleLine(summary.occurredAt)}` : undefined,
     summary.assetSymbol
-      ? `资产 ${singleLine(summary.assetSymbol)}`
+      ? `Asset ${singleLine(summary.assetSymbol)}`
       : undefined,
     summary.type
-      ? `方向 ${summary.type === "buy" ? "买入" : "卖出"}`
+      ? `Direction ${summary.type === "buy" ? "Buy" : "Sell"}`
       : undefined,
-    summary.quantity ? `数量 ${singleLine(summary.quantity)}` : undefined,
-    summary.price ? `价格 ${singleLine(summary.price)}` : undefined,
+    summary.quantity ? `Quantity ${singleLine(summary.quantity)}` : undefined,
+    summary.price ? `Price ${singleLine(summary.price)}` : undefined,
     summary.totalValue
-      ? `总额 ${singleLine(summary.totalValue)}${
+      ? `Total value ${singleLine(summary.totalValue)}${
           summary.currency ? ` ${singleLine(summary.currency)}` : ""
         }`
       : undefined,
   ].filter((value): value is string => value !== undefined);
-  return values.length > 0 ? values.join("；") : "无可安全取得的摘要字段";
+  return values.length > 0
+    ? values.join("; ")
+    : "No summary fields can be retrieved safely";
 }
 
 function textOrUnavailable(value: string | undefined): string {
-  return value === undefined ? "不可得" : singleLine(value);
+  return value === undefined ? "Unavailable" : singleLine(value);
 }
 
 function numberOrUnavailable(value: number | undefined): string {
-  return value === undefined ? "不可得" : String(value);
+  return value === undefined ? "Unavailable" : String(value);
 }
 
 function inline(value: string): string {

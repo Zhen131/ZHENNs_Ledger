@@ -3,10 +3,10 @@ const ISO_DATETIME_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-](\d{2}):(\d{2}))$/;
 
 /**
- * 接受严格的 YYYY-MM-DD 或带时区的 ISO datetime。
+ * Accepts a strict YYYY-MM-DD value or an ISO datetime with a time zone.
  *
- * Date.parse 会把 2026-02-30 等无效日期自动滚动到三月，
- * 因此这里先逐段校验日历与时间，再用 Date.parse 做最终确认。
+ * Date.parse rolls invalid dates such as 2026-02-30 into March, so this code
+ * validates calendar and time segments first and uses Date.parse only for final confirmation.
  */
 export function isValidISODateOrDateTime(value: unknown): value is string {
   if (typeof value !== "string") {

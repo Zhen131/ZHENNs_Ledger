@@ -176,12 +176,12 @@ export async function preflightBackupJson(
 
   if (!bytePolicy.ok) {
     skippedChecks.push(
-      skipped("json-parse", "文件超过 8 MiB，上限检查后停止。"),
-      skipped("backup-envelope", "JSON 未解析。"),
-      skipped("ledger-structure", "JSON 未解析。"),
-      skipped("resource-policy", "JSON 未解析。"),
-      skipped("import-policy", "JSON 未解析。"),
-      skipped("duplicate-grouping", "JSON 未解析。"),
+      skipped("json-parse", "The file exceeds 8 MiB; processing stopped after the size check."),
+      skipped("backup-envelope", "JSON was not parsed."),
+      skipped("ledger-structure", "JSON was not parsed."),
+      skipped("resource-policy", "JSON was not parsed."),
+      skipped("import-policy", "JSON was not parsed."),
+      skipped("duplicate-grouping", "JSON was not parsed."),
     );
     return finalizeResult({
       contentIdentity,
@@ -202,11 +202,11 @@ export async function preflightBackupJson(
   } catch (error) {
     const location = extractJsonErrorLocation(error, serializedBackup);
     skippedChecks.push(
-      skipped("backup-envelope", "JSON 语法错误。"),
-      skipped("ledger-structure", "JSON 语法错误。"),
-      skipped("resource-policy", "JSON 语法错误。"),
-      skipped("import-policy", "JSON 语法错误。"),
-      skipped("duplicate-grouping", "JSON 语法错误。"),
+      skipped("backup-envelope", "The JSON syntax is invalid."),
+      skipped("ledger-structure", "The JSON syntax is invalid."),
+      skipped("resource-policy", "The JSON syntax is invalid."),
+      skipped("import-policy", "The JSON syntax is invalid."),
+      skipped("duplicate-grouping", "The JSON syntax is invalid."),
     );
     return finalizeResult({
       contentIdentity,
@@ -221,8 +221,8 @@ export async function preflightBackupJson(
           path: "file",
           message:
             location.line === undefined
-              ? "JSON 语法错误；解析器没有提供可靠的行列位置。"
-              : `JSON 语法错误，位置为第 ${location.line} 行、第 ${location.column} 列。`,
+              ? "The JSON syntax is invalid; the parser did not provide a reliable line and column."
+              : `The JSON syntax is invalid at line ${location.line}, column ${location.column}.`,
           ...location,
         },
       ],
@@ -259,11 +259,11 @@ export async function preflightBackupJson(
     skippedChecks.push(
       skipped(
         "resource-policy",
-        "LedgerData 结构未完整通过，不能安全执行完整资源策略。",
+        "The LedgerData structure did not fully validate, so the complete resource policy cannot run safely.",
       ),
       skipped(
         "import-policy",
-        "LedgerData 结构未完整通过，不能安全执行完整业务导入策略。",
+        "The LedgerData structure did not fully validate, so the complete import policy cannot run safely.",
       ),
     );
   } else {
@@ -285,7 +285,7 @@ export async function preflightBackupJson(
     skippedChecks.push(
       skipped(
         "duplicate-grouping",
-        "trades 不是可安全读取的数组，无法执行重复分组。",
+        "trades is not a safely readable array, so duplicate grouping cannot run.",
       ),
     );
   }
@@ -337,7 +337,7 @@ async function finalizeResult(
       createTradeSummary(input.parsed, index),
     ),
     message:
-      "这些交易仅被标记为可疑；应用没有自动修改、删除、合并或去重。",
+      "These trades are only marked as suspicious; the app did not automatically modify, delete, merge, or deduplicate them.",
   }));
   const allDetails: BackupPreflightDetail[] = [
     ...sortedHardErrors,
@@ -548,7 +548,7 @@ function normalizeEnvelopeError(
     stage: getValidationStage(error.code),
     code: error.code,
     path: error.path,
-    message: toChineseErrorMessage(error),
+    message: toEnglishErrorMessage(error),
     ...(summary === undefined ? {} : { summary }),
     ...("limit" in error ? { limit: error.limit, actual: error.actual } : {}),
   };
@@ -565,26 +565,26 @@ function getValidationStage(code: string): number {
   return 8;
 }
 
-function toChineseErrorMessage(error: BackupEnvelopeError): string {
+function toEnglishErrorMessage(error: BackupEnvelopeError): string {
   if (error.code.startsWith("LEDGER_RESOURCE_")) {
     return error.message;
   }
   if (error.code.startsWith("LEDGER_IMPORT_")) {
-    return `导入业务规则未通过：${error.message}`;
+    return `Import policy validation failed: ${error.message}`;
   }
   if (error.code.startsWith("LEDGER_DATA_")) {
-    return `账本字段未通过结构校验：${error.message}`;
+    return `Ledger field validation failed: ${error.message}`;
   }
 
   const labels: Partial<Record<BackupEnvelopeError["code"], string>> = {
-    BACKUP_BAD_JSON: "备份不是有效 JSON。",
-    BACKUP_INVALID_ENVELOPE: "备份外层结构无效。",
-    BACKUP_UNSUPPORTED_FORMAT_VERSION: "备份格式版本不受支持。",
-    BACKUP_INVALID_APP_VERSION: "备份应用版本缺失或无效。",
-    BACKUP_INVALID_EXPORTED_AT: "备份导出时间无效。",
-    BACKUP_SCHEMA_VERSION_MISMATCH: "备份账本 schema 版本不匹配。",
+    BACKUP_BAD_JSON: "The backup is not valid JSON.",
+    BACKUP_INVALID_ENVELOPE: "The backup envelope is invalid.",
+    BACKUP_UNSUPPORTED_FORMAT_VERSION: "The backup format version is unsupported.",
+    BACKUP_INVALID_APP_VERSION: "The backup app version is missing or invalid.",
+    BACKUP_INVALID_EXPORTED_AT: "The backup export time is invalid.",
+    BACKUP_SCHEMA_VERSION_MISMATCH: "The backup ledger schema version does not match.",
   };
-  return labels[error.code] ?? `备份校验失败：${error.message}`;
+  return labels[error.code] ?? `Backup validation failed: ${error.message}`;
 }
 
 function collectHistoricalRawTextErrors(
@@ -613,7 +613,7 @@ function collectHistoricalRawTextErrors(
       code: "BACKUP_TRADE_RAW_TEXT_REQUIRED",
       path: `trades[${index}].rawText`,
       message:
-        "历史导入要求保留对应原句；rawText 必须是非空字符串，且不会被 trim、摘要或重写。",
+        "Historical import must preserve each source sentence. rawText must be a non-empty string and will not be trimmed, summarized, or rewritten.",
       summary: createTradeSummary(parsed, index),
     });
   });
@@ -656,7 +656,7 @@ function collectDuplicateTradeIdErrors(
       stage: 4,
       code: "LEDGER_DATA_DUPLICATE_IDENTIFIER",
       path,
-      message: `交易 ID 重复；首次出现在 trades[${firstIndex}].id。`,
+      message: `Duplicate trade ID; first seen at trades[${firstIndex}].id.`,
       summary: createTradeSummary(parsed, index),
     });
   });

@@ -15,9 +15,9 @@ export type LedgerTimeSnapshot = Readonly<{
 }>;
 
 /**
- * 从 LedgerClock 捕获单一时刻，并从同一个 Date 派生本地日期。
+ * Captures one instant from LedgerClock and derives the local date from the same Date.
  *
- * invariant：同一次业务操作的时间戳和“今天”必须来自同一次 clock.now()。
+ * Invariant: the timestamp and "today" for one domain operation must come from the same clock.now() call.
  */
 export function captureLedgerTime(clock: LedgerClock): LedgerTimeSnapshot {
   const now = clock.now();

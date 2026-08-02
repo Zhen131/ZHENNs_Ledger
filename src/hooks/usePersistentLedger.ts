@@ -166,7 +166,7 @@ export type ImportLedgerResult =
     };
 
 /**
- * 统一管理启动读取、hydration 门禁和 ready 后的串行自动保存。
+ * Coordinates startup loading, the hydration gate, and serialized autosave after ready.
  */
 export function usePersistentLedger(
   requestedRepository: LedgerRepository,
@@ -539,8 +539,8 @@ export function usePersistentLedger(
           ) {
             setPersistenceError(
               requiresReopen
-                ? "C 已在本页面之外发生变化。当前修改尚未保存；为避免覆盖新版本，请重新打开该 C。"
-                : "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
+                ? "C changed outside this page. The current changes are unsaved; reopen C to avoid overwriting the newer version."
+                : "Local save failed and the page data is unsaved. Refreshing will restore the last successfully saved version.",
             );
           }
 
@@ -736,7 +736,7 @@ export function usePersistentLedger(
         hydratedRepositoryRef.current = null;
         hydrationErrorRepositoryRef.current = activeRepository;
         setPersistenceError(
-          "本地账本读取失败，已停止自动保存以避免覆盖原数据",
+          "Local ledger loading failed. Autosave was stopped to avoid overwriting the original data.",
         );
         setHydrationStatus("error");
       }
@@ -1204,13 +1204,13 @@ export function usePersistentLedger(
               ) {
                 setPersistenceError(
                   readyClearAttempted
-                    ? "清空当前 C 的结果未确认，页面没有显示成功；请重试以核对同一次清空操作"
-                    : "清空当前 C 未通过安全确认，文件没有写入",
+                    ? "The result of clearing the current C was not confirmed, so the page did not report success. Retry to verify the same clear operation."
+                    : "Clearing the current C did not pass safety confirmation, so the file was not written.",
                 );
               }
             } else {
               setPersistenceError(
-                "清空本地账本失败，原页面与本地数据均未更改",
+                "Clearing the local ledger failed. The page and local data were not changed.",
               );
             }
           }
@@ -1513,7 +1513,7 @@ export function usePersistentLedger(
               if (mountedRef.current) {
                 setIsReadOnly(true);
                 setPersistenceError(
-                  "导入后的 C 无法确认，也无法证明已恢复原文件；当前会话已停止全部写入，请立即锁定并保留该文件用于恢复。",
+                  "The imported C could not be confirmed, and restoration of the original file could not be proven. All writes are disabled for this session; lock immediately and preserve the file for recovery.",
                 );
               }
               return {
@@ -1528,7 +1528,7 @@ export function usePersistentLedger(
             ) {
               if (mountedRef.current) {
                 setPersistenceError(
-                  "导入未完成；已复读确认 C 恢复为导入前的完整版本，页面没有替换。",
+                  "Import did not complete. A reread confirmed that C was restored to the complete pre-import version, and the page was not replaced.",
                 );
               }
               return {
@@ -1555,7 +1555,7 @@ export function usePersistentLedger(
             ) {
               if (mountedRef.current) {
                 setPersistenceError(
-                  "导入写入前发现 C 已在本页面之外发生变化；本次导入没有写入，请重新打开该 C。",
+                  "C changed outside this page before the import write. Nothing was written; reopen C.",
                 );
               }
               return {
@@ -1571,7 +1571,7 @@ export function usePersistentLedger(
             }
             if (mountedRef.current) {
               setPersistenceError(
-                "导入在写入 C 前失败，页面没有替换；未取得“旧 C 已恢复”的事后证据。",
+                "Import failed before writing C, and the page was not replaced. No post-operation evidence proves that the old C was restored.",
               );
             }
             return {
@@ -1599,7 +1599,7 @@ export function usePersistentLedger(
           if (mountedRef.current) {
             setIsReadOnly(true);
             setPersistenceError(
-              "导入写回后的账本与预检候选不一致；当前会话已停止全部写入，请立即锁定并重新打开 C。",
+              "The ledger read after import does not match the preflight candidate. All writes are disabled for this session; lock immediately and reopen C.",
             );
           }
           return {

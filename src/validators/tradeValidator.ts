@@ -23,16 +23,16 @@ import { isSupportedValuationCurrency } from "../policies/ledgerFactPolicy";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
 
 /**
- * USD 第一版允许 quantity * price 与 totalValue 相差 1 美分。
+ * The first USD version allows quantity * price and totalValue to differ by one cent.
  *
- * 调用方可以通过 TradeValidationContext 覆盖该值；Validator 不负责货币换算。
+ * Callers can override this value through TradeValidationContext; the validator does not convert currencies.
  */
 export const DEFAULT_TOTAL_VALUE_TOLERANCE: DecimalString = "0.01";
 
 /**
- * 稳定错误码供 UI、导入流程和测试判断。
+ * Stable error codes for UI, import flows, and tests.
  *
- * message 只用于展示或诊断，不应作为程序分支条件。
+ * message is for display or diagnostics only and must not control program branches.
  */
 export const TRADE_VALIDATION_ERROR_CODES = {
   INVALID_INPUT: "INVALID_INPUT",
@@ -63,17 +63,17 @@ export type TradeValidationError = {
 };
 
 /**
- * 校验成功后 fee 一定存在；表单或导入数据未提供 fee 时标准化为 "0"。
+ * After validation, fee always exists; missing form or import fees normalize to "0".
  */
 export type ValidatedTradeDraft = Omit<TradeDraft, "fee"> & {
   fee: DecimalString;
 };
 
 /**
- * priorTrades 包含当前账本已经接受的全部交易。
+ * priorTrades contains every trade already accepted by the current ledger.
  *
- * Validator 会把候选交易插入完整时间线后检查持仓和币种，
- * 但不会修改该数组。
+ * The validator inserts the candidate into the complete timeline to check positions and currencies,
+ * but it does not mutate the array.
  */
 export type TradeValidationContext = {
   assets: readonly Asset[];
@@ -95,11 +95,11 @@ export type TradeValidationResult =
     };
 
 /**
- * tradeValidator 的公开函数契约。
+ * Public function contract for tradeValidator.
  *
- * 输入使用 unknown，因为表单和 JSON 导入在运行时都不可信。
- * validateTradeDraft 满足该签名并返回结构化结果，普通校验失败不通过
- * throw 表达。
+ * Input is unknown because form and JSON import data are untrusted at runtime.
+ * validateTradeDraft satisfies this signature and returns a structured result;
+ * ordinary validation failures are not expressed by throwing.
  */
 export type TradeDraftValidator = (
   input: unknown,
@@ -107,9 +107,9 @@ export type TradeDraftValidator = (
 ) => TradeValidationResult;
 
 /**
- * 校验来自表单或导入流程的不可信交易草稿。
+ * Validates an untrusted trade draft from a form or import flow.
  *
- * 当前覆盖基础字段、成交金额容差和卖出持仓规则。
+ * Currently covers base fields, total-value tolerance, and sell-position rules.
  */
 export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   if (!isRecord(input)) {
@@ -499,12 +499,12 @@ type HoldingsTimelineEntry = Pick<
 };
 
 /**
- * 只检查候选交易加入后的数量时间线，不生成 Position，
- * 也不计算成本或盈亏。
+ * Checks only the quantity timeline after adding the candidate trade. It does not create a Position
+ * or calculate cost or profit and loss.
  *
- * 排序规则与 positionCalculator 保持一致：先按 occurredAt，再以
- * 原数组序号作为同一时间的稳定顺序。候选交易未来会被
- * reducer 追加，因此同时间下排在所有已有交易之后。
+ * Sorting matches positionCalculator: first by occurredAt, then by original array index as a stable
+ * order for identical times. The reducer will append the candidate, so it follows all existing trades
+ * at the same time.
  */
 function validateHoldingsTimeline(
   candidate: Omit<HoldingsTimelineEntry, "originalIndex">,
