@@ -1,15 +1,7 @@
 # repositories
 
-账本整账读写入口放在这里。
+This directory owns whole-ledger persistence boundaries for legacy IndexedDB and selected `.lftl` files.
 
-当前 `LedgerRepository` 提供：
+Repositories validate the complete ledger before save and after recovery, coordinate encryption and serialization, preserve the difference between no stored record and an intentionally empty ledger, and fail closed when storage state cannot be proven.
 
-- `load(): Promise<LedgerData | null>`
-- `save(ledgerData): Promise<void>`
-- `clear(): Promise<void>`
-
-`DefaultLedgerRepository` 负责调用 EncryptionService、序列化 JSON，并在保存前和
-恢复后执行完整 `LedgerData` 运行时校验。空库的 `null` 与“已保存的空账本”语义
-不同。
-
-Repository 不知道 IndexedDB 的 database、store 或事务细节；这些只属于 Adapter。
+Database, transaction, and file-handle details belong to adapters.
