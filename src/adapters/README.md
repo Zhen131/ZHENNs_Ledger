@@ -1,16 +1,7 @@
 # adapters
 
-外部存储细节放在这里。
+This directory isolates external storage details.
 
-当前已实现 `IndexedDbStorageAdapter`：
+`IndexedDbStorageAdapter` uses native IndexedDB, stores one whole-blob `StoredLedgerEnvelopeV2` under a fixed key, supports read, write, and clear, and returns `null` for an empty store. IndexedDB transaction failure preserves the previous successful record.
 
-- 使用原生 IndexedDB。
-- 固定 key 保存一份 whole-blob `StoredLedgerEnvelopeV2`。
-- 支持 `read / write / clear`。
-- 空库返回 `null`。
-- 写入失败时由 IndexedDB 事务保留上一份成功记录。
-
-Adapter 不解析 `LedgerData`、不负责加密、不计算业务数据，也不能把 IndexedDB
-API 泄露到 UI、Service、Reducer 或 Calculator。未来 JSON、文件和行情接口仍应
-以独立 Adapter 接入。`read()` 返回 `unknown | null`，由访问层和 Repository
-分别执行密文 envelope 的运行时校验。
+Adapters do not parse `LedgerData`, encrypt payloads, or calculate business data. They must not leak IndexedDB APIs into UI, services, reducers, or calculators. `read()` returns `unknown | null`; the access layer and repository independently validate the encrypted envelope.

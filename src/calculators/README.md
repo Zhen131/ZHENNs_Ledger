@@ -1,10 +1,7 @@
 # calculators
 
-账本计算模块放在这里。
+This directory contains pure ledger calculations.
 
-当前 `positionCalculator` 根据 `Trade[]` 推导持仓数量、成本基准、加权平均成本
-和已实现盈亏，并根据可选的 `PriceSnapshot[]` 推导最新价格、市值和未实现盈亏。
-没有同资产、同币种的价格快照时，不生成价格相关字段。
+`positionCalculator` derives quantity, cost basis, weighted average cost, and realized P&L from `Trade[]`. Optional `PriceSnapshot[]` values add latest price, market value, and unrealized P&L. Price-derived fields remain absent when no matching asset and currency snapshot exists.
 
-这个目录只接收结构化数据并输出计算结果，不读页面状态、不保存数据、不格式化
-展示文案。
+Calculators accept structured data and return calculation results. They do not read page state, persist data, or format user-facing copy.
