@@ -27,7 +27,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: "当前仅支持 USD/USDT 估值",
+        message: "Only USD/USDT valuation is currently supported",
       });
     }
   });
@@ -37,14 +37,14 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `trades[${index}].occurredAt`,
-        message: `交易日期 ${getLedgerDateKey(trade.occurredAt)} 晚于今天 ${todayKey}`,
+        message: `Trade date ${getLedgerDateKey(trade.occurredAt)} is later than today ${todayKey}`,
       });
     }
     if (!isSupportedValuationCurrency(trade.currency)) {
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `trades[${index}].currency`,
-        message: "当前仅支持 USD/USDT 估值",
+        message: "Only USD/USDT valuation is currently supported",
       });
     }
   });
@@ -55,14 +55,14 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `priceSnapshots[${index}].recordedAt`,
-        message: `价格日期 ${getLedgerDateKey(snapshot.recordedAt)} 晚于今天 ${todayKey}`,
+        message: `Price date ${getLedgerDateKey(snapshot.recordedAt)} is later than today ${todayKey}`,
       });
     }
     if (!isSupportedValuationCurrency(snapshot.currency)) {
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `priceSnapshots[${index}].currency`,
-        message: "当前仅支持 USD/USDT 估值",
+        message: "Only USD/USDT valuation is currently supported",
       });
     }
 
@@ -70,7 +70,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_API_PRICE_PROVENANCE_REQUIRED",
         path: `priceSnapshots[${index}].binanceProvenance`,
-        message: "新导入的 API 价格必须保留 Binance 来源证据",
+        message: "Newly imported API prices must preserve Binance source evidence",
       });
       return;
     }
@@ -89,7 +89,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_DUPLICATE_DAILY_BINANCE_PRICE",
         path: `priceSnapshots[${index}]`,
-        message: `同日 Binance 价格重复；首次出现在 priceSnapshots[${firstIndex}]`,
+        message: `Duplicate Binance price for the same day; first seen at priceSnapshots[${firstIndex}]`,
       });
     } else {
       firstDailyBinanceIndex.set(key, index);

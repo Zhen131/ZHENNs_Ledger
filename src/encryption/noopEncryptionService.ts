@@ -11,7 +11,7 @@ const TEST_IV = new Uint8Array(12);
 const TEST_TAG = new Uint8Array(16);
 
 /**
- * 仅供隔离测试使用；production 组装不得引用。
+ * For isolated tests only; production composition must not reference this service.
  */
 export class NoopEncryptionService implements EncryptionService {
   async encrypt(plaintext: string): Promise<StoredLedgerEnvelopeV2> {

@@ -53,9 +53,9 @@ export type IndexedValidatedLedgerTrade = Readonly<{
 }>;
 
 /**
- * JSON / IndexedDB 数据进入 reducer 前的完整运行时边界。
+ * Complete runtime boundary before JSON or IndexedDB data enters the reducer.
  *
- * 成功结果是重新构造的 LedgerData，不会把未知字段带入应用状态。
+ * A successful result is reconstructed LedgerData and never carries unknown fields into application state.
  */
 export function validateLedgerData(
   input: unknown,
@@ -160,10 +160,11 @@ export function validateLedgerData(
 }
 
 /**
- * 为只读导入预检提供可安全到达的交易投影。
+ * Provides safely reachable trade projections for read-only import preflight.
  *
- * 完整 LedgerData 仍必须通过 validateLedgerData() 才能成为写入候选；本函数
- * 只让预检在另一笔交易损坏时继续检查结构独立的合法交易，例如生成可疑重复告警。
+ * Complete LedgerData must still pass validateLedgerData() before it can be written. This function
+ * only lets preflight inspect structurally independent valid trades when another trade is damaged,
+ * for example to produce suspicious-duplicate warnings.
  */
 export function collectValidLedgerTradeProjections(
   input: unknown,

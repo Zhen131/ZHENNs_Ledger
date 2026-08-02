@@ -11,8 +11,8 @@ import { compareLedgerFactOrder } from "../utils/ledgerDate";
 import { replayPositions } from "./positionReplay";
 
 /**
- * 从交易事实派生当前持仓。交易重放统一委托 positionReplay；
- * 本函数保留旧调用方的快照参数，只负责兼容性的价格字段装配。
+ * Derives current positions from trade facts. Trade replay is delegated to positionReplay;
+ * this function retains the legacy snapshot parameter and only assembles compatible price fields.
  */
 export function calculatePositions(
   trades: Trade[],

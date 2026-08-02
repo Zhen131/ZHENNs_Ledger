@@ -37,9 +37,9 @@ export type LedgerResourcePolicyResult =
   | { ok: false; errors: LedgerResourcePolicyError[] };
 
 /**
- * 独立于结构/业务 Validator 的资源保护层。
+ * Resource protection layer independent of structural and domain validators.
  *
- * 它不重写或拒绝既有可读取账本；调用方决定超限数据是只读恢复还是拒绝新写入。
+ * It neither rewrites nor rejects an existing readable ledger; callers decide whether oversized data is read-only rescue data or rejects new writes.
  */
 export function evaluateLedgerResourcePolicy(
   ledgerData: LedgerData,
@@ -154,7 +154,7 @@ export function evaluateLedgerResourcePolicy(
 }
 
 /**
- * 给未来 JSON 导入入口使用：必须在 JSON.parse 之前调用。
+ * For future JSON import entry points: call before JSON.parse.
  */
 export function evaluateLedgerJsonResourcePolicy(
   serializedLedger: string,
@@ -167,7 +167,7 @@ export function evaluateLedgerJsonResourcePolicy(
 }
 
 /**
- * 供文件选择入口在读取 File.text() 前复用的字节上限检查。
+ * Reusable byte-limit check for file selection before File.text() is read.
  */
 export function evaluateLedgerByteLengthResourcePolicy(
   byteLength: number,
@@ -247,13 +247,13 @@ function createError(
 ): LedgerResourcePolicyError {
   const label =
     code === LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE
-      ? "账本文件"
+      ? "ledger file"
       : path;
   return {
     code,
     path,
     limit,
     actual,
-    message: `${label} 超过资源上限（${actual} > ${limit}）`,
+    message: `${label} exceeds the resource limit (${actual} > ${limit})`,
   };
 }

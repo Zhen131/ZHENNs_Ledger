@@ -42,7 +42,7 @@ export const LEDGER_ACCESS_ERROR_CODES = {
 } as const;
 
 export const LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT =
-  "删除旧浏览器账本";
+  "DELETE LEGACY BROWSER LEDGER";
 
 export type LedgerAccessErrorCode =
   (typeof LEDGER_ACCESS_ERROR_CODES)[keyof typeof LEDGER_ACCESS_ERROR_CODES];

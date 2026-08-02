@@ -22,9 +22,9 @@ export type TradeRemovalResult =
     };
 
 /**
- * 删除交易前重放候选账本的完整交易时间线，包括被界面隔离的未来事实。
+ * Replays the candidate ledger's complete trade timeline before deletion, including future facts isolated by the UI.
  *
- * reducer 只负责不可变更新；会影响后续卖出时间线的业务判断放在 service。
+ * The reducer only performs immutable updates; domain checks affecting later sells belong in the service.
  */
 export function validateTradeRemoval(
   tradeId: string,

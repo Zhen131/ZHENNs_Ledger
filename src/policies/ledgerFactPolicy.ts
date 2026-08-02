@@ -124,7 +124,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: `${asset.symbol} 的 ${asset.quoteCurrency} 不进入 USD 等值估值`,
+        message: `${asset.symbol} quoted in ${asset.quoteCurrency} is excluded from USD-equivalent valuation`,
       });
     }
   });
@@ -134,7 +134,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `trades[${index}].occurredAt`,
-        message: "未来交易已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+        message: "A future trade is isolated; delete it, replace the ledger, or clear the ledger before normal writes can resume",
       });
     }
   });
@@ -145,7 +145,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `priceSnapshots[${index}].recordedAt`,
-        message: "未来价格已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+        message: "A future price is isolated; delete it, replace the ledger, or clear the ledger before normal writes can resume",
       });
     }
 
@@ -153,7 +153,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_LEGACY_API_PRICE_WITHOUT_PROVENANCE",
         path: `priceSnapshots[${index}].binanceProvenance`,
-        message: "旧 API 价格缺少来源证据，仅供救援查看，不参加 Binance 估值",
+        message: "A legacy API price lacks source evidence; it is visible for rescue only and excluded from Binance valuation",
       });
       return;
     }
@@ -172,7 +172,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_DUPLICATE_DAILY_BINANCE_PRICE",
         path: `priceSnapshots[${index}]`,
-        message: `同日 Binance 价格重复；首次出现在 priceSnapshots[${firstIndex}]`,
+        message: `Duplicate Binance price for the same day; first seen at priceSnapshots[${firstIndex}]`,
       });
     } else {
       firstDailyBinanceIndex.set(key, index);
