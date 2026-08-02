@@ -25,12 +25,12 @@ function renderButton(
   return render(
     <div>
       <ConfirmDeleteButton
-        ariaLabel="删除测试记录"
+        ariaLabel="Delete test record"
         disabled={disabled}
-        label="删除"
+        label="Delete"
         onConfirm={onConfirm}
       />
-      <button type="button">外部按钮</button>
+      <button type="button">External button</button>
     </div>,
   );
 }
@@ -40,16 +40,16 @@ describe("ConfirmDeleteButton", () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn(() => "applied" as const);
     renderButton(onConfirm);
-    const button = screen.getByRole("button", { name: "删除测试记录" });
+    const button = screen.getByRole("button", { name: "Delete test record" });
 
     await user.click(button);
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(button.textContent).toBe("再次点击确认");
+    expect(button.textContent).toBe("Click again to confirm");
     expect(button.getAttribute("aria-pressed")).toBe("true");
 
     await user.click(button);
     expect(onConfirm).toHaveBeenCalledOnce();
-    expect(button.textContent).toBe("删除");
+    expect(button.textContent).toBe("Delete");
     expect(button.getAttribute("aria-pressed")).toBe("false");
   });
 
@@ -57,28 +57,28 @@ describe("ConfirmDeleteButton", () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn(() => "applied" as const);
     const view = renderButton(onConfirm);
-    const button = screen.getByRole("button", { name: "删除测试记录" });
+    const button = screen.getByRole("button", { name: "Delete test record" });
 
     await user.click(button);
-    await user.click(screen.getByRole("button", { name: "外部按钮" }));
-    expect(button.textContent).toBe("删除");
+    await user.click(screen.getByRole("button", { name: "External button" }));
+    expect(button.textContent).toBe("Delete");
 
     await user.click(button);
     await user.keyboard("{Escape}");
-    expect(button.textContent).toBe("删除");
+    expect(button.textContent).toBe("Delete");
 
     await user.click(button);
     view.rerender(
       <ConfirmDeleteButton
-        ariaLabel="删除测试记录"
+        ariaLabel="Delete test record"
         disabled
-        label="删除"
+        label="Delete"
         onConfirm={onConfirm}
       />,
     );
     expect(
-      screen.getByRole("button", { name: "删除测试记录" }).textContent,
-    ).toBe("删除");
+      screen.getByRole("button", { name: "Delete test record" }).textContent,
+    ).toBe("Delete");
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
@@ -86,11 +86,11 @@ describe("ConfirmDeleteButton", () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn(() => "applied" as const);
     renderButton(onConfirm);
-    const button = screen.getByRole("button", { name: "删除测试记录" });
+    const button = screen.getByRole("button", { name: "Delete test record" });
     button.focus();
 
     await user.keyboard("{Enter}");
-    expect(button.textContent).toBe("再次点击确认");
+    expect(button.textContent).toBe("Click again to confirm");
     fireEvent.keyDown(button, { key: "Enter", repeat: true });
     fireEvent.click(button);
     expect(onConfirm).not.toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe("ConfirmDeleteButton", () => {
         }),
     );
     renderButton(onConfirm);
-    const button = screen.getByRole("button", { name: "删除测试记录" });
+    const button = screen.getByRole("button", { name: "Delete test record" });
 
     await user.click(button);
     await user.click(button);
@@ -126,7 +126,7 @@ describe("ConfirmDeleteButton", () => {
 
   it("includes the reduced-motion override without changing delete semantics", () => {
     renderButton(() => "noop");
-    const button = screen.getByRole("button", { name: "删除测试记录" });
+    const button = screen.getByRole("button", { name: "Delete test record" });
 
     expect(button.className).toContain("duration-[180ms]");
     expect(button.className).toContain("motion-reduce:transition-none");

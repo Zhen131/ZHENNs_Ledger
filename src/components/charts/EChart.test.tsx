@@ -69,7 +69,7 @@ describe("EChart lifecycle adapter", () => {
   it("initializes one Canvas instance and fully replaces options on rerender", () => {
     const view = render(
       <EChart
-        ariaLabel="测试图表"
+        ariaLabel="Test chart"
         option={{ series: [{ type: "line", data: [1, 2] }] }}
       />,
     );
@@ -90,7 +90,7 @@ describe("EChart lifecycle adapter", () => {
     expect(view.getByRole("img").className).toContain("overflow-hidden");
 
     view.rerender(
-      <EChart ariaLabel="测试图表" option={{ series: [] }} />,
+      <EChart ariaLabel="Test chart" option={{ series: [] }} />,
     );
     expect(mocks.init).toHaveBeenCalledOnce();
     expect(mocks.setOption).toHaveBeenLastCalledWith(
@@ -106,7 +106,7 @@ describe("EChart lifecycle adapter", () => {
     ]);
     const view = render(
       <EChart
-        ariaLabel="日历图"
+        ariaLabel="Calendar chart"
         option={{
           calendar: [{ range: ["2025-07-26", "2026-07-25"] }],
           series: [{ type: "heatmap", data: days }],
@@ -116,7 +116,7 @@ describe("EChart lifecycle adapter", () => {
 
     view.rerender(
       <EChart
-        ariaLabel="日历图"
+        ariaLabel="Calendar chart"
         option={{
           calendar: [{ range: "2026-07-25" }],
           series: [{ type: "heatmap", data: [["2026-07-25", 1]] }],
@@ -142,7 +142,7 @@ describe("EChart lifecycle adapter", () => {
     const second = vi.fn();
     const view = render(
       <EChart
-        ariaLabel="事件图表"
+        ariaLabel="Event chart"
         events={{ click: first }}
         option={{}}
       />,
@@ -152,7 +152,7 @@ describe("EChart lifecycle adapter", () => {
 
     view.rerender(
       <EChart
-        ariaLabel="事件图表"
+        ariaLabel="Event chart"
         events={{ click: second }}
         option={{}}
       />,
@@ -177,7 +177,7 @@ describe("EChart lifecycle adapter", () => {
     );
     const view = render(
       <EChart
-        ariaLabel="销毁图表"
+        ariaLabel="Disposed chart"
         events={{ click: vi.fn() }}
         option={{}}
       />,

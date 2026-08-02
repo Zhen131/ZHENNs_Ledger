@@ -659,7 +659,7 @@ describe("usePersistentLedger hydration safety", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.persistenceError).toMatch(/本地保存失败/);
+      expect(result.current.persistenceError).toMatch(/Local save failed/);
     });
     expect(result.current.persistenceStatus).toBe("error");
     expect(result.current.mutationVersion).toBe(1);
@@ -950,7 +950,7 @@ describe("usePersistentLedger hydration safety", () => {
     await waitFor(() => {
       expect(result.current.hydrationStatus).toBe("error");
     });
-    expect(result.current.persistenceError).toMatch(/避免覆盖原数据/);
+    expect(result.current.persistenceError).toMatch(/avoid overwriting the original data/);
 
     act(() => {
       addTrade(
@@ -1989,7 +1989,7 @@ describe("usePersistentLedger clear sequencing", () => {
       code: LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED,
     });
     expect(result.current.ledgerData).toEqual(stateBeforeClear);
-    expect(result.current.persistenceError).toMatch(/清空本地账本失败/);
+    expect(result.current.persistenceError).toMatch(/Clearing the local ledger failed/);
     expect(storedLedger).toEqual(stateBeforeClear);
     await expect(repository.load()).resolves.toEqual(stateBeforeClear);
     expect(repository.save).not.toHaveBeenCalled();
@@ -2043,7 +2043,7 @@ describe("usePersistentLedger clear recovery and lifecycle", () => {
     });
 
     expect(result.current.hydrationStatus).toBe("error");
-    expect(result.current.persistenceError).toMatch(/清空本地账本失败/);
+    expect(result.current.persistenceError).toMatch(/Clearing the local ledger failed/);
     expect(repository.save).not.toHaveBeenCalled();
   });
 

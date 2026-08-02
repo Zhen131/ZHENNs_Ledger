@@ -68,7 +68,7 @@ function getSection(title: string): HTMLElement {
 }
 
 function getPositionRow(assetSymbol: string): HTMLTableRowElement {
-  const assetCell = within(getSection("资产汇总")).getByText(assetSymbol);
+  const assetCell = within(getSection("Asset Summary")).getByText(assetSymbol);
   const row = assetCell.closest("tr");
 
   if (!row) {
@@ -119,20 +119,20 @@ async function fillTradeForm(input: {
   const user = userEvent.setup();
 
   await user.selectOptions(
-    screen.getByLabelText("类型", { selector: "select" }),
+    screen.getByLabelText("Type", { selector: "select" }),
     input.type,
   );
   await user.selectOptions(
-    screen.getByLabelText("资产", { selector: "select" }),
+    screen.getByLabelText("Asset", { selector: "select" }),
     input.assetSymbol,
   );
 
   const fields = [
-    ["数量", input.quantity],
-    ["成交均价", input.price],
-    ["总金额", input.totalValue],
-    ["日期", input.occurredAt],
-    ["手续费", input.fee],
+    ["Quantity", input.quantity],
+    ["Average execution price", input.price],
+    ["Total amount", input.totalValue],
+    ["Date", input.occurredAt],
+    ["Fee", input.fee],
   ] as const;
 
   for (const [label, value] of fields) {
@@ -141,7 +141,7 @@ async function fillTradeForm(input: {
     await user.type(field, value);
   }
 
-  await user.click(screen.getByRole("button", { name: "保存交易" }));
+  await user.click(screen.getByRole("button", { name: "Save trade" }));
 }
 
 async function enterGoldenTrades() {
@@ -156,7 +156,7 @@ async function enterGoldenTrades() {
       fee: draft.fee ?? "0",
     });
 
-    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    expect(screen.getByText("Trade added to the ledger")).not.toBeNull();
   }
 }
 
@@ -166,13 +166,13 @@ describe("DashboardShell golden UI acceptance", () => {
 
     await waitFor(() => {
       expect(
-        screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
+        screen.queryByText("Loading the local ledger. No data will be written until loading completes."),
       ).toBeNull();
     });
 
     await enterGoldenTrades();
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = getSection("Trade List");
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
 
     expectPositionDecimal("BTC", 1, "0.24265306");
@@ -187,20 +187,20 @@ describe("DashboardShell golden UI acceptance", () => {
 
     const user = userEvent.setup();
     await user.selectOptions(
-      screen.getByLabelText("价格资产", { selector: "select" }),
+      screen.getByLabelText("Price asset", { selector: "select" }),
       "BTC",
     );
-    await user.type(screen.getByLabelText("当前价格"), "70000");
-    await user.type(screen.getByLabelText("价格日期"), "2026-04-15");
-    await user.click(screen.getByRole("button", { name: "保存价格" }));
+    await user.type(screen.getByLabelText("Current price"), "70000");
+    await user.type(screen.getByLabelText("Price date"), "2026-04-15");
+    await user.click(screen.getByRole("button", { name: "Save price" }));
 
-    expect(screen.getByText("价格已加入账本")).not.toBeNull();
+    expect(screen.getByText("Price added to the ledger")).not.toBeNull();
     expectPositionDecimal("BTC", 5, "70000");
     expectPositionDecimal("BTC", 6, "11.4716");
     expectPositionDecimal("BTC", 7, "0.4716");
-    expect(screen.getByText(/已估值 1 项，总市值 11.4716 USD 等值/)).not.toBeNull();
-    expect(screen.getByText("未估值资产：ADA、ETH。")).not.toBeNull();
-    expect(screen.getByText(/共 365 个自然日、5 笔交易/)).not.toBeNull();
+    expect(screen.getByText(/1 valued assets; total market value 11.4716 USD equivalent/)).not.toBeNull();
+    expect(screen.getByText("Unvalued assets: ADA, ETH.")).not.toBeNull();
+    expect(screen.getByText(/365 calendar days and 5 trades/)).not.toBeNull();
 
     await fillTradeForm({
       type: "sell",
@@ -213,7 +213,7 @@ describe("DashboardShell golden UI acceptance", () => {
     });
 
     expect(
-      screen.getByText("卖出数量超过该时间点的可用持仓"),
+      screen.getByText("Sell quantity exceeds the available position at that time"),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
     expectPositionDecimal("ADA", 1, "85.3244");
@@ -221,14 +221,14 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("ADA", 4, "-0.702177847113884555");
 
     const supportedBuyDeleteButton = within(tradeSection).getByRole("button", {
-      name: "删除 买入 ADA 2026-04-09",
+      name: "Delete buy ADA 2026-04-09",
     });
     await user.click(supportedBuyDeleteButton);
     await user.click(supportedBuyDeleteButton);
 
     expect(
       within(tradeSection).getByText(
-        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
+        "Cannot delete: this trade supports a later sell. Delete dependent later sells first.",
       ),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
@@ -236,14 +236,14 @@ describe("DashboardShell golden UI acceptance", () => {
     const independentBuyDeleteButton = within(tradeSection).getByRole(
       "button",
       {
-        name: "删除 买入 BTC 2026-04-02",
+        name: "Delete buy BTC 2026-04-02",
       },
     );
     await user.click(independentBuyDeleteButton);
     await user.click(independentBuyDeleteButton);
 
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(5);
-    expect(within(getSection("资产汇总")).queryByText("BTC")).toBeNull();
+    expect(within(getSection("Asset Summary")).queryByText("BTC")).toBeNull();
     expectPositionDecimal("ETH", 1, "0.400040");
     expectPositionDecimal("ETH", 3, "10");
     expectPositionDecimal("ADA", 1, "85.3244");

@@ -16,20 +16,20 @@ describe("formatBackupImportReportMarkdown", () => {
     const report = formatBackupImportReportMarkdown(result);
 
     expect(report).toMatch(
-      /^# B 历史导入预检报告\n\n> 隐私提醒：本报告可能包含交易日期、资产、买卖方向、数量和金额等敏感信息/,
+      /^# Historical B Import Preflight Report\n\n> Privacy notice: this report may contain sensitive trade dates, assets, directions, quantities, and amounts/,
     );
-    expect(report).toContain(`硬错误总数：${result.hardErrorCount}`);
+    expect(report).toContain(`Hard error count: ${result.hardErrorCount}`);
     expect(report).toContain(
-      `可疑重复组总数：${result.suspiciousGroupCount}`,
+      `Suspicious duplicate group count: ${result.suspiciousGroupCount}`,
     );
     expect(report).toContain("`trades[0].quantity`");
     expect(report).toContain("`trades[7].rawText`");
-    expect(report).toContain("交易摘要：日期 2026-04-01");
-    expect(report).toContain("高度可疑重复组");
-    expect(report).toContain("一般可疑重复组");
-    expect(report).toContain("真实触发关系");
-    expect(report).toContain("没有自动修改、删除、合并或去重");
-    expect(report).not.toContain("虚构 BTC 非法数量记录");
+    expect(report).toContain("Trade summary: Date 2026-04-01");
+    expect(report).toContain("Highly Suspicious Duplicate Group");
+    expect(report).toContain("Suspicious Duplicate Group");
+    expect(report).toContain("Trigger edges");
+    expect(report).toContain("did not automatically modify, delete, merge, or deduplicate");
+    expect(report).not.toContain("Synthetic BTC invalid-quantity record");
   });
 
   it("copies only the retained first 1000 details while preserving the true 1001 total and truncation warning", async () => {
@@ -39,12 +39,12 @@ describe("formatBackupImportReportMarkdown", () => {
 
     const report = formatBackupImportReportMarkdown(result);
 
-    expect(report).toContain("详情总数：1001");
-    expect(report).toContain("报告保留详情：1000");
+    expect(report).toContain("Total detail count: 1001");
+    expect(report).toContain("Retained report details: 1000");
     expect(report).toContain("`trades[999].quantity`");
     expect(report).not.toContain("`trades[1000].quantity`");
     expect(report).toContain(
-      "第 1001 项后已截断，请修正后重新检查",
+      "Details after item 1000 were truncated; correct the data and run the check again",
     );
   });
 
@@ -52,16 +52,16 @@ describe("formatBackupImportReportMarkdown", () => {
     const result = await preflight("{\n invalid");
     const report = formatBackupImportReportMarkdown(result);
 
-    expect(report).toContain("## 未执行的检查");
+    expect(report).toContain("## Skipped Checks");
     expect(report).toContain("`backup-envelope`");
     expect(report).toContain("`BACKUP_BAD_JSON`");
     expect(report).toContain("`file`");
     if (result.retainedDetails[0]?.kind === "hard-error") {
       if (result.retainedDetails[0].line === undefined) {
-        expect(report).toContain("没有提供可靠的行列位置");
+        expect(report).toContain("did not provide a reliable line and column");
       } else {
         expect(report).toContain(
-          `JSON 位置：第 ${result.retainedDetails[0].line} 行，第 ${result.retainedDetails[0].column} 列`,
+          `JSON location: line ${result.retainedDetails[0].line}, column ${result.retainedDetails[0].column}`,
         );
       }
     }

@@ -288,7 +288,7 @@ function createTrade(index: number, symbol?: string): Trade {
     currency: "USD",
     fee: "0",
     feeCurrency: "USD",
-    rawText: `虚构历史交易原句 ${index + 1}`,
+    rawText: `Synthetic historical trade sentence ${index + 1}`,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   };
@@ -1967,7 +1967,7 @@ describe("LedgerFileRepository", () => {
       repository.authorizeReadyClear({
         sessionId: "forged-direct-call",
         generation: 0,
-        confirmationNonce: "清空当前C账本",
+        confirmationNonce: "CLEAR CURRENT C LEDGER",
       }),
     ).toBeNull();
     const session = createReadyClearSession(
@@ -1975,11 +1975,11 @@ describe("LedgerFileRepository", () => {
       "ready-clear-session",
     );
     expect(
-      session.readyClearPort?.authorizeReadyClear("任意非空文本"),
+      session.readyClearPort?.authorizeReadyClear("any non-empty text"),
     ).toBeNull();
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2059,7 +2059,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2123,7 +2123,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2193,7 +2193,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       firstSession.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (
@@ -2244,7 +2244,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2293,7 +2293,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2351,7 +2351,7 @@ describe("LedgerFileRepository", () => {
       );
       const authorization =
         session.readyClearPort?.authorizeReadyClear(
-          "清空当前C账本",
+          "CLEAR CURRENT C LEDGER",
         );
       expect(authorization).not.toBeNull();
       if (!authorization || !session.readyClearPort) return;
@@ -2370,7 +2370,7 @@ describe("LedgerFileRepository", () => {
       await expect(repository.load()).resolves.toEqual(original);
       const retryAuthorization =
         session.readyClearPort.authorizeReadyClear(
-          "清空当前C账本",
+          "CLEAR CURRENT C LEDGER",
         );
       expect(retryAuthorization).toBe(authorization);
       if (!retryAuthorization) return;
@@ -2417,7 +2417,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2430,7 +2430,7 @@ describe("LedgerFileRepository", () => {
     });
     const retriedAuthorization =
       session.readyClearPort.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(retriedAuthorization).toBe(authorization);
     if (!retriedAuthorization) return;
@@ -2482,7 +2482,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2495,7 +2495,7 @@ describe("LedgerFileRepository", () => {
     expect(handle.writeCount).toBe(writesBeforeClear);
     const retryAuthorization =
       session.readyClearPort.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(retryAuthorization).toBe(authorization);
     if (!retryAuthorization) return;
@@ -2549,7 +2549,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;

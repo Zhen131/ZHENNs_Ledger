@@ -18,7 +18,7 @@ describe("WebCryptoEncryptionService", () => {
     const setupService =
       await WebCryptoEncryptionService.createForSetup(PASSPHRASE);
     const unicodeEnvelope = await setupService.encrypt(
-      '{"memo":"账本 🔐 café"}',
+      '{"memo":"\u8d26\u672c 🔐 café"}',
     );
     const emptyEnvelope = await setupService.encrypt("");
     const unlockService =
@@ -28,7 +28,7 @@ describe("WebCryptoEncryptionService", () => {
       );
 
     await expect(unlockService.decrypt(unicodeEnvelope)).resolves.toBe(
-      '{"memo":"账本 🔐 café"}',
+      '{"memo":"\u8d26\u672c 🔐 café"}',
     );
     await expect(unlockService.decrypt(emptyEnvelope)).resolves.toBe("");
   });
@@ -36,7 +36,7 @@ describe("WebCryptoEncryptionService", () => {
   it("round-trips a payload close to 8 MiB without truncation", async () => {
     const service =
       await WebCryptoEncryptionService.createForSetup(PASSPHRASE);
-    const plaintext = "账".repeat(2_700_000);
+    const plaintext = "\u8d26".repeat(2_700_000);
     const envelope = await service.encrypt(plaintext);
 
     await expect(service.decrypt(envelope)).resolves.toBe(plaintext);

@@ -85,7 +85,7 @@ describe("TradeTable", () => {
     );
 
     expect(html).toContain(
-      'colSpan="6">暂无交易。添加交易后，这里会自动显示。</td>',
+      'colSpan="6">No trades yet. Added trades will appear here automatically.</td>',
     );
   });
 
@@ -95,7 +95,7 @@ describe("TradeTable", () => {
     );
 
     expect(html).toContain(buyTrade.occurredAt);
-    expect(html).toContain(">买入<");
+    expect(html).toContain(">Buy<");
     expect(html).toContain(buyTrade.assetSymbol);
     expect(html).toContain(buyTrade.quantity);
     expect(html).toContain(buyTrade.price);
@@ -103,7 +103,7 @@ describe("TradeTable", () => {
       `${buyTrade.totalValue} ${buyTrade.currency}`,
     );
     expect(html).not.toContain(
-      "暂无交易。添加交易后，这里会自动显示。",
+      "No trades yet. Added trades will appear here automatically.",
     );
   });
 
@@ -112,7 +112,7 @@ describe("TradeTable", () => {
 
     const html = renderToStaticMarkup(createElement(TradeTable, { trades }));
 
-    expect(html).toContain(">卖出<");
+    expect(html).toContain(">Sell<");
     expect(html.indexOf(buyTrade.assetSymbol)).toBeLessThan(
       html.indexOf(sellTrade.assetSymbol),
     );
@@ -142,7 +142,7 @@ describe("TradeTable", () => {
       }),
     );
 
-    expect(html).toContain('aria-label="删除 买入 XQZ-BUY 2042-11-03T04:05:06Z"');
+    expect(html).toContain('aria-label="Delete buy XQZ-BUY 2042-11-03T04:05:06Z"');
     expect(html).toContain("disabled");
   });
 });
@@ -180,10 +180,10 @@ describe("DashboardShell ledger views", () => {
     expect(html).toContain("DOGE");
     expect(html).toContain("0.1 USD");
     expect(html).toContain("1 USD");
-    expect(html).toContain("未输入价格");
+    expect(html).toContain("No price entered");
     expect(html.match(/>--</g)).toHaveLength(2);
-    expect(html).toContain("剩余成本基础（暂不计手续费）");
-    expect(html).toContain("已实现盈亏（暂不计手续费）");
+    expect(html).toContain("Remaining cost basis (fees excluded)");
+    expect(html).toContain("Realized profit and loss (fees excluded)");
   });
 
   it("renders an eight-column empty state when the ledger has no positions", () => {
@@ -197,7 +197,7 @@ describe("DashboardShell ledger views", () => {
     );
 
     expect(html).toContain(
-      'colSpan="8">暂无持仓。添加交易后，这里会自动汇总。</td>',
+      'colSpan="8">No positions yet. Added trades will be summarized here automatically.</td>',
     );
   });
 
@@ -216,7 +216,7 @@ describe("DashboardShell ledger views", () => {
       { mode: "auto", todayKey: "2026-07-25" },
     );
     expect(html).toContain(
-      "暂无交易。添加交易后，这里会自动显示。",
+      "No trades yet. Added trades will appear here automatically.",
     );
   });
 
@@ -251,9 +251,9 @@ describe("DashboardShell ledger views", () => {
     expect(html).not.toContain("Browser-only MVP shell");
     expect(html).not.toContain(">Today<");
     expect(html).not.toContain(">This Month<");
-    expect(html).not.toContain("未来这里显示资产净值曲线和 K 线");
-    expect(html).toContain("当前 USD 等值持仓分配");
-    expect(html).toContain("持仓总市值 / 持仓成本");
-    expect(html).toContain("最近 365 天交易活跃");
+    expect(html).not.toContain("Future asset net-worth and candlestick charts");
+    expect(html).toContain("Current USD-equivalent position allocation");
+    expect(html).toContain("Position market value / position cost basis");
+    expect(html).toContain("Trading activity over the last 365 days");
   });
 });

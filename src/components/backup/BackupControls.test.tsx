@@ -248,11 +248,11 @@ describe("BackupControls", () => {
 
       expect(
         screen.getByText(
-          /账本备份是未加密明文，任何能访问文件的人都可能读取完整资产、交易和价格/,
+          /Ledger backups are unencrypted plaintext. Anyone with file access may read all assets, trades, and prices/,
         ),
       ).not.toBeNull();
-      expect(screen.getByText(/导出只会发起浏览器下载/)).not.toBeNull();
-      expect(screen.getByText(/同步目录，系统可能自动上传或同步/)).not.toBeNull();
+      expect(screen.getByText(/Export only requests a browser download/)).not.toBeNull();
+      expect(screen.getByText(/synchronized folder.*may upload or synchronize it automatically/)).not.toBeNull();
     },
   );
 
@@ -265,7 +265,7 @@ describe("BackupControls", () => {
     renderControls({ clock: fixedClock, ledgerData });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "Export complete ledger backup" }));
 
     expect(download.createObjectURL).toHaveBeenCalledOnce();
     expect(download.revokeObjectURL).toHaveBeenCalledOnce();
@@ -273,10 +273,10 @@ describe("BackupControls", () => {
     expect(
       getDownloadedEnvelope(download.blobConstructor).ledgerData.trades[0]?.id,
     ).toBe("current-page");
-    const message = screen.getByText(/已发起备份下载/).textContent;
-    expect(message).toContain("备份为明文、未加密");
-    expect(message).toContain("检查浏览器下载是否成功及实际保存位置");
-    expect(message).toContain("移至安全位置或在不再需要时删除");
+    const message = screen.getByText(/Backup download requested/).textContent;
+    expect(message).toContain("unencrypted plaintext");
+    expect(message).toContain("Verify the download and destination");
+    expect(message).toContain("secure or delete the file");
   });
 
   it("exports all four collections and 300 historical rawText values without derived or session state", async () => {
@@ -295,7 +295,7 @@ describe("BackupControls", () => {
     const user = userEvent.setup();
 
     await user.click(
-      screen.getByRole("button", { name: "导出完整账本备份" }),
+      screen.getByRole("button", { name: "Export complete ledger backup" }),
     );
 
     const downloaded = getDownloadedEnvelope(download.blobConstructor);
@@ -305,7 +305,7 @@ describe("BackupControls", () => {
       downloaded.ledgerData.trades.every(
         (trade, index) =>
           trade.rawText ===
-          `虚构历史交易原句 ${index + 1}：买入测试资产，非真实用户数据。`,
+          `Synthetic historical trade sentence ${index + 1}: buy a test asset; not real user data.`,
       ),
     ).toBe(true);
     expect(Object.keys(downloaded)).toEqual([
@@ -338,17 +338,17 @@ describe("BackupControls", () => {
     });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "Export complete ledger backup" }));
 
     expect(download.createObjectURL).toHaveBeenCalledOnce();
     expect(download.getFilename()).toBe(FIXED_BACKUP_FILENAME);
     expect(
       getDownloadedEnvelope(download.blobConstructor).ledgerData.trades[0]?.id,
     ).toBe("dirty-page");
-    const message = screen.getByText(/已发起救援备份下载/).textContent;
-    expect(message).toContain("备份为明文、未加密");
-    expect(message).toContain("可能新于最后成功保存的版本");
-    expect(message).toContain("实际保存位置");
+    const message = screen.getByText(/Rescue backup download requested/).textContent;
+    expect(message).toContain("unencrypted plaintext");
+    expect(message).toContain("may be newer than the last successful save");
+    expect(message).toContain("destination");
   });
 
   it("creates one backup Blob when the serialized envelope is exactly 8 MiB", async () => {
@@ -363,7 +363,7 @@ describe("BackupControls", () => {
     });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "Export complete ledger backup" }));
 
     expect(blobConstructor).toHaveBeenCalledOnce();
     expect(createObjectURL).toHaveBeenCalledOnce();
@@ -381,13 +381,13 @@ describe("BackupControls", () => {
     });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "Export complete ledger backup" }));
 
     expect(blobConstructor).not.toHaveBeenCalled();
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(
       screen.getByText(
-        "无法导出：当前 v1 无法安全导出该超大账本；未创建备份文件。",
+        "Export failed: v1 cannot safely export this oversized ledger; no backup file was created.",
       ),
     ).not.toBeNull();
   });
@@ -407,7 +407,7 @@ describe("BackupControls", () => {
     const file = createPaddedBackupFile(serialized);
     const user = userEvent.setup();
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
 
     expect(file.size).toBe(DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1);
     expect(parseBackupJson(serialized)).toEqual({
@@ -417,7 +417,7 @@ describe("BackupControls", () => {
       ],
     });
     expect(file.text).not.toHaveBeenCalled();
-    expect(screen.getByText("无法导入：文件超过 8 MiB 限制。")).not.toBeNull();
+    expect(screen.getByText("Import failed: the file exceeds the 8 MiB limit.")).not.toBeNull();
   });
 
   it("accepts a real legal backup whose content is exactly 8 MiB", async () => {
@@ -434,7 +434,7 @@ describe("BackupControls", () => {
     const file = createPaddedBackupFile(serialized);
     const user = userEvent.setup();
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
 
     expect(file.size).toBe(DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes);
     expect(byteLength(serialized)).toBe(DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes);
@@ -443,7 +443,7 @@ describe("BackupControls", () => {
       value: expect.any(Object),
     });
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Confirm backup restoration" })).not.toBeNull();
     });
     expect(file.text).toHaveBeenCalledOnce();
   });
@@ -452,16 +452,16 @@ describe("BackupControls", () => {
     const { onImport } = renderControls();
     const user = userEvent.setup();
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), createBackupFile());
+    await user.upload(screen.getByLabelText("Select ledger backup file"), createBackupFile());
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Confirm backup restoration" })).not.toBeNull();
     });
     expect(onImport).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "确认恢复备份" }));
+    await user.click(screen.getByRole("button", { name: "Confirm backup restoration" }));
     await waitFor(() => {
       expect(onImport).toHaveBeenCalledOnce();
-      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+      expect(screen.getByText("Backup restored and saved locally.")).not.toBeNull();
     });
   });
 
@@ -484,12 +484,12 @@ describe("BackupControls", () => {
     const user = userEvent.setup();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       file,
     );
     await user.click(
       await screen.findByRole("button", {
-        name: "确认恢复备份",
+        name: "Confirm backup restoration",
       }),
     );
     await waitFor(() => {
@@ -525,13 +525,13 @@ describe("BackupControls", () => {
     const user = userEvent.setup();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       file,
     );
 
     await screen.findByText(/trades\[146\]\.quantity/);
     expect(
-      screen.queryByRole("button", { name: "确认恢复备份" }),
+      screen.queryByRole("button", { name: "Confirm backup restoration" }),
     ).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
     expect(facts).toEqual(before);
@@ -573,19 +573,19 @@ describe("BackupControls", () => {
       const user = userEvent.setup();
 
       await user.upload(
-        screen.getByLabelText("选择账本备份文件"),
+        screen.getByLabelText("Select ledger backup file"),
         fixture.file,
       );
       await user.click(
         await screen.findByRole("button", {
-          name: "确认恢复备份",
+          name: "Confirm backup restoration",
         }),
       );
       await waitFor(() => {
         expect(onImport).toHaveBeenCalledOnce();
         expect(
           screen.getByText(
-            /取消时会尝试恢复并复读导入前的完整 C；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
+            /cancel attempts to restore and reread the complete pre-import C. If restoration cannot be confirmed, the session disables further writes/,
           ),
         ).not.toBeNull();
         expect(capturedSignal?.aborted).toBe(false);
@@ -601,7 +601,7 @@ describe("BackupControls", () => {
 
       if (action === "cancel") {
         await user.click(
-          screen.getByRole("button", { name: "取消" }),
+          screen.getByRole("button", { name: "Cancel" }),
         );
       } else {
         view.unmount();
@@ -627,23 +627,23 @@ describe("BackupControls", () => {
   it.each([
     [
       "LEDGER_IMPORT_CANCELLED",
-      "已取消导入；当前页面未替换。",
+      "Import canceled; the current page was not replaced.",
     ],
     [
       "LEDGER_IMPORT_BASE_RESTORED",
-      "导入未完成；已复读确认 C 恢复为导入前的完整版本，当前页面未变更。",
+      "Import did not complete. A reread confirmed C was restored to the complete pre-import version; the page did not change.",
     ],
     [
       "LEDGER_IMPORT_SOURCE_CHANGED",
-      "导入写入前发现 C 已发生外部变化；本次导入没有写入，请重新打开该 C。",
+      "C changed externally before import writing. Nothing was written; reopen C.",
     ],
     [
       "LEDGER_IMPORT_RECOVERY_BLOCKED",
-      "无法确认导入结果，也无法证明 C 已恢复；当前会话已停止写入，请立即锁定并保留文件用于恢复。",
+      "The import result cannot be confirmed and C restoration cannot be proven. Writes are disabled for this session; lock immediately and preserve the file for recovery.",
     ],
     [
       "LEDGER_REPOSITORY_WRITE_FAILED",
-      "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
+      "Import failed and the page did not change. No further evidence confirms the underlying storage state; follow the error guidance.",
     ],
   ] as const)(
     "reports %s without overstating recovery evidence",
@@ -657,12 +657,12 @@ describe("BackupControls", () => {
       const beforeHash = sha256(await file.text());
 
       await user.upload(
-        screen.getByLabelText("选择账本备份文件"),
+        screen.getByLabelText("Select ledger backup file"),
         file,
       );
       await user.click(
         await screen.findByRole("button", {
-          name: "确认恢复备份",
+          name: "Confirm backup restoration",
         }),
       );
 
@@ -674,52 +674,52 @@ describe("BackupControls", () => {
   it("shows the complete backup candidate and lets the same file be selected after cancel", async () => {
     renderControls();
     const user = userEvent.setup();
-    const input = screen.getByLabelText("选择账本备份文件");
+    const input = screen.getByLabelText("Select ledger backup file");
     const file = createBackupFile();
 
     await user.upload(input, file);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Confirm backup restoration" })).not.toBeNull();
     });
-    expect(screen.getByText("应用版本")).not.toBeNull();
-    expect(screen.getByText("导出时间")).not.toBeNull();
-    expect(screen.getByText("资产")).not.toBeNull();
-    expect(screen.getByText("交易")).not.toBeNull();
-    expect(screen.getByText("价格快照")).not.toBeNull();
-    expect(screen.getByText("手续费规则")).not.toBeNull();
-    expect(screen.getByText(/原备份文件仍是未加密明文/)).not.toBeNull();
-    expect(screen.getByText(/本应用不会移动、删除或主动上传该文件/)).not.toBeNull();
-    expect(screen.getByText(/同步目录，系统可能自动同步/)).not.toBeNull();
+    expect(screen.getByText("App version")).not.toBeNull();
+    expect(screen.getByText("Exported at")).not.toBeNull();
+    expect(screen.getByText("Assets")).not.toBeNull();
+    expect(screen.getByText("Trades")).not.toBeNull();
+    expect(screen.getByText("Price snapshots")).not.toBeNull();
+    expect(screen.getByText("Fee rules")).not.toBeNull();
+    expect(screen.getByText(/selected source backup remains unencrypted plaintext/)).not.toBeNull();
+    expect(screen.getByText(/This app does not move, delete, or upload it/)).not.toBeNull();
+    expect(screen.getByText(/synchronized folder.*system may synchronize it automatically/)).not.toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "取消" }));
-    expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("button", { name: "Confirm backup restoration" })).toBeNull();
 
     await user.upload(input, file);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Confirm backup restoration" })).not.toBeNull();
     });
   });
 
   it("lets the same file be selected after a successful import", async () => {
     const { onImport } = renderControls();
     const user = userEvent.setup();
-    const input = screen.getByLabelText("选择账本备份文件");
+    const input = screen.getByLabelText("Select ledger backup file");
     const file = createBackupFile();
     const beforeHash = sha256(await file.text());
 
     await user.upload(input, file);
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
+      await screen.findByRole("button", { name: "Confirm backup restoration" }),
     );
     await waitFor(() => {
       expect(onImport).toHaveBeenCalledOnce();
-      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+      expect(screen.getByText("Backup restored and saved locally.")).not.toBeNull();
     });
     expect(sha256(await file.text())).toBe(beforeHash);
 
     await user.upload(input, file);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Confirm backup restoration" })).not.toBeNull();
     });
     expect(sha256(await file.text())).toBe(beforeHash);
   });
@@ -734,17 +734,17 @@ describe("BackupControls", () => {
       value: vi.fn(async () => "{"),
     });
     const user = userEvent.setup();
-    const input = screen.getByLabelText("选择账本备份文件");
+    const input = screen.getByLabelText("Select ledger backup file");
 
     await user.upload(input, invalidFile);
     await waitFor(() => {
       expect(screen.getByText(/BACKUP_BAD_JSON/)).not.toBeNull();
-      expect(screen.getByText(/发现 1 项导入错误/)).not.toBeNull();
+      expect(screen.getByText(/Found 1 import errors/)).not.toBeNull();
     });
 
     await user.upload(input, createBackupFile("valid.json"));
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Confirm backup restoration" })).not.toBeNull();
     });
     expect(screen.queryByText(/BACKUP_BAD_JSON/)).toBeNull();
   });
@@ -760,21 +760,21 @@ describe("BackupControls", () => {
     });
     const secondFile = createBackupFile("second.json");
     const user = userEvent.setup();
-    const input = screen.getByLabelText("选择账本备份文件");
+    const input = screen.getByLabelText("Select ledger backup file");
 
     await user.upload(input, firstFile);
     await user.upload(input, secondFile);
     await waitFor(() => {
-      expect(screen.getByText("B 历史导入预检报告")).not.toBeNull();
+      expect(screen.getByText("Historical B Import Preflight Report")).not.toBeNull();
     });
     await act(async () => {
       firstRead.resolve("{");
       await firstRead.promise;
     });
 
-    expect(screen.queryByText("无法导入：备份文件格式或内容无效。")).toBeNull();
+    expect(screen.queryByText("Import failed: backup file format or content is invalid.")).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "确认恢复备份" }),
+      screen.queryByRole("button", { name: "Confirm backup restoration" }),
     ).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
     expect(facts).toEqual(before);
@@ -793,9 +793,9 @@ describe("BackupControls", () => {
       });
       const user = userEvent.setup();
 
-      await user.upload(screen.getByLabelText("选择账本备份文件"), file);
-      expect(screen.getByText("正在读取备份文件。")).not.toBeNull();
-      await user.click(screen.getByRole("button", { name: "取消" }));
+      await user.upload(screen.getByLabelText("Select ledger backup file"), file);
+      expect(screen.getByText("Reading the backup file.")).not.toBeNull();
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
 
       if (settlement === "resolve") {
         read.resolve("{");
@@ -805,10 +805,10 @@ describe("BackupControls", () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
-      expect(screen.queryByText("无法读取备份文件。")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Confirm backup restoration" })).toBeNull();
+      expect(screen.queryByText("The backup file could not be read.")).toBeNull();
       expect(
-        screen.queryByText("无法导入：备份文件格式或内容无效。"),
+        screen.queryByText("Import failed: backup file format or content is invalid."),
       ).toBeNull();
       expect(onImport).not.toHaveBeenCalled();
       expect(facts).toEqual(before);
@@ -831,7 +831,7 @@ describe("BackupControls", () => {
       });
       const user = userEvent.setup();
 
-      await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+      await user.upload(screen.getByLabelText("Select ledger backup file"), file);
       view.unmount();
 
       if (settlement === "resolve") {
@@ -853,15 +853,15 @@ describe("BackupControls", () => {
     renderControls({ canImportBackup: false, onImport });
     const user = userEvent.setup();
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
 
     await waitFor(() => {
-      expect(screen.getByText("B 历史导入预检报告")).not.toBeNull();
-      expect(screen.getByText(/当前 C 仅开放 B 的只读预检/)).not.toBeNull();
+      expect(screen.getByText("Historical B Import Preflight Report")).not.toBeNull();
+      expect(screen.getByText(/The current C exposes only read-only B preflight/)).not.toBeNull();
     });
     expect(screen.getByText("300")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "我已核对全部可疑组" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm backup restoration" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "I reviewed every suspicious group" })).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
     expect(facts).toEqual(before);
     expect(file.text).toHaveBeenCalledOnce();
@@ -921,15 +921,15 @@ describe("BackupControls", () => {
       }
 
       await user.upload(
-        screen.getByLabelText("选择账本备份文件"),
+        screen.getByLabelText("Select ledger backup file"),
         file,
       );
 
       if (scenario === "read-failure") {
-        await screen.findByText("无法读取备份文件。");
+        await screen.findByText("The backup file could not be read.");
       } else if (scenario === "oversized") {
         expect(
-          screen.getByText("无法导入：文件超过 8 MiB 限制。"),
+          screen.getByText("Import failed: the file exceeds the 8 MiB limit."),
         ).not.toBeNull();
       } else if (scenario === "bad-json") {
         await screen.findByText(/BACKUP_BAD_JSON/);
@@ -940,11 +940,11 @@ describe("BackupControls", () => {
       }
 
       expect(
-        screen.queryByRole("button", { name: "确认恢复备份" }),
+        screen.queryByRole("button", { name: "Confirm backup restoration" }),
       ).toBeNull();
-      await user.click(screen.getByRole("button", { name: "取消" }));
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
       expect(
-        screen.queryByText("B 历史导入预检报告"),
+        screen.queryByText("Historical B Import Preflight Report"),
       ).toBeNull();
       expect(onImport).not.toHaveBeenCalled();
       expect(facts).toEqual(before);
@@ -959,17 +959,17 @@ describe("BackupControls", () => {
     renderControls({ canImportBackup: false, onImport });
     const user = userEvent.setup();
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
 
     await waitFor(() => {
       expect(screen.getByText(/trades\[0\]\.quantity/)).not.toBeNull();
       expect(screen.getByText(/trades\[7\]\.rawText/)).not.toBeNull();
-      expect(screen.getByText(/高度可疑/)).not.toBeNull();
-      expect(screen.getByText(/一般可疑/)).not.toBeNull();
+      expect(screen.getByText(/Highly suspicious/)).not.toBeNull();
+      expect(screen.getByText("Suspicious")).not.toBeNull();
     });
-    expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm backup restoration" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "我已核对全部可疑组" }),
+      screen.queryByRole("button", { name: "I reviewed every suspicious group" }),
     ).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
   });
@@ -991,24 +991,24 @@ describe("BackupControls", () => {
     });
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       file,
     );
     await screen.findByRole("button", {
-      name: "我已核对全部可疑组",
+      name: "I reviewed every suspicious group",
     });
     expect(sha256(await file.text())).toBe(beforeHash);
     await user.click(
-      screen.getByRole("button", { name: "复制 Markdown 报告" }),
+      screen.getByRole("button", { name: "Copy Markdown report" }),
     );
-    await screen.findByText("报告已复制。");
+    await screen.findByText("Report copied.");
     expect(sha256(await file.text())).toBe(beforeHash);
     await user.click(
-      screen.getByRole("button", { name: "我已核对全部可疑组" }),
+      screen.getByRole("button", { name: "I reviewed every suspicious group" }),
     );
-    expect(screen.getByText(/已确认当前可疑组/)).not.toBeNull();
+    expect(screen.getByText(/Current suspicious groups confirmed/)).not.toBeNull();
     expect(sha256(await file.text())).toBe(beforeHash);
-    await user.click(screen.getByRole("button", { name: "取消" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(sha256(await file.text())).toBe(beforeHash);
     expect(sha256(serialized)).toBe(beforeHash);
@@ -1024,18 +1024,18 @@ describe("BackupControls", () => {
     renderControls({ canImportBackup: false, onImport });
     const user = userEvent.setup();
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "我已核对全部可疑组" }),
+        screen.getByRole("button", { name: "I reviewed every suspicious group" }),
       ).not.toBeNull();
     });
     await user.click(
-      screen.getByRole("button", { name: "我已核对全部可疑组" }),
+      screen.getByRole("button", { name: "I reviewed every suspicious group" }),
     );
 
-    expect(screen.getByText(/已确认当前可疑组/)).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
+    expect(screen.getByText(/Current suspicious groups confirmed/)).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm backup restoration" })).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
   });
 
@@ -1053,25 +1053,25 @@ describe("BackupControls", () => {
       value: { writeText },
     });
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
     const detailList = await screen.findByRole("list", {
-      name: "预检详情（页面最多 50 项）",
+      name: "Preflight details (up to 50 items on the page)",
     });
     expect(within(detailList).getAllByRole("listitem")).toHaveLength(50);
-    expect(screen.getByText(/1000 \/ 1001 项/)).not.toBeNull();
-    expect(screen.getByText(/第 1001 项后已截断/)).not.toBeNull();
+    expect(screen.getByText(/1000 \/ 1001/)).not.toBeNull();
+    expect(screen.getByText(/Details after item 1000 were truncated/)).not.toBeNull();
 
     await user.click(
-      screen.getByRole("button", { name: "复制 Markdown 报告" }),
+      screen.getByRole("button", { name: "Copy Markdown report" }),
     );
     await waitFor(() => {
-      expect(screen.getByText("报告已复制。")).not.toBeNull();
+      expect(screen.getByText("Report copied.")).not.toBeNull();
     });
     const markdown = writeText.mock.calls[0]?.[0];
-    expect(markdown).toContain("隐私提醒");
+    expect(markdown).toContain("Privacy notice");
     expect(markdown).toContain("`trades[999].quantity`");
     expect(markdown).not.toContain("`trades[1000].quantity`");
-    expect(markdown).toContain("详情总数：1001");
+    expect(markdown).toContain("Total detail count: 1001");
   });
 
   it("does not claim a report was copied when the clipboard rejects", async () => {
@@ -1089,16 +1089,16 @@ describe("BackupControls", () => {
       },
     });
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
-    await screen.findByText("B 历史导入预检报告");
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
+    await screen.findByText("Historical B Import Preflight Report");
     await user.click(
-      screen.getByRole("button", { name: "复制 Markdown 报告" }),
+      screen.getByRole("button", { name: "Copy Markdown report" }),
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/复制失败/)).not.toBeNull();
+      expect(screen.getByText(/Copy failed/)).not.toBeNull();
     });
-    expect(screen.queryByText("报告已复制。")).toBeNull();
+    expect(screen.queryByText("Report copied.")).toBeNull();
   });
 
   it("invalidates a late preflight after cancel before it can revive a report or write action", async () => {
@@ -1122,19 +1122,19 @@ describe("BackupControls", () => {
     });
     const user = userEvent.setup();
 
-    await user.upload(screen.getByLabelText("选择账本备份文件"), file);
+    await user.upload(screen.getByLabelText("Select ledger backup file"), file);
     await waitFor(() => {
       expect(preflight).toHaveBeenCalledOnce();
-      expect(screen.getByText(/正在执行只读预检/)).not.toBeNull();
+      expect(screen.getByText(/Running read-only preflight/)).not.toBeNull();
     });
-    await user.click(screen.getByRole("button", { name: "取消" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     await act(async () => {
       pending.resolve(eventualResult);
       await pending.promise;
     });
 
-    expect(screen.queryByText("B 历史导入预检报告")).toBeNull();
-    expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
+    expect(screen.queryByText("Historical B Import Preflight Report")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm backup restoration" })).toBeNull();
     expect(createLedgerBackupImportEvidence(eventualResult)).toBeNull();
     expect(inspectLedgerBackupImportEvidence(eventualEvidence!)).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
@@ -1175,10 +1175,10 @@ describe("BackupControls", () => {
       preflight,
     });
     const user = userEvent.setup();
-    const input = screen.getByLabelText("选择账本备份文件");
+    const input = screen.getByLabelText("Select ledger backup file");
 
     await user.upload(input, first.file);
-    await screen.findByText(/正在执行只读预检/);
+    await screen.findByText(/Running read-only preflight/);
     await user.upload(input, second.file);
     await waitFor(() => {
       expect(screen.getByText("300")).not.toBeNull();
@@ -1190,7 +1190,7 @@ describe("BackupControls", () => {
 
     expect(screen.getByText("300")).not.toBeNull();
     expect(
-      screen.queryByRole("button", { name: "我已核对全部可疑组" }),
+      screen.queryByRole("button", { name: "I reviewed every suspicious group" }),
     ).toBeNull();
     expect(
       createLedgerBackupImportEvidence(
@@ -1223,10 +1223,10 @@ describe("BackupControls", () => {
     const user = userEvent.setup();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       fixture.file,
     );
-    await screen.findByText(/正在执行只读预检/);
+    await screen.findByText(/Running read-only preflight/);
     view.unmount();
     await act(async () => {
       pending.resolve(eventualResult);
@@ -1256,14 +1256,14 @@ describe("BackupControls", () => {
       configurable: true,
       value: { writeText },
     });
-    const input = screen.getByLabelText("选择账本备份文件");
+    const input = screen.getByLabelText("Select ledger backup file");
 
     await user.upload(input, first.file);
-    await screen.findByText("B 历史导入预检报告");
+    await screen.findByText("Historical B Import Preflight Report");
     await user.click(
-      screen.getByRole("button", { name: "复制 Markdown 报告" }),
+      screen.getByRole("button", { name: "Copy Markdown report" }),
     );
-    expect(screen.getByText("正在复制报告。")).not.toBeNull();
+    expect(screen.getByText("Copying report.")).not.toBeNull();
 
     await user.upload(input, second.file);
     await waitFor(() => {
@@ -1274,7 +1274,7 @@ describe("BackupControls", () => {
       await clipboard.promise;
     });
 
-    expect(screen.queryByText("报告已复制。")).toBeNull();
+    expect(screen.queryByText("Report copied.")).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
     expect(facts).toEqual(before);
   });
@@ -1302,16 +1302,16 @@ describe("BackupControls", () => {
       });
 
       await user.upload(
-        screen.getByLabelText("选择账本备份文件"),
+        screen.getByLabelText("Select ledger backup file"),
         fixture.file,
       );
-      await screen.findByText("B 历史导入预检报告");
+      await screen.findByText("Historical B Import Preflight Report");
       await user.click(
-        screen.getByRole("button", { name: "复制 Markdown 报告" }),
+        screen.getByRole("button", { name: "Copy Markdown report" }),
       );
-      expect(screen.getByText("正在复制报告。")).not.toBeNull();
+      expect(screen.getByText("Copying report.")).not.toBeNull();
       if (action === "cancel") {
-        await user.click(screen.getByRole("button", { name: "取消" }));
+        await user.click(screen.getByRole("button", { name: "Cancel" }));
       } else {
         view.unmount();
       }
@@ -1321,7 +1321,7 @@ describe("BackupControls", () => {
       });
 
       if (action === "cancel") {
-        expect(screen.queryByText("报告已复制。")).toBeNull();
+        expect(screen.queryByText("Report copied.")).toBeNull();
       }
       expect(onImport).not.toHaveBeenCalled();
       expect(facts).toEqual(before);
@@ -1340,33 +1340,33 @@ describe("BackupControls", () => {
         onImport,
       });
       const user = userEvent.setup();
-      let input = screen.getByLabelText("选择账本备份文件");
+      let input = screen.getByLabelText("Select ledger backup file");
 
       await user.upload(input, fixture.file);
       await screen.findByRole("button", {
-        name: "我已核对全部可疑组",
+        name: "I reviewed every suspicious group",
       });
       await user.click(
-        screen.getByRole("button", { name: "我已核对全部可疑组" }),
+        screen.getByRole("button", { name: "I reviewed every suspicious group" }),
       );
-      expect(screen.getByText(/已确认当前可疑组/)).not.toBeNull();
+      expect(screen.getByText(/Current suspicious groups confirmed/)).not.toBeNull();
 
       if (action === "cancel") {
-        await user.click(screen.getByRole("button", { name: "取消" }));
-        input = screen.getByLabelText("选择账本备份文件");
+        await user.click(screen.getByRole("button", { name: "Cancel" }));
+        input = screen.getByLabelText("Select ledger backup file");
       } else if (action === "unmount") {
         view.unmount();
         renderControls({ canImportBackup: false, onImport });
-        input = screen.getByLabelText("选择账本备份文件");
+        input = screen.getByLabelText("Select ledger backup file");
       }
       await user.upload(input, fixture.file);
 
       expect(
         await screen.findByRole("button", {
-          name: "我已核对全部可疑组",
+          name: "I reviewed every suspicious group",
         }),
       ).not.toBeNull();
-      expect(screen.queryByText(/已确认当前可疑组/)).toBeNull();
+      expect(screen.queryByText(/Current suspicious groups confirmed/)).toBeNull();
       expect(onImport).not.toHaveBeenCalled();
       expect(facts).toEqual(before);
     },
@@ -1383,12 +1383,12 @@ describe("BackupControls", () => {
     const user = userEvent.setup();
 
     await user.click(
-      screen.getByRole("button", { name: "导出完整账本备份" }),
+      screen.getByRole("button", { name: "Export complete ledger backup" }),
     );
 
-    expect(screen.getByText(/无法确认下载是否成功/)).not.toBeNull();
-    expect(screen.queryByText(/已发起备份下载/)).toBeNull();
-    expect(screen.queryByText(/已安全保存/)).toBeNull();
+    expect(screen.getByText(/download success is unknown/)).not.toBeNull();
+    expect(screen.queryByText(/Backup download requested/)).toBeNull();
+    expect(screen.queryByText(/saved safely/)).toBeNull();
   });
 
   it("states that a read-only rescue backup may not be importable", async () => {
@@ -1396,15 +1396,15 @@ describe("BackupControls", () => {
     renderControls({ clock: fixedClock, isReadOnly: true });
     const user = userEvent.setup();
 
-    expect(screen.getByRole("button", { name: "导出完整账本备份" })).not.toBeNull();
-    expect(screen.queryByLabelText("选择账本备份文件")).toBeNull();
+    expect(screen.getByRole("button", { name: "Export complete ledger backup" })).not.toBeNull();
+    expect(screen.queryByLabelText("Select ledger backup file")).toBeNull();
     expect(
       screen.getByText(
-        /备份可能因集合或字符串超限而无法由当前版本重新导入/,
+        /oversized collections or strings may prevent re-import/,
       ),
     ).not.toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "Export complete ledger backup" }));
 
     expect(download.createObjectURL).toHaveBeenCalledOnce();
     expect(download.getFilename()).toBe(FIXED_BACKUP_FILENAME);
@@ -1412,20 +1412,20 @@ describe("BackupControls", () => {
       getDownloadedEnvelope(download.blobConstructor).ledgerData,
     ).toEqual(createInitialLedgerData());
     const message = screen.getByText(
-      /已发起只读救援备份下载/,
+      /Read-only rescue backup download requested/,
     ).textContent;
     expect(message).toContain(
-      "可能因集合或字符串超限而无法由当前版本重新导入",
+      "may not be re-importable by this version if collections or strings exceed limits",
     );
-    expect(message).toContain("备份为明文、未加密");
-    expect(message).toContain("实际保存位置");
+    expect(message).toContain("unencrypted plaintext");
+    expect(message).toContain("destination");
   });
 
   it("shows recovery import but no export after hydration fails", () => {
     renderControls({ hydrationStatus: "error" });
 
-    expect(screen.queryByRole("button", { name: "导出完整账本备份" })).toBeNull();
-    expect(screen.getByLabelText("选择账本备份文件")).not.toBeNull();
-    expect(screen.getByText("可使用有效备份恢复本地账本。")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Export complete ledger backup" })).toBeNull();
+    expect(screen.getByLabelText("Select ledger backup file")).not.toBeNull();
+    expect(screen.getByText("A valid backup can restore the local ledger.")).not.toBeNull();
   });
 });

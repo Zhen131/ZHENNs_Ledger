@@ -17,11 +17,11 @@ describe("NoopEncryptionService", () => {
   it("preserves Unicode and empty strings exactly", async () => {
     const service = new NoopEncryptionService();
 
-    const unicodeEnvelope = await service.encrypt("账本数据");
+    const unicodeEnvelope = await service.encrypt("\u8d26\u672c\u6570\u636e");
     const emptyEnvelope = await service.encrypt("");
 
     await expect(service.decrypt(unicodeEnvelope)).resolves.toBe(
-      "账本数据",
+      "\u8d26\u672c\u6570\u636e",
     );
     await expect(service.decrypt(emptyEnvelope)).resolves.toBe("");
   });

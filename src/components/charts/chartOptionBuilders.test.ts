@@ -69,7 +69,7 @@ describe("chart option builders", () => {
 
     expect(series).toHaveLength(2);
     expect(series[0]).toMatchObject({
-      name: "持仓总市值",
+      name: "Position market value",
       type: "line",
       step: "end",
       smooth: false,
@@ -77,7 +77,7 @@ describe("chart option builders", () => {
       data: [12, "-"],
     });
     expect(series[1]).toMatchObject({
-      name: "持仓成本",
+      name: "Position cost basis",
       type: "line",
       step: "end",
       smooth: false,
@@ -113,11 +113,11 @@ describe("chart option builders", () => {
     expect(data).toHaveLength(365);
     expect(data.at(-1)).toEqual(["day-364", 4, 2, 1, 1]);
     expect(visualMap.pieces.map((piece) => piece.label)).toEqual([
-      "无交易",
-      "低",
-      "较低",
-      "较高",
-      "最高",
+      "No trades",
+      "Low",
+      "Medium-low",
+      "Medium-high",
+      "Highest",
     ]);
     expect(calendar.range).toEqual(["day-0", "day-364"]);
   });
