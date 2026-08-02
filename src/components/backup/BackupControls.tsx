@@ -181,7 +181,7 @@ export function BackupControls({
     });
 
     if (!envelopeResult.ok) {
-      setMessage("无法导出：当前账本未通过结构校验。");
+      setMessage("Export failed: the current ledger did not pass structural validation.");
       return;
     }
 
@@ -189,33 +189,33 @@ export function BackupControls({
     const bytePolicy = evaluateLedgerJsonResourcePolicy(serialized);
     if (!bytePolicy.ok) {
       setMessage(
-        "无法导出：当前 v1 无法安全导出该超大账本；未创建备份文件。",
+        "Export failed: v1 cannot safely export this oversized ledger; no backup file was created.",
       );
       return;
     }
 
     const ledgerPolicy = evaluateLedgerResourcePolicy(ledgerData);
     if (!isReadOnly && !ledgerPolicy.ok) {
-      setMessage("无法导出：当前账本超过资源上限。");
+      setMessage("Export failed: the current ledger exceeds resource limits.");
       return;
     }
 
     const downloadResult = downloadBackupJson(serialized, exportedAt);
     if (!downloadResult.ok) {
       setMessage(
-        "导出过程中出现异常，无法确认下载是否成功；请检查浏览器下载列表后再重试。",
+        "An export error occurred, so download success is unknown. Check the browser download list before retrying.",
       );
       return;
     }
 
     setMessage(
       isReadOnly
-        ? "已发起只读救援备份下载。备份为明文、未加密，可能因集合或字符串超限而无法由当前版本重新导入；请检查浏览器下载是否成功及实际保存位置，并将文件移至安全位置或在不再需要时删除。"
+        ? "Read-only rescue backup download requested. The backup is unencrypted plaintext and may not be re-importable by this version if collections or strings exceed limits. Verify the download and destination, then move it to a secure location or delete it when no longer needed."
         : isDirty ||
             persistenceStatus === "saving" ||
               persistenceStatus === "error"
-          ? "已发起救援备份下载。备份为明文、未加密，包含当前页面数据，可能新于最后成功保存的版本；请检查浏览器下载是否成功及实际保存位置，并将文件移至安全位置或在不再需要时删除。"
-          : "已发起备份下载。备份为明文、未加密；请检查浏览器下载是否成功及实际保存位置，并将文件移至安全位置或在不再需要时删除。",
+          ? "Rescue backup download requested. The unencrypted plaintext backup contains current page data and may be newer than the last successful save. Verify the download and destination, then secure or delete the file."
+          : "Backup download requested. The backup is unencrypted plaintext. Verify the download and destination, then secure or delete the file.",
     );
   }
 
@@ -249,7 +249,7 @@ export function BackupControls({
     const bytePolicy = evaluateLedgerByteLengthResourcePolicy(file.size);
     if (!bytePolicy.ok) {
       setImportState("preflight-blocked");
-      setMessage("无法导入：文件超过 8 MiB 限制。");
+      setMessage("Import failed: the file exceeds the 8 MiB limit.");
       setImportErrors(bytePolicy.errors);
       return;
     }
@@ -262,7 +262,7 @@ export function BackupControls({
       } catch {
         if (isCurrentSelection(selectionGeneration)) {
           setImportState("preflight-blocked");
-          setMessage("无法读取备份文件。");
+          setMessage("The backup file could not be read.");
         }
         return;
       }
@@ -284,7 +284,7 @@ export function BackupControls({
       } catch {
         if (isCurrentSelection(selectionGeneration)) {
           setImportState("preflight-blocked");
-          setMessage("预检执行失败；未写入当前账本或 C 文件。");
+          setMessage("Preflight failed; the current ledger and C file were not written.");
         }
         return;
       }
@@ -298,13 +298,13 @@ export function BackupControls({
       setPreflightResult(result);
       if (result.hardErrorCount > 0) {
         setImportState("preflight-blocked");
-        setMessage("预检发现硬错误；不得继续导入。");
+        setMessage("Preflight found hard errors; import must not continue.");
         return;
       }
       if (result.suspiciousGroupCount > 0) {
         setImportState("awaiting-suspicion-confirmation");
         setMessage(
-          "预检没有硬错误，但发现可疑重复组；应用未自动修改、删除、合并或去重。",
+          "Preflight found no hard errors but did find suspicious duplicate groups. The app did not automatically modify, delete, merge, or deduplicate anything.",
         );
         return;
       }
@@ -316,8 +316,8 @@ export function BackupControls({
       );
       setMessage(
         canImportBackup
-          ? "预检通过；确认后才会进入既有备份恢复写入。"
-          : "预检通过；当前 C 只开放只读预检，未调用导入或保存写入口。",
+          ? "Preflight passed. Writing begins only after confirmation."
+          : "Preflight passed. The current C exposes read-only preflight only; no import or save capability was called.",
       );
     })();
   }
@@ -346,8 +346,8 @@ export function BackupControls({
     );
     setMessage(
       canImportBackup
-        ? "已确认当前可疑组；仍未写入，需再次确认完整覆盖。"
-        : "已确认当前可疑组；当前 C 仍只开放只读预检，未调用任何写入口。",
+        ? "Current suspicious groups confirmed. Nothing has been written; full replacement still requires confirmation."
+        : "Current suspicious groups confirmed. The current C remains read-only preflight and no write capability was called.",
     );
   }
 
@@ -425,7 +425,7 @@ export function BackupControls({
     if (importResult.ok) {
       resetFileSelection();
       setImportState("success");
-      setMessage("备份已恢复并保存到本地。");
+      setMessage("Backup restored and saved locally.");
       return;
     }
 
@@ -435,18 +435,18 @@ export function BackupControls({
     setImportState("write-error");
     setMessage(
       importResult.code === "LEDGER_IMPORT_NOT_ALLOWED"
-        ? "当前状态不允许恢复备份。"
+        ? "The current state does not allow backup restoration."
         : importResult.code === "LEDGER_IMPORT_INVALID_BACKUP"
-          ? "备份内容未通过校验。"
+          ? "The backup content did not pass validation."
           : importResult.code === "LEDGER_IMPORT_CANCELLED"
-            ? "已取消导入；当前页面未替换。"
+            ? "Import canceled; the current page was not replaced."
             : importResult.code === "LEDGER_IMPORT_BASE_RESTORED"
-              ? "导入未完成；已复读确认 C 恢复为导入前的完整版本，当前页面未变更。"
+              ? "Import did not complete. A reread confirmed C was restored to the complete pre-import version; the page did not change."
               : importResult.code === "LEDGER_IMPORT_SOURCE_CHANGED"
-                ? "导入写入前发现 C 已发生外部变化；本次导入没有写入，请重新打开该 C。"
+                ? "C changed externally before import writing. Nothing was written; reopen C."
                 : importResult.code === "LEDGER_IMPORT_RECOVERY_BLOCKED"
-                  ? "无法确认导入结果，也无法证明 C 已恢复；当前会话已停止写入，请立即锁定并保留文件用于恢复。"
-                  : "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
+                  ? "The import result cannot be confirmed and C restoration cannot be proven. Writes are disabled for this session; lock immediately and preserve the file for recovery."
+                  : "Import failed and the page did not change. No further evidence confirms the underlying storage state; follow the error guidance.",
     );
   }
 
@@ -470,8 +470,8 @@ export function BackupControls({
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
       <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950">
-        账本备份是未加密明文，任何能访问文件的人都可能读取完整资产、交易和价格。导出只会发起浏览器下载，请确认实际下载结果和保存位置，并将文件移至安全位置或在不再需要时删除。若保存到
-        iCloud Drive、OneDrive 等同步目录，系统可能自动上传或同步。
+        Ledger backups are unencrypted plaintext. Anyone with file access may read all assets, trades, and prices. Export only requests a browser download; verify the result and destination, then secure or delete the file. Saving to
+        a synchronized folder such as iCloud Drive or OneDrive may upload or synchronize it automatically.
       </p>
       <div className="flex flex-wrap gap-3">
         {showExport ? (
@@ -481,15 +481,15 @@ export function BackupControls({
             onClick={handleExport}
             type="button"
           >
-            导出完整账本备份
+            Export complete ledger backup
           </button>
         ) : null}
         {showPreflight ? (
           <label className="w-fit cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-            选择备份文件并预检
+            Select backup file and run preflight
             <input
               accept="application/json,.json"
-              aria-label="选择账本备份文件"
+              aria-label="Select ledger backup file"
               className="sr-only"
               disabled={!canSelect}
               onChange={handleFileChange}
@@ -500,33 +500,33 @@ export function BackupControls({
         ) : null}
       </div>
 
-      {hydrationStatus === "loading" ? <p>读取完成前不可预检、导入或导出。</p> : null}
+      {hydrationStatus === "loading" ? <p>Preflight, import, and export are unavailable until loading completes.</p> : null}
       {hydrationStatus === "error" ? (
         <>
-          <p>可使用有效备份恢复本地账本。</p>
-          <p>系统会先做纯预检；只有具备写入 capability 时才可恢复。</p>
+          <p>A valid backup can restore the local ledger.</p>
+          <p>The system first performs a read-only preflight; restoration requires a write capability.</p>
         </>
       ) : null}
       {isReadOnly ? (
-        <p>当前账本只读，仅可导出受 8 MiB 限制的救援备份；备份可能因集合或字符串超限而无法由当前版本重新导入；当前只读保护禁止预检后覆盖超限账本。</p>
+        <p>The ledger is read-only. Only an 8 MiB-limited rescue export is available; oversized collections or strings may prevent re-import, and read-only protection forbids overwriting the oversized ledger after preflight.</p>
       ) : null}
       {persistenceStatus === "saving" || persistenceStatus === "error" ? (
-        <p>可导出当前页面账本作为救援备份。备份为明文，可能新于最后成功保存的版本。</p>
+        <p>The current page ledger can be exported as a plaintext rescue backup and may be newer than the last successful save.</p>
       ) : null}
 
       {importState === "reading" || importState === "preflighting" ? (
         <div className="flex flex-wrap items-center gap-3">
           <p aria-live="polite">
             {importState === "reading"
-              ? "正在读取备份文件。"
-              : "正在执行只读预检；不会写入当前账本或 C 文件。"}
+              ? "Reading the backup file."
+              : "Running read-only preflight; the current ledger and C file will not be written."}
           </p>
           <button
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
             onClick={cancelSelection}
             type="button"
           >
-            取消
+            Cancel
           </button>
         </div>
       ) : null}
@@ -542,7 +542,7 @@ export function BackupControls({
       {importState === "awaiting-suspicion-confirmation" ? (
         <div className="grid gap-3 border-t border-slate-200 pt-3">
           <p className="font-medium text-amber-900">
-            请核对报告中的全部可疑重复组。确认只表示你已阅读告警，不会自动删除、合并或修改交易。
+            Review every suspicious duplicate group in the report. Confirmation only records that you read the warning; it does not delete, merge, or modify trades.
           </p>
           <div className="flex flex-wrap gap-3">
             <button
@@ -550,14 +550,14 @@ export function BackupControls({
               onClick={confirmSuspiciousGroups}
               type="button"
             >
-              我已核对全部可疑组
+              I reviewed every suspicious group
             </button>
             <button
               className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
               onClick={cancelSelection}
               type="button"
             >
-              取消
+              Cancel
             </button>
           </div>
         </div>
@@ -567,14 +567,14 @@ export function BackupControls({
         <div className="grid gap-3 border-t border-slate-200 pt-3">
           <p className="font-medium text-amber-900">
             {hydrationStatus === "error"
-              ? "恢复成功后覆盖损坏 record；失败保留原 record。"
+              ? "A successful restore replaces the damaged record; failure retains the original record."
               : isDirty
-                ? "导入将完整覆盖当前账本，不合并数据。页面中尚未落盘的数据也会被覆盖；可先导出救援备份。"
-                : "导入将完整覆盖当前账本，不合并数据。"}
+                ? "Import completely replaces the current ledger without merging. Unsaved page data will also be replaced; export a rescue backup first if needed."
+                : "Import completely replaces the current ledger without merging."}
           </p>
           <p className="text-sm leading-6 text-amber-900">
-            你选择的原备份文件仍是未加密明文；本应用不会移动、删除或主动上传该文件。若原文件位于
-            iCloud Drive、OneDrive 等同步目录，系统可能自动同步。
+            The selected source backup remains unencrypted plaintext. This app does not move, delete, or upload it. If it resides in
+            a synchronized folder such as iCloud Drive or OneDrive, the system may synchronize it automatically.
           </p>
           <div className="flex flex-wrap gap-3">
             <button
@@ -583,14 +583,14 @@ export function BackupControls({
               onClick={() => void confirmImport()}
               type="button"
             >
-              确认恢复备份
+              Confirm backup restoration
             </button>
             <button
               className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
               onClick={cancelSelection}
               type="button"
             >
-              取消
+              Cancel
             </button>
           </div>
         </div>
@@ -598,8 +598,8 @@ export function BackupControls({
 
       {importState === "ready-without-suspicions" && !canImportBackup ? (
         <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sky-900">
-          当前 C 仅开放 B 的只读预检与报告复制；没有导入写 capability，本次操作未调用
-          save、clear 或任何 C writable。
+          The current C exposes only read-only B preflight and report copying. No import write capability exists, and this operation did not call
+          save, clear, or any C writable.
         </p>
       ) : null}
 
@@ -611,28 +611,27 @@ export function BackupControls({
           onClick={cancelSelection}
           type="button"
         >
-          取消
+          Cancel
         </button>
       ) : null}
 
       {importState === "preflight-blocked" && preflightResult ? (
         <p className="font-medium text-red-800">
-          存在硬错误；“继续导入”不可用，也不能被可疑组确认绕过。
+          Hard errors exist. Continue import is unavailable and cannot be bypassed by suspicious-group confirmation.
         </p>
       ) : null}
 
       {importState === "importing" ? (
         <div className="flex flex-wrap items-center gap-3">
           <p aria-live="polite">
-            正在写入并复读验证 C；若写入已经开始，取消时会尝试恢复并复读导入前的完整
-            C；如果无法确认恢复，当前会话会停止后续写入并明确报错。
+            Writing and rereading C for verification. If writing has begun, cancel attempts to restore and reread the complete pre-import C. If restoration cannot be confirmed, the session disables further writes and reports an explicit error.
           </p>
           <button
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
             onClick={cancelSelection}
             type="button"
           >
-            取消
+            Cancel
           </button>
         </div>
       ) : null}
@@ -640,8 +639,8 @@ export function BackupControls({
       {importErrors.length > 0 ? (
         <div aria-live="polite" className="grid gap-2 text-sm text-red-800">
           <p>
-            发现 {importErrors.length} 项导入错误，显示前{" "}
-            {Math.min(importErrors.length, 5)} 项。
+            Found {importErrors.length} import errors; showing the first{" "}
+            {Math.min(importErrors.length, 5)}.
           </p>
           <ul className="grid gap-1">
             {importErrors.slice(0, 5).map((error, index) => (
@@ -649,7 +648,7 @@ export function BackupControls({
                 <code>{error.code}</code> · <code>{error.path}</code> ·{" "}
                 {error.message}
                 {"limit" in error
-                  ? `（限制 ${error.limit}，实际 ${error.actual}）`
+                  ? ` (limit ${error.limit}, actual ${error.actual})`
                   : ""}
               </li>
             ))}
@@ -672,81 +671,81 @@ function PreflightReportView({
 }>) {
   return (
     <section className="grid gap-3 border-t border-slate-200 pt-3">
-      <h3 className="font-semibold text-slate-900">B 历史导入预检报告</h3>
+      <h3 className="font-semibold text-slate-900">Historical B Import Preflight Report</h3>
       <p className="text-sm text-amber-900">
-        隐私提醒：报告可能包含交易日期、资产、买卖方向、数量和金额；复制前请确认目标位置安全。
+        Privacy notice: the report may contain trade dates, assets, directions, quantities, and amounts. Confirm the destination is secure before copying.
       </p>
       <dl className="grid grid-cols-2 gap-2 text-sm text-slate-700">
         <div>
-          <dt className="text-slate-500">应用版本</dt>
-          <dd>{result.metadata?.appVersion ?? "不可得"}</dd>
+          <dt className="text-slate-500">App version</dt>
+          <dd>{result.metadata?.appVersion ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">导出时间</dt>
-          <dd>{result.metadata?.exportedAt ?? "不可得"}</dd>
+          <dt className="text-slate-500">Exported at</dt>
+          <dd>{result.metadata?.exportedAt ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">资产</dt>
-          <dd>{result.metadata?.assetCount ?? "不可得"}</dd>
+          <dt className="text-slate-500">Assets</dt>
+          <dd>{result.metadata?.assetCount ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">交易</dt>
-          <dd>{result.metadata?.tradeCount ?? "不可得"}</dd>
+          <dt className="text-slate-500">Trades</dt>
+          <dd>{result.metadata?.tradeCount ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">价格快照</dt>
-          <dd>{result.metadata?.priceSnapshotCount ?? "不可得"}</dd>
+          <dt className="text-slate-500">Price snapshots</dt>
+          <dd>{result.metadata?.priceSnapshotCount ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">手续费规则</dt>
-          <dd>{result.metadata?.feeRuleCount ?? "不可得"}</dd>
+          <dt className="text-slate-500">Fee rules</dt>
+          <dd>{result.metadata?.feeRuleCount ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">硬错误</dt>
+          <dt className="text-slate-500">Hard errors</dt>
           <dd>{result.hardErrorCount}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">可疑重复组</dt>
+          <dt className="text-slate-500">Suspicious duplicate groups</dt>
           <dd>{result.suspiciousGroupCount}</dd>
         </div>
       </dl>
       <p className="break-all text-xs text-slate-600">
-        B SHA-256：<code>{result.contentIdentity.sha256}</code>
+        B SHA-256: <code>{result.contentIdentity.sha256}</code>
       </p>
       {result.hardErrorCount > 0 ? (
         <p>
-          发现 {result.hardErrorCount} 项导入错误，页面显示前{" "}
+          Found {result.hardErrorCount} import errors; the page shows the first{" "}
           {Math.min(
             result.hardErrorCount,
             result.visibleDetails.filter(
               (detail) => detail.kind === "hard-error",
             ).length,
           )}{" "}
-          项。
+          items.
         </p>
       ) : null}
 
       {result.visibleDetails.length > 0 ? (
         <ol
-          aria-label="预检详情（页面最多 50 项）"
+          aria-label="Preflight details (up to 50 items on the page)"
           className="grid max-h-80 gap-2 overflow-y-auto rounded-md border border-slate-200 bg-white p-3 text-sm"
         >
           {result.visibleDetails.map((detail, index) => (
             <li key={detailKey(detail, index)}>
               {detail.kind === "hard-error" ? (
                 <>
-                  <strong>硬错误</strong> · <code>{detail.code}</code> ·{" "}
+                  <strong>Hard error</strong> · <code>{detail.code}</code> ·{" "}
                   <code>{detail.path}</code> · {detail.message}
                   {detail.line !== undefined && detail.column !== undefined
-                    ? `（第 ${detail.line} 行，第 ${detail.column} 列）`
+                    ? ` (line ${detail.line}, column ${detail.column})`
                     : ""}
                 </>
               ) : (
                 <>
                   <strong>
                     {detail.group.level === "high"
-                      ? "高度可疑"
-                      : "一般可疑"}
+                      ? "Highly suspicious"
+                      : "Suspicious"}
                   </strong>{" "}
                   ·{" "}
                   {detail.group.tradePaths.map((path) => (
@@ -754,26 +753,26 @@ function PreflightReportView({
                       {path}
                     </code>
                   ))}
-                  · 未自动修改、删除、合并或去重
+                  · no automatic modification, deletion, merge, or deduplication
                 </>
               )}
             </li>
           ))}
         </ol>
       ) : (
-        <p>未发现硬错误或可疑重复组。</p>
+        <p>No hard errors or suspicious duplicate groups were found.</p>
       )}
 
       <p className="text-sm text-slate-700">
-        页面显示前 {result.visibleDetails.length} 项；复制报告保留{" "}
-        {result.retainedDetailCount} / {result.totalDetailCount} 项。
+        The page shows {result.visibleDetails.length} items; the copied report retains{" "}
+        {result.retainedDetailCount} / {result.totalDetailCount}.
         {result.truncated
-          ? " 第 1001 项后已截断，请修正后重新检查。"
+          ? " Details after item 1000 were truncated; correct the data and run the check again."
           : ""}
       </p>
       {result.skippedChecks.length > 0 ? (
         <div className="text-sm text-amber-900">
-          <p>以下检查未安全执行，不能写成通过：</p>
+          <p>The following checks did not run safely and cannot be reported as passed:</p>
           <ul>
             {result.skippedChecks.map(({ check, reason }) => (
               <li key={check}>
@@ -790,13 +789,13 @@ function PreflightReportView({
           onClick={onCopy}
           type="button"
         >
-          复制 Markdown 报告
+          Copy Markdown report
         </button>
-        {copyState === "copying" ? <span>正在复制报告。</span> : null}
-        {copyState === "copied" ? <span>报告已复制。</span> : null}
+        {copyState === "copying" ? <span>Copying report.</span> : null}
+        {copyState === "copied" ? <span>Report copied.</span> : null}
         {copyState === "error" ? (
           <span className="text-red-800">
-            复制失败；没有把本次操作标记为已复制。
+            Copy failed; this operation was not marked as copied.
           </span>
         ) : null}
       </div>

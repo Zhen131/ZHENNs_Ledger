@@ -19,11 +19,11 @@ const RANGE_OPTIONS: ReadonlyArray<{
   value: ChartRange;
   label: string;
 }> = [
-  { value: "1d", label: "1日" },
-  { value: "7d", label: "7日" },
-  { value: "30d", label: "30日" },
-  { value: "365d", label: "365日" },
-  { value: "all", label: "全部" },
+  { value: "1d", label: "1 day" },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "365d", label: "365 days" },
+  { value: "all", label: "All" },
 ];
 
 export function ChartsOverview({
@@ -82,40 +82,40 @@ export function ChartsOverview({
     <div className="grid min-w-0 gap-5">
       <article className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-4">
         <h3 className="font-semibold text-slate-950">
-          当前 USD 等值持仓分配
+          Current USD-equivalent position allocation
         </h3>
         {allocation.slices.length > 0 ? (
           <>
             <EChart
-              ariaLabel="当前 USD 等值持仓分配饼图"
+              ariaLabel="Current USD-equivalent position allocation pie chart"
               className="h-80 w-full"
               option={allocationOption}
             />
             <p className="text-sm leading-6 text-slate-600">
-              已估值 {allocation.slices.length} 项，总市值{" "}
-              {allocation.totalMarketValue} USD 等值。
+              {allocation.slices.length} valued assets; total market value{" "}
+              {allocation.totalMarketValue} USD equivalent.
             </p>
           </>
         ) : allocation.missingPriceAssets.length > 0 ? (
           <p className="mt-3 text-sm leading-6 text-amber-800">
-            非零持仓缺少合法价格，当前不绘制误导性空饼。缺价资产：
-            {allocation.missingPriceAssets.join("、")}。
+            Non-zero positions lack valid prices, so no misleading empty pie is drawn. Missing prices:
+            {allocation.missingPriceAssets.join(", ")}.
           </p>
         ) : (
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            当前没有可显示的非零 USD/USDT 持仓。
+            There are no displayable non-zero USD/USDT positions.
           </p>
         )}
         {allocation.slices.length > 0 &&
         allocation.missingPriceAssets.length > 0 ? (
           <p className="mt-2 text-sm font-medium text-amber-800">
-            未估值资产：{allocation.missingPriceAssets.join("、")}。
+            Unvalued assets: {allocation.missingPriceAssets.join(", ")}.
           </p>
         ) : null}
         {allocation.excludedCurrencyAssets.length > 0 ? (
           <p className="mt-2 text-sm font-medium text-amber-800">
-            非 USD/USDT 旧资产已排除：
-            {allocation.excludedCurrencyAssets.join("、")}。
+            Legacy non-USD/USDT assets excluded:
+            {allocation.excludedCurrencyAssets.join(", ")}.
           </p>
         ) : null}
       </article>
@@ -124,14 +124,14 @@ export function ChartsOverview({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-slate-950">
-              持仓总市值 / 持仓成本
+              Position market value / position cost basis
             </h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              日级阶梯线；不含现金，不代表账户净值，成本暂不计手续费。
+              Daily step line; excludes cash, is not account net worth, and currently excludes fees from cost.
             </p>
           </div>
           <div
-            aria-label="持仓历史范围"
+            aria-label="Position history range"
             className="flex flex-wrap gap-1"
             role="group"
           >
@@ -153,20 +153,20 @@ export function ChartsOverview({
           </div>
         </div>
         <EChart
-          ariaLabel="持仓总市值与持仓成本阶梯线图"
+          ariaLabel="Position market value and cost basis step-line chart"
           className="mt-3 h-80 w-full"
           option={historyOption}
         />
         <p className="text-sm leading-6 text-slate-600">
-          {history.length} 个显示点；{valuedHistoryDays} 个点具备完整市场价格
+          {history.length} display points; {valuedHistoryDays} have complete market prices
           {missingHistoryDays > 0
-            ? `，${missingHistoryDays} 个市值点因缺价断开`
+            ? `; ${missingHistoryDays} market-value points are disconnected by missing prices`
             : ""}
-          。
+          .
         </p>
         {range === "1d" ? (
           <p className="mt-1 text-sm font-medium text-amber-800">
-            无可靠日内变化，边界点仅用于显示。
+            No reliable intraday change; boundary points are display-only.
           </p>
         ) : null}
       </article>
@@ -175,11 +175,11 @@ export function ChartsOverview({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-slate-950">
-              最近 365 天交易活跃
+              Trading activity over the last 365 days
             </h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              一周一列、星期为行；共 {heatmap.length} 个自然日、{totalTrades}{" "}
-              笔交易。
+              One column per week and one row per weekday; {heatmap.length} calendar days and {totalTrades}{" "}
+              trades.
             </p>
           </div>
           {selectedTradeDate ? (
@@ -188,21 +188,21 @@ export function ChartsOverview({
               onClick={() => onSelectedTradeDateChange(null)}
               type="button"
             >
-              清除日期筛选
+              Clear date filter
             </button>
           ) : null}
         </div>
         <EChart
-          ariaLabel="最近 365 天交易活跃热力图"
+          ariaLabel="Trading activity heatmap for the last 365 days"
           className="mt-3 h-56 w-full"
           events={heatmapEvents}
           option={heatmapOption}
         />
         <p className="text-sm leading-6 text-slate-600">
-          活跃等级：无交易 / 低 / 较低 / 较高 / 最高。
+          Activity levels: no trades / low / medium-low / medium-high / highest.
           {selectedTradeDate
-            ? ` 当前筛选 ${selectedTradeDate} 的交易，再点同一天可取消。`
-            : " 点击日期格可筛选交易列表。"}
+            ? ` Trades on ${selectedTradeDate} are filtered; click the same day again to clear.`
+            : " Click a date cell to filter the trade list."}
         </p>
       </article>
     </div>

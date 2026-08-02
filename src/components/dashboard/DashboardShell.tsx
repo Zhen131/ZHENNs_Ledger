@@ -46,7 +46,7 @@ import {
   type ConfirmDeleteOutcome,
 } from "../common/ConfirmDeleteButton";
 
-const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
+const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "CLEAR LOCAL LEDGER";
 
 type ClearConfirmationMode = "normal" | "recovery";
 
@@ -93,13 +93,13 @@ export function TradeTable({
       <table className="w-full min-w-[680px] text-left text-sm">
         <thead className="border-b border-slate-200 text-slate-500">
           <tr>
-            <th className="py-2 font-medium">日期</th>
-            <th className="py-2 font-medium">类型</th>
-            <th className="py-2 font-medium">资产</th>
-            <th className="py-2 font-medium">数量</th>
-            <th className="py-2 font-medium">均价</th>
-            <th className="py-2 font-medium">总金额</th>
-            {onDelete ? <th className="py-2 font-medium">操作</th> : null}
+            <th className="py-2 font-medium">Date</th>
+            <th className="py-2 font-medium">Type</th>
+            <th className="py-2 font-medium">Asset</th>
+            <th className="py-2 font-medium">Quantity</th>
+            <th className="py-2 font-medium">Average price</th>
+            <th className="py-2 font-medium">Total amount</th>
+            {onDelete ? <th className="py-2 font-medium">Action</th> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -109,7 +109,7 @@ export function TradeTable({
                 className="py-8 text-center text-slate-500"
                 colSpan={columnCount}
               >
-                暂无交易。添加交易后，这里会自动显示。
+                No trades yet. Added trades will appear here automatically.
               </td>
             </tr>
           ) : (
@@ -120,12 +120,12 @@ export function TradeTable({
                   {todayKey &&
                   isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
                     <span className="ml-2 font-medium text-red-700">
-                      无效未来事实
+                      Invalid future fact
                     </span>
                   ) : null}
                 </td>
                 <td className="py-3 text-slate-600">
-                  {trade.type === "buy" ? "买入" : "卖出"}
+                  {trade.type === "buy" ? "Buy" : "Sell"}
                 </td>
                 <td className="py-3 font-medium">{trade.assetSymbol}</td>
                 <td className="py-3 text-slate-600">{trade.quantity}</td>
@@ -136,11 +136,11 @@ export function TradeTable({
                 {onDelete ? (
                   <td className="py-3">
                     <ConfirmDeleteButton
-                      ariaLabel={`删除 ${
-                        trade.type === "buy" ? "买入" : "卖出"
+                      ariaLabel={`Delete ${
+                        trade.type === "buy" ? "buy" : "sell"
                       } ${trade.assetSymbol} ${trade.occurredAt}`}
                       disabled={deleteDisabled}
-                      label="删除"
+                      label="Delete"
                       onConfirm={() => onDelete(trade.id)}
                     />
                   </td>
@@ -310,8 +310,8 @@ export function DashboardShell({
     if (!result.ok) {
       setError(
         result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
-          ? "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出"
-          : "无法删除：没有找到这笔交易",
+          ? "Cannot delete: this trade supports a later sell. Delete dependent later sells first."
+          : "Cannot delete: trade not found.",
       );
       return "rejected";
     }
@@ -321,7 +321,7 @@ export function DashboardShell({
       tradeId: result.tradeId,
     });
     setError(
-      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+      outcome === "rejected" ? "The ledger is currently read-only; deletion was not performed." : "",
     );
     return outcome;
   }
@@ -351,7 +351,7 @@ export function DashboardShell({
       priceSnapshotId,
     });
     setFutureCorrectionError(
-      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+      outcome === "rejected" ? "The ledger is currently read-only; deletion was not performed." : "",
     );
     return outcome;
   }
@@ -365,7 +365,7 @@ export function DashboardShell({
       todayKey,
     });
     setFutureCorrectionError(
-      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+      outcome === "rejected" ? "The ledger is currently read-only; deletion was not performed." : "",
     );
     return outcome;
   }
@@ -400,7 +400,7 @@ export function DashboardShell({
   async function handleClearLedger() {
     if (clearConfirmationValue !== clearConfirmationText) {
       setClearConfirmationError(
-        `请输入完整确认文本“${clearConfirmationText}”`,
+        `Enter the full confirmation text "${clearConfirmationText}".`,
       );
       return;
     }
@@ -427,8 +427,8 @@ export function DashboardShell({
     setClearConfirmationValue("");
     setClearSuccessMessage(
       storageKind === "ledger-file"
-        ? "当前 C 账本内容已清空"
-        : "账本已清空",
+        ? "The current C ledger content was cleared."
+        : "The ledger was cleared.",
     );
   }
 
@@ -468,7 +468,7 @@ export function DashboardShell({
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-950">
         <p aria-live="polite" className="text-sm text-slate-700">
-          正在安全锁定：已停止新操作，正在等待已接受的保存收尾…
+          Locking safely: new operations are stopped while accepted saves finish…
         </p>
       </main>
     );
@@ -479,13 +479,13 @@ export function DashboardShell({
       <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
         <header className="mb-6 border-b border-slate-200 pb-6">
           <p className="text-sm font-medium text-slate-500">
-            本地优先交易账本
+            Local-First Trading Ledger
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
             Local-First Trading Ledger
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            本地记录交易和真实价格事实，持仓、盈亏与图表由同一份账本实时推导。
+            Record trades and observed prices locally. Positions, profit and loss, and charts derive from the same ledger in real time.
           </p>
           {session?.storageKind === "ledger-file" && onFinalLock ? (
             <button
@@ -493,19 +493,19 @@ export function DashboardShell({
               onClick={requestImmediateLock}
               type="button"
             >
-              立即锁定
+              Lock now
             </button>
           ) : null}
         </header>
 
           {showLockConfirmation ? (
             <section
-              aria-label="未保存修改锁定确认"
+              aria-label="Confirm locking with unsaved changes"
               className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900"
             >
-              <p className="font-medium">还有内容没保存</p>
+              <p className="font-medium">Some changes are unsaved</p>
               <p className="mt-1 leading-6">
-                你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。
+                Retry saving, or continue locking only if you want to discard these unsaved changes. Operations already writing to storage will finish safely and will not be interrupted.
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <button
@@ -517,21 +517,21 @@ export function DashboardShell({
                   onClick={() => void retrySaveBeforeLock()}
                   type="button"
                 >
-                  重新保存
+                  Retry this save
                 </button>
                 <button
                   className="rounded-md bg-red-700 px-3 py-2 font-medium text-white"
                   onClick={confirmDiscardAndLock}
                   type="button"
                 >
-                  我确定不要了，继续锁定
+                  Discard changes and continue locking
                 </button>
                 <button
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
                   onClick={() => setShowLockConfirmation(false)}
                   type="button"
                 >
-                  取消
+                  Cancel
                 </button>
               </div>
             </section>
@@ -542,7 +542,7 @@ export function DashboardShell({
               aria-live="polite"
               className="mb-5 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
             >
-              正在读取本地账本，完成前不会写入任何数据。
+              Loading the local ledger. No data will be written until loading completes.
             </p>
           ) : null}
           {hydrationStatus === "error" ? (
@@ -559,8 +559,8 @@ export function DashboardShell({
               className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
             >
               {isReadOnly
-                ? `当前账本超过资源上限，已只读加载：${resourcePolicyError.message}`
-                : `操作被资源边界拒绝：${resourcePolicyError.message}`}
+                ? `The current ledger exceeds resource limits and was loaded read-only: ${resourcePolicyError.message}`
+                : `The operation was rejected by a resource boundary: ${resourcePolicyError.message}`}
             </p>
           ) : null}
           {hydrationStatus === "ready" && persistenceError ? (
@@ -576,7 +576,7 @@ export function DashboardShell({
                   onClick={() => void retryPersistence()}
                   type="button"
                 >
-                  重试保存
+                  Retry save
                 </button>
               ) : null}
             </div>
@@ -587,14 +587,14 @@ export function DashboardShell({
                 aria-live="polite"
                 className="mb-5 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
               >
-                正在保存到本地
+                Saving locally
               </p>
             ) : persistenceStatus === "saved" ? (
               <p
                 aria-live="polite"
                 className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
               >
-                已保存到本地
+                Saved locally
               </p>
             ) : null
           ) : null}
@@ -604,14 +604,14 @@ export function DashboardShell({
               className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
             >
               <p>
-                当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。
+                The current ledger is unsaved, so switching local storage was blocked. Retry saving or explicitly discard unsaved changes.
               </p>
               <button
                 className="rounded-md border border-red-300 bg-white px-3 py-1.5 font-medium"
                 onClick={discardDirtyChangesAndSwitchRepository}
                 type="button"
               >
-                放弃未保存更改并切换
+                Discard unsaved changes and switch
               </button>
             </div>
           ) : null}
@@ -620,7 +620,7 @@ export function DashboardShell({
               aria-live="assertive"
               className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
             >
-              <p className="font-semibold">旧账本兼容警告</p>
+              <p className="font-semibold">Legacy ledger compatibility warning</p>
               <ul className="mt-2 grid gap-1">
                 {compatibilityWarnings.slice(0, 8).map((warning, index) => (
                   <li key={`${warning.code}-${warning.path}-${index}`}>
@@ -632,9 +632,9 @@ export function DashboardShell({
           ) : null}
           {isFutureFactCorrectionMode ? (
             <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
-              <p className="font-semibold">未来事实纠正模式</p>
+              <p className="font-semibold">Future-fact correction mode</p>
               <p>
-                未来交易和价格不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可逐条删除未来事实、救援导出、导入合法整账、清空或删除全部无效未来事实。
+                Future trades and prices are excluded from positions, market selection, and charts. Normal additions, historical deletions, and Binance refresh are paused. You can still delete future facts individually, export a rescue backup, import a valid whole ledger, clear the ledger, or delete all invalid future facts.
               </p>
               {futureCorrectionError ? (
                 <p
@@ -651,15 +651,15 @@ export function DashboardShell({
                     key={trade.id}
                   >
                     <span>
-                      未来交易：{trade.type === "buy" ? "买入" : "卖出"} ·{" "}
-                      {trade.assetSymbol} · 数量 {trade.quantity} · 价格{" "}
+                      Future trade: {trade.type === "buy" ? "Buy" : "Sell"} ·{" "}
+                      {trade.assetSymbol} · Quantity {trade.quantity} · Price{" "}
                       {trade.price} {trade.currency} · {trade.occurredAt} · ID{" "}
                       {shortLedgerId(trade.id)}
                     </span>
                     <ConfirmDeleteButton
-                      ariaLabel={`删除未来交易 ${trade.assetSymbol} ${trade.occurredAt} ${trade.id}`}
+                      ariaLabel={`Delete future trade ${trade.assetSymbol} ${trade.occurredAt} ${trade.id}`}
                       disabled={!canCorrectFutureFacts}
-                      label="删除未来交易"
+                      label="Delete future trade"
                       onConfirm={() => handleDeleteFutureTrade(trade.id)}
                     />
                   </li>
@@ -670,15 +670,15 @@ export function DashboardShell({
                     key={snapshot.id}
                   >
                     <span>
-                      未来价格：{snapshot.assetSymbol} · {snapshot.price}{" "}
-                      {snapshot.currency} · 来源{" "}
-                      {snapshot.source === "api" ? "Binance API" : "手动"} ·{" "}
+                      Future price: {snapshot.assetSymbol} · {snapshot.price}{" "}
+                      {snapshot.currency} · Source{" "}
+                      {snapshot.source === "api" ? "Binance API" : "Manual"} ·{" "}
                       {snapshot.recordedAt} · ID {shortLedgerId(snapshot.id)}
                     </span>
                     <ConfirmDeleteButton
-                      ariaLabel={`删除未来价格 ${snapshot.assetSymbol} ${snapshot.recordedAt} ${snapshot.id}`}
+                      ariaLabel={`Delete future price ${snapshot.assetSymbol} ${snapshot.recordedAt} ${snapshot.id}`}
                       disabled={!canCorrectFutureFacts}
-                      label="删除未来价格"
+                      label="Delete future price"
                       onConfirm={() =>
                         handleDeleteFuturePrice(snapshot.id)
                       }
@@ -688,9 +688,9 @@ export function DashboardShell({
               </ul>
               <div className="w-fit">
                 <ConfirmDeleteButton
-                  ariaLabel="删除全部无效未来事实"
+                  ariaLabel="Delete all invalid future facts"
                   disabled={!canCorrectFutureFacts}
-                  label="删除全部无效未来事实"
+                  label="Delete all invalid future facts"
                   onConfirm={handleDeleteAllFutureFacts}
                 />
               </div>
@@ -698,7 +698,7 @@ export function DashboardShell({
           ) : null}
 
           <div className="grid gap-5">
-            <Section title="图表总览与 Binance 行情">
+            <Section title="Charts and Binance Market Data">
               <MarketDataControls
                 applyLedgerMutation={applyLedgerMutation}
                 clock={clock}
@@ -711,7 +711,7 @@ export function DashboardShell({
               />
             </Section>
 
-            <Section title="账本图表">
+            <Section title="Ledger Charts">
               <ChartsOverview
                 allocation={allocation}
                 heatmap={heatmap}
@@ -724,23 +724,23 @@ export function DashboardShell({
             </Section>
 
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-              <Section title="资产汇总">
+              <Section title="Asset Summary">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[960px] text-left text-sm">
                     <thead className="border-b border-slate-200 text-slate-500">
                       <tr>
-                        <th className="py-2 font-medium">资产</th>
-                        <th className="py-2 font-medium">持仓数量</th>
-                        <th className="py-2 font-medium">平均成本</th>
+                        <th className="py-2 font-medium">Asset</th>
+                        <th className="py-2 font-medium">Position quantity</th>
+                        <th className="py-2 font-medium">Average cost</th>
                         <th className="py-2 font-medium">
-                          剩余成本基础（暂不计手续费）
+                          Remaining cost basis (fees excluded)
                         </th>
                         <th className="py-2 font-medium">
-                          已实现盈亏（暂不计手续费）
+                          Realized profit and loss (fees excluded)
                         </th>
-                        <th className="py-2 font-medium">当前价格</th>
-                        <th className="py-2 font-medium">当前市值</th>
-                        <th className="py-2 font-medium">未实现盈亏</th>
+                        <th className="py-2 font-medium">Current price</th>
+                        <th className="py-2 font-medium">Current market value</th>
+                        <th className="py-2 font-medium">Unrealized profit and loss</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -750,7 +750,7 @@ export function DashboardShell({
                             className="py-8 text-center text-slate-500"
                             colSpan={8}
                           >
-                            暂无持仓。添加交易后，这里会自动汇总。
+                            No positions yet. Added trades will be summarized here automatically.
                           </td>
                         </tr>
                       ) : (
@@ -775,7 +775,7 @@ export function DashboardShell({
                             </td>
                             <td className="py-3 text-slate-500">
                               {position.latestPrice === undefined
-                                ? "未输入价格"
+                                ? "No price entered"
                                 : `${position.latestPrice} ${position.currency}`}
                             </td>
                             <td className="py-3 text-slate-500">
@@ -796,7 +796,7 @@ export function DashboardShell({
                 </div>
               </Section>
 
-              <Section title="价格输入">
+              <Section title="Price Entry">
                 <fieldset
                   className={isWritable ? "" : "opacity-60"}
                   disabled={!isWritable}
@@ -815,7 +815,7 @@ export function DashboardShell({
               </Section>
             </div>
 
-            <Section title="新增交易">
+            <Section title="Add Trade">
               <fieldset
                 className={isWritable ? "" : "opacity-60"}
                 disabled={!isWritable}
@@ -836,8 +836,8 @@ export function DashboardShell({
             <Section
               title={
                 selectedTradeDate
-                  ? `交易列表 · ${selectedTradeDate}`
-                  : "交易列表"
+                  ? `Trade List · ${selectedTradeDate}`
+                  : "Trade List"
               }
             >
               {tradeRemovalError ? (
@@ -858,12 +858,12 @@ export function DashboardShell({
               />
             </Section>
 
-            <Section title="数据管理">
+            <Section title="Data Management">
               <div className="grid gap-4 text-sm text-slate-700">
                 <p>
                   {storageKind === "ledger-file"
-                    ? "当前 .lftl 文件是唯一正式完整账本；IndexedDB 只保存上次选择的文件句柄和少量连接信息。"
-                    : "本区只管理当前浏览器 origin 下的完整本地账本记录。"}
+                    ? "The current .lftl file is the only authoritative complete ledger. IndexedDB stores only the last selected file handle and minimal connection metadata."
+                    : "This area manages only the complete local ledger record for the current browser origin."}
                 </p>
 
                 <BackupControls
@@ -884,7 +884,7 @@ export function DashboardShell({
                 {(capabilities.canClearReadyLedger ||
                   capabilities.canClearHydrationError) &&
                 hydrationStatus === "loading" ? (
-                  <p aria-live="polite">本地账本读取完成前不可清空。</p>
+                  <p aria-live="polite">The local ledger cannot be cleared until loading completes.</p>
                 ) : null}
 
                 {capabilities.canClearReadyLedger &&
@@ -900,8 +900,8 @@ export function DashboardShell({
                     type="button"
                   >
                     {storageKind === "ledger-file"
-                      ? "清空当前 C 账本"
-                      : "清空本地账本"}
+                      ? "Clear current C ledger"
+                      : "Clear local ledger"}
                   </button>
                 ) : null}
 
@@ -913,7 +913,7 @@ export function DashboardShell({
                     onClick={() => openClearConfirmation("recovery")}
                     type="button"
                   >
-                    清除损坏或无法读取的本地数据
+                    Clear damaged or unreadable local data
                   </button>
                 ) : null}
 
@@ -922,14 +922,14 @@ export function DashboardShell({
                     <p className="font-medium text-red-900">
                       {clearConfirmationMode === "normal"
                         ? storageKind === "ledger-file"
-                          ? "这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C。文件仍会保留清空前的上一可用版，之后若当前代损坏，恢复可能回到清空前数据。"
-                          : "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。"
-                        : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。"}
+                          ? "This clears only the current C ledger content. It does not delete the .lftl file or affect other C files. The file retains the previous usable version, so recovery after future corruption may restore pre-clear data."
+                          : "This permanently deletes custom assets, trades, prices, and fee rules. Export a complete ledger backup first."
+                        : "The loading failure may be temporary. Continuing deletes custom assets, trades, prices, and fee rules that may still be recoverable. Restore from a valid backup first or confirm permanent deletion."}
                     </p>
                     <label className="grid gap-2 font-medium text-red-900">
-                      输入“{clearConfirmationText}”以确认
+                      Enter &quot;{clearConfirmationText}&quot; to confirm
                       <input
-                        aria-label="输入清空确认文本"
+                        aria-label="Enter clear confirmation text"
                         className="rounded-md border border-red-300 bg-white px-3 py-2 font-normal text-slate-950 outline-none focus:border-red-500"
                         disabled={persistenceOperation !== "idle"}
                         onChange={(event) => {
@@ -946,7 +946,7 @@ export function DashboardShell({
                     ) : null}
                     {persistenceOperation === "clearing" ? (
                       <p aria-live="polite" className="font-medium text-red-900">
-                        正在清空本地账本，请勿关闭页面。
+                        Clearing the local ledger. Do not close the page.
                       </p>
                     ) : null}
                     <div className="flex flex-wrap gap-3">
@@ -957,8 +957,8 @@ export function DashboardShell({
                         type="button"
                       >
                         {storageKind === "ledger-file"
-                          ? "确认清空当前 C 内容"
-                          : "确认永久清空"}
+                          ? "Confirm clearing current C content"
+                          : "Confirm permanent clear"}
                       </button>
                       <button
                         className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -966,7 +966,7 @@ export function DashboardShell({
                         onClick={cancelClearConfirmation}
                         type="button"
                       >
-                        取消
+                        Cancel
                       </button>
                     </div>
                   </div>
