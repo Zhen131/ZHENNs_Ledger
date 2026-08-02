@@ -48,11 +48,11 @@ export function buildAllocationChartOption(
         if (!datum) {
           return "";
         }
-        const source = datum.source === "binance" ? "Binance" : "手动价格";
+        const source = datum.source === "binance" ? "Binance" : "Manual price";
         const ratio = toFiniteChartNumber(datum.ratio) * 100;
         return [
           `<strong>${datum.name}</strong>`,
-          `${datum.marketValue} USD 等值`,
+          `${datum.marketValue} USD equivalent`,
           `${ratio.toFixed(2)}%`,
           `${source} · as-of ${datum.asOf}`,
         ].join("<br/>");
@@ -64,7 +64,7 @@ export function buildAllocationChartOption(
     },
     series: [
       {
-        name: "当前 USD 等值持仓分配",
+        name: "Current USD-equivalent position allocation",
         type: "pie",
         radius: ["42%", "70%"],
         center: ["50%", "43%"],
@@ -92,17 +92,17 @@ export function buildHoldingHistoryChartOption(
         }
         const marketValue =
           point.totalMarketValue === undefined
-            ? `缺价：${point.missingPriceAssets.join("、")}`
-            : `${point.totalMarketValue} USD 等值`;
+            ? `Missing prices: ${point.missingPriceAssets.join(", ")}`
+            : `${point.totalMarketValue} USD equivalent`;
         return [
           `<strong>${date}</strong>`,
-          `持仓成本：${point.totalCostBasis} USD 等值`,
-          `持仓总市值：${marketValue}`,
+          `Position cost basis: ${point.totalCostBasis} USD equivalent`,
+          `Position market value: ${marketValue}`,
         ].join("<br/>");
       },
     },
     legend: {
-      data: ["持仓总市值", "持仓成本"],
+      data: ["Position market value", "Position cost basis"],
       top: 0,
     },
     grid: {
@@ -118,12 +118,12 @@ export function buildHoldingHistoryChartOption(
     },
     yAxis: {
       type: "value",
-      name: "USD 等值",
+      name: "USD equivalent",
       scale: true,
     },
     series: [
       {
-        name: "持仓总市值",
+        name: "Position market value",
         type: "line",
         step: "end",
         smooth: false,
@@ -136,7 +136,7 @@ export function buildHoldingHistoryChartOption(
         ),
       },
       {
-        name: "持仓成本",
+        name: "Position cost basis",
         type: "line",
         step: "end",
         smooth: false,
@@ -167,9 +167,9 @@ export function buildTradeHeatmapChartOption(
         }
         return [
           `<strong>${datum[0]}</strong>`,
-          `总笔数：${datum[2]}`,
-          `买入：${datum[3]}`,
-          `卖出：${datum[4]}`,
+          `Total trades: ${datum[2]}`,
+          `Buys: ${datum[3]}`,
+          `Sells: ${datum[4]}`,
         ].join("<br/>");
       },
     },
@@ -181,11 +181,11 @@ export function buildTradeHeatmapChartOption(
       left: "center",
       bottom: 0,
       pieces: [
-        { value: 0, label: "无交易", color: "#e2e8f0" },
-        { value: 1, label: "低", color: "#bbf7d0" },
-        { value: 2, label: "较低", color: "#4ade80" },
-        { value: 3, label: "较高", color: "#16a34a" },
-        { value: 4, label: "最高", color: "#166534" },
+        { value: 0, label: "No trades", color: "#e2e8f0" },
+        { value: 1, label: "Low", color: "#bbf7d0" },
+        { value: 2, label: "Medium-low", color: "#4ade80" },
+        { value: 3, label: "Medium-high", color: "#16a34a" },
+        { value: 4, label: "Highest", color: "#166534" },
       ],
     },
     calendar: {
@@ -208,28 +208,28 @@ export function buildTradeHeatmapChartOption(
       },
       dayLabel: {
         firstDay: 1,
-        nameMap: ["日", "一", "二", "三", "四", "五", "六"],
+        nameMap: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
       },
       monthLabel: {
         nameMap: [
-          "一月",
-          "二月",
-          "三月",
-          "四月",
-          "五月",
-          "六月",
-          "七月",
-          "八月",
-          "九月",
-          "十月",
-          "十一月",
-          "十二月",
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
         ],
       },
     },
     series: [
       {
-        name: "交易活跃",
+        name: "Trading activity",
         type: "heatmap",
         coordinateSystem: "calendar",
         data: days.map((day) => [

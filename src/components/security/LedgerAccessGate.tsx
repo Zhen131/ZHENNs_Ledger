@@ -329,7 +329,7 @@ export function LedgerAccessGate({
       accessController.unlockLegacyForMigration;
     if (!unlockLegacy) {
       setFormError(
-        "当前版本缺少安全迁移能力，旧账本保持不变，也不会创建空账本。",
+        "This version lacks safe migration capability. The legacy ledger remains unchanged, and no empty ledger will be created.",
       );
       return;
     }
@@ -350,8 +350,8 @@ export function LedgerAccessGate({
       } else {
         setFormError(
           result.code === LEDGER_ACCESS_ERROR_CODES.READ_FAILED
-            ? "无法读取旧浏览器账本；旧数据保持不变。"
-            : "旧账本密码错误、数据损坏或不符合安全迁移条件；旧数据保持不变。",
+            ? "The legacy browser ledger could not be read; legacy data remains unchanged."
+            : "The legacy ledger password is wrong, data is damaged, or safe migration requirements are not met; legacy data remains unchanged.",
         );
       }
     }
@@ -366,12 +366,12 @@ export function LedgerAccessGate({
       return;
     }
     if (passphrase !== confirmation) {
-      setFormError("两次输入的密码不一致");
+      setFormError("The passwords do not match");
       return;
     }
     const codePointLength = Array.from(passphrase).length;
     if (codePointLength < 12 || codePointLength > 128) {
-      setFormError("密码必须为 12 至 128 个字符");
+      setFormError("Password must contain 12 to 128 characters");
       return;
     }
     const createFromLegacy =
@@ -380,7 +380,7 @@ export function LedgerAccessGate({
       fileAccessController.verifyMigrationTarget;
     if (!createFromLegacy || !verifyMigrationTarget) {
       setFormError(
-        "当前浏览器或版本缺少安全迁移能力；旧账本保持不变。",
+        "This browser or version lacks safe migration capability; the legacy ledger remains unchanged.",
       );
       return;
     }
@@ -422,13 +422,13 @@ export function LedgerAccessGate({
           setMigrationReceipt(receipt);
         } else if (isCurrentOperation(operation)) {
           setFormError(
-            "新 C 已创建，但迁移复核未通过。旧浏览器账本仍保留，不能删除。",
+            "The new C was created, but migration verification did not pass. The legacy browser ledger is retained and cannot be deleted.",
           );
         }
       } catch {
         if (isCurrentOperation(operation)) {
           setFormError(
-            "新 C 已创建，但迁移复核失败。旧浏览器账本仍保留，不能删除。",
+            "The new C was created, but migration verification failed. The legacy browser ledger is retained and cannot be deleted.",
           );
         }
       }
@@ -465,14 +465,14 @@ export function LedgerAccessGate({
           setMigrationReceipt(receipt);
         } else {
           setFormError(
-            "新 C 仍未通过完整复核；旧浏览器账本继续保留。",
+            "The new C still has not passed complete verification; the legacy browser ledger remains retained.",
           );
         }
       }
     } catch {
       if (isCurrentOperation(operation)) {
         setFormError(
-          "新 C 复核失败；旧浏览器账本继续保留。",
+          "Verification of the new C failed; the legacy browser ledger remains retained.",
         );
       }
     }
@@ -493,7 +493,7 @@ export function LedgerAccessGate({
       LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT
     ) {
       setFormError(
-        `请输入完整确认文本“${LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT}”`,
+        `Enter the full confirmation text "${LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT}".`,
       );
       return;
     }
@@ -503,7 +503,7 @@ export function LedgerAccessGate({
       accessController.deleteLegacyAfterMigration;
     if (!authorize || !removeLegacy) {
       setFormError(
-        "当前版本缺少安全删除能力；旧浏览器账本继续保留。",
+        "This version lacks safe deletion capability; the legacy browser ledger remains retained.",
       );
       return;
     }
@@ -530,7 +530,7 @@ export function LedgerAccessGate({
     }
     if (!authorization) {
       setFormError(
-        "新 C 或旧账本已发生变化，安全核对未通过；旧浏览器账本继续保留。",
+        "The new C or legacy ledger changed, so the safety check did not pass; the legacy browser ledger remains retained.",
       );
       finishOperation(operation);
       return;
@@ -552,8 +552,8 @@ export function LedgerAccessGate({
         setFormError(
           result.code ===
             LEDGER_ACCESS_ERROR_CODES.MIGRATION_SOURCE_CHANGED
-            ? "旧浏览器账本在迁移期间发生了变化，因此没有删除。请保留两份数据并重新核对。"
-            : "旧浏览器账本没有被安全删除；新 C 保持原样，但正式接管尚未完成，可以重试。",
+            ? "The legacy browser ledger changed during migration and was not deleted. Retain both copies and verify them again."
+            : "The legacy browser ledger was not safely deleted. The new C remains unchanged, but formal takeover is incomplete and can be retried.",
         );
       }
     }
@@ -568,7 +568,7 @@ export function LedgerAccessGate({
       fileAccessController.releaseUnpublishedMigrationSession;
     if (!release) {
       setFormError(
-        "无法证明新 C 已安全释放；旧账本仍保留，请关闭页面后重试。",
+        "Safe release of the new C cannot be proven. The legacy ledger remains retained; close the page and retry.",
       );
       return;
     }
@@ -590,7 +590,7 @@ export function LedgerAccessGate({
     } catch {
       if (isCurrentOperation(operation)) {
         setFormError(
-          "新 C 会话尚未安全释放；旧浏览器账本仍保留，请重试。",
+          "The new C session has not been safely released. The legacy browser ledger remains retained; retry.",
         );
       }
     }
@@ -605,12 +605,12 @@ export function LedgerAccessGate({
       return;
     }
     if (passphrase !== confirmation) {
-      setFormError("两次输入的密码不一致");
+      setFormError("The passwords do not match");
       return;
     }
     const codePointLength = Array.from(passphrase).length;
     if (codePointLength < 12 || codePointLength > 128) {
-      setFormError("密码必须为 12 至 128 个字符");
+      setFormError("Password must contain 12 to 128 characters");
       return;
     }
 
@@ -724,7 +724,7 @@ export function LedgerAccessGate({
     } catch {
       if (isCurrentOperation(operation)) {
         setFormError(
-          "无法忘记这条失效连接；没有创建或改绑任何账本，请重试。",
+          "This invalid connection could not be forgotten. No ledger was created or rebound; retry.",
         );
       }
     }
@@ -807,7 +807,7 @@ export function LedgerAccessGate({
     } catch {
       if (isCurrentOperation(operation)) {
         setFormError(
-          "无法确认恢复候选的文件锁已经释放。C 仍保持关闭，请重试取消恢复。",
+          "Release of the recovery candidate file lock cannot be confirmed. C remains closed; retry canceling recovery.",
         );
       }
     } finally {
@@ -977,11 +977,11 @@ export function LedgerAccessGate({
   if (accessState.status === "locking") {
     return (
       <AccessPanel
-        description="已停止接收新操作，正在等待已经接受的保存或清空安全收尾。"
-        title="正在安全锁定"
+        description="New operations are stopped while accepted saves or clears finish safely."
+        title="Locking Safely"
       >
         <p aria-live="polite" className="text-sm text-slate-600">
-          完成后会释放当前文件并回到密码入口，请稍候…
+          The current file will be released and the password entry will return when this finishes…
         </p>
       </AccessPanel>
     );
@@ -990,15 +990,15 @@ export function LedgerAccessGate({
   if (accessState.status === "lock-error") {
     return (
       <AccessPanel
-        description="账本会话已经关闭且不能继续读取或写入，但浏览器尚未确认文件占用已释放。"
-        title="安全释放尚未完成"
+        description="The ledger session is closed and cannot read or write, but the browser has not confirmed release of the file lock."
+        title="Safe Release Incomplete"
       >
         <button
           className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
           onClick={() => void retryFailedSessionRelease()}
           type="button"
         >
-          重试安全释放
+          Retry safe release
         </button>
       </AccessPanel>
     );
@@ -1007,11 +1007,11 @@ export function LedgerAccessGate({
   if (accessState.status === "checking") {
     return (
       <AccessPanel
-        description="正在检查此浏览器中的本地账本。"
-        title="正在检查本地账本"
+        description="Checking the local ledger in this browser."
+        title="Checking Local Ledger"
       >
         <p aria-live="polite" className="text-sm text-slate-600">
-          请稍候…
+          Please wait…
         </p>
       </AccessPanel>
     );
@@ -1023,23 +1023,23 @@ export function LedgerAccessGate({
         <AccessPanel
           description={`${getAccessErrorMessage(
             accessState.code,
-          )} 旧记录不会被自动删除，也不会回退成空账本。`}
-          title="旧浏览器账本暂时不能安全迁移"
+          )} The legacy record will not be deleted automatically or replaced by an empty ledger.`}
+          title="Legacy Browser Ledger Cannot Yet Be Migrated Safely"
         >
           <button
             className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
             onClick={() => void initialize()}
             type="button"
           >
-            重新检查
+            Check again
           </button>
         </AccessPanel>
       );
     }
     return (
       <AccessPanel
-        description="检测到旧浏览器完整账本。先用原密码只读验证；验证成功后才会让你创建新的 .lftl 文件。此时不会写入或删除旧账本。"
-        title="把旧账本搬到 C"
+        description="A complete legacy browser ledger was detected. First verify it read-only with the original password. Only then can you create a new .lftl file. The legacy ledger is not written or deleted during verification."
+        title="Move the Legacy Ledger to C"
       >
         <form
           className="space-y-4"
@@ -1048,7 +1048,7 @@ export function LedgerAccessGate({
           <PasswordField
             autoComplete="current-password"
             disabled={isSubmitting}
-            label="旧浏览器账本密码"
+            label="Legacy browser ledger password"
             onChange={setPassphrase}
             value={passphrase}
           />
@@ -1058,10 +1058,10 @@ export function LedgerAccessGate({
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "正在只读验证…" : "验证旧账本"}
+            {isSubmitting ? "Verifying read-only…" : "Verify legacy ledger"}
           </button>
           <p className="text-sm leading-6 text-slate-600">
-            如果密码错误、数据损坏或你关闭页面，旧 IndexedDB 记录都会原样保留。
+            If the password is wrong, data is damaged, or the page closes, the legacy IndexedDB record remains unchanged.
           </p>
         </form>
       </AccessPanel>
@@ -1074,8 +1074,8 @@ export function LedgerAccessGate({
   ) {
     return (
       <AccessPanel
-        description="旧账本已经只读验证。现在请选择一个全新的空文件位置，并为新的 C 设置核心密码；系统不会覆盖已有文件。"
-        title="创建迁移目标 C"
+        description="The legacy ledger passed read-only verification. Select a new empty file location and set a master password for the new C. Existing files will not be overwritten."
+        title="Create Migration Target C"
       >
         <form
           className="space-y-4"
@@ -1084,14 +1084,14 @@ export function LedgerAccessGate({
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="设置 C 核心密码"
+            label="Set C master password"
             onChange={setPassphrase}
             value={passphrase}
           />
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="再次输入 C 核心密码"
+            label="Re-enter C master password"
             onChange={setConfirmation}
             value={confirmation}
           />
@@ -1102,8 +1102,8 @@ export function LedgerAccessGate({
             type="submit"
           >
             {isSubmitting
-              ? "正在写入、关闭并复读…"
-              : "选择新文件并搬入旧账本"}
+              ? "Writing, closing, and rereading…"
+              : "Select a new file and move the legacy ledger"}
           </button>
           <button
             className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-60"
@@ -1117,7 +1117,7 @@ export function LedgerAccessGate({
             }}
             type="button"
           >
-            取消，保留旧账本
+            Cancel and retain the legacy ledger
           </button>
         </form>
       </AccessPanel>
@@ -1133,22 +1133,22 @@ export function LedgerAccessGate({
       <AccessPanel
         description={
           migrationReceipt
-            ? "旧账本已完整写入新 C，并完成关闭、复读、文件身份和内容验证。只有你再次确认后，系统才会核对并删除那一条旧 IndexedDB 记录。"
-            : "新 C 已创建，但完整迁移回执尚未通过；旧 IndexedDB 记录仍原样保留。"
+            ? "The legacy ledger was fully written to the new C and passed close, reread, file identity, and content verification. Only after another confirmation will the system verify and delete the one legacy IndexedDB record."
+            : "The new C was created, but the complete migration receipt has not passed. The legacy IndexedDB record remains unchanged."
         }
         title={
           migrationReceipt
-            ? "迁移已验证，确认退出旧账本"
-            : "迁移复核尚未完成"
+            ? "Migration Verified: Confirm Legacy Ledger Exit"
+            : "Migration Verification Incomplete"
         }
       >
         <div className="space-y-4">
           {migrationReceipt ? (
             <>
               <label className="grid gap-2 text-sm font-medium text-slate-800">
-                输入“{LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT}”以确认
+                Enter &quot;{LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT}&quot; to confirm
                 <input
-                  aria-label="输入删除旧账本确认文本"
+                  aria-label="Enter legacy ledger deletion confirmation text"
                   className="rounded-md border border-red-300 px-3 py-2 text-slate-950 outline-none focus:ring-2 focus:ring-red-100"
                   disabled={isSubmitting}
                   onChange={(event) => {
@@ -1161,7 +1161,7 @@ export function LedgerAccessGate({
                 />
               </label>
               <p className="text-sm leading-6 text-slate-600">
-                删除只针对迁移时验证过且至今未变化的旧记录；连接新 C 的文件句柄登记不会被删除。
+                Deletion targets only the legacy record verified during migration and unchanged since then. The file-handle registration for the new C is retained.
               </p>
               <button
                 className="w-full rounded-md bg-red-800 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
@@ -1172,8 +1172,8 @@ export function LedgerAccessGate({
                 type="button"
               >
                 {isSubmitting
-                  ? "正在复核并删除旧记录…"
-                  : "确认删除旧记录并进入 C"}
+                  ? "Re-verifying and deleting the legacy record…"
+                  : "Confirm deletion and enter C"}
               </button>
             </>
           ) : (
@@ -1185,7 +1185,7 @@ export function LedgerAccessGate({
               }
               type="button"
             >
-              {isSubmitting ? "正在重新复核…" : "重新复核新 C"}
+              {isSubmitting ? "Re-verifying…" : "Re-verify the new C"}
             </button>
           )}
           <FormError message={formError} />
@@ -1197,7 +1197,7 @@ export function LedgerAccessGate({
             }
             type="button"
           >
-            保留旧记录并安全退出新 C
+            Retain the legacy record and safely exit the new C
           </button>
         </div>
       </AccessPanel>
@@ -1207,8 +1207,8 @@ export function LedgerAccessGate({
   if (accessPath === "file-reconnect-prompt") {
     return (
       <AccessPanel
-        description="浏览器记得上次使用的 C，但需要你明确重新授权。点击前不会请求权限，也不会创建空账本。"
-        title="重新连接上次的 C"
+        description="The browser remembers the last C, but explicit authorization is required again. No permission is requested and no empty ledger is created before you click."
+        title="Reconnect the Last C"
       >
         <div className="grid gap-3">
           <button
@@ -1217,7 +1217,7 @@ export function LedgerAccessGate({
             onClick={() => void requestRememberedConnection()}
             type="button"
           >
-            {isSubmitting ? "正在重新连接…" : "重新连接"}
+            {isSubmitting ? "Reconnecting…" : "Reconnect"}
           </button>
           <button
             className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 disabled:opacity-60"
@@ -1225,7 +1225,7 @@ export function LedgerAccessGate({
             onClick={() => void reselectRememberedConnection()}
             type="button"
           >
-            重新选择原来的 C
+            Reselect the original C
           </button>
           <button
             className="w-full text-sm font-medium text-red-700 disabled:opacity-60"
@@ -1233,7 +1233,7 @@ export function LedgerAccessGate({
             onClick={() => void forgetRememberedConnection()}
             type="button"
           >
-            忘记这条连接并选择另一本账
+            Forget this connection and select another ledger
           </button>
           <FormError message={formError} />
         </div>
@@ -1247,9 +1247,9 @@ export function LedgerAccessGate({
         description={
           reconnectError
             ? getFileAccessErrorMessage(reconnectError)
-            : "无法安全重新连接上次的 C。"
+            : "The last C could not be safely reconnected."
         }
-        title="上次的 C 暂时不可用"
+        title="The Last C Is Temporarily Unavailable"
       >
         <div className="grid gap-3">
           <button
@@ -1258,10 +1258,10 @@ export function LedgerAccessGate({
             onClick={() => void reselectRememberedConnection()}
             type="button"
           >
-            {isSubmitting ? "正在核对…" : "重新选择原来的 C"}
+            {isSubmitting ? "Verifying…" : "Reselect the original C"}
           </button>
           <p className="text-sm leading-6 text-slate-600">
-            只有浏览器确认是同一个实际文件，并且文件内的账本身份也一致，才会继续。名字相同或 fileId 相同的复制件都不算。
+            Continue only if the browser confirms the same physical file and the ledger identity inside also matches. A copy with the same name or fileId does not qualify.
           </p>
           <button
             className="w-full text-sm font-medium text-red-700 disabled:opacity-60"
@@ -1269,7 +1269,7 @@ export function LedgerAccessGate({
             onClick={() => void forgetRememberedConnection()}
             type="button"
           >
-            忘记这条连接并选择另一本账
+            Forget this connection and select another ledger
           </button>
           <FormError message={formError} />
         </div>
@@ -1280,8 +1280,8 @@ export function LedgerAccessGate({
   if (accessPath === "choice") {
     return (
       <AccessPanel
-        description="完整账本只保存在你选择的加密 .lftl 文件中。浏览器只记住上次选择的文件和少量连接信息，不会另存一份完整账本。"
-        title="选择或新建 C"
+        description="The complete ledger exists only in the encrypted .lftl file you select. The browser remembers only the last file and minimal connection metadata; it does not store another complete ledger."
+        title="Select or Create C"
       >
         <div className="grid gap-3">
           <button
@@ -1292,7 +1292,7 @@ export function LedgerAccessGate({
             }}
             type="button"
           >
-            新建 C（.lftl）
+            Create C (.lftl)
           </button>
           <button
             className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-60"
@@ -1300,7 +1300,7 @@ export function LedgerAccessGate({
             onClick={() => void selectFileToOpen()}
             type="button"
           >
-            {isSubmitting ? "正在选择…" : "选择 C（.lftl）"}
+            {isSubmitting ? "Selecting…" : "Select C (.lftl)"}
           </button>
           <FormError message={formError} />
         </div>
@@ -1311,21 +1311,21 @@ export function LedgerAccessGate({
   if (accessPath === "file-create") {
     return (
       <AccessPanel
-        description="C 使用一个核心密码加密。没有恢复码或后门；忘记密码将永久失去对此 C 的访问。"
-        title="新建加密工作文件 C"
+        description="C is encrypted with one master password. There is no recovery code or backdoor; forgetting the password permanently loses access to this C."
+        title="Create Encrypted Working File C"
       >
         <form className="space-y-4" onSubmit={submitFileCreate}>
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="设置 C 核心密码"
+            label="Set C master password"
             onChange={setPassphrase}
             value={passphrase}
           />
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="再次输入 C 核心密码"
+            label="Re-enter C master password"
             onChange={setConfirmation}
             value={confirmation}
           />
@@ -1335,7 +1335,7 @@ export function LedgerAccessGate({
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "正在创建并复读…" : "选择位置并创建"}
+            {isSubmitting ? "Creating and rereading…" : "Choose location and create"}
           </button>
           <button
             className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700"
@@ -1343,7 +1343,7 @@ export function LedgerAccessGate({
             onClick={returnToChoice}
             type="button"
           >
-            返回
+            Back
           </button>
         </form>
       </AccessPanel>
@@ -1353,14 +1353,14 @@ export function LedgerAccessGate({
   if (accessPath === "file-open-unlock") {
     return (
       <AccessPanel
-        description="只会打开刚才明确选择的一个 C。密码错误或文件认证失败不会写入该文件。"
-        title="解锁所选 C"
+        description="Only the explicitly selected C will open. A wrong password or failed file authentication will not write to it."
+        title="Unlock Selected C"
       >
         <form className="space-y-4" onSubmit={submitFileUnlock}>
           <PasswordField
             autoComplete="current-password"
             disabled={isSubmitting}
-            label="C 核心密码"
+            label="C master password"
             onChange={setPassphrase}
             value={passphrase}
           />
@@ -1370,7 +1370,7 @@ export function LedgerAccessGate({
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "正在认证…" : "解锁所选 C"}
+            {isSubmitting ? "Authenticating…" : "Unlock selected C"}
           </button>
           <button
             className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700"
@@ -1378,7 +1378,7 @@ export function LedgerAccessGate({
             onClick={returnToChoice}
             type="button"
           >
-            返回
+            Back
           </button>
         </form>
       </AccessPanel>
@@ -1388,12 +1388,12 @@ export function LedgerAccessGate({
   if (accessPath === "file-recovery" && recoveryId !== null) {
     return (
       <AccessPanel
-        description="最新一次保存没有恢复，现在恢复的是上一版"
-        title="确认恢复上一版"
+        description="The latest save was not recovered; the previous version will be restored."
+        title="Confirm Previous-Version Recovery"
       >
         <div className="space-y-4">
           <p className="text-sm leading-6 text-slate-700">
-            当前版本没有通过完整认证与账本校验；上一版已独立验证。确认后只会用上一版内容生成一个新的当前版本，不会把损坏版本中的新增内容伪装成已恢复。
+            The current version failed complete authentication and ledger validation; the previous version was independently verified. Confirmation creates a new current version using only the previous content and never presents new content from the damaged version as recovered.
           </p>
           <FormError message={formError} />
           <button
@@ -1402,7 +1402,7 @@ export function LedgerAccessGate({
             onClick={() => void confirmFileRecovery()}
             type="button"
           >
-            {isSubmitting ? "正在恢复并复读…" : "确认恢复上一版"}
+            {isSubmitting ? "Recovering and rereading…" : "Confirm previous-version recovery"}
           </button>
           <button
             className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-60"
@@ -1410,7 +1410,7 @@ export function LedgerAccessGate({
             onClick={() => void cancelFileRecovery()}
             type="button"
           >
-            取消恢复
+            Cancel recovery
           </button>
         </div>
       </AccessPanel>
@@ -1422,15 +1422,15 @@ export function LedgerAccessGate({
       <AccessPanel
         description={`${getAccessErrorMessage(
           accessState.code,
-        )} 系统不会盲删旧记录，也不会创建空账本来代替它。`}
-        title="无法打开本地账本"
+        )} The system will not blindly delete the old record or create an empty ledger to replace it.`}
+        title="Unable to Open Local Ledger"
       >
         <button
           className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
           onClick={() => void initialize()}
           type="button"
         >
-          重新检查
+          Check again
         </button>
       </AccessPanel>
     );
@@ -1438,15 +1438,15 @@ export function LedgerAccessGate({
 
   return (
     <AccessPanel
-      description="没有进入任何完整账本写入链。请重新检查 C 连接状态。"
-      title="账本入口已安全停止"
+      description="No complete-ledger write chain was entered. Recheck the C connection state."
+      title="Ledger Entry Stopped Safely"
     >
       <button
         className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
         onClick={() => void initialize()}
         type="button"
       >
-        重新检查
+        Check again
       </button>
     </AccessPanel>
   );
@@ -1560,7 +1560,7 @@ function PasswordField({
           value={value}
         />
         <button
-          aria-label={`按住查看${label}`}
+          aria-label={`Hold to view ${label}`}
           className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500 hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-300"
           disabled={disabled}
           onBlur={hide}
@@ -1624,13 +1624,13 @@ function FormError({ message }: Readonly<{ message: string }>) {
 function getAccessErrorMessage(code: LedgerAccessErrorCode): string {
   switch (code) {
     case LEDGER_ACCESS_ERROR_CODES.READ_FAILED:
-      return "无法读取此浏览器中的 IndexedDB。未写入或覆盖任何数据。";
+      return "IndexedDB could not be read in this browser. No data was written or overwritten.";
     case LEDGER_ACCESS_ERROR_CODES.UNSUPPORTED_FORMAT:
-      return "检测到不受支持的旧版或未知格式。系统不会自动迁移或覆盖。";
+      return "An unsupported legacy or unknown format was detected. The system will not migrate or overwrite it automatically.";
     case LEDGER_ACCESS_ERROR_CODES.INVALID_ENVELOPE:
-      return "本地加密记录结构无效或已损坏。系统不会尝试覆盖。";
+      return "The local encrypted record structure is invalid or damaged. The system will not attempt to overwrite it.";
     default:
-      return "本地加密账本暂时无法打开。";
+      return "The local encrypted ledger cannot be opened right now.";
   }
 }
 
@@ -1639,46 +1639,46 @@ function getFileAccessErrorMessage(
 ): string {
   switch (code) {
     case LEDGER_FILE_ACCESS_ERROR_CODES.PICKER_UNAVAILABLE:
-      return "当前浏览器不支持 C 文件选择，请使用受支持的 Chrome。";
+      return "This browser does not support C file selection. Use a supported Chrome browser.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_EXTENSION:
-      return "请选择扩展名为 .lftl 的 C 文件。";
+      return "Select a C file with the .lftl extension.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.NON_EMPTY_CREATE_TARGET:
-      return "为防止覆盖已有文件，本次未创建；请选择新文件名，或使用“选择 C”打开已有文件。";
+      return "Nothing was created to avoid overwriting an existing file. Choose a new filename or use Select C to open an existing file.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:
-      return "所选文件不是合法 C，或文件结构已经损坏；未写入任何内容。";
+      return "The selected file is not a valid C or its structure is damaged; nothing was written.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED:
-      return "密码错误或文件认证失败；未写入所选 C。";
+      return "The password is wrong or file authentication failed; the selected C was not written.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION:
-      return "请重新选择要打开的 C。";
+      return "Reselect the C to open.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.FILE_IN_USE:
-      return "这个实际 C 已被另一个页面或尚未完成释放的会话占用。请先安全退出或完成释放，再主动重试。";
+      return "This physical C is in use by another page or a session that has not finished releasing it. Exit safely or complete release, then retry.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_UNSUPPORTED:
-      return "当前浏览器缺少安全的多页面文件协调能力，已关闭 C 写入入口。";
+      return "This browser lacks safe multi-page file coordination, so the C write entry is disabled.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_FAILED:
-      return "无法确认这个 C 是否已被其他页面使用，已按安全规则停止打开。请关闭其他页面后主动重试。";
+      return "Use by another page cannot be ruled out, so opening stopped under safety rules. Close other pages and retry.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_NOT_FOUND:
-      return "恢复请求已经失效，请重新选择并解锁 C。";
+      return "The recovery request expired. Reselect and unlock C.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_FAILED:
-      return "上一版恢复写入、关闭或复读验证失败，尚未进入账本；可以重试或取消。";
+      return "Previous-version recovery writing, closing, or reread verification failed, so the ledger was not entered. Retry or cancel.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.EXTERNAL_CHANGE:
-      return "C 在本页面之外发生了变化。为避免覆盖新版本，请取消并重新打开该 C。";
+      return "C changed outside this page. Cancel and reopen it to avoid overwriting the newer version.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_INVALID:
-      return "保存的 C 连接记录已损坏或版本不受支持。系统没有清空、覆盖或改绑任何账本。";
+      return "The saved C connection record is damaged or unsupported. No ledger was cleared, overwritten, or rebound.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_SAVE_FAILED:
-      return "C 已完成文件验证，但浏览器没能保存下次重连所需的最小连接记录，因此没有进入账本，也没有伪装成功。请保留该 C 并重试当前操作。";
+      return "C passed file verification, but the browser could not save the minimal record required for the next reconnect. The ledger was not entered and success was not reported. Retain C and retry.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.PERMISSION_DENIED:
-      return "浏览器没有获得这个 C 的读写权限。系统不会创建空账本或退回另一份账本冒充它。";
+      return "The browser did not receive read/write permission for this C. The system will not create an empty ledger or substitute another ledger.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.PERMISSION_REQUIRED:
-      return "这个 C 仍需要明确授权；只有点击“重新连接”后才会请求权限。";
+      return "This C still requires explicit authorization. Permission is requested only after you click Reconnect.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECONNECT_FAILED:
-      return "上次的 C 可能已移动、删除或不可读取。系统没有创建空账本，也没有静默切换到浏览器账本。";
+      return "The last C may have moved, been deleted, or become unreadable. No empty ledger was created and no silent switch to a browser ledger occurred.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.WRONG_RECONNECT_FILE:
-      return "所选文件不是上次连接的同一个实际 C；即使名字或 fileId 相同也不会改绑或写入。";
+      return "The selected file is not the same physical C as the last connection. Matching names or fileIds do not permit rebinding or writing.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CREATE_FAILED:
-      return "C 创建、关闭或复读验证失败，不能进入账本。";
+      return "C creation, close, or reread verification failed, so the ledger cannot be entered.";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED:
       return "";
     default:
-      return "C 文件操作失败，未报告保存成功。";
+      return "The C file operation failed, and save success was not reported.";
   }
 }

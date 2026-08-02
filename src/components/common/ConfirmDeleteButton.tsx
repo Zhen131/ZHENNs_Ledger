@@ -21,13 +21,13 @@ export type ConfirmDeleteButtonProps = Readonly<{
 }>;
 
 /**
- * 普通删除的共享两段确认控件。
+ * Shared two-step confirmation control for ordinary deletion.
  *
- * 第一次激活只改变局部 armed 状态；第二次完整激活才调用业务回调。
+ * The first activation only arms local state; the second complete activation invokes the domain callback.
  */
 export function ConfirmDeleteButton({
   label,
-  confirmLabel = "再次点击确认",
+  confirmLabel = "Click again to confirm",
   ariaLabel,
   disabled = false,
   onConfirm,

@@ -66,7 +66,7 @@ type RefreshState = {
 
 const INITIAL_REFRESH_STATE: RefreshState = {
   status: "idle",
-  message: "本次解锁尚未刷新 Binance 行情。",
+  message: "Binance market data has not been refreshed since this unlock.",
   failures: [],
 };
 
@@ -162,7 +162,7 @@ export function MarketDataControls({
     activeAbortRef.current = controller;
     setRefreshState({
       status: "loading",
-      message: "正在验证交易对并刷新 Binance 最新价格。",
+      message: "Validating trading pairs and refreshing the latest Binance prices.",
       failures: [],
     });
 
@@ -210,7 +210,7 @@ export function MarketDataControls({
     if (result.successes.length > 0 && mutationResult === "rejected") {
       setRefreshState({
         status: "error",
-        message: "行情已返回，但账本当前不可写；未保存任何新价格。",
+        message: "Market data returned, but the ledger is currently read-only; no new prices were saved.",
         failures: result.failures,
       });
       return;
@@ -228,8 +228,8 @@ export function MarketDataControls({
             : "success",
       message:
         appliedCount === 0 && failedCount === 0
-          ? "当前没有需要刷新的非零持仓映射。"
-          : `已更新 ${appliedCount} 项，失败 ${failedCount} 项。`,
+          ? "There are no mapped non-zero positions to refresh."
+          : `Updated ${appliedCount}; failed ${failedCount}.`,
       failures: result.failures,
     });
   }, [activeTodayKey, applyLedgerMutation, client, clock, generateId]);
@@ -258,7 +258,7 @@ export function MarketDataControls({
     activeAbortRef.current = controller;
     setMappingMessages((current) => ({
       ...current,
-      [assetSymbol]: "正在向 Binance 验证交易对。",
+      [assetSymbol]: "Validating the trading pair with Binance.",
     }));
 
     const result = await validateBinanceMapping(
@@ -298,10 +298,10 @@ export function MarketDataControls({
       ...current,
       [assetSymbol]:
         mutationResult === "applied"
-          ? "交易对已验证并加入保存队列。"
+          ? "The trading pair was validated and queued for saving."
           : mutationResult === "noop"
-            ? "交易对未发生变化。"
-            : "账本当前不可写，交易对未保存。",
+            ? "The trading pair did not change."
+            : "The ledger is currently read-only, so the trading pair was not saved.",
     }));
   }
 
@@ -328,10 +328,10 @@ export function MarketDataControls({
       ...current,
       [assetSymbol]:
         mutationResult === "applied"
-          ? "映射已删除；历史 API 价格仍保留。"
+          ? "Mapping deleted; historical API prices were retained."
           : mutationResult === "noop"
-            ? "映射未发生变化。"
-            : "账本当前不可写，映射未删除。",
+            ? "The mapping did not change."
+            : "The ledger is currently read-only, so the mapping was not deleted.",
     }));
     return mutationResult;
   }
@@ -344,7 +344,7 @@ export function MarketDataControls({
   return (
     <div className="grid gap-5">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium">估值价格模式</span>
+        <span className="text-sm font-medium">Valuation price mode</span>
         {(["auto", "manual"] as const).map((value) => (
           <button
             aria-pressed={mode === value}
@@ -357,7 +357,7 @@ export function MarketDataControls({
             onClick={() => onModeChange(value)}
             type="button"
           >
-            {value === "auto" ? "自动行情" : "手动价格"}
+            {value === "auto" ? "Automatic market data" : "Manual prices"}
           </button>
         ))}
         <button
@@ -367,8 +367,8 @@ export function MarketDataControls({
           type="button"
         >
           {refreshState.status === "loading"
-            ? "正在刷新 Binance 价格"
-            : "刷新 Binance 价格"}
+            ? "Refreshing Binance prices"
+            : "Refresh Binance prices"}
         </button>
       </div>
 
@@ -385,17 +385,17 @@ export function MarketDataControls({
 
       <div className="grid gap-2 text-sm text-slate-700">
         <p>
-          USD 与 Binance USDT 报价按 <strong>1 USDT ≈ 1 USD</strong> 汇总为 USD 等值；这不是严格美元现货换算。
+          USD and Binance USDT quotes are aggregated as USD equivalents using <strong>1 USDT ≈ 1 USD</strong>; this is not strict USD spot conversion.
         </p>
         <p>
-          刷新只会把所配置的公开交易对 symbol 发送给 Binance；不会发送交易、数量、成本、密码或完整账本。
+          Refresh sends only configured public trading-pair symbols to Binance. It never sends trades, quantities, costs, passwords, or the complete ledger.
         </p>
       </div>
 
       <div className="grid gap-3">
-        <h3 className="font-semibold">当前非零持仓实际价格</h3>
+        <h3 className="font-semibold">Effective prices for current non-zero positions</h3>
         {currentPositions.length === 0 ? (
-          <p className="text-sm text-slate-500">当前没有非零持仓。</p>
+          <p className="text-sm text-slate-500">There are no non-zero positions.</p>
         ) : (
           <ul className="grid gap-1 text-sm text-slate-700">
             {currentPositions.map((position) => {
@@ -415,15 +415,15 @@ export function MarketDataControls({
               );
               return (
                 <li key={position.assetSymbol}>
-                  <strong>{position.assetSymbol}</strong>：
+                  <strong>{position.assetSymbol}</strong>:
                   {selected
                     ? `${selected.snapshot.price} ${selected.snapshot.currency} · ${
                         selected.actualSource === "binance"
                           ? "Binance"
-                          : "手动"
+                          : "Manual"
                       } · as-of ${selected.asOf}`
-                    : "无合法价格"}
-                  {failure ? ` · 本次刷新失败：${failure.message}` : ""}
+                    : "No valid price"}
+                  {failure ? ` · Refresh failed: ${failure.message}` : ""}
                 </li>
               );
             })}
@@ -432,7 +432,7 @@ export function MarketDataControls({
       </div>
 
       <details>
-        <summary className="cursor-pointer font-semibold">配置 Binance Spot 交易对</summary>
+        <summary className="cursor-pointer font-semibold">Configure Binance Spot trading pairs</summary>
         <div className="mt-3 grid gap-3">
           {ledgerData.assets.map((asset) => (
             <div
@@ -461,12 +461,12 @@ export function MarketDataControls({
                 onClick={() => void saveMapping(asset.symbol)}
                 type="button"
               >
-                验证并保存
+                Validate and save
               </button>
               <ConfirmDeleteButton
-                ariaLabel={`删除 ${asset.symbol} Binance 映射`}
+                ariaLabel={`Delete ${asset.symbol} Binance mapping`}
                 disabled={!isWritable || asset.binanceMapping == null}
-                label="删除映射"
+                label="Delete mapping"
                 onConfirm={() => removeMapping(asset.symbol)}
               />
               {mappingMessages[asset.symbol] ? (

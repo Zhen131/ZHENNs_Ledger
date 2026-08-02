@@ -39,13 +39,13 @@ type PriceFormState = {
 type PriceFormField = keyof PriceFormState | "form";
 
 const fieldLabels: Record<keyof PriceSnapshotDraft, string> = {
-  assetSymbol: "资产",
-  price: "当前价格",
-  currency: "计价货币",
-  recordedAt: "价格日期",
-  source: "价格来源",
-  binanceProvenance: "Binance 来源证据",
-  note: "价格备注",
+  assetSymbol: "Asset",
+  price: "Current price",
+  currency: "Quote currency",
+  recordedAt: "Price date",
+  source: "Price source",
+  binanceProvenance: "Binance provenance",
+  note: "Price note",
 };
 
 function createInitialFormState(assetSymbol: string): PriceFormState {
@@ -77,28 +77,28 @@ function toPriceFormField(
 function formatValidationError(
   error: PriceSnapshotValidationError,
 ): string {
-  const label = error.field === "input" ? "价格" : fieldLabels[error.field];
+  const label = error.field === "input" ? "Price" : fieldLabels[error.field];
 
   switch (error.code) {
     case "PRICE_SNAPSHOT_ASSET_NOT_FOUND":
-      return "请选择账本中已有的资产";
+      return "Select an asset already present in the ledger";
     case "PRICE_SNAPSHOT_INVALID_DECIMAL":
-      return "当前价格必须是有效数字";
+      return "Current price must be a valid number";
     case "PRICE_SNAPSHOT_VALUE_MUST_BE_POSITIVE":
-      return "当前价格必须大于 0";
+      return "Current price must be greater than 0";
     case "PRICE_SNAPSHOT_CURRENCY_MISMATCH":
-      return "计价货币与资产设置不一致";
+      return "Quote currency does not match the asset settings";
     case "PRICE_SNAPSHOT_INVALID_SOURCE":
-      return "价格来源不受支持";
+      return "Price source is unsupported";
     case "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE":
     case "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED":
-      return "Binance 价格来源证据无效";
+      return "Binance price provenance is invalid";
     case "PRICE_SNAPSHOT_FUTURE_FACT":
-      return "价格日期不能晚于今天";
+      return "Price date cannot be later than today";
     case "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY":
-      return "当前仅支持 USD/USDT 估值";
+      return "Only USD/USDT valuation is currently supported";
     case "PRICE_SNAPSHOT_INVALID_INPUT":
-      return `${label}不能为空或格式不正确`;
+      return `${label} is required or has an invalid format`;
   }
 }
 
@@ -170,7 +170,7 @@ export function PriceForm({
 
     if (!result.ok) {
       if (result.kind === "service") {
-        setErrors({ form: "系统暂时无法生成价格记录，请稍后重试" });
+        setErrors({ form: "The system cannot create a price record right now. Try again later." });
         return;
       }
 
@@ -193,8 +193,8 @@ export function PriceForm({
       setErrors({
         form:
           mutationResult === "rejected"
-            ? "账本当前不可写，请稍后重试"
-            : "账本未发生变化，请检查输入",
+            ? "The ledger is currently read-only. Try again later."
+            : "The ledger did not change. Check the input.",
       });
       setSuccessMessage("");
       return;
@@ -205,13 +205,13 @@ export function PriceForm({
       recordedAt: current.recordedAt,
     }));
     setErrors({});
-    setSuccessMessage("价格已加入账本");
+    setSuccessMessage("Price added to the ledger");
   }
 
   return (
     <form className="grid gap-4" onSubmit={handleSubmit}>
       <label className="grid gap-2 text-sm font-medium">
-        价格资产
+        Price asset
         <select
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("assetSymbol", event.target.value)}
@@ -231,7 +231,7 @@ export function PriceForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        当前价格
+        Current price
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -245,7 +245,7 @@ export function PriceForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        价格计价货币
+        Price quote currency
         <input
           className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-normal text-slate-600"
           readOnly
@@ -254,7 +254,7 @@ export function PriceForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        价格日期
+        Price date
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("recordedAt", event.target.value)}
@@ -269,11 +269,11 @@ export function PriceForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        价格备注
+        Price note
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("note", event.target.value)}
-          placeholder="可选"
+          placeholder="Optional"
           value={form.note}
         />
       </label>
@@ -282,7 +282,7 @@ export function PriceForm({
         className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
         type="submit"
       >
-        保存价格
+        Save price
       </button>
       <div aria-live="polite" className="min-h-5 text-sm">
         {errors.form ? (

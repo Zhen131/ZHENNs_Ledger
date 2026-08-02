@@ -39,19 +39,19 @@ type TradeFormState = {
 type TradeFormField = keyof TradeFormState | "form";
 
 const fieldLabels: Record<keyof TradeDraft, string> = {
-  occurredAt: "日期",
-  timePrecision: "时间精度",
-  type: "类型",
-  assetSymbol: "资产",
-  quantity: "数量",
-  price: "成交均价",
-  totalValue: "总金额",
-  currency: "计价货币",
-  fee: "手续费",
-  feeCurrency: "手续费币种",
-  feeRuleId: "手续费规则",
-  note: "备注",
-  rawText: "原始文本",
+  occurredAt: "Date",
+  timePrecision: "Time precision",
+  type: "Type",
+  assetSymbol: "Asset",
+  quantity: "Quantity",
+  price: "Average execution price",
+  totalValue: "Total amount",
+  currency: "Quote currency",
+  fee: "Fee",
+  feeCurrency: "Fee currency",
+  feeRuleId: "Fee rule",
+  note: "Note",
+  rawText: "Source text",
 };
 
 function createInitialFormState(assetSymbol: string): TradeFormState {
@@ -70,32 +70,32 @@ function createInitialFormState(assetSymbol: string): TradeFormState {
 function formatValidationError(error: TradeValidationError): string {
   const label =
     error.field === "input" || error.field === "totalValueTolerance"
-      ? "交易"
+      ? "Trade"
       : fieldLabels[error.field];
 
   switch (error.code) {
     case "INVALID_TRADE_TYPE":
-      return "请选择买入或卖出";
+      return "Select buy or sell";
     case "ASSET_NOT_FOUND":
-      return "请选择账本中已有的资产";
+      return "Select an asset already present in the ledger";
     case "INVALID_DECIMAL":
-      return `${label}必须是有效数字`;
+      return `${label} must be a valid number`;
     case "VALUE_MUST_BE_POSITIVE":
-      return `${label}必须大于 0`;
+      return `${label} must be greater than 0`;
     case "FEE_MUST_BE_NON_NEGATIVE":
-      return "手续费不能小于 0";
+      return "Fee cannot be less than 0";
     case "TOTAL_VALUE_MISMATCH":
-      return "总金额与数量 × 成交均价不一致";
+      return "Total amount does not match quantity × average execution price";
     case "INSUFFICIENT_HOLDINGS":
-      return "卖出数量超过该时间点的可用持仓";
+      return "Sell quantity exceeds the available position at that time";
     case "CURRENCY_MISMATCH":
-      return "计价货币与资产或已有交易不一致";
+      return "Quote currency conflicts with the asset or existing trades";
     case "FUTURE_FACT":
-      return "交易日期不能晚于今天";
+      return "Trade date cannot be later than today";
     case "UNSUPPORTED_VALUATION_CURRENCY":
-      return "当前仅支持 USD/USDT 估值";
+      return "Only USD/USDT valuation is currently supported";
     case "INVALID_INPUT":
-      return `${label}不能为空或格式不正确`;
+      return `${label} is required or has an invalid format`;
   }
 }
 
@@ -194,7 +194,7 @@ export function TradeForm({
 
     if (!result.ok) {
       if (result.kind === "service") {
-        setErrors({ form: "系统暂时无法生成交易，请稍后重试" });
+        setErrors({ form: "The system cannot create a trade right now. Try again later." });
         return;
       }
 
@@ -214,8 +214,8 @@ export function TradeForm({
       setErrors({
         form:
           mutationResult === "rejected"
-            ? "账本当前不可写，请稍后重试"
-            : "账本未发生变化，请检查输入",
+            ? "The ledger is currently read-only. Try again later."
+            : "The ledger did not change. Check the input.",
       });
       setSuccessMessage("");
       return;
@@ -227,25 +227,25 @@ export function TradeForm({
       occurredAt: current.occurredAt,
     }));
     setErrors({});
-    setSuccessMessage("交易已加入账本");
+    setSuccessMessage("Trade added to the ledger");
   }
 
   return (
     <form className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleSubmit}>
       <label className="grid gap-2 text-sm font-medium">
-        类型
+        Type
         <select
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("type", event.target.value as "buy" | "sell")}
           value={form.type}
         >
-          <option value="buy">买入</option>
-          <option value="sell">卖出</option>
+          <option value="buy">Buy</option>
+          <option value="sell">Sell</option>
         </select>
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        资产
+        Asset
         <select
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("assetSymbol", event.target.value)}
@@ -263,7 +263,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        数量
+        Quantity
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -277,7 +277,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        成交均价
+        Average execution price
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -291,7 +291,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        总金额
+        Total amount
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -305,7 +305,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        日期
+        Date
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("occurredAt", event.target.value)}
@@ -318,7 +318,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        手续费
+        Fee
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -331,7 +331,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        计价货币
+        Quote currency
         <input
           className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-normal text-slate-600"
           readOnly
@@ -340,11 +340,11 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium md:col-span-2 xl:col-span-4">
-        备注
+        Note
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("note", event.target.value)}
-          placeholder="可选"
+          placeholder="Optional"
           value={form.note}
         />
       </label>
@@ -354,7 +354,7 @@ export function TradeForm({
           className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
           type="submit"
         >
-          保存交易
+          Save trade
         </button>
         <div aria-live="polite" className="mt-2 min-h-5 text-sm">
           {errors.form ? (
