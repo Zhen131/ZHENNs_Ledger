@@ -602,7 +602,7 @@ describe("usePersistentLedger ready C import", () => {
         createInitialLedgerData(),
       );
       expect(result.current.persistenceError).toBe(
-        "导入未完成；已复读确认 C 恢复为导入前的完整版本，页面没有替换。",
+        "Import did not complete. A reread confirmed that C was restored to the complete pre-import version, and the page was not replaced.",
       );
     },
     20_000,
@@ -870,7 +870,7 @@ describe("usePersistentLedger ready C import", () => {
       writablesBeforeImport,
     );
     expect(result.current.persistenceError).toBe(
-      "导入写入前发现 C 已在本页面之外发生变化；本次导入没有写入，请重新打开该 C。",
+      "C changed outside this page before the import write. Nothing was written; reopen C.",
     );
   });
 
@@ -951,7 +951,7 @@ describe("usePersistentLedger ready C import", () => {
 
     expect(handle.writeCount).toBe(writesBeforeImport);
     expect(result.current.persistenceError).toBe(
-      "导入在写入 C 前失败，页面没有替换；未取得“旧 C 已恢复”的事后证据。",
+      "Import failed before writing C, and the page was not replaced. No post-operation evidence proves that the old C was restored.",
     );
   });
 });

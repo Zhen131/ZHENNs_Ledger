@@ -240,7 +240,7 @@ async function renderDashboard(
 
   await waitFor(() => {
     expect(
-      screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
+      screen.queryByText("Loading the local ledger. No data will be written until loading completes."),
     ).toBeNull();
   });
 
@@ -251,17 +251,17 @@ async function fillBuyTrade() {
   const user = userEvent.setup();
 
   await user.selectOptions(
-    screen.getByLabelText("类型", { selector: "select" }),
+    screen.getByLabelText("Type", { selector: "select" }),
     "buy",
   );
   await user.selectOptions(
-    screen.getByLabelText("资产", { selector: "select" }),
+    screen.getByLabelText("Asset", { selector: "select" }),
     "BTC",
   );
-  await user.type(screen.getByLabelText("数量"), "0.001");
-  await user.type(screen.getByLabelText("成交均价"), "70000");
-  await user.type(screen.getByLabelText("总金额"), "70");
-  await user.type(screen.getByLabelText("日期"), "2026-07-14");
+  await user.type(screen.getByLabelText("Quantity"), "0.001");
+  await user.type(screen.getByLabelText("Average execution price"), "70000");
+  await user.type(screen.getByLabelText("Total amount"), "70");
+  await user.type(screen.getByLabelText("Date"), "2026-07-14");
 
   return user;
 }
@@ -276,20 +276,20 @@ async function createTrade(input: {
   const user = userEvent.setup();
 
   await user.selectOptions(
-    screen.getByLabelText("类型", { selector: "select" }),
+    screen.getByLabelText("Type", { selector: "select" }),
     input.type,
   );
-  await user.type(screen.getByLabelText("数量"), input.quantity);
-  await user.type(screen.getByLabelText("成交均价"), input.price);
-  await user.type(screen.getByLabelText("总金额"), input.totalValue);
+  await user.type(screen.getByLabelText("Quantity"), input.quantity);
+  await user.type(screen.getByLabelText("Average execution price"), input.price);
+  await user.type(screen.getByLabelText("Total amount"), input.totalValue);
 
-  const occurredAtInput = screen.getByLabelText("日期");
+  const occurredAtInput = screen.getByLabelText("Date");
   if ((occurredAtInput as HTMLInputElement).value !== input.occurredAt) {
     await user.clear(occurredAtInput);
     await user.type(occurredAtInput, input.occurredAt);
   }
 
-  await user.click(screen.getByRole("button", { name: "保存交易" }));
+  await user.click(screen.getByRole("button", { name: "Save trade" }));
   return user;
 }
 
@@ -319,42 +319,42 @@ describe("DashboardShell immediate lock decision B", () => {
     await waitFor(() => {
       expect(
         screen.queryByText(
-          "正在读取本地账本，完成前不会写入任何数据。",
+          "Loading the local ledger. No data will be written until loading completes.",
         ),
       ).toBeNull();
     });
     const user = await fillBuyTrade();
     await user.click(
-      screen.getByRole("button", { name: "保存交易" }),
+      screen.getByRole("button", { name: "Save trade" }),
     );
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
     });
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "Lock now" }),
     );
     expect(
       screen.getByRole("region", {
-        name: "未保存修改锁定确认",
+        name: "Confirm locking with unsaved changes",
       }),
     ).toBeTruthy();
     expect(onFinalLock).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "取消" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(
       screen.queryByRole("region", {
-        name: "未保存修改锁定确认",
+        name: "Confirm locking with unsaved changes",
       }),
     ).toBeNull();
     expect(onFinalLock).not.toHaveBeenCalled();
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "Lock now" }),
     );
     await user.click(
       screen.getByRole("button", {
-        name: "我确定不要了，继续锁定",
+        name: "Discard changes and continue locking",
       }),
     );
     expect(onFinalLock).toHaveBeenCalledOnce();
@@ -391,30 +391,30 @@ describe("DashboardShell immediate lock decision B", () => {
     await waitFor(() => {
       expect(
         screen.queryByText(
-          "正在读取本地账本，完成前不会写入任何数据。",
+          "Loading the local ledger. No data will be written until loading completes.",
         ),
       ).toBeNull();
     });
     const user = await fillBuyTrade();
     await user.click(
-      screen.getByRole("button", { name: "保存交易" }),
+      screen.getByRole("button", { name: "Save trade" }),
     );
     await screen.findByText(
-      "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
+      "Local save failed and the page data is unsaved. Refreshing will restore the last successfully saved version.",
     );
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "Lock now" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "重新保存" }),
+      screen.getByRole("button", { name: "Retry this save" }),
     );
 
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledTimes(2);
       expect(
         screen.queryByRole("region", {
-          name: "未保存修改锁定确认",
+          name: "Confirm locking with unsaved changes",
         }),
       ).toBeNull();
     });
@@ -444,19 +444,19 @@ describe("DashboardShell immediate lock decision B", () => {
     await waitFor(() => {
       expect(
         screen.queryByText(
-          "正在读取本地账本，完成前不会写入任何数据。",
+          "Loading the local ledger. No data will be written until loading completes.",
         ),
       ).toBeNull();
     });
 
     await userEvent.setup().click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "Lock now" }),
     );
 
     expect(onFinalLock).toHaveBeenCalledOnce();
     expect(
       screen.queryByRole("region", {
-        name: "未保存修改锁定确认",
+        name: "Confirm locking with unsaved changes",
       }),
     ).toBeNull();
   });
@@ -470,18 +470,18 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard(repository);
     const user = await fillBuyTrade();
 
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
 
-    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    expect(screen.getByText("Trade added to the ledger")).not.toBeNull();
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
-      expect(screen.getByText("正在保存到本地")).not.toBeNull();
+      expect(screen.getByText("Saving locally")).not.toBeNull();
     });
-    expect(screen.queryByText("已保存到本地")).toBeNull();
+    expect(screen.queryByText("Saved locally")).toBeNull();
 
     saveDeferred.resolve();
     await waitFor(() => {
-      expect(screen.getByText("已保存到本地")).not.toBeNull();
+      expect(screen.getByText("Saved locally")).not.toBeNull();
     });
   });
 
@@ -494,18 +494,18 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard(repository);
     const user = await fillBuyTrade();
 
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
     await waitFor(() => {
       expect(
         screen.getByText(
-          "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
+          "Local save failed and the page data is unsaved. Refreshing will restore the last successfully saved version.",
         ),
       ).not.toBeNull();
     });
 
-    await user.click(screen.getByRole("button", { name: "重试保存" }));
+    await user.click(screen.getByRole("button", { name: "Retry save" }));
     await waitFor(() => {
-      expect(screen.getByText("已保存到本地")).not.toBeNull();
+      expect(screen.getByText("Saved locally")).not.toBeNull();
     });
     expect(repository.save).toHaveBeenCalledTimes(2);
   });
@@ -531,31 +531,31 @@ describe("DashboardShell trade interactions", () => {
     const view = await renderDashboard(oldRepository);
     const user = await fillBuyTrade();
 
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "重试保存" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Retry save" })).not.toBeNull();
     });
 
     view.rerender(<DashboardShell repository={newRepository} />);
     expect(
       screen.getByText(
-        "当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。",
+        "The current ledger is unsaved, so switching local storage was blocked. Retry saving or explicitly discard unsaved changes.",
       ),
     ).not.toBeNull();
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(within(getSection("Trade List")).getByText("BTC")).not.toBeNull();
     expect(newRepository.load).not.toHaveBeenCalled();
 
     await user.click(
       screen.getByRole("button", {
-        name: "放弃未保存更改并切换",
+        name: "Discard unsaved changes and switch",
       }),
     );
     await waitFor(() => {
       expect(newRepository.load).toHaveBeenCalledOnce();
-      expect(within(getSection("交易列表")).getByText("ETH")).not.toBeNull();
+      expect(within(getSection("Trade List")).getByText("ETH")).not.toBeNull();
       expect(
         screen.queryByRole("button", {
-          name: "放弃未保存更改并切换",
+          name: "Discard unsaved changes and switch",
         }),
       ).toBeNull();
     });
@@ -565,16 +565,16 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard();
     const user = await fillBuyTrade();
 
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
 
-    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    expect(screen.getByText("Trade added to the ledger")).not.toBeNull();
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = getSection("Trade List");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
-    expect(within(tradeSection).getByText("买入")).not.toBeNull();
+    expect(within(tradeSection).getByText("Buy")).not.toBeNull();
     expect(within(tradeSection).getByText("70 USD")).not.toBeNull();
 
-    const positionSection = getSection("资产汇总");
+    const positionSection = getSection("Asset Summary");
     expect(within(positionSection).getByText("BTC")).not.toBeNull();
     expect(within(positionSection).getByText("0.001")).not.toBeNull();
     expect(within(positionSection).getByText("70000 USD")).not.toBeNull();
@@ -584,23 +584,23 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard();
     const user = userEvent.setup();
 
-    await user.type(screen.getByLabelText("数量"), "0.001");
-    await user.type(screen.getByLabelText("成交均价"), "70000");
-    await user.type(screen.getByLabelText("总金额"), "10");
-    await user.type(screen.getByLabelText("日期"), "2026-07-14");
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.type(screen.getByLabelText("Quantity"), "0.001");
+    await user.type(screen.getByLabelText("Average execution price"), "70000");
+    await user.type(screen.getByLabelText("Total amount"), "10");
+    await user.type(screen.getByLabelText("Date"), "2026-07-14");
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
 
     expect(
-      screen.getByText("总金额与数量 × 成交均价不一致"),
+      screen.getByText("Total amount does not match quantity × average execution price"),
     ).not.toBeNull();
     expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
+      within(getSection("Trade List")).getByText(
+        "No trades yet. Added trades will appear here automatically.",
       ),
     ).not.toBeNull();
     expect(
-      within(getSection("资产汇总")).getByText(
-        "暂无持仓。添加交易后，这里会自动汇总。",
+      within(getSection("Asset Summary")).getByText(
+        "No positions yet. Added trades will be summarized here automatically.",
       ),
     ).not.toBeNull();
   });
@@ -623,45 +623,45 @@ describe("DashboardShell trade interactions", () => {
       occurredAt: "2026-07-15",
     });
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = getSection("Trade List");
     const rowsBefore = within(tradeSection).getAllByRole("row");
     expect(rowsBefore).toHaveLength(3);
 
     const unsafeDelete = within(tradeSection).getByRole("button", {
-      name: "删除 买入 BTC 2026-07-14",
+      name: "Delete buy BTC 2026-07-14",
     });
     await user.click(unsafeDelete);
     await user.click(unsafeDelete);
 
     expect(
       within(tradeSection).getByText(
-        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
+        "Cannot delete: this trade supports a later sell. Delete dependent later sells first.",
       ),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(3);
-    expect(within(getSection("资产汇总")).getByText("5")).not.toBeNull();
+    expect(within(getSection("Asset Summary")).getByText("5")).not.toBeNull();
   });
 
   it("deletes a safe trade and updates both empty states", async () => {
     await renderDashboard();
     const user = await fillBuyTrade();
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = getSection("Trade List");
     const safeDelete = within(tradeSection).getByRole("button", {
-      name: "删除 买入 BTC 2026-07-14",
+      name: "Delete buy BTC 2026-07-14",
     });
     await user.click(safeDelete);
     await user.click(safeDelete);
 
     expect(
       within(tradeSection).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
+        "No trades yet. Added trades will appear here automatically.",
       ),
     ).not.toBeNull();
     expect(
-      within(getSection("资产汇总")).getByText(
-        "暂无持仓。添加交易后，这里会自动汇总。",
+      within(getSection("Asset Summary")).getByText(
+        "No positions yet. Added trades will be summarized here automatically.",
       ),
     ).not.toBeNull();
   });
@@ -669,15 +669,15 @@ describe("DashboardShell trade interactions", () => {
   it("saves a manual price and updates market value and unrealized PnL", async () => {
     await renderDashboard();
     const user = await fillBuyTrade();
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
 
-    await user.type(screen.getByLabelText("当前价格"), "80000");
-    await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
-    await user.click(screen.getByRole("button", { name: "保存价格" }));
+    await user.type(screen.getByLabelText("Current price"), "80000");
+    await user.type(screen.getByLabelText("Price date"), "2026-07-16");
+    await user.click(screen.getByRole("button", { name: "Save price" }));
 
-    expect(screen.getByText("价格已加入账本")).not.toBeNull();
+    expect(screen.getByText("Price added to the ledger")).not.toBeNull();
 
-    const positionSection = getSection("资产汇总");
+    const positionSection = getSection("Asset Summary");
     expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
     expect(within(positionSection).getByText("80 USD")).not.toBeNull();
     expect(within(positionSection).getByText("10 USD")).not.toBeNull();
@@ -700,7 +700,7 @@ describe("DashboardShell trade interactions", () => {
 
     await renderDashboard(repository);
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = getSection("Trade List");
     expect(within(tradeSection).getByText("ETH")).not.toBeNull();
     expect(within(tradeSection).getByText("2")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
@@ -724,12 +724,12 @@ describe("DashboardShell trade interactions", () => {
 
     await waitFor(() => {
       expect(
-        (screen.getByLabelText("资产", {
+        (screen.getByLabelText("Asset", {
           selector: "select",
         }) as HTMLSelectElement).value,
       ).toBe("DOGE");
       expect(
-        (screen.getByLabelText("价格资产", {
+        (screen.getByLabelText("Price asset", {
           selector: "select",
         }) as HTMLSelectElement).value,
       ).toBe("DOGE");
@@ -747,10 +747,10 @@ describe("DashboardShell trade interactions", () => {
     const firstView = await renderDashboard(firstRepository);
     const user = await fillBuyTrade();
 
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
-    await user.type(screen.getByLabelText("当前价格"), "80000");
-    await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
-    await user.click(screen.getByRole("button", { name: "保存价格" }));
+    await user.click(screen.getByRole("button", { name: "Save trade" }));
+    await user.type(screen.getByLabelText("Current price"), "80000");
+    await user.type(screen.getByLabelText("Price date"), "2026-07-16");
+    await user.click(screen.getByRole("button", { name: "Save price" }));
 
     await waitFor(async () => {
       const savedLedger = await firstRepository.load();
@@ -764,18 +764,18 @@ describe("DashboardShell trade interactions", () => {
       createTestLedgerRepository(storageOptions);
     const secondView = await renderDashboard(secondRepository);
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = getSection("Trade List");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
     expect(within(tradeSection).getByText("70 USD")).not.toBeNull();
 
-    const positionSection = getSection("资产汇总");
+    const positionSection = getSection("Asset Summary");
     expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
     expect(within(positionSection).getByText("80 USD")).not.toBeNull();
     expect(within(positionSection).getByText("10 USD")).not.toBeNull();
 
     const secondUser = userEvent.setup();
     const persistedDelete = within(tradeSection).getByRole("button", {
-      name: "删除 买入 BTC 2026-07-14",
+      name: "Delete buy BTC 2026-07-14",
     });
     await secondUser.click(persistedDelete);
     await secondUser.click(persistedDelete);
@@ -790,24 +790,24 @@ describe("DashboardShell trade interactions", () => {
       createTestLedgerRepository(storageOptions);
     const thirdView = await renderDashboard(thirdRepository);
     expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
+      within(getSection("Trade List")).getByText(
+        "No trades yet. Added trades will appear here automatically.",
       ),
     ).not.toBeNull();
 
     const thirdUser = userEvent.setup();
     await thirdUser.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
+      screen.getByRole("button", { name: "Clear local ledger" }),
     );
     await thirdUser.type(
-      screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      screen.getByLabelText("Enter clear confirmation text"),
+      "CLEAR LOCAL LEDGER",
     );
     await thirdUser.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "Confirm permanent clear" }),
     );
     await waitFor(() => {
-      expect(screen.getByText("账本已清空")).not.toBeNull();
+      expect(screen.getByText("The ledger was cleared.")).not.toBeNull();
     });
     await expect(thirdRepository.load()).resolves.toBeNull();
     thirdView.unmount();
@@ -816,13 +816,13 @@ describe("DashboardShell trade interactions", () => {
       createTestLedgerRepository(storageOptions);
     await renderDashboard(fourthRepository);
     expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
+      within(getSection("Trade List")).getByText(
+        "No trades yet. Added trades will appear here automatically.",
       ),
     ).not.toBeNull();
     expect(
-      within(getSection("资产汇总")).getByText(
-        "暂无持仓。添加交易后，这里会自动汇总。",
+      within(getSection("Asset Summary")).getByText(
+        "No positions yet. Added trades will be summarized here automatically.",
       ),
     ).not.toBeNull();
     await expect(fourthRepository.load()).resolves.toBeNull();
@@ -853,20 +853,20 @@ describe("DashboardShell trade interactions", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: "最近 365 天交易活跃热力图",
+        name: "Trading activity heatmap for the last 365 days",
       }),
     );
 
-    const filteredSection = getSection("交易列表 · 2026-07-14");
+    const filteredSection = getSection("Trade List · 2026-07-14");
     expect(within(filteredSection).getByText("BTC")).not.toBeNull();
     expect(within(filteredSection).queryByText("ETH")).toBeNull();
 
     await user.click(
       screen.getByRole("button", {
-        name: "最近 365 天交易活跃热力图",
+        name: "Trading activity heatmap for the last 365 days",
       }),
     );
-    const restoredSection = getSection("交易列表");
+    const restoredSection = getSection("Trade List");
     expect(within(restoredSection).getByText("BTC")).not.toBeNull();
     expect(within(restoredSection).getByText("ETH")).not.toBeNull();
   });
@@ -878,20 +878,20 @@ describe("DashboardShell future fact correction", () => {
     const view = await renderDashboard(repository);
     const user = userEvent.setup();
 
-    expect(screen.getByText("未来事实纠正模式")).not.toBeNull();
-    expect(within(getSection("资产汇总")).queryByText("ETH")).toBeNull();
+    expect(screen.getByText("Future-fact correction mode")).not.toBeNull();
+    expect(within(getSection("Asset Summary")).queryByText("ETH")).toBeNull();
     const tradeDelete = screen.getByRole("button", {
-      name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+      name: "Delete future trade ETH 2026-07-26 future-eth-a",
     });
     const priceDelete = screen.getByRole("button", {
-      name: "删除未来价格 BTC 2026-07-26 future-price-btc-a",
+      name: "Delete future price BTC 2026-07-26 future-price-btc-a",
     });
 
     await user.click(tradeDelete);
     expect(repository.save).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
-        name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+        name: "Delete future trade ETH 2026-07-26 future-eth-a",
       }),
     ).not.toBeNull();
     await user.click(tradeDelete);
@@ -899,13 +899,13 @@ describe("DashboardShell future fact correction", () => {
       expect(repository.save).toHaveBeenCalledTimes(1);
       expect(
         screen.queryByRole("button", {
-          name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+          name: "Delete future trade ETH 2026-07-26 future-eth-a",
         }),
       ).toBeNull();
     });
     expect(
       screen.getByRole("button", {
-        name: "删除未来交易 ETH 2026-07-26 future-eth-b",
+        name: "Delete future trade ETH 2026-07-26 future-eth-b",
       }),
     ).not.toBeNull();
 
@@ -928,12 +928,12 @@ describe("DashboardShell future fact correction", () => {
     await renderDashboard(repository);
     expect(
       screen.queryByRole("button", {
-        name: "删除未来交易 ETH 2026-07-26 future-eth-a",
+        name: "Delete future trade ETH 2026-07-26 future-eth-a",
       }),
     ).toBeNull();
     expect(
       screen.getByRole("button", {
-        name: "删除未来交易 ETH 2026-07-26 future-eth-b",
+        name: "Delete future trade ETH 2026-07-26 future-eth-b",
       }),
     ).not.toBeNull();
   });
@@ -943,21 +943,21 @@ describe("DashboardShell future fact correction", () => {
     await renderDashboard(repository);
     const user = userEvent.setup();
     const deleteAll = screen.getByRole("button", {
-      name: "删除全部无效未来事实",
+      name: "Delete all invalid future facts",
     });
 
     await user.click(deleteAll);
     expect(repository.save).not.toHaveBeenCalled();
-    expect(screen.getByText("未来事实纠正模式")).not.toBeNull();
+    expect(screen.getByText("Future-fact correction mode")).not.toBeNull();
     await user.click(deleteAll);
 
     await waitFor(() => {
-      expect(screen.queryByText("未来事实纠正模式")).toBeNull();
+      expect(screen.queryByText("Future-fact correction mode")).toBeNull();
       expect(repository.save).toHaveBeenCalledOnce();
-      expect(screen.getByText("已保存到本地")).not.toBeNull();
+      expect(screen.getByText("Saved locally")).not.toBeNull();
     });
     expect(
-      (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Current price").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(false);
     expect((await repository.load())?.trades.map((trade) => trade.id)).toEqual([
@@ -981,19 +981,19 @@ describe("DashboardShell future fact correction", () => {
     const user = userEvent.setup();
 
     const buyDelete = screen.getByRole("button", {
-      name: "删除未来交易 BTC 2026-07-26 future-buy",
+      name: "Delete future trade BTC 2026-07-26 future-buy",
     });
     await user.click(buyDelete);
     await user.click(buyDelete);
     expect(
       screen.getByText(
-        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
+        "Cannot delete: this trade supports a later sell. Delete dependent later sells first.",
       ),
     ).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
 
     const sellDelete = screen.getByRole("button", {
-      name: "删除未来交易 BTC 2026-07-27 future-sell",
+      name: "Delete future trade BTC 2026-07-27 future-sell",
     });
     await user.click(sellDelete);
     await user.click(sellDelete);
@@ -1002,13 +1002,13 @@ describe("DashboardShell future fact correction", () => {
     });
 
     const remainingBuyDelete = screen.getByRole("button", {
-      name: "删除未来交易 BTC 2026-07-26 future-buy",
+      name: "Delete future trade BTC 2026-07-26 future-buy",
     });
     await user.click(remainingBuyDelete);
     await user.click(remainingBuyDelete);
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledTimes(2);
-      expect(screen.queryByText("未来事实纠正模式")).toBeNull();
+      expect(screen.queryByText("Future-fact correction mode")).toBeNull();
     });
   });
 
@@ -1042,27 +1042,27 @@ describe("DashboardShell future fact correction", () => {
     const view = await renderDashboard(repository);
     const user = userEvent.setup();
     const remove = screen.getByRole("button", {
-      name: "删除未来价格 BTC 2026-07-26 future-final-price",
+      name: "Delete future price BTC 2026-07-26 future-final-price",
     });
 
     await user.click(remove);
     await user.click(remove);
-    expect(screen.queryByText("未来事实纠正模式")).toBeNull();
+    expect(screen.queryByText("Future-fact correction mode")).toBeNull();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "重试保存" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Retry save" })).not.toBeNull();
     });
-    expect(screen.queryByText("已保存到本地")).toBeNull();
+    expect(screen.queryByText("Saved locally")).toBeNull();
     expect(storedLedger.priceSnapshots).toHaveLength(1);
 
-    await user.click(screen.getByRole("button", { name: "重试保存" }));
+    await user.click(screen.getByRole("button", { name: "Retry save" }));
     await waitFor(() => {
-      expect(screen.getByText("已保存到本地")).not.toBeNull();
+      expect(screen.getByText("Saved locally")).not.toBeNull();
     });
     expect(storedLedger.priceSnapshots).toEqual([]);
 
     view.unmount();
     await renderDashboard(repository);
-    expect(screen.queryByText("未来事实纠正模式")).toBeNull();
+    expect(screen.queryByText("Future-fact correction mode")).toBeNull();
   });
 });
 
@@ -1084,29 +1084,29 @@ describe("DashboardShell data management", () => {
 
     expect(
       await screen.findByText(
-        /当前 .lftl 文件是唯一正式完整账本/,
+        /The current .lftl file is the only authoritative complete ledger/,
       ),
     ).toBeTruthy();
     expect(
-      await screen.findByRole("button", { name: "导出完整账本备份" }),
+      await screen.findByRole("button", { name: "Export complete ledger backup" }),
     ).toBeTruthy();
     expect(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
     ).toBeTruthy();
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createBackupFile(createInitialLedgerData()),
     );
     expect(
-      await screen.findByText("B 历史导入预检报告"),
+      await screen.findByText("Historical B Import Preflight Report"),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "确认恢复备份" }),
+      screen.queryByRole("button", { name: "Confirm backup restoration" }),
     ).toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
     expect(repository.clear).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("button", { name: "清空本地账本" }),
+      screen.queryByRole("button", { name: "Clear local ledger" }),
     ).toBeNull();
   });
 
@@ -1146,48 +1146,48 @@ describe("DashboardShell data management", () => {
     });
     render(<DashboardShell session={session} />);
     const user = userEvent.setup();
-    await screen.findByText(/当前 .lftl 文件是唯一正式完整账本/);
+    await screen.findByText(/The current .lftl file is the only authoritative complete ledger/);
 
     await user.click(
       await screen.findByRole("button", {
-        name: "清空当前 C 账本",
+        name: "Clear current C ledger",
       }),
     );
     expect(
       screen.getByText(
-        /这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C/,
+        /This clears only the current C ledger content. It does not delete the .lftl file or affect other C files/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/上一可用版/)).toBeTruthy();
+    expect(screen.getByText(/previous usable version/)).toBeTruthy();
     await user.click(
       screen.getByRole("button", {
-        name: "确认清空当前 C 内容",
+        name: "Confirm clearing current C content",
       }),
     );
     expect(
       screen.getByText(
-        "请输入完整确认文本“清空当前C账本”",
+        'Enter the full confirmation text "CLEAR CURRENT C LEDGER".',
       ),
     ).toBeTruthy();
     expect(authorizeReadyClear).not.toHaveBeenCalled();
 
     await user.type(
-      screen.getByLabelText("输入清空确认文本"),
-      "清空当前C账本",
+      screen.getByLabelText("Enter clear confirmation text"),
+      "CLEAR CURRENT C LEDGER",
     );
     await user.click(
       screen.getByRole("button", {
-        name: "确认清空当前 C 内容",
+        name: "Confirm clearing current C content",
       }),
     );
     await waitFor(() => {
       expect(
-        screen.getByText("当前 C 账本内容已清空"),
+        screen.getByText("The current C ledger content was cleared."),
       ).toBeTruthy();
     });
     expect(authorizeReadyClear).toHaveBeenCalledWith(
       expect.objectContaining({
-        confirmationNonce: "清空当前C账本",
+        confirmationNonce: "CLEAR CURRENT C LEDGER",
         sessionId: "dashboard-ready-clear",
         generation: 0,
       }),
@@ -1195,7 +1195,7 @@ describe("DashboardShell data management", () => {
     expect(clearReadyLedger).toHaveBeenCalledOnce();
     expect(repository.clear).not.toHaveBeenCalled();
     expect(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
     ).toBeTruthy();
   });
 
@@ -1205,36 +1205,36 @@ describe("DashboardShell data management", () => {
     await renderDashboard(repository);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "手动价格" }));
+    await user.click(screen.getByRole("button", { name: "Manual prices" }));
     await user.click(
       screen.getByRole("button", {
-        name: "最近 365 天交易活跃热力图",
+        name: "Trading activity heatmap for the last 365 days",
       }),
     );
-    expect(getSection("交易列表 · 2026-07-14")).not.toBeNull();
+    expect(getSection("Trade List · 2026-07-14")).not.toBeNull();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createBackupFile(candidate),
     );
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "确认恢复备份" })).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Confirm backup restoration" })).not.toBeNull();
     });
     expect(repository.save).not.toHaveBeenCalled();
 
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
+      await screen.findByRole("button", { name: "Confirm backup restoration" }),
     );
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledWith(candidate);
-      expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+      expect(within(getSection("Trade List")).getByText("BTC")).not.toBeNull();
       expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
-      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
-      expect(getSection("交易列表")).not.toBeNull();
-      expect(screen.getByText(/已估值 1 项，总市值 80000 USD 等值/)).not.toBeNull();
+      expect(screen.getByText("Backup restored and saved locally.")).not.toBeNull();
+      expect(getSection("Trade List")).not.toBeNull();
+      expect(screen.getByText(/1 valued assets; total market value 80000 USD equivalent/)).not.toBeNull();
     });
     expect(
-      screen.getByRole("button", { name: "手动价格" }).getAttribute(
+      screen.getByRole("button", { name: "Manual prices" }).getAttribute(
         "aria-pressed",
       ),
     ).toBe("true");
@@ -1250,21 +1250,21 @@ describe("DashboardShell data management", () => {
     const user = userEvent.setup();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createBackupFile(createInitialLedgerData()),
     );
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
+      await screen.findByRole("button", { name: "Confirm backup restoration" }),
     );
 
     await waitFor(() => {
       expect(
         screen.getByText(
-          "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
+          "Import failed and the page did not change. No further evidence confirms the underlying storage state; follow the error guidance.",
         ),
       ).not.toBeNull();
     });
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(within(getSection("Trade List")).getByText("BTC")).not.toBeNull();
     expect(repository.save).toHaveBeenCalledOnce();
     expect(repository.clear).not.toHaveBeenCalled();
   });
@@ -1303,16 +1303,16 @@ describe("DashboardShell data management", () => {
     if (!futureEnvelope.ok || !unsupportedEnvelope.ok) return;
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createRawBackupFile("{", "corrupt.json"),
     );
     await waitFor(() => {
-      expect(screen.getByText("预检发现硬错误；不得继续导入。")).not.toBeNull();
+      expect(screen.getByText("Preflight found hard errors; import must not continue.")).not.toBeNull();
       expect(screen.getByText(/BACKUP_BAD_JSON/)).not.toBeNull();
     });
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createRawBackupFile(
         serializeBackupEnvelope(futureEnvelope.value),
         "future.json",
@@ -1324,7 +1324,7 @@ describe("DashboardShell data management", () => {
     });
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createRawBackupFile(
         serializeBackupEnvelope(unsupportedEnvelope.value),
         "unsupported.json",
@@ -1334,10 +1334,10 @@ describe("DashboardShell data management", () => {
       expect(
         screen.getByText(/LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY/),
       ).not.toBeNull();
-      expect(screen.getByText(/当前仅支持 USD\/USDT 估值/)).not.toBeNull();
+      expect(screen.getByText(/Only USD\/USDT valuation is currently supported/)).not.toBeNull();
     });
 
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(within(getSection("Trade List")).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
     expect(repository.clear).not.toHaveBeenCalled();
   });
@@ -1352,19 +1352,19 @@ describe("DashboardShell data management", () => {
     const user = userEvent.setup();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createBackupFile(candidate),
     );
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
+      await screen.findByRole("button", { name: "Confirm backup restoration" }),
     );
 
     await waitFor(() => {
-      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
-      expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+      expect(screen.getByText("Backup restored and saved locally.")).not.toBeNull();
+      expect(within(getSection("Trade List")).getByText("BTC")).not.toBeNull();
     });
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Quantity").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(false);
     expect(repository.save).toHaveBeenCalledWith(candidate);
@@ -1383,27 +1383,27 @@ describe("DashboardShell data management", () => {
     const user = userEvent.setup();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createBackupFile(createCompleteLedger()),
     );
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
+      await screen.findByRole("button", { name: "Confirm backup restoration" }),
     );
 
     await waitFor(() => {
       expect(
         screen.getByText(
-          "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
+          "Import failed and the page did not change. No further evidence confirms the underlying storage state; follow the error guidance.",
         ),
       ).not.toBeNull();
     });
     expect(
       screen.getByText(
-        "本地账本读取失败，已停止自动保存以避免覆盖原数据",
+        "Local ledger loading failed. Autosave was stopped to avoid overwriting the original data.",
       ),
     ).not.toBeNull();
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Quantity").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
     expect(repository.clear).not.toHaveBeenCalled();
@@ -1417,51 +1417,51 @@ describe("DashboardShell data management", () => {
     const user = userEvent.setup();
 
     await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
+      screen.getByLabelText("Select ledger backup file"),
       createBackupFile(createInitialLedgerData()),
     );
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
+      await screen.findByRole("button", { name: "Confirm backup restoration" }),
     );
 
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(
         screen.getByText(
-          /取消时会尝试恢复并复读导入前的完整 C；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
+          /cancel attempts to restore and reread the complete pre-import C. If restoration cannot be confirmed, the session disables further writes/,
         ),
       ).not.toBeNull();
     });
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Quantity").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
     expect(
-      (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Current price").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("button", {
-        name: "删除 买入 BTC 2026-07-14",
+        name: "Delete buy BTC 2026-07-14",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("button", {
-        name: "清空本地账本",
+        name: "Clear local ledger",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("button", {
-        name: "导出完整账本备份",
+        name: "Export complete ledger backup",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(
-      (screen.getByLabelText("选择账本备份文件") as HTMLInputElement).disabled,
+      (screen.getByLabelText("Select ledger backup file") as HTMLInputElement).disabled,
     ).toBe(true);
 
     saveDeferred.resolve();
     await waitFor(() => {
-      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+      expect(screen.getByText("Backup restored and saved locally.")).not.toBeNull();
     });
   });
 
@@ -1471,31 +1471,31 @@ describe("DashboardShell data management", () => {
     const user = userEvent.setup();
 
     await user.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
+      screen.getByRole("button", { name: "Clear local ledger" }),
     );
     expect(
       screen.getByText(
-        "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。",
+        "This permanently deletes custom assets, trades, prices, and fee rules. Export a complete ledger backup first.",
       ),
     ).not.toBeNull();
 
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "Confirm permanent clear" }),
     );
     expect(
-      screen.getByText("请输入完整确认文本“清空本地账本”"),
+      screen.getByText('Enter the full confirmation text "CLEAR LOCAL LEDGER".'),
     ).not.toBeNull();
     expect(repository.clear).not.toHaveBeenCalled();
 
-    await user.type(screen.getByLabelText("输入清空确认文本"), "错误文本");
+    await user.type(screen.getByLabelText("Enter clear confirmation text"), "wrong text");
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "Confirm permanent clear" }),
     );
     expect(repository.clear).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "取消" }));
-    expect(screen.queryByLabelText("输入清空确认文本")).toBeNull();
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByLabelText("Enter clear confirmation text")).toBeNull();
+    expect(within(getSection("Trade List")).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -1509,55 +1509,55 @@ describe("DashboardShell data management", () => {
     expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
     await user.click(
       screen.getByRole("button", {
-        name: "最近 365 天交易活跃热力图",
+        name: "Trading activity heatmap for the last 365 days",
       }),
     );
-    expect(getSection("交易列表 · 2026-07-14")).not.toBeNull();
+    expect(getSection("Trade List · 2026-07-14")).not.toBeNull();
     await user.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
+      screen.getByRole("button", { name: "Clear local ledger" }),
     );
     await user.type(
-      screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      screen.getByLabelText("Enter clear confirmation text"),
+      "CLEAR LOCAL LEDGER",
     );
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "Confirm permanent clear" }),
     );
 
     await waitFor(() => {
       expect(repository.clear).toHaveBeenCalledOnce();
       expect(
-        screen.getByText("正在清空本地账本，请勿关闭页面。"),
+        screen.getByText("Clearing the local ledger. Do not close the page."),
       ).not.toBeNull();
     });
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Quantity").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
     expect(
-      (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Current price").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("button", {
-        name: "删除 买入 BTC 2026-07-14",
+        name: "Delete buy BTC 2026-07-14",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("button", {
-        name: "确认永久清空",
+        name: "Confirm permanent clear",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
 
     clearDeferred.resolve();
     await waitFor(() => {
-      expect(screen.getByText("账本已清空")).not.toBeNull();
+      expect(screen.getByText("The ledger was cleared.")).not.toBeNull();
     });
 
     expect(screen.queryAllByRole("option", { name: "SOL · Solana" })).toEqual([]);
     expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
+      within(getSection("Trade List")).getByText(
+        "No trades yet. Added trades will appear here automatically.",
       ),
     ).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
@@ -1573,43 +1573,43 @@ describe("DashboardShell data management", () => {
 
     expect(
       screen.getByText(
-        "本地账本读取失败，已停止自动保存以避免覆盖原数据",
+        "Local ledger loading failed. Autosave was stopped to avoid overwriting the original data.",
       ),
     ).not.toBeNull();
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Quantity").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
     expect(
-      screen.queryByRole("button", { name: "清空本地账本" }),
+      screen.queryByRole("button", { name: "Clear local ledger" }),
     ).toBeNull();
 
     await user.click(
       screen.getByRole("button", {
-        name: "清除损坏或无法读取的本地数据",
+        name: "Clear damaged or unreadable local data",
       }),
     );
     expect(
       screen.getByText(
-        "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。",
+        "The loading failure may be temporary. Continuing deletes custom assets, trades, prices, and fee rules that may still be recoverable. Restore from a valid backup first or confirm permanent deletion.",
       ),
     ).not.toBeNull();
     await user.type(
-      screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      screen.getByLabelText("Enter clear confirmation text"),
+      "CLEAR LOCAL LEDGER",
     );
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "Confirm permanent clear" }),
     );
 
     await waitFor(() => {
-      expect(screen.getByText("账本已清空")).not.toBeNull();
+      expect(screen.getByText("The ledger was cleared.")).not.toBeNull();
       expect(
-        screen.getByRole("button", { name: "清空本地账本" }),
+        screen.getByRole("button", { name: "Clear local ledger" }),
       ).not.toBeNull();
     });
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Quantity").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(false);
     expect(repository.clear).toHaveBeenCalledOnce();
@@ -1625,26 +1625,26 @@ describe("DashboardShell data management", () => {
     const user = userEvent.setup();
 
     await user.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
+      screen.getByRole("button", { name: "Clear local ledger" }),
     );
     await user.type(
-      screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      screen.getByLabelText("Enter clear confirmation text"),
+      "CLEAR LOCAL LEDGER",
     );
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "Confirm permanent clear" }),
     );
 
     await waitFor(() => {
       expect(
-        screen.getByText("清空本地账本失败，原页面与本地数据均未更改"),
+        screen.getByText("Clearing the local ledger failed. The page and local data were not changed."),
       ).not.toBeNull();
     });
-    expect(screen.queryByText("账本已清空")).toBeNull();
+    expect(screen.queryByText("The ledger was cleared.")).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "重试保存" }),
+      screen.queryByRole("button", { name: "Retry save" }),
     ).toBeNull();
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(within(getSection("Trade List")).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -1667,15 +1667,15 @@ describe("DashboardShell data management", () => {
     await renderDashboard(repository);
 
     expect(
-      screen.getByText(/当前账本超过资源上限，已只读加载/),
+      screen.getByText(/The current ledger exceeds resource limits and was loaded read-only/),
     ).not.toBeNull();
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
+      (screen.getByLabelText("Quantity").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("button", {
-        name: "清空本地账本",
+        name: "Clear local ledger",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(repository.save).not.toHaveBeenCalled();

@@ -42,7 +42,7 @@ describe("preflightBackupJson", () => {
       result.candidate?.trades.every(
         (trade, index) =>
           trade.rawText ===
-          `虚构历史交易原句 ${index + 1}：买入测试资产，非真实用户数据。`,
+          `Synthetic historical trade sentence ${index + 1}: buy a test asset; not real user data.`,
       ),
     ).toBe(true);
     expect(Object.isFrozen(result)).toBe(true);
@@ -293,7 +293,7 @@ describe("preflightBackupJson", () => {
     delete parsed.ledgerData.trades[0].rawText;
     parsed.ledgerData.trades[1].rawText = 42;
     parsed.ledgerData.trades[2].rawText = " \n\t ";
-    parsed.ledgerData.trades[3].rawText = "  保留首尾空格的原句  ";
+    parsed.ledgerData.trades[3].rawText = "  Preserve leading and trailing spaces  ";
 
     const result = await preflight(`${JSON.stringify(parsed, null, 2)}\n`);
 
@@ -345,7 +345,7 @@ describe("preflightBackupJson", () => {
       throw new Error("Expected a JSON hard error");
     }
     if (detail.line === undefined) {
-      expect(detail.message).toContain("没有提供可靠的行列位置");
+      expect(detail.message).toContain("did not provide a reliable line and column");
       expect(detail.column).toBeUndefined();
     } else {
       expect(detail.line).toBeGreaterThanOrEqual(1);

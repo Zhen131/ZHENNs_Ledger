@@ -14,7 +14,7 @@ export const sampleAssets: Asset[] = [
 ];
 
 /**
- * Week 2 唯一 golden 输入：4 条买入 + 第 5 条 ADA 卖出。
+ * The single Week 2 golden input: four buys followed by one ADA sell.
  */
 export const sampleTradeDrafts: TradeDraft[] = [
   {
@@ -28,7 +28,7 @@ export const sampleTradeDrafts: TradeDraft[] = [
     currency: "USD",
     fee: "0",
     feeCurrency: "USD",
-    rawText: "以均价 67121.7 买入 BTC 0.00016388 个，价值 11 USD，26/04/02",
+    rawText: "Buy 0.00016388 BTC at an average price of 67121.7, worth 11 USD, 26/04/02",
   },
   {
     occurredAt: "2026-04-02",
@@ -41,7 +41,7 @@ export const sampleTradeDrafts: TradeDraft[] = [
     currency: "USD",
     fee: "0",
     feeCurrency: "USD",
-    rawText: "以均价 2059.99 买入 ETH 0.004854 个，价值 10 USD，26/04/02",
+    rawText: "Buy 0.004854 ETH at an average price of 2059.99, worth 10 USD, 26/04/02",
   },
   {
     occurredAt: "2026-04-02",
@@ -54,7 +54,7 @@ export const sampleTradeDrafts: TradeDraft[] = [
     currency: "USD",
     fee: "0",
     feeCurrency: "USD",
-    rawText: "以均价 0.2405 买入 ADA 41.58 个，价值 10 USD，26/04/02",
+    rawText: "Buy 41.58 ADA at an average price of 0.2405, worth 10 USD, 26/04/02",
   },
   {
     occurredAt: "2026-04-09",
@@ -67,7 +67,7 @@ export const sampleTradeDrafts: TradeDraft[] = [
     currency: "USD",
     fee: "0",
     feeCurrency: "USD",
-    rawText: "以均价 0.2526 买入 ADA 126.6825 个，价值 32 USD，26/04/09",
+    rawText: "Buy 126.6825 ADA at an average price of 0.2526, worth 32 USD, 26/04/09",
   },
   {
     occurredAt: "2026-04-14",
@@ -80,7 +80,7 @@ export const sampleTradeDrafts: TradeDraft[] = [
     currency: "USD",
     fee: "0",
     feeCurrency: "USD",
-    rawText: "以均价 0.2412 卖出 ADA 82.9381 个，价值 20 USD，26/04/14",
+    rawText: "Sell 82.9381 ADA at an average price of 0.2412, worth 20 USD, 26/04/14",
   },
 ];
 

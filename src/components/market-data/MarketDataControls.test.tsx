@@ -75,7 +75,7 @@ describe("MarketDataControls", () => {
     expect(client.fetchLatestPrices).not.toHaveBeenCalled();
     expect(
       (screen.getByRole("button", {
-        name: "刷新 Binance 价格",
+        name: "Refresh Binance prices",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
@@ -108,7 +108,7 @@ describe("MarketDataControls", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("已更新 1 项，失败 0 项。")).toBeTruthy();
+      expect(screen.getByText("Updated 1; failed 0.")).toBeTruthy();
     });
     expect(client.validateSpotSymbol).toHaveBeenCalledOnce();
     expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
@@ -189,11 +189,11 @@ describe("MarketDataControls", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("已更新 0 项，失败 1 项。")).toBeTruthy();
+      expect(screen.getByText("Updated 0; failed 1.")).toBeTruthy();
     });
     expect(latestLedger.priceSnapshots).toHaveLength(1);
     expect(latestLedger.priceSnapshots[0].id).toBe("manual");
-    expect(screen.getByText(/本次刷新失败：offline/)).toBeTruthy();
+    expect(screen.getByText(/Refresh failed: offline/)).toBeTruthy();
   });
 
   it("drops an old response after ledgerEpoch changes", async () => {
@@ -443,20 +443,20 @@ describe("MarketDataControls", () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByText("当前没有需要刷新的非零持仓映射。")).toBeTruthy();
+      expect(screen.getByText("There are no mapped non-zero positions to refresh.")).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "手动价格" }));
+    fireEvent.click(screen.getByRole("button", { name: "Manual prices" }));
     expect(onModeChange).toHaveBeenCalledWith("manual");
 
     const input = screen.getByLabelText("BTC");
     fireEvent.change(input, { target: { value: " btcusdt " } });
     fireEvent.click(
-      screen.getAllByRole("button", { name: "验证并保存" })[0],
+      screen.getAllByRole("button", { name: "Validate and save" })[0],
     );
     await waitFor(() => {
       expect(
-        screen.getByText("交易对已验证并加入保存队列。"),
+        screen.getByText("The trading pair was validated and queued for saving."),
       ).toBeTruthy();
     });
     expect(client.validateSpotSymbol).toHaveBeenLastCalledWith(
@@ -465,7 +465,7 @@ describe("MarketDataControls", () => {
       expect.any(AbortSignal),
     );
     expect(latestLedger.assets[0].binanceMapping?.symbol).toBe("BTCUSDT");
-    expect(screen.getByText(/不会发送交易、数量、成本、密码或完整账本/)).toBeTruthy();
+    expect(screen.getByText(/never sends trades, quantities, costs, passwords, or the complete ledger/)).toBeTruthy();
   });
 
   it("does not abort an active refresh or clear the mapping draft on first delete activation", async () => {
@@ -507,7 +507,7 @@ describe("MarketDataControls", () => {
     const input = screen.getByLabelText("BTC") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "CUSTOM" } });
     const remove = screen.getByRole("button", {
-      name: "删除 BTC Binance 映射",
+      name: "Delete BTC Binance mapping",
     });
     fireEvent.click(remove);
 

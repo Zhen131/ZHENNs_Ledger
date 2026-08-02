@@ -290,14 +290,14 @@ describe("usePersistentLedger file session capabilities", () => {
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",
       });
       await expect(
-        result.current.clearLedger("任意非空文本"),
+        result.current.clearLedger("any non-empty text"),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",
       });
       expect(handle.writeCount).toBe(1);
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("CLEAR CURRENT C LEDGER"),
       ).resolves.toEqual({ ok: true });
     });
 
@@ -384,7 +384,7 @@ describe("usePersistentLedger file session capabilities", () => {
       | undefined;
     const clearPromise = act(async () => {
       clearResult = await result.current.clearLedger(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     });
     expect(handle.writeCount).toBe(2);
@@ -461,7 +461,7 @@ describe("usePersistentLedger file session capabilities", () => {
     let clearPromise!: ReturnType<typeof result.current.clearLedger>;
     act(() => {
       clearPromise = result.current.clearLedger(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     });
     await operationGate.started;
@@ -556,7 +556,7 @@ describe("usePersistentLedger file session capabilities", () => {
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("CLEAR CURRENT C LEDGER"),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",
@@ -564,13 +564,13 @@ describe("usePersistentLedger file session capabilities", () => {
     });
     expect(result.current.ledgerData).toEqual(original);
     expect(result.current.persistenceError).toContain(
-      "结果未确认",
+      "result of clearing the current C was not confirmed",
     );
     const writesAfterUncertainClear = handle.writeCount;
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("CLEAR CURRENT C LEDGER"),
       ).resolves.toEqual({ ok: true });
     });
     expect(handle.writeCount).toBe(writesAfterUncertainClear);
@@ -647,7 +647,7 @@ describe("usePersistentLedger file session capabilities", () => {
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("CLEAR CURRENT C LEDGER"),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",
@@ -709,7 +709,7 @@ describe("usePersistentLedger file session capabilities", () => {
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("CLEAR CURRENT C LEDGER"),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",
@@ -780,7 +780,7 @@ describe("usePersistentLedger file session capabilities", () => {
       expect(result.current.persistenceStatus).toBe("error");
     });
 
-    expect(result.current.persistenceError).toMatch(/尚未保存/);
+    expect(result.current.persistenceError).toMatch(/unsaved/);
     expect(result.current.mutationVersion).toBe(1);
     expect(result.current.persistedVersion).toBe(0);
     expect(result.current.isDirty).toBe(true);
@@ -1215,7 +1215,7 @@ describe("usePersistentLedger file session capabilities", () => {
     });
 
     expect(result.current.persistenceError).toMatch(
-      /本页面之外发生变化/,
+      /changed outside this page/,
     );
     expect(result.current.mutationVersion).toBe(2);
     expect(result.current.persistedVersion).toBe(0);

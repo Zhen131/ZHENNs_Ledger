@@ -209,7 +209,7 @@ describe("ledger access composition", () => {
       legacyController.authorizeLegacyMigrationDeletion(
         unlocked.candidate,
         receipt,
-        "任意非空文本",
+        "any non-empty text",
       ),
     ).resolves.toBeNull();
     await expect(legacyStorage.read()).resolves.toEqual(
@@ -220,7 +220,7 @@ describe("ledger access composition", () => {
       await legacyController.authorizeLegacyMigrationDeletion(
         unlocked.candidate,
         receipt,
-        "删除旧浏览器账本",
+        "DELETE LEGACY BROWSER LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization) return;
@@ -261,7 +261,7 @@ describe("ledger access composition", () => {
     );
     const clearAuthorization =
       created.session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "CLEAR CURRENT C LEDGER",
       );
     expect(clearAuthorization).not.toBeNull();
     if (!clearAuthorization || !created.session.readyClearPort) {
@@ -359,7 +359,7 @@ describe("ledger access composition", () => {
       await legacyController.authorizeLegacyMigrationDeletion(
         unlocked.candidate,
         receipt,
-        "删除旧浏览器账本",
+        "DELETE LEGACY BROWSER LEDGER",
       );
     expect(authorization).not.toBeNull();
     if (!authorization) return;

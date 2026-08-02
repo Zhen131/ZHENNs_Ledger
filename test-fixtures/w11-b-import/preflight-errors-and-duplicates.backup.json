@@ -62,7 +62,7 @@
         "currency": "USD",
         "fee": "0",
         "feeCurrency": "USD",
-        "rawText": "虚构 BTC 非法数量记录。",
+        "rawText": "Synthetic BTC invalid-quantity record.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       },
@@ -78,7 +78,7 @@
         "currency": "USD",
         "fee": "0",
         "feeCurrency": "USD",
-        "rawText": "虚构 ETH 高度可疑记录 A。",
+        "rawText": "Synthetic highly suspicious ETH record A.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       },
@@ -94,7 +94,7 @@
         "currency": "USD",
         "fee": "0",
         "feeCurrency": "USD",
-        "rawText": "虚构 ETH 高度可疑记录 B。",
+        "rawText": "Synthetic highly suspicious ETH record B.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       },
@@ -110,7 +110,7 @@
         "currency": "USD",
         "fee": "0",
         "feeCurrency": "USD",
-        "rawText": "虚构 BTC 一般可疑记录 A。",
+        "rawText": "Synthetic suspicious BTC record A.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       },
@@ -126,7 +126,7 @@
         "currency": "USD",
         "fee": "0.2",
         "feeCurrency": "USD",
-        "rawText": "虚构 BTC 一般可疑记录 B。",
+        "rawText": "Synthetic suspicious BTC record B.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       },
@@ -142,7 +142,7 @@
         "currency": "USD",
         "fee": "0",
         "feeCurrency": "USD",
-        "rawText": "虚构 ADA 合法拆单 A。",
+        "rawText": "Synthetic valid ADA split A.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       },
@@ -158,7 +158,7 @@
         "currency": "USD",
         "fee": "0",
         "feeCurrency": "USD",
-        "rawText": "虚构 ADA 合法拆单 B。",
+        "rawText": "Synthetic valid ADA split B.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       },
@@ -186,7 +186,7 @@
         "currency": "USD",
         "recordedAt": "2026-07-13",
         "source": "manual",
-        "note": "虚构价格，仅用于 W11 B 导入测试。",
+        "note": "Synthetic price for W11 B import testing only.",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       }
@@ -194,8 +194,8 @@
     "feeRules": [
       {
         "id": "fictional-fee-rule",
-        "name": "虚构手续费",
-        "platform": "测试平台",
+        "name": "Synthetic fee",
+        "platform": "Test platform",
         "type": "percentage",
         "rate": "0.001",
         "currency": "USD",

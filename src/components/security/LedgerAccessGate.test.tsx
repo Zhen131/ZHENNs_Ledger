@@ -162,7 +162,7 @@ function createMigrationDeletionAuthorization():
     targetGeneration: 0,
     targetFileId: "gate-migration-file",
     targetRevisionId: "gate-migration-revision",
-    confirmationNonce: "删除旧浏览器账本",
+    confirmationNonce: "DELETE LEGACY BROWSER LEDGER",
   } as unknown as LegacyMigrationDeletionAuthorization;
 }
 
@@ -335,11 +335,11 @@ describe("LedgerAccessGate", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "解锁所选 C",
+        name: "Unlock Selected C",
       }),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("heading", { name: "选择或新建 C" }),
+      screen.queryByRole("heading", { name: "Select or Create C" }),
     ).toBeNull();
   });
 
@@ -365,18 +365,18 @@ describe("LedgerAccessGate", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "重新连接上次的 C",
+        name: "Reconnect the Last C",
       }),
     ).toBeTruthy();
     expect(requestRememberedPermission).not.toHaveBeenCalled();
 
     await user.click(
-      screen.getByRole("button", { name: "重新连接" }),
+      screen.getByRole("button", { name: "Reconnect" }),
     );
     expect(requestRememberedPermission).toHaveBeenCalledOnce();
     expect(
       await screen.findByRole("heading", {
-        name: "解锁所选 C",
+        name: "Unlock Selected C",
       }),
     ).toBeTruthy();
   });
@@ -401,25 +401,25 @@ describe("LedgerAccessGate", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "上次的 C 暂时不可用",
+        name: "The Last C Is Temporarily Unavailable",
       }),
     ).toBeTruthy();
     expect(
-      screen.getByText(/不会创建空账本或退回另一份账本/),
+      screen.getByText(/will not create an empty ledger or substitute another ledger/),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "继续浏览器账本" }),
+      screen.queryByRole("button", { name: "Continue with browser ledger" }),
     ).toBeNull();
 
     await user.click(
       screen.getByRole("button", {
-        name: "忘记这条连接并选择另一本账",
+        name: "Forget this connection and select another ledger",
       }),
     );
     expect(forgetRememberedConnection).toHaveBeenCalledOnce();
     expect(
       await screen.findByRole("heading", {
-        name: "选择或新建 C",
+        name: "Select or Create C",
       }),
     ).toBeTruthy();
   });
@@ -433,16 +433,16 @@ describe("LedgerAccessGate", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "选择或新建 C" }),
+      await screen.findByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "继续浏览器账本" }),
+      screen.queryByRole("button", { name: "Continue with browser ledger" }),
     ).toBeNull();
     expect(
-      screen.getByRole("button", { name: "新建 C（.lftl）" }),
+      screen.getByRole("button", { name: "Create C (.lftl)" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "选择 C（.lftl）" }),
+      screen.getByRole("button", { name: "Select C (.lftl)" }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
@@ -466,14 +466,14 @@ describe("LedgerAccessGate", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "把旧账本搬到 C",
+        name: "Move the Legacy Ledger to C",
       }),
     ).toBeTruthy();
     expect(
-      screen.getByLabelText("旧浏览器账本密码"),
+      screen.getByLabelText("Legacy browser ledger password"),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("heading", { name: "解锁所选 C" }),
+      screen.queryByRole("heading", { name: "Unlock Selected C" }),
     ).toBeNull();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
@@ -503,18 +503,18 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Create C (.lftl)" }),
     );
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
     expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
 
@@ -525,7 +525,7 @@ describe("LedgerAccessGate", () => {
 
     expect(screen.getByText("dashboard-mounted")).toBeTruthy();
     expect(
-      screen.queryByRole("heading", { name: "解锁本地账本" }),
+      screen.queryByRole("heading", { name: "Unlock Local Ledger" }),
     ).toBeNull();
   });
 
@@ -540,21 +540,21 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Create C (.lftl)" }),
     );
     expect(
-      screen.getByText(/忘记密码将永久失去对此 C 的访问/),
+      screen.getByText(/forgetting the password permanently loses access to this C/),
     ).toBeTruthy();
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       "correct horse battery staple",
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       "correct horse battery staple",
     );
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
 
     expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
@@ -573,11 +573,11 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Create C (.lftl)" }),
     );
-    const password = screen.getByLabelText("设置 C 核心密码");
+    const password = screen.getByLabelText("Set C master password");
     const confirmation = screen.getByLabelText(
-      "再次输入 C 核心密码",
+      "Re-enter C master password",
     );
 
     fireEvent.change(password, { target: { value: "a".repeat(11) } });
@@ -585,10 +585,10 @@ describe("LedgerAccessGate", () => {
       target: { value: "a".repeat(11) },
     });
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
     expect(screen.getByRole("alert").textContent).toContain(
-      "12 至 128",
+      "12 to 128",
     );
     expect(fileController.create).not.toHaveBeenCalled();
 
@@ -599,10 +599,10 @@ describe("LedgerAccessGate", () => {
       target: { value: `${"🔐".repeat(11)}x` },
     });
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
     expect(screen.getByRole("alert").textContent).toContain(
-      "两次输入的密码不一致",
+      "The passwords do not match",
     );
     expect(fileController.create).not.toHaveBeenCalled();
   });
@@ -630,18 +630,18 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Create C (.lftl)" }),
     );
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
     expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
 
@@ -678,18 +678,18 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Create C (.lftl)" }),
     );
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
     expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
 
@@ -706,19 +706,19 @@ describe("LedgerAccessGate", () => {
     );
     expect(
       await screen.findByRole("heading", {
-        name: "安全释放尚未完成",
+        name: "Safe Release Incomplete",
       }),
     ).toBeTruthy();
 
     await user.click(
-      screen.getByRole("button", { name: "重试安全释放" }),
+      screen.getByRole("button", { name: "Retry safe release" }),
     );
     await vi.waitFor(() => {
       expect(release).toHaveBeenCalledTimes(2);
     });
     expect(
       await screen.findByRole("heading", {
-        name: "选择或新建 C",
+        name: "Select or Create C",
       }),
     ).toBeTruthy();
   });
@@ -750,18 +750,18 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Create C (.lftl)" }),
     );
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
     await screen.findByText("dashboard-mounted");
 
@@ -771,7 +771,7 @@ describe("LedgerAccessGate", () => {
 
     expect(onBeginQuiesce).toHaveBeenCalledOnce();
     expect(
-      screen.getByRole("heading", { name: "正在安全锁定" }),
+      screen.getByRole("heading", { name: "Locking Safely" }),
     ).toBeTruthy();
     await vi.waitFor(() => {
       expect(release).toHaveBeenCalledOnce();
@@ -780,13 +780,13 @@ describe("LedgerAccessGate", () => {
       LedgerSessionLifecycleError,
     );
     expect(
-      screen.queryByRole("heading", { name: "选择或新建 C" }),
+      screen.queryByRole("heading", { name: "Select or Create C" }),
     ).toBeNull();
 
     releaseDeferred.resolve();
     expect(
       await screen.findByRole("heading", {
-        name: "选择或新建 C",
+        name: "Select or Create C",
       }),
     ).toBeTruthy();
   });
@@ -816,18 +816,18 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "新建 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Create C (.lftl)" }),
     );
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "选择位置并创建" }),
+      screen.getByRole("button", { name: "Choose location and create" }),
     );
     await screen.findByText("dashboard-mounted");
     await user.click(
@@ -865,11 +865,11 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
 
     expect(
-      screen.getByRole("heading", { name: "选择或新建 C" }),
+      screen.getByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
@@ -893,7 +893,7 @@ describe("LedgerAccessGate", () => {
       />,
     );
     fireEvent.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     expect(oldFileController.selectExisting).toHaveBeenCalledOnce();
 
@@ -904,7 +904,7 @@ describe("LedgerAccessGate", () => {
       />,
     );
     expect(
-      await screen.findByRole("heading", { name: "选择或新建 C" }),
+      await screen.findByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
 
     await act(async () => {
@@ -913,10 +913,10 @@ describe("LedgerAccessGate", () => {
     });
 
     expect(
-      screen.getByRole("heading", { name: "选择或新建 C" }),
+      screen.getByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("heading", { name: "解锁所选 C" }),
+      screen.queryByRole("heading", { name: "Unlock Selected C" }),
     ).toBeNull();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
@@ -981,7 +981,7 @@ describe("LedgerAccessGate", () => {
     );
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await waitFor(() => {
       expect(provider.showOpenFilePicker).toHaveBeenCalledOnce();
@@ -1023,24 +1023,24 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     expect(
-      await screen.findByRole("heading", { name: "解锁所选 C" }),
+      await screen.findByRole("heading", { name: "Unlock Selected C" }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
 
-    const password = screen.getByLabelText("C 核心密码");
+    const password = screen.getByLabelText("C master password");
     await user.type(password, "wrong but valid password");
-    await user.click(screen.getByRole("button", { name: "解锁所选 C" }));
+    await user.click(screen.getByRole("button", { name: "Unlock selected C" }));
     expect((await screen.findByRole("alert")).textContent).toContain(
-      "密码错误或文件认证失败",
+      "The password is wrong or file authentication failed",
     );
     expect((password as HTMLInputElement).value).toBe("");
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
 
     await user.type(password, "correct horse battery staple");
-    await user.click(screen.getByRole("button", { name: "解锁所选 C" }));
+    await user.click(screen.getByRole("button", { name: "Unlock selected C" }));
     expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
     expect(unlockSelected).toHaveBeenCalledTimes(2);
   });
@@ -1072,13 +1072,13 @@ describe("LedgerAccessGate", () => {
       );
       await user.click(
         await screen.findByRole("button", {
-          name: "选择 C（.lftl）",
+          name: "Select C (.lftl)",
         }),
       );
-      const password = await screen.findByLabelText("C 核心密码");
+      const password = await screen.findByLabelText("C master password");
       await user.type(password, secret);
       await user.click(
-        screen.getByRole("button", { name: "解锁所选 C" }),
+        screen.getByRole("button", { name: "Unlock selected C" }),
       );
       await screen.findByRole("alert");
 
@@ -1123,14 +1123,14 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await user.type(
-      await screen.findByLabelText("C 核心密码"),
+      await screen.findByLabelText("C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "解锁所选 C" }),
+      screen.getByRole("button", { name: "Unlock selected C" }),
     );
     expect(oldFileController.unlockSelected).toHaveBeenCalledOnce();
 
@@ -1141,7 +1141,7 @@ describe("LedgerAccessGate", () => {
       />,
     );
     expect(
-      await screen.findByRole("heading", { name: "选择或新建 C" }),
+      await screen.findByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
 
     await act(async () => {
@@ -1154,7 +1154,7 @@ describe("LedgerAccessGate", () => {
     });
 
     expect(
-      screen.getByRole("heading", { name: "选择或新建 C" }),
+      screen.getByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
@@ -1183,26 +1183,26 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await user.type(
-      await screen.findByLabelText("C 核心密码"),
+      await screen.findByLabelText("C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "解锁所选 C" }),
+      screen.getByRole("button", { name: "Unlock selected C" }),
     );
 
     expect(
-      await screen.findByRole("heading", { name: "确认恢复上一版" }),
+      await screen.findByRole("heading", { name: "Confirm Previous-Version Recovery" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("最新一次保存没有恢复，现在恢复的是上一版"),
+      screen.getByText("The latest save was not recovered; the previous version will be restored."),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
 
     await user.click(
-      screen.getByRole("button", { name: "确认恢复上一版" }),
+      screen.getByRole("button", { name: "Confirm previous-version recovery" }),
     );
     expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
     expect(confirmRecovery).toHaveBeenCalledOnce();
@@ -1233,18 +1233,18 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await user.type(
-      await screen.findByLabelText("C 核心密码"),
+      await screen.findByLabelText("C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "解锁所选 C" }),
+      screen.getByRole("button", { name: "Unlock selected C" }),
     );
 
     const confirmButton = await screen.findByRole("button", {
-      name: "确认恢复上一版",
+      name: "Confirm previous-version recovery",
     });
     fireEvent.click(confirmButton);
     fireEvent.click(confirmButton);
@@ -1288,17 +1288,17 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await user.type(
-      await screen.findByLabelText("C 核心密码"),
+      await screen.findByLabelText("C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "解锁所选 C" }),
+      screen.getByRole("button", { name: "Unlock selected C" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复上一版" }),
+      await screen.findByRole("button", { name: "Confirm previous-version recovery" }),
     );
 
     rendered.rerender(
@@ -1308,7 +1308,7 @@ describe("LedgerAccessGate", () => {
       />,
     );
     expect(
-      await screen.findByRole("heading", { name: "选择或新建 C" }),
+      await screen.findByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
 
     await act(async () => {
@@ -1321,7 +1321,7 @@ describe("LedgerAccessGate", () => {
     });
 
     expect(
-      screen.getByRole("heading", { name: "选择或新建 C" }),
+      screen.getByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
@@ -1347,24 +1347,24 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await user.type(
-      await screen.findByLabelText("C 核心密码"),
+      await screen.findByLabelText("C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "解锁所选 C" }),
+      screen.getByRole("button", { name: "Unlock selected C" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "确认恢复上一版" }),
+      await screen.findByRole("button", { name: "Confirm previous-version recovery" }),
     );
 
     expect((await screen.findByRole("alert")).textContent).toContain(
-      "上一版恢复写入、关闭或复读验证失败",
+      "Previous-version recovery writing, closing, or reread verification failed",
     );
     expect(
-      screen.getByRole("heading", { name: "确认恢复上一版" }),
+      screen.getByRole("heading", { name: "Confirm Previous-Version Recovery" }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
@@ -1387,21 +1387,21 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await user.type(
-      await screen.findByLabelText("C 核心密码"),
+      await screen.findByLabelText("C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "解锁所选 C" }),
+      screen.getByRole("button", { name: "Unlock selected C" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "取消恢复" }),
+      await screen.findByRole("button", { name: "Cancel recovery" }),
     );
 
     expect(
-      await screen.findByRole("heading", { name: "选择或新建 C" }),
+      await screen.findByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
     expect(cancelRecovery).toHaveBeenCalledWith(
       "gate-cancel-recovery",
@@ -1430,36 +1430,36 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.click(
-      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+      await screen.findByRole("button", { name: "Select C (.lftl)" }),
     );
     await user.type(
-      await screen.findByLabelText("C 核心密码"),
+      await screen.findByLabelText("C master password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "解锁所选 C" }),
+      screen.getByRole("button", { name: "Unlock selected C" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "取消恢复" }),
+      await screen.findByRole("button", { name: "Cancel recovery" }),
     );
 
     expect((await screen.findByRole("alert")).textContent).toContain(
-      "C 仍保持关闭，请重试取消恢复",
+      "C remains closed; retry canceling recovery",
     );
     expect(
       (
         screen.getByRole("button", {
-          name: "取消恢复",
+          name: "Cancel recovery",
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(false);
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
 
     await user.click(
-      screen.getByRole("button", { name: "取消恢复" }),
+      screen.getByRole("button", { name: "Cancel recovery" }),
     );
     expect(
-      await screen.findByRole("heading", { name: "选择或新建 C" }),
+      await screen.findByRole("heading", { name: "Select or Create C" }),
     ).toBeTruthy();
     expect(cancelRecovery).toHaveBeenCalledTimes(2);
   });
@@ -1467,15 +1467,15 @@ describe("LedgerAccessGate", () => {
   it.each([
     [
       LEDGER_FILE_ACCESS_ERROR_CODES.FILE_IN_USE,
-      "另一个页面或尚未完成释放的会话占用",
+      "another page or a session that has not finished releasing it",
     ],
     [
       LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_UNSUPPORTED,
-      "当前浏览器缺少安全的多页面文件协调能力",
+      "browser lacks safe multi-page file coordination",
     ],
     [
       LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_FAILED,
-      "无法确认这个 C 是否已被其他页面使用",
+      "Use by another page cannot be ruled out",
     ],
   ] as const)(
     "keeps C closed and explains coordination error %s",
@@ -1496,15 +1496,15 @@ describe("LedgerAccessGate", () => {
       );
       await user.click(
         await screen.findByRole("button", {
-          name: "选择 C（.lftl）",
+          name: "Select C (.lftl)",
         }),
       );
       await user.type(
-        await screen.findByLabelText("C 核心密码"),
+        await screen.findByLabelText("C master password"),
         PASSPHRASE,
       );
       await user.click(
-        screen.getByRole("button", { name: "解锁所选 C" }),
+        screen.getByRole("button", { name: "Unlock selected C" }),
       );
 
       expect((await screen.findByRole("alert")).textContent).toContain(
@@ -1524,21 +1524,21 @@ describe("LedgerAccessGate", () => {
     );
     await user.click(
       await screen.findByRole("button", {
-        name: "新建 C（.lftl）",
+        name: "Create C (.lftl)",
       }),
     );
 
     const password = (await screen.findByLabelText(
-      "设置 C 核心密码",
+      "Set C master password",
     )) as HTMLInputElement;
     const confirmation = screen.getByLabelText(
-      "再次输入 C 核心密码",
+      "Re-enter C master password",
     ) as HTMLInputElement;
     const revealPassword = screen.getByRole("button", {
-      name: "按住查看设置 C 核心密码",
+      name: "Hold to view Set C master password",
     });
     const revealConfirmation = screen.getByRole("button", {
-      name: "按住查看再次输入 C 核心密码",
+      name: "Hold to view Re-enter C master password",
     });
     const testValue = "a".repeat(12);
 
@@ -1554,7 +1554,7 @@ describe("LedgerAccessGate", () => {
 
     fireEvent.pointerDown(revealPassword);
     expect(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
     ).toBe(originalPasswordNode);
     expect(password.type).toBe("text");
     expect(confirmation.type).toBe("password");
@@ -1588,15 +1588,15 @@ describe("LedgerAccessGate", () => {
     );
     await user.click(
       await screen.findByRole("button", {
-        name: "新建 C（.lftl）",
+        name: "Create C (.lftl)",
       }),
     );
 
     const password = (await screen.findByLabelText(
-      "设置 C 核心密码",
+      "Set C master password",
     )) as HTMLInputElement;
     const reveal = screen.getByRole("button", {
-      name: "按住查看设置 C 核心密码",
+      name: "Hold to view Set C master password",
     });
 
     fireEvent.keyDown(reveal, { key: "Enter" });
@@ -1657,10 +1657,10 @@ describe("LedgerAccessGate", () => {
       />,
     );
     const password = (await screen.findByLabelText(
-      "旧浏览器账本密码",
+      "Legacy browser ledger password",
     )) as HTMLInputElement;
     const reveal = screen.getByRole("button", {
-      name: "按住查看旧浏览器账本密码",
+      name: "Hold to view Legacy browser ledger password",
     });
     await user.type(password, "a".repeat(12));
     expect(password.type).toBe("password");
@@ -1682,7 +1682,7 @@ describe("LedgerAccessGate", () => {
     });
     expect(
       await screen.findByRole("heading", {
-        name: "创建迁移目标 C",
+        name: "Create Migration Target C",
       }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
@@ -1705,21 +1705,21 @@ describe("LedgerAccessGate", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "把旧账本搬到 C",
+        name: "Move the Legacy Ledger to C",
       }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
 
     await user.type(
-      screen.getByLabelText("旧浏览器账本密码"),
+      screen.getByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     expect(
       await screen.findByRole("heading", {
-        name: "创建迁移目标 C",
+        name: "Create Migration Target C",
       }),
     ).toBeTruthy();
     expect(
@@ -1727,46 +1727,46 @@ describe("LedgerAccessGate", () => {
     ).toHaveBeenCalledWith(PASSPHRASE);
 
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       "long password",
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       "different password",
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
     expect(fileController.createFromLegacy).not.toHaveBeenCalled();
     expect(screen.getByRole("alert").textContent).toContain(
-      "两次输入的密码不一致",
+      "The passwords do not match",
     );
 
     await user.clear(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
     );
     await user.clear(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
     );
     await user.type(
-      screen.getByLabelText("设置 C 核心密码"),
+      screen.getByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
 
     expect(
       await screen.findByRole("heading", {
-        name: "迁移已验证，确认退出旧账本",
+        name: "Migration Verified: Confirm Legacy Ledger Exit",
       }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
@@ -1775,12 +1775,12 @@ describe("LedgerAccessGate", () => {
       createInitialLedgerData(),
     );
     await user.type(
-      screen.getByLabelText("输入删除旧账本确认文本"),
-      "删除旧浏览器账本",
+      screen.getByLabelText("Enter legacy ledger deletion confirmation text"),
+      "DELETE LEGACY BROWSER LEDGER",
     );
     await user.click(
       screen.getByRole("button", {
-        name: "确认删除旧记录并进入 C",
+        name: "Confirm deletion and enter C",
       }),
     );
 
@@ -1815,28 +1815,28 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     await user.type(
-      await screen.findByLabelText("设置 C 核心密码"),
+      await screen.findByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
 
     expect((await screen.findByRole("alert")).textContent).toContain(
-      "创建、关闭或复读验证失败",
+      "creation, close, or reread verification failed",
     );
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
     expect(
@@ -1863,15 +1863,15 @@ describe("LedgerAccessGate", () => {
       />,
     );
     const password = await screen.findByLabelText(
-      "旧浏览器账本密码",
+      "Legacy browser ledger password",
     );
     await user.type(password, "wrong but long password");
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
 
     expect((await screen.findByRole("alert")).textContent).toContain(
-      "旧账本密码错误、数据损坏或不符合安全迁移条件",
+      "legacy ledger password is wrong, data is damaged, or safe migration requirements are not met",
     );
     expect((password as HTMLInputElement).value).toBe("");
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
@@ -1907,11 +1907,11 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     const submit = screen.getByRole("button", {
-      name: "验证旧账本",
+      name: "Verify legacy ledger",
     });
     await user.dblClick(submit);
 
@@ -1922,7 +1922,7 @@ describe("LedgerAccessGate", () => {
     });
     expect(
       await screen.findByRole("heading", {
-        name: "创建迁移目标 C",
+        name: "Create Migration Target C",
       }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
@@ -1968,23 +1968,23 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     await user.type(
-      await screen.findByLabelText("设置 C 核心密码"),
+      await screen.findByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
     expect(createFromLegacy).toHaveBeenCalledOnce();
@@ -2012,14 +2012,14 @@ describe("LedgerAccessGate", () => {
     );
     expect(
       await screen.findByRole("heading", {
-        name: "安全释放尚未完成",
+        name: "Safe Release Incomplete",
       }),
     ).toBeTruthy();
     await user.click(
-      screen.getByRole("button", { name: "重试安全释放" }),
+      screen.getByRole("button", { name: "Retry safe release" }),
     );
     expect(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
     ).toBeTruthy();
     expect(
       releaseUnpublishedMigrationSession,
@@ -2064,23 +2064,23 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     await user.type(
-      await screen.findByLabelText("设置 C 核心密码"),
+      await screen.findByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
     await waitFor(() => {
@@ -2107,14 +2107,14 @@ describe("LedgerAccessGate", () => {
     );
     expect(
       await screen.findByRole("heading", {
-        name: "安全释放尚未完成",
+        name: "Safe Release Incomplete",
       }),
     ).toBeTruthy();
     await user.click(
-      screen.getByRole("button", { name: "重试安全释放" }),
+      screen.getByRole("button", { name: "Retry safe release" }),
     );
     expect(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
     ).toBeTruthy();
     expect(
       releaseUnpublishedMigrationSession,
@@ -2140,24 +2140,24 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     await screen.findByRole("heading", {
-      name: "创建迁移目标 C",
+      name: "Create Migration Target C",
     });
     await user.click(
       screen.getByRole("button", {
-        name: "取消，保留旧账本",
+        name: "Cancel and retain the legacy ledger",
       }),
     );
 
     expect(
       await screen.findByRole("heading", {
-        name: "把旧账本搬到 C",
+        name: "Move the Legacy Ledger to C",
       }),
     ).toBeTruthy();
     expect(fileController.createFromLegacy).not.toHaveBeenCalled();
@@ -2210,37 +2210,37 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     await user.type(
-      await screen.findByLabelText("设置 C 核心密码"),
+      await screen.findByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
     await screen.findByRole("heading", {
-      name: "迁移已验证，确认退出旧账本",
+      name: "Migration Verified: Confirm Legacy Ledger Exit",
     });
     await user.click(
       screen.getByRole("button", {
-        name: "保留旧记录并安全退出新 C",
+        name: "Retain the legacy record and safely exit the new C",
       }),
     );
 
     expect(
       await screen.findByRole("heading", {
-        name: "把旧账本搬到 C",
+        name: "Move the Legacy Ledger to C",
       }),
     ).toBeTruthy();
     expect(
@@ -2314,34 +2314,34 @@ describe("LedgerAccessGate", () => {
     );
 
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     await user.type(
-      await screen.findByLabelText("设置 C 核心密码"),
+      await screen.findByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
     await user.type(
       await screen.findByLabelText(
-        "输入删除旧账本确认文本",
+        "Enter legacy ledger deletion confirmation text",
       ),
-      "删除旧浏览器账本",
+      "DELETE LEGACY BROWSER LEDGER",
     );
     await user.click(
       screen.getByRole("button", {
-        name: "确认删除旧记录并进入 C",
+        name: "Confirm deletion and enter C",
       }),
     );
     await waitFor(() => {
@@ -2391,32 +2391,32 @@ describe("LedgerAccessGate", () => {
       />,
     );
     await user.type(
-      await screen.findByLabelText("旧浏览器账本密码"),
+      await screen.findByLabelText("Legacy browser ledger password"),
       PASSPHRASE,
     );
     await user.click(
-      screen.getByRole("button", { name: "验证旧账本" }),
+      screen.getByRole("button", { name: "Verify legacy ledger" }),
     );
     await user.type(
-      await screen.findByLabelText("设置 C 核心密码"),
+      await screen.findByLabelText("Set C master password"),
       PASSPHRASE,
     );
     await user.type(
-      screen.getByLabelText("再次输入 C 核心密码"),
+      screen.getByLabelText("Re-enter C master password"),
       PASSPHRASE,
     );
     await user.click(
       screen.getByRole("button", {
-        name: "选择新文件并搬入旧账本",
+        name: "Select a new file and move the legacy ledger",
       }),
     );
     const confirmation = await screen.findByLabelText(
-      "输入删除旧账本确认文本",
+      "Enter legacy ledger deletion confirmation text",
     );
-    await user.type(confirmation, "删除");
+    await user.type(confirmation, "Delete");
     await user.click(
       screen.getByRole("button", {
-        name: "确认删除旧记录并进入 C",
+        name: "Confirm deletion and enter C",
       }),
     );
     expect(
@@ -2425,25 +2425,25 @@ describe("LedgerAccessGate", () => {
     expect(deleteLegacyAfterMigration).not.toHaveBeenCalled();
 
     await user.clear(confirmation);
-    await user.type(confirmation, "删除旧浏览器账本");
+    await user.type(confirmation, "DELETE LEGACY BROWSER LEDGER");
     await user.click(
       screen.getByRole("button", {
-        name: "确认删除旧记录并进入 C",
+        name: "Confirm deletion and enter C",
       }),
     );
     expect((await screen.findByRole("alert")).textContent).toContain(
-      "旧浏览器账本没有被安全删除",
+      "legacy browser ledger was not safely deleted",
     );
     expect(
       screen.getByRole("heading", {
-        name: "迁移已验证，确认退出旧账本",
+        name: "Migration Verified: Confirm Legacy Ledger Exit",
       }),
     ).toBeTruthy();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
 
     await user.click(
       screen.getByRole("button", {
-        name: "确认删除旧记录并进入 C",
+        name: "Confirm deletion and enter C",
       }),
     );
     expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
@@ -2476,21 +2476,21 @@ describe("LedgerAccessGate", () => {
         fileAccessController={createFileController()}
       />,
     );
-    await screen.findByRole("button", { name: "重新检查" });
+    await screen.findByRole("button", { name: "Check again" });
     expect(
-      screen.queryByText(/清空本地加密账本并重新开始/),
+      screen.queryByText(/Clear local encrypted ledger and start over/),
     ).toBeNull();
-    await user.click(screen.getByRole("button", { name: "重新检查" }));
+    await user.click(screen.getByRole("button", { name: "Check again" }));
 
     await waitFor(() => {
       expect(
         screen.getByRole("heading", {
-          name: "旧浏览器账本暂时不能安全迁移",
+          name: "Legacy Browser Ledger Cannot Yet Be Migrated Safely",
         }),
       ).toBeTruthy();
     });
     expect(
-      screen.queryByText(/清空本地加密账本并重新开始/),
+      screen.queryByText(/Clear local encrypted ledger and start over/),
     ).toBeNull();
     expect(controller.resetEncryptedLedger).not.toHaveBeenCalled();
   });

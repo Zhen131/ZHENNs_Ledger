@@ -36,7 +36,27 @@ describe("BackupEnvelopeV1", () => {
   });
 
   it("serializes canonical JSON and parses it back", () => {
-    const created = createBackupEnvelope(createInitialLedgerData(), metadata);
+    const ledger = createInitialLedgerData();
+    const legacyRawText = "\u4eca\u5929\u4e70\u4e86 0.5 \u4e2a\u6bd4\u7279\u5e01";
+    ledger.trades = [
+      {
+        id: "legacy-unicode-raw-text",
+        occurredAt: "2026-07-23",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "0.5",
+        price: "70000",
+        totalValue: "35000",
+        currency: "USD",
+        fee: "0",
+        feeCurrency: "USD",
+        rawText: legacyRawText,
+        createdAt: "2026-07-23T12:34:56.789Z",
+        updatedAt: "2026-07-23T12:34:56.789Z",
+      },
+    ];
+    const created = createBackupEnvelope(ledger, metadata);
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
@@ -49,7 +69,14 @@ describe("BackupEnvelopeV1", () => {
       "ledgerSchemaVersion",
       "ledgerData",
     ]);
-    expect(parseBackupJson(serialized)).toEqual(created);
+    const parsed = parseBackupJson(serialized);
+    expect(parsed).toEqual(created);
+    expect(parsed.ok && parsed.value.ledgerData.trades[0]?.rawText).toBe(
+      legacyRawText,
+    );
+    if (parsed.ok) {
+      expect(serializeBackupEnvelope(parsed.value)).toBe(serialized);
+    }
   });
 
   it("exports only LedgerData facts and strips chart or session-derived fields", () => {

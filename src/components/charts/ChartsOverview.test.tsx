@@ -87,27 +87,27 @@ describe("ChartsOverview", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "当前 USD 等值持仓分配饼图",
+        name: "Current USD-equivalent position allocation pie chart",
       }),
     ).not.toBeNull();
     expect(
       screen.getByRole("button", {
-        name: "持仓总市值与持仓成本阶梯线图",
+        name: "Position market value and cost basis step-line chart",
       }),
     ).not.toBeNull();
     expect(
       screen.getByRole("button", {
-        name: "最近 365 天交易活跃热力图",
+        name: "Trading activity heatmap for the last 365 days",
       }),
     ).not.toBeNull();
-    expect(screen.getByText("未估值资产：ETH。")).not.toBeNull();
+    expect(screen.getByText("Unvalued assets: ETH.")).not.toBeNull();
     expect(
-      screen.getByText(/活跃等级：无交易 \/ 低 \/ 较低 \/ 较高 \/ 最高/),
+      screen.getByText(/Activity levels: no trades \/ low \/ medium-low \/ medium-high \/ highest/),
     ).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "1日" }));
+    fireEvent.click(screen.getByRole("button", { name: "1 day" }));
     expect(onRangeChange).toHaveBeenCalledWith("1d");
-    for (const label of ["1日", "7日", "30日", "365日", "全部"]) {
+    for (const label of ["1 day", "7 days", "30 days", "365 days", "All"]) {
       expect(screen.getByRole("button", { name: label })).not.toBeNull();
     }
   });
@@ -128,7 +128,7 @@ describe("ChartsOverview", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "最近 365 天交易活跃热力图",
+        name: "Trading activity heatmap for the last 365 days",
       }),
     );
     expect(onSelectedTradeDateChange).toHaveBeenLastCalledWith(
@@ -147,17 +147,17 @@ describe("ChartsOverview", () => {
       />,
     );
     expect(
-      screen.getByText("无可靠日内变化，边界点仅用于显示。"),
+      screen.getByText("No reliable intraday change; boundary points are display-only."),
     ).not.toBeNull();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "最近 365 天交易活跃热力图",
+        name: "Trading activity heatmap for the last 365 days",
       }),
     );
     expect(onSelectedTradeDateChange).toHaveBeenLastCalledWith(null);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "清除日期筛选" }),
+      screen.getByRole("button", { name: "Clear date filter" }),
     );
     expect(onSelectedTradeDateChange).toHaveBeenLastCalledWith(null);
   });
