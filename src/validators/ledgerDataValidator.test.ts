@@ -13,8 +13,14 @@ import {
 } from "./ledgerDataValidator";
 
 function createCompleteLedger(): LedgerData {
+  const initialLedger = createInitialLedgerData();
+  initialLedger.assets = initialLedger.assets.map((asset) => ({
+    ...asset,
+    quoteCurrency: "USD",
+  }));
+
   return {
-    ...createInitialLedgerData(),
+    ...initialLedger,
     trades: structuredClone(sampleTrades),
     priceSnapshots: [
       createPriceSnapshot("price-btc", "BTC", "70000", "2026-07-16"),
@@ -68,6 +74,22 @@ describe("validateLedgerData", () => {
 
   it("accepts the empty production initial ledger", () => {
     expect(validateLedgerData(createInitialLedgerData()).ok).toBe(true);
+  });
+
+  it("preserves a legacy USD trade with a non-zero foreign fee", () => {
+    const input = createCompleteLedger();
+    input.trades[0] = {
+      ...input.trades[0],
+      fee: "1",
+      feeCurrency: "CNY",
+    };
+
+    const result = validateLedgerData(input);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.trades[0]).toEqual(input.trades[0]);
+    }
   });
 
   it("rejects non-object roots and unsupported schema versions", () => {

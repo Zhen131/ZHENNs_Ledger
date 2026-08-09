@@ -11,7 +11,7 @@ const assets = createInitialLedgerData().assets;
 const validDraft: PriceSnapshotDraft = {
   assetSymbol: "BTC",
   price: "70000",
-  currency: "USD",
+  currency: "USDT",
   recordedAt: "2026-07-16",
   source: "manual",
 };
@@ -39,6 +39,32 @@ describe("validatePriceSnapshotDraft", () => {
         assets,
       ).ok,
     ).toBe(true);
+  });
+
+  it("keeps legacy USD validation separate from strict USDT creation", () => {
+    const legacyAssets = assets.map((asset) => ({
+      ...asset,
+      quoteCurrency: "USD",
+    }));
+    const legacyDraft = { ...validDraft, currency: "USD" };
+
+    expect(validatePriceSnapshotDraft(legacyDraft, legacyAssets).ok).toBe(true);
+    const strictResult = validatePriceSnapshotDraft(
+      legacyDraft,
+      legacyAssets,
+      { requiredCurrency: "USDT" },
+    );
+    expect(strictResult.ok).toBe(false);
+    if (!strictResult.ok) {
+      expect(strictResult.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
+            field: "currency",
+          }),
+        ]),
+      );
+    }
   });
 
   it.each([

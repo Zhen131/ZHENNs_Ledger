@@ -90,6 +90,10 @@ function formatValidationError(error: TradeValidationError): string {
       return "卖出数量超过该时间点的可用持仓";
     case "CURRENCY_MISMATCH":
       return "计价货币与资产或已有交易不一致";
+    case "FEE_CURRENCY_MISMATCH":
+      return "非零实际手续费必须使用交易计价货币";
+    case "NEW_FACT_REQUIRES_USDT":
+      return "旧 USD 账本只兼容读取；请新建 USDT 账本后再录入";
     case "FUTURE_FACT":
       return "交易日期不能晚于今天";
     case "UNSUPPORTED_VALUATION_CURRENCY":

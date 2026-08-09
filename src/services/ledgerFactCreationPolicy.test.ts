@@ -22,7 +22,7 @@ const tradeDraft: TradeDraft = {
   quantity: "1",
   price: "10",
   totalValue: "10",
-  currency: "USD",
+  currency: "USDT",
   fee: "0",
   feeCurrency: "BNB",
 };
@@ -46,7 +46,7 @@ describe("new ledger fact policy", () => {
     }
   });
 
-  it("rejects new non USD/USDT valuation facts but preserves fee currency", () => {
+  it("rejects unsupported valuation facts before normalizing fee currency", () => {
     const ledgerData: LedgerData = createInitialLedgerData();
     ledgerData.assets[0] = {
       ...ledgerData.assets[0],
@@ -78,7 +78,7 @@ describe("new ledger fact policy", () => {
       {
         assetSymbol: "BTC",
         price: "70000",
-        currency: "USD",
+        currency: "USDT",
         recordedAt: "2026-07-26",
         source: "manual",
       },
@@ -99,7 +99,7 @@ describe("new ledger fact policy", () => {
       {
         assetSymbol: "BTC",
         price: "70000",
-        currency: "USD",
+        currency: "USDT",
         recordedAt: TODAY,
         source: "api",
       },
@@ -122,7 +122,7 @@ describe("new ledger fact policy", () => {
       {
         assetSymbol: "BTC",
         price: "70000",
-        currency: "USD",
+        currency: "USDT",
         recordedAt: TODAY,
         source: "api",
         binanceProvenance: {

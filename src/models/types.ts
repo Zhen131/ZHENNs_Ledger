@@ -44,6 +44,7 @@ export type Trade = {
   quantity: DecimalString;
   quantitySortKey?: DecimalString;
   price: DecimalString;
+  /** Executed quantity times average price, excluding fees. */
   totalValue: DecimalString;
   totalValueSortKey?: DecimalString;
   currency: CurrencyCode;
@@ -63,6 +64,7 @@ export type TradeDraft = {
   assetSymbol: string;
   quantity: DecimalString;
   price: DecimalString;
+  /** Executed quantity times average price, excluding fees. */
   totalValue: DecimalString;
   currency: CurrencyCode;
   fee?: DecimalString;

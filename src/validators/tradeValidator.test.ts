@@ -6,6 +6,7 @@ import { createInitialLedgerData } from "../state/initialLedgerData";
 import {
   createSimpleTrade,
   createTradeFromDraft,
+  sampleAssets,
   sampleTradeDrafts,
 } from "../test/fixtures";
 import {
@@ -19,8 +20,15 @@ import {
 const validDraft = sampleTradeDrafts[0];
 
 const context = {
+  assets: sampleAssets,
+  priorTrades: [],
+};
+
+const strictContext = {
   assets: createInitialLedgerData().assets,
   priorTrades: [],
+  requiredCurrency: "USDT",
+  requireFeeCurrencyMatch: true,
 };
 
 test("rejects a non-object input before reading fields", () => {
@@ -437,6 +445,51 @@ test("defaults an omitted fee to zero", () => {
   if (result.ok) {
     expect(result.value.fee).toBe("0");
   }
+});
+
+test("keeps legacy USD and foreign-fee facts readable without the new-write policy", () => {
+  const result = validateTradeDraft(
+    { ...validDraft, fee: "1", feeCurrency: "CNY" },
+    context,
+  );
+
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expect(result.value.currency).toBe("USD");
+    expect(result.value.feeCurrency).toBe("CNY");
+  }
+});
+
+test("enforces USDT and matching non-zero fees only for strict new writes", () => {
+  expectError(
+    validateTradeDraft(validDraft, strictContext),
+    TRADE_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
+    "currency",
+  );
+
+  const usdtDraft = {
+    ...validDraft,
+    currency: "USDT",
+    fee: "1",
+    feeCurrency: "CNY",
+  };
+  expectError(
+    validateTradeDraft(usdtDraft, strictContext),
+    TRADE_VALIDATION_ERROR_CODES.FEE_CURRENCY_MISMATCH,
+    "feeCurrency",
+  );
+  expect(
+    validateTradeDraft(
+      { ...usdtDraft, feeCurrency: "USDT" },
+      strictContext,
+    ).ok,
+  ).toBe(true);
+  expect(
+    validateTradeDraft(
+      { ...usdtDraft, fee: "0" },
+      strictContext,
+    ).ok,
+  ).toBe(true);
 });
 
 test("rejects an invalid trade type", () => {

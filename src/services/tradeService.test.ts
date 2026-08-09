@@ -24,7 +24,7 @@ const validBuy: TradeDraft = {
   quantity: "0.001",
   price: "70000",
   totalValue: "70",
-  currency: "USD",
+  currency: "USDT",
 };
 
 describe("createValidatedTrade success", () => {
@@ -57,7 +57,7 @@ describe("createValidatedTrade success", () => {
       rawText: "buy 0.001 BTC",
       feeRuleId: "fee-rule-1",
       id: "trade-new",
-      feeCurrency: "USD",
+      feeCurrency: "USDT",
       createdAt: TIMESTAMP,
       updatedAt: TIMESTAMP,
     });
@@ -69,17 +69,61 @@ describe("createValidatedTrade success", () => {
     expect(ledgerData.trades).toHaveLength(0);
   });
 
-  it("preserves a validated fee currency instead of replacing it", () => {
+  it("rejects a non-zero fee in a different currency", () => {
     const result = createValidatedTrade(
       { ...validBuy, fee: "1", feeCurrency: "CNY" },
       createInitialLedgerData(),
       createDependencies(["trade-new"]),
     );
 
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.kind === "validation") {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: TRADE_VALIDATION_ERROR_CODES.FEE_CURRENCY_MISMATCH,
+            field: "feeCurrency",
+          }),
+        ]),
+      );
+    }
+  });
+
+  it("normalizes every new zero-fee fact to the USDT trade currency", () => {
+    const result = createValidatedTrade(
+      { ...validBuy, fee: "0", feeCurrency: "CNY" },
+      createInitialLedgerData(),
+      createDependencies(["trade-new"]),
+    );
+
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.trade.fee).toBe("1");
-      expect(result.trade.feeCurrency).toBe("CNY");
+      expect(result.trade.feeCurrency).toBe("USDT");
+    }
+  });
+
+  it("rejects new USD trades without making legacy USD ledgers unreadable", () => {
+    const legacyLedger = createInitialLedgerData();
+    legacyLedger.assets = legacyLedger.assets.map((asset) => ({
+      ...asset,
+      quoteCurrency: "USD",
+    }));
+    const result = createValidatedTrade(
+      { ...validBuy, currency: "USD" },
+      legacyLedger,
+      createDependencies(["unused"]),
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.kind === "validation") {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: TRADE_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
+            field: "currency",
+          }),
+        ]),
+      );
     }
   });
 
@@ -131,7 +175,7 @@ describe("createValidatedTrade validation failures", () => {
       input: createSell("11", "2026-04-02"),
       ledgerData: createLedgerData({
         trades: [
-          createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+          createUsdtTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
         ],
       }),
       code: TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
@@ -142,7 +186,7 @@ describe("createValidatedTrade validation failures", () => {
       input: createSell("10", "2026-04-01"),
       ledgerData: createLedgerData({
         trades: [
-          createSimpleTrade("future-buy", "buy", "ADA", "10", "2026-04-10"),
+          createUsdtTrade("future-buy", "buy", "ADA", "10", "2026-04-10"),
         ],
       }),
       code: TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
@@ -153,8 +197,8 @@ describe("createValidatedTrade validation failures", () => {
       input: createSell("5", "2026-04-02"),
       ledgerData: createLedgerData({
         trades: [
-          createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
-          createSimpleTrade("sell-ada", "sell", "ADA", "10", "2026-04-03"),
+          createUsdtTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+          createUsdtTrade("sell-ada", "sell", "ADA", "10", "2026-04-03"),
         ],
       }),
       code: TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
@@ -173,7 +217,7 @@ describe("createValidatedTrade validation failures", () => {
       ledgerData: createLedgerData({
         trades: [
           {
-            ...createSimpleTrade("buy-btc", "buy", "BTC", "1"),
+            ...createUsdtTrade("buy-btc", "buy", "BTC", "1"),
             currency: "CNY",
           },
         ],
@@ -192,6 +236,8 @@ describe("createValidatedTrade validation failures", () => {
         priorTrades: ledgerData.trades,
         todayKey: "2026-07-25",
         requireSupportedValuationCurrency: true,
+        requiredCurrency: "USDT",
+        requireFeeCurrencyMatch: true,
       });
 
       const result = createValidatedTrade(input, ledgerData, dependencies);
@@ -217,7 +263,7 @@ describe("createValidatedTrade validation failures", () => {
 describe("createValidatedTrade ID and dependency handling", () => {
   it("retries one collision and stops after the second ID succeeds", () => {
     const ledgerData = createLedgerData({
-      trades: [createSimpleTrade("existing-id", "buy", "BTC", "1")],
+      trades: [createUsdtTrade("existing-id", "buy", "BTC", "1")],
     });
     const dependencies = createDependencies(["existing-id", "unique-id"]);
 
@@ -234,8 +280,8 @@ describe("createValidatedTrade ID and dependency handling", () => {
   it("allows the third and final ID attempt to succeed", () => {
     const ledgerData = createLedgerData({
       trades: [
-        createSimpleTrade("collision-1", "buy", "BTC", "1"),
-        createSimpleTrade("collision-2", "buy", "BTC", "1"),
+        createUsdtTrade("collision-1", "buy", "BTC", "1"),
+        createUsdtTrade("collision-2", "buy", "BTC", "1"),
       ],
     });
     const dependencies = createDependencies([
@@ -256,7 +302,7 @@ describe("createValidatedTrade ID and dependency handling", () => {
 
   it("returns a service error after three ID collisions without reading time", () => {
     const ledgerData = createLedgerData({
-      trades: [createSimpleTrade("collision", "buy", "BTC", "1")],
+      trades: [createUsdtTrade("collision", "buy", "BTC", "1")],
     });
     const dependencies = createDependencies([
       "collision",
@@ -360,7 +406,7 @@ describe("createValidatedTrade immutability and downstream safety", () => {
         name: "ID exhaustion",
         input: validBuy,
         ledgerData: createLedgerData({
-          trades: [createSimpleTrade("collision", "buy", "BTC", "1")],
+          trades: [createUsdtTrade("collision", "buy", "BTC", "1")],
         }),
         dependencies: createDependencies([
           "collision",
@@ -443,7 +489,7 @@ describe("createValidatedTrade immutability and downstream safety", () => {
     expect(getPositionsFromLedger(nextLedgerData)[0]).toMatchObject({
       assetSymbol: "BTC",
       quantity: "0.001",
-      currency: "USD",
+      currency: "USDT",
     });
   });
 });
@@ -466,7 +512,21 @@ function createSell(quantity: string, occurredAt: string): TradeDraft {
     quantity,
     price: "1",
     totalValue: quantity,
-    currency: "USD",
+    currency: "USDT",
+  };
+}
+
+function createUsdtTrade(
+  id: string,
+  type: "buy" | "sell",
+  assetSymbol: string,
+  quantity: string,
+  occurredAt = "2026-04-01",
+) {
+  return {
+    ...createSimpleTrade(id, type, assetSymbol, quantity, occurredAt),
+    currency: "USDT",
+    feeCurrency: "USDT",
   };
 }
 
