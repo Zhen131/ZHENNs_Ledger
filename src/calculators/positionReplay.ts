@@ -15,6 +15,7 @@ import {
   toDecimalString,
 } from "../utils/decimalMath";
 import { compareLedgerFactOrder } from "../utils/ledgerDate";
+import { calculateTradeCashImpact } from "./tradeCashImpact";
 
 type PositionAccumulator = {
   assetSymbol: string;
@@ -54,13 +55,16 @@ export function applyTradeToReplay(
   trade: Trade,
 ): void {
   const position = getOrCreatePosition(state.positionsByAsset, trade);
-  const applicableFee = getApplicableFee(position, trade);
+  const cashImpact = calculateTradeCashImpact(trade);
+  if (!cashImpact.ok) {
+    position.feeAccountingIssues.push(createFeeIssue(trade));
+  }
 
   if (trade.type === "buy") {
     position.quantity = add(position.quantity, trade.quantity);
     position.costBasis = add(
       position.costBasis,
-      add(trade.totalValue, applicableFee),
+      cashImpact.ok ? cashImpact.amount : trade.totalValue,
     );
     return;
   }
@@ -79,7 +83,7 @@ export function applyTradeToReplay(
         trade.quantity,
         divide(position.costBasis, position.quantity),
       );
-  const netProceeds = subtract(trade.totalValue, applicableFee);
+  const netProceeds = cashImpact.ok ? cashImpact.amount : trade.totalValue;
   position.quantity = isFullSell
     ? "0"
     : subtract(position.quantity, trade.quantity);
@@ -142,15 +146,8 @@ function getOrCreatePosition(
   return created;
 }
 
-function getApplicableFee(
-  position: PositionAccumulator,
-  trade: Trade,
-): DecimalString {
-  if (isZero(trade.fee) || trade.feeCurrency === trade.currency) {
-    return trade.fee;
-  }
-
-  position.feeAccountingIssues.push({
+function createFeeIssue(trade: Trade): FeeAccountingIssue {
+  return {
     code: "UNSUPPORTED_FEE_CURRENCY",
     tradeId: trade.id,
     assetSymbol: trade.assetSymbol,
@@ -158,6 +155,5 @@ function getApplicableFee(
     fee: trade.fee,
     feeCurrency: trade.feeCurrency,
     tradeCurrency: trade.currency,
-  });
-  return "0";
+  };
 }

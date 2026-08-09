@@ -30,6 +30,7 @@ export function toFiniteChartNumber(value: string): number {
 
 export function buildAllocationChartOption(
   slices: readonly HoldingAllocationSlice[],
+  valuationLabel: string,
 ): EChartsCoreOption {
   const data: PieDatum[] = slices.map((slice) => ({
     name: slice.assetSymbol,
@@ -52,7 +53,7 @@ export function buildAllocationChartOption(
         const ratio = toFiniteChartNumber(datum.ratio) * 100;
         return [
           `<strong>${datum.name}</strong>`,
-          `${datum.marketValue} USD 等值`,
+          `${datum.marketValue} ${valuationLabel}`,
           `${ratio.toFixed(2)}%`,
           `${source} · as-of ${datum.asOf}`,
         ].join("<br/>");
@@ -64,7 +65,7 @@ export function buildAllocationChartOption(
     },
     series: [
       {
-        name: "当前 USD 等值持仓分配",
+        name: `当前 ${valuationLabel} 持仓分配`,
         type: "pie",
         radius: ["42%", "70%"],
         center: ["50%", "43%"],
@@ -79,6 +80,7 @@ export function buildHoldingHistoryChartOption(
   points: readonly HoldingHistoryPoint[],
 ): EChartsCoreOption {
   const pointsByDate = new Map(points.map((point) => [point.date, point]));
+  const valuationLabel = getHistoryValuationLabel(points);
 
   return {
     tooltip: {
@@ -93,16 +95,20 @@ export function buildHoldingHistoryChartOption(
         const marketValue =
           point.totalMarketValue === undefined
             ? `缺价：${point.missingPriceAssets.join("、")}`
-            : `${point.totalMarketValue} USD 等值`;
+            : `${point.totalMarketValue} ${point.valuation.label}`;
         return [
           `<strong>${date}</strong>`,
-          `持仓成本：${point.totalCostBasis} USD 等值`,
+          `剩余含费成本：${
+            point.totalCostBasis === undefined
+              ? `手续费币种问题：${point.unreliableFeeAssets.join("、")}`
+              : `${point.totalCostBasis} ${point.valuation.label}`
+          }`,
           `持仓总市值：${marketValue}`,
         ].join("<br/>");
       },
     },
     legend: {
-      data: ["持仓总市值", "持仓成本"],
+      data: ["持仓总市值", "剩余含费成本"],
       top: 0,
     },
     grid: {
@@ -118,7 +124,7 @@ export function buildHoldingHistoryChartOption(
     },
     yAxis: {
       type: "value",
-      name: "USD 等值",
+      name: valuationLabel,
       scale: true,
     },
     series: [
@@ -136,18 +142,30 @@ export function buildHoldingHistoryChartOption(
         ),
       },
       {
-        name: "持仓成本",
+        name: "剩余含费成本",
         type: "line",
         step: "end",
         smooth: false,
         connectNulls: false,
         showSymbol: points.length <= 30,
         data: points.map((point) =>
-          toFiniteChartNumber(point.totalCostBasis),
+          point.totalCostBasis === undefined
+            ? "-"
+            : toFiniteChartNumber(point.totalCostBasis),
         ),
       },
     ],
   };
+}
+
+function getHistoryValuationLabel(
+  points: readonly HoldingHistoryPoint[],
+): string {
+  const labels = new Set(points.map((point) => point.valuation.label));
+  if (labels.size === 1) {
+    return points[0]?.valuation.label ?? "USDT";
+  }
+  return "USD/USDT 近似等值";
 }
 
 export function buildTradeHeatmapChartOption(

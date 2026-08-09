@@ -24,7 +24,7 @@ describe("chart option builders", () => {
       },
     ];
 
-    const option = buildAllocationChartOption(slices);
+    const option = buildAllocationChartOption(slices, "USDT");
     const series = option.series as Array<Record<string, unknown>>;
     const data = series[0].data as Array<Record<string, unknown>>;
     const tooltip = option.tooltip as {
@@ -43,6 +43,9 @@ describe("chart option builders", () => {
     expect(tooltip.formatter({ data: data[0] })).toContain(
       "Binance · as-of 2026-07-25T08:00:00Z",
     );
+    expect(tooltip.formatter({ data: data[0] })).toContain(
+      "12.34567890123456789 USDT",
+    );
   });
 
   it("uses two step lines and leaves missing market values disconnected", () => {
@@ -53,14 +56,18 @@ describe("chart option builders", () => {
         totalMarketValue: "12",
         missingPriceAssets: [],
         excludedCurrencyAssets: [],
+        unreliableFeeAssets: [],
         priceAsOfByAsset: { BTC: "2026-07-24" },
+        valuation: { label: "USDT", usesApproximation: false },
       },
       {
         date: "2026-07-25",
         totalCostBasis: "15",
         missingPriceAssets: ["ETH"],
         excludedCurrencyAssets: [],
+        unreliableFeeAssets: [],
         priceAsOfByAsset: {},
+        valuation: { label: "USDT", usesApproximation: false },
       },
     ];
 
@@ -77,13 +84,40 @@ describe("chart option builders", () => {
       data: [12, "-"],
     });
     expect(series[1]).toMatchObject({
-      name: "持仓成本",
+      name: "剩余含费成本",
       type: "line",
       step: "end",
       smooth: false,
       connectNulls: false,
       data: [10, 15],
     });
+    expect((option.yAxis as Record<string, unknown>).name).toBe("USDT");
+  });
+
+  it("breaks fee-sensitive cost while keeping market value visible", () => {
+    const points: HoldingHistoryPoint[] = [
+      {
+        date: "2026-07-25",
+        totalMarketValue: "100",
+        missingPriceAssets: [],
+        excludedCurrencyAssets: [],
+        unreliableFeeAssets: ["BTC"],
+        priceAsOfByAsset: { BTC: "2026-07-25" },
+        valuation: { label: "USDT", usesApproximation: false },
+      },
+    ];
+
+    const option = buildHoldingHistoryChartOption(points);
+    const series = option.series as Array<Record<string, unknown>>;
+    const tooltip = option.tooltip as {
+      formatter: (params: unknown) => string;
+    };
+
+    expect(series[0].data).toEqual([100]);
+    expect(series[1].data).toEqual(["-"]);
+    expect(tooltip.formatter({ axisValue: "2026-07-25" })).toContain(
+      "手续费币种问题：BTC",
+    );
   });
 
   it("renders all 365 heatmap days with five textual levels", () => {

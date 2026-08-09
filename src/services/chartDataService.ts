@@ -36,6 +36,10 @@ import {
   type PriceSelectionAccumulator,
 } from "./priceSelectionService";
 import { getValuedPositionsFromLedger } from "./positionService";
+import {
+  createValuationDisplay,
+  type ValuationDisplay,
+} from "./valuationDisplay";
 
 export type HoldingAllocationSlice = {
   assetSymbol: string;
@@ -50,17 +54,20 @@ export type HoldingAllocation = {
   totalMarketValue?: DecimalString;
   missingPriceAssets: string[];
   excludedCurrencyAssets: string[];
+  valuation: ValuationDisplay;
 };
 
 export type ChartRange = "1d" | "7d" | "30d" | "365d" | "all";
 
 export type HoldingHistoryPoint = {
   date: string;
-  totalCostBasis: DecimalString;
+  totalCostBasis?: DecimalString;
   totalMarketValue?: DecimalString;
   missingPriceAssets: string[];
   excludedCurrencyAssets: string[];
+  unreliableFeeAssets: string[];
   priceAsOfByAsset: Record<string, string>;
+  valuation: ValuationDisplay;
   displayBoundary?: "start" | "end";
 };
 
@@ -88,6 +95,7 @@ export function buildHoldingAllocation(
     source: "manual" | "binance";
     asOf: string;
   }> = [];
+  const valuationCurrencies: string[] = [];
 
   for (const item of valuedPositions) {
     if (isZero(item.position.quantity)) {
@@ -98,6 +106,7 @@ export function buildHoldingAllocation(
       excludedCurrencyAssets.push(item.position.assetSymbol);
       continue;
     }
+    valuationCurrencies.push(item.position.currency);
     if (!item.selectedPrice || item.position.marketValue === undefined) {
       missingPriceAssets.push(item.position.assetSymbol);
       continue;
@@ -115,6 +124,10 @@ export function buildHoldingAllocation(
       slices: [],
       missingPriceAssets: missingPriceAssets.sort(),
       excludedCurrencyAssets: excludedCurrencyAssets.sort(),
+      valuation: createValuationDisplay(
+        valuationCurrencies,
+        getDefaultValuationCurrency(ledgerData),
+      ),
     };
   }
 
@@ -144,6 +157,10 @@ export function buildHoldingAllocation(
     totalMarketValue,
     missingPriceAssets: missingPriceAssets.sort(),
     excludedCurrencyAssets: excludedCurrencyAssets.sort(),
+    valuation: createValuationDisplay(
+      valuationCurrencies,
+      getDefaultValuationCurrency(ledgerData),
+    ),
   };
 }
 
@@ -174,6 +191,7 @@ export function buildHoldingHistory(
   const assetsBySymbol = new Map(
     ledgerData.assets.map((asset) => [asset.symbol, asset]),
   );
+  const defaultValuationCurrency = getDefaultValuationCurrency(ledgerData);
   const priceAccumulators = new Map<string, PriceSelectionAccumulator>();
   for (const asset of ledgerData.assets) {
     priceAccumulators.set(
@@ -217,6 +235,7 @@ export function buildHoldingHistory(
         getReplayPositions(replayState),
         assetsBySymbol,
         priceAccumulators,
+        defaultValuationCurrency,
       ),
     );
   }
@@ -225,7 +244,9 @@ export function buildHoldingHistory(
     return points;
   }
 
-  const point = points[0] ?? createEmptyHistoryPoint(options.todayKey);
+  const point =
+    points[0] ??
+    createEmptyHistoryPoint(options.todayKey, defaultValuationCurrency);
   return [
     {
       ...point,
@@ -285,24 +306,35 @@ function createHistoryPoint(
   positions: ReturnType<typeof getReplayPositions>,
   assetsBySymbol: ReadonlyMap<string, Asset>,
   priceAccumulators: ReadonlyMap<string, PriceSelectionAccumulator>,
+  defaultValuationCurrency: "USD" | "USDT",
 ): HoldingHistoryPoint {
   let totalCostBasis: DecimalString = "0";
   let totalMarketValue: DecimalString = "0";
   const missingPriceAssets: string[] = [];
   const excludedCurrencyAssets: string[] = [];
+  const unreliableFeeAssets: string[] = [];
   const priceAsOfByAsset: Record<string, string> = {};
+  const valuationCurrencies: string[] = [];
 
   for (const position of positions) {
-    if (isZero(position.quantity)) {
-      continue;
-    }
     const asset = assetsBySymbol.get(position.assetSymbol);
     if (!asset || !isSupportedValuationCurrency(asset.quoteCurrency)) {
       excludedCurrencyAssets.push(position.assetSymbol);
       continue;
     }
 
-    totalCostBasis = add(totalCostBasis, position.costBasis);
+    valuationCurrencies.push(position.currency);
+    const feeAccountingReliable = !position.feeAccountingIssues;
+    if (!feeAccountingReliable) {
+      unreliableFeeAssets.push(position.assetSymbol);
+    }
+    if (isZero(position.quantity)) {
+      continue;
+    }
+
+    if (feeAccountingReliable) {
+      totalCostBasis = add(totalCostBasis, position.costBasis);
+    }
     const accumulator = priceAccumulators.get(position.assetSymbol);
     const selected = accumulator
       ? getSelectedPrice(accumulator)
@@ -321,23 +353,41 @@ function createHistoryPoint(
 
   return {
     date,
-    totalCostBasis,
+    ...(unreliableFeeAssets.length === 0 ? { totalCostBasis } : {}),
     ...(missingPriceAssets.length === 0 ? { totalMarketValue } : {}),
     missingPriceAssets: missingPriceAssets.sort(),
     excludedCurrencyAssets: excludedCurrencyAssets.sort(),
+    unreliableFeeAssets: unreliableFeeAssets.sort(),
     priceAsOfByAsset,
+    valuation: createValuationDisplay(
+      valuationCurrencies,
+      defaultValuationCurrency,
+    ),
   };
 }
 
-function createEmptyHistoryPoint(date: string): HoldingHistoryPoint {
+function createEmptyHistoryPoint(
+  date: string,
+  defaultValuationCurrency: "USD" | "USDT",
+): HoldingHistoryPoint {
   return {
     date,
     totalCostBasis: "0",
     totalMarketValue: "0",
     missingPriceAssets: [],
     excludedCurrencyAssets: [],
+    unreliableFeeAssets: [],
     priceAsOfByAsset: {},
+    valuation: createValuationDisplay([], defaultValuationCurrency),
   };
+}
+
+function getDefaultValuationCurrency(
+  ledgerData: LedgerData,
+): "USD" | "USDT" {
+  return ledgerData.assets.some((asset) => asset.quoteCurrency === "USDT")
+    ? "USDT"
+    : "USD";
 }
 
 function getHistoryStartDate(
