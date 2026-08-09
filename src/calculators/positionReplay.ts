@@ -1,11 +1,13 @@
 import type {
   DecimalString,
+  FeeAccountingIssue,
   Position,
   Trade,
 } from "../models";
 import {
   add,
   divide,
+  isEqual,
   isGreaterThan,
   isZero,
   multiply,
@@ -20,6 +22,7 @@ type PositionAccumulator = {
   costBasis: DecimalString;
   realizedPnl: DecimalString;
   currency: string;
+  feeAccountingIssues: FeeAccountingIssue[];
 };
 
 export type PositionReplayState = {
@@ -51,10 +54,14 @@ export function applyTradeToReplay(
   trade: Trade,
 ): void {
   const position = getOrCreatePosition(state.positionsByAsset, trade);
+  const applicableFee = getApplicableFee(position, trade);
 
   if (trade.type === "buy") {
     position.quantity = add(position.quantity, trade.quantity);
-    position.costBasis = add(position.costBasis, trade.totalValue);
+    position.costBasis = add(
+      position.costBasis,
+      add(trade.totalValue, applicableFee),
+    );
     return;
   }
 
@@ -65,20 +72,24 @@ export function applyTradeToReplay(
     throw new Error(`Cannot sell ${trade.assetSymbol} with zero current position`);
   }
 
-  const averageCostBeforeSell = divide(
-    position.costBasis,
-    position.quantity,
-  );
-  const soldCostBasis = multiply(trade.quantity, averageCostBeforeSell);
-  position.quantity = subtract(position.quantity, trade.quantity);
-  position.costBasis = subtract(position.costBasis, soldCostBasis);
+  const isFullSell = isEqual(trade.quantity, position.quantity);
+  const soldCostBasis = isFullSell
+    ? position.costBasis
+    : multiply(
+        trade.quantity,
+        divide(position.costBasis, position.quantity),
+      );
+  const netProceeds = subtract(trade.totalValue, applicableFee);
+  position.quantity = isFullSell
+    ? "0"
+    : subtract(position.quantity, trade.quantity);
+  position.costBasis = isFullSell
+    ? "0"
+    : subtract(position.costBasis, soldCostBasis);
   position.realizedPnl = add(
     position.realizedPnl,
-    subtract(trade.totalValue, soldCostBasis),
+    subtract(netProceeds, soldCostBasis),
   );
-  if (isZero(position.quantity)) {
-    position.costBasis = "0";
-  }
 }
 
 export function getReplayPositions(
@@ -93,6 +104,9 @@ export function getReplayPositions(
     costBasis: position.costBasis,
     realizedPnl: position.realizedPnl,
     currency: position.currency,
+    ...(position.feeAccountingIssues.length === 0
+      ? {}
+      : { feeAccountingIssues: [...position.feeAccountingIssues] }),
   }));
 }
 
@@ -122,7 +136,28 @@ function getOrCreatePosition(
     costBasis: "0",
     realizedPnl: "0",
     currency: trade.currency,
+    feeAccountingIssues: [],
   };
   positionsByAsset.set(trade.assetSymbol, created);
   return created;
+}
+
+function getApplicableFee(
+  position: PositionAccumulator,
+  trade: Trade,
+): DecimalString {
+  if (isZero(trade.fee) || trade.feeCurrency === trade.currency) {
+    return trade.fee;
+  }
+
+  position.feeAccountingIssues.push({
+    code: "UNSUPPORTED_FEE_CURRENCY",
+    tradeId: trade.id,
+    assetSymbol: trade.assetSymbol,
+    occurredAt: trade.occurredAt,
+    fee: trade.fee,
+    feeCurrency: trade.feeCurrency,
+    tradeCurrency: trade.currency,
+  });
+  return "0";
 }

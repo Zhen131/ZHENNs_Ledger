@@ -108,6 +108,16 @@ export type FeeRule = {
   updatedAt: ISODateTimeString;
 };
 
+export type FeeAccountingIssue = {
+  code: "UNSUPPORTED_FEE_CURRENCY";
+  tradeId: string;
+  assetSymbol: string;
+  occurredAt: ISODateString | ISODateTimeString;
+  fee: DecimalString;
+  feeCurrency: CurrencyCode;
+  tradeCurrency: CurrencyCode;
+};
+
 export type Position = {
   assetSymbol: string;
   quantity: DecimalString;
@@ -118,6 +128,7 @@ export type Position = {
   realizedPnl: DecimalString;
   unrealizedPnl?: DecimalString;
   currency: CurrencyCode;
+  feeAccountingIssues?: readonly FeeAccountingIssue[];
 };
 
 export type LedgerData = {
