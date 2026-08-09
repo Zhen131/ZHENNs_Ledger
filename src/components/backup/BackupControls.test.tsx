@@ -29,7 +29,7 @@ import {
   type LedgerBackupImportEvidence,
 } from "../../backup/backupImportPreflight";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
-import { createSimpleTrade } from "../../test/fixtures";
+import { createUsdtSimpleTrade as createSimpleTrade } from "../../test/fixtures";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "../../validators";
 import { BackupControls } from "./BackupControls";
 

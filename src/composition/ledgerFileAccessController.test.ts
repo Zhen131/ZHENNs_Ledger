@@ -24,7 +24,7 @@ import {
   claimLedgerSessionPersistencePort,
 } from "../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
-import { createSimpleTrade } from "../test/fixtures";
+import { createUsdtSimpleTrade as createSimpleTrade } from "../test/fixtures";
 import {
   DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,

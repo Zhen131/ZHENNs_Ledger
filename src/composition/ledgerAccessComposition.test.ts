@@ -14,7 +14,7 @@ import type {
   LedgerFileSessionLease,
 } from "../coordination/ledgerFileSessionCoordinator";
 import { createInitialLedgerData } from "../state/initialLedgerData";
-import { sampleTrades } from "../test/fixtures";
+import { sampleUsdtTrades } from "../test/fixtures";
 import {
   DefaultLedgerAccessController,
   LEDGER_ACCESS_ERROR_CODES,
@@ -131,7 +131,7 @@ describe("ledger access composition", () => {
     if (!setup.ok) return;
     const legacyLedger = {
       ...createInitialLedgerData(),
-      trades: structuredClone(sampleTrades),
+      trades: structuredClone(sampleUsdtTrades),
     };
     await setup.repository.save(legacyLedger);
     const sourceBeforeMigration = await legacyStorage.read();
@@ -303,7 +303,7 @@ describe("ledger access composition", () => {
     if (!setup.ok) return;
     const sourceLedger = {
       ...createInitialLedgerData(),
-      trades: structuredClone(sampleTrades),
+      trades: structuredClone(sampleUsdtTrades),
     };
     await setup.repository.save(sourceLedger);
     const unlocked =

@@ -88,6 +88,16 @@ export const sampleTrades: Trade[] = sampleTradeDrafts.map((draft, index) =>
   createTradeFromDraft(draft, `trade-${String(index + 1).padStart(3, "0")}`),
 );
 
+export const sampleUsdtTrades: Trade[] = sampleTrades.map((trade) => ({
+  ...trade,
+  currency: "USDT",
+  feeCurrency:
+    trade.feeCurrency === trade.currency ? "USDT" : trade.feeCurrency,
+  ...(trade.rawText
+    ? { rawText: trade.rawText.replaceAll("USD", "USDT") }
+    : {}),
+}));
+
 export function createAsset(symbol: string, name: string): Asset {
   return {
     id: `asset-${symbol.toLowerCase()}`,
@@ -97,6 +107,10 @@ export function createAsset(symbol: string, name: string): Asset {
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
   };
+}
+
+export function createUsdtAsset(symbol: string, name: string): Asset {
+  return { ...createAsset(symbol, name), quoteCurrency: "USDT" };
 }
 
 export function createTradeFromDraft(draft: TradeDraft, id: string): Trade {
@@ -134,6 +148,20 @@ export function createSimpleTrade(
   );
 }
 
+export function createUsdtSimpleTrade(
+  id: string,
+  type: "buy" | "sell",
+  assetSymbol: string,
+  quantity: string,
+  occurredAt = "2026-04-01",
+): Trade {
+  return {
+    ...createSimpleTrade(id, type, assetSymbol, quantity, occurredAt),
+    currency: "USDT",
+    feeCurrency: "USDT",
+  };
+}
+
 export function createPriceSnapshot(
   id: string,
   assetSymbol: string,
@@ -151,4 +179,19 @@ export function createPriceSnapshot(
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
   };
+}
+
+export function createUsdtPriceSnapshot(
+  id: string,
+  assetSymbol: string,
+  price: string,
+  recordedAt: string,
+): PriceSnapshot {
+  return createPriceSnapshot(
+    id,
+    assetSymbol,
+    price,
+    recordedAt,
+    "USDT",
+  );
 }

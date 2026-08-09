@@ -18,7 +18,7 @@ import {
 } from "../repositories/ledgerRepository";
 import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
-import { createSimpleTrade } from "../test/fixtures";
+import { createUsdtSimpleTrade as createSimpleTrade } from "../test/fixtures";
 import type { LedgerClock } from "../utils/ledgerDate";
 import { usePersistentLedger } from "./usePersistentLedger";
 
