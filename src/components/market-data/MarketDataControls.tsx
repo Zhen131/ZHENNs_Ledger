@@ -84,6 +84,9 @@ export function MarketDataControls({
 }: Readonly<MarketDataControlsProps>) {
   const activeTodayKey = todayKey ?? captureLedgerTime(clock).todayKey;
   const assets = ledgerData.assets;
+  const hasUsdtAssets = assets.some(
+    (asset) => asset.quoteCurrency === "USDT",
+  );
   const mappingSignature = getBinanceMappingSignature(ledgerData);
   const [mappingDrafts, setMappingDrafts] = useState<Record<string, string>>(
     () => createMappingDrafts(assets),
@@ -362,7 +365,11 @@ export function MarketDataControls({
         ))}
         <button
           className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!isWritable || refreshState.status === "loading"}
+          disabled={
+            !isWritable ||
+            !hasUsdtAssets ||
+            refreshState.status === "loading"
+          }
           onClick={() => void refresh()}
           type="button"
         >
@@ -385,7 +392,7 @@ export function MarketDataControls({
 
       <div className="grid gap-2 text-sm text-slate-700">
         <p>
-          USD 与 Binance USDT 报价按 <strong>1 USDT ≈ 1 USD</strong> 汇总为 USD 等值；这不是严格美元现货换算。
+          USDT 账本按 USDT 显示；只有兼容读取的旧 USD 与 USDT 同时汇总时，才按 <strong>1 USDT ≈ 1 USD</strong> 近似展示，未接实时汇率。旧 USD 资产不会写入新的 Binance 价格事实。
         </p>
         <p>
           刷新只会把所配置的公开交易对 symbol 发送给 Binance；不会发送交易、数量、成本、密码或完整账本。

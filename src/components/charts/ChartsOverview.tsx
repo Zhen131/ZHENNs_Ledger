@@ -8,6 +8,7 @@ import type {
   HoldingHistoryPoint,
   TradeHeatmapDay,
 } from "../../services/chartDataService";
+import { USDT_USD_APPROXIMATION_DISCLOSURE } from "../../services/valuationDisplay";
 import { EChart } from "./EChart";
 import {
   buildAllocationChartOption,
@@ -81,23 +82,29 @@ export function ChartsOverview({
     (total, day) => total + day.total,
     0,
   );
+  const unreliableCostDays = history.filter(
+    (point) => point.totalCostBasis === undefined,
+  ).length;
+  const usesApproximation =
+    allocation.valuation.usesApproximation ||
+    history.some((point) => point.valuation.usesApproximation);
 
   return (
     <div className="grid min-w-0 gap-5">
       <article className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-4">
         <h3 className="font-semibold text-slate-950">
-          当前 USD 等值持仓分配
+          当前 {allocation.valuation.label} 持仓分配
         </h3>
         {allocation.slices.length > 0 ? (
           <>
             <EChart
-              ariaLabel="当前 USD 等值持仓分配饼图"
+              ariaLabel={`当前 ${allocation.valuation.label} 持仓分配饼图`}
               className="h-80 w-full"
               option={allocationOption}
             />
             <p className="text-sm leading-6 text-slate-600">
               已估值 {allocation.slices.length} 项，总市值{" "}
-              {allocation.totalMarketValue} USD 等值。
+              {allocation.totalMarketValue} {allocation.valuation.label}。
             </p>
           </>
         ) : allocation.missingPriceAssets.length > 0 ? (
@@ -122,16 +129,21 @@ export function ChartsOverview({
             {allocation.excludedCurrencyAssets.join("、")}。
           </p>
         ) : null}
+        {usesApproximation ? (
+          <p className="mt-2 text-sm font-medium text-amber-800">
+            {USDT_USD_APPROXIMATION_DISCLOSURE}
+          </p>
+        ) : null}
       </article>
 
       <article className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-semibold text-slate-950">
-              持仓总市值 / 持仓成本
+              持仓总市值 / 剩余含费成本
             </h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              日级阶梯线；不含现金，不代表账户净值，成本暂不计手续费。
+              日级阶梯线；不含现金，不代表账户净值。成本已计入实际买入手续费，卖出按净到账确认已实现盈亏。
             </p>
           </div>
           <div
@@ -157,7 +169,7 @@ export function ChartsOverview({
           </div>
         </div>
         <EChart
-          ariaLabel="持仓总市值与持仓成本阶梯线图"
+          ariaLabel="持仓总市值与剩余含费成本阶梯线图"
           className="mt-3 h-80 w-full"
           option={historyOption}
         />
@@ -168,6 +180,11 @@ export function ChartsOverview({
             : ""}
           。
         </p>
+        {unreliableCostDays > 0 ? (
+          <p className="mt-1 text-sm font-medium text-amber-800">
+            {unreliableCostDays} 个成本点因异币手续费无法换算而断开；市值线和交易热力图仍按各自事实显示。
+          </p>
+        ) : null}
         {range === "1d" ? (
           <p className="mt-1 text-sm font-medium text-amber-800">
             无可靠日内变化，边界点仅用于显示。

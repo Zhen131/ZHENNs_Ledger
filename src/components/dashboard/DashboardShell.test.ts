@@ -79,17 +79,17 @@ const sellTrade = Object.freeze({
 }) satisfies Trade;
 
 describe("TradeTable", () => {
-  it("renders a six-column empty state", () => {
+  it("renders an eight-column empty state", () => {
     const html = renderToStaticMarkup(
       createElement(TradeTable, { trades: [] }),
     );
 
     expect(html).toContain(
-      'colSpan="6">暂无交易。添加交易后，这里会自动显示。</td>',
+      'colSpan="8">暂无交易。添加交易后，这里会自动显示。</td>',
     );
   });
 
-  it("maps a formal buy trade to all six display columns", () => {
+  it("maps a formal buy trade to all eight display columns", () => {
     const html = renderToStaticMarkup(
       createElement(TradeTable, { trades: [buyTrade] }),
     );
@@ -102,6 +102,9 @@ describe("TradeTable", () => {
     expect(html).toContain(
       `${buyTrade.totalValue} ${buyTrade.currency}`,
     );
+    expect(html).toContain(`${buyTrade.fee} ${buyTrade.feeCurrency}`);
+    expect(html).toContain("778.011999 XCU-BUY");
+    expect(html).toContain("买入总支出");
     expect(html).not.toContain(
       "暂无交易。添加交易后，这里会自动显示。",
     );
@@ -181,9 +184,10 @@ describe("DashboardShell ledger views", () => {
     expect(html).toContain("0.1 USD");
     expect(html).toContain("1 USD");
     expect(html).toContain("未输入价格");
-    expect(html.match(/>--</g)).toHaveLength(2);
-    expect(html).toContain("剩余成本基础（暂不计手续费）");
-    expect(html).toContain("已实现盈亏（暂不计手续费）");
+    expect(html.match(/>--</g)).toHaveLength(1);
+    expect(html).toContain("缺少合法价格");
+    expect(html).toContain("剩余含费成本");
+    expect(html).toContain("已实现净盈亏");
   });
 
   it("renders an eight-column empty state when the ledger has no positions", () => {
@@ -252,8 +256,8 @@ describe("DashboardShell ledger views", () => {
     expect(html).not.toContain(">Today<");
     expect(html).not.toContain(">This Month<");
     expect(html).not.toContain("未来这里显示资产净值曲线和 K 线");
-    expect(html).toContain("当前 USD 等值持仓分配");
-    expect(html).toContain("持仓总市值 / 持仓成本");
+    expect(html).toContain("当前 USDT 持仓分配");
+    expect(html).toContain("持仓总市值 / 剩余含费成本");
     expect(html).toContain("最近 365 天交易活跃");
   });
 });
