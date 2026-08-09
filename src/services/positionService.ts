@@ -75,7 +75,9 @@ export function getValuedPositionsFromLedger(
         ...position,
         latestPrice: selected.snapshot.price,
         marketValue,
-        unrealizedPnl: subtract(marketValue, position.costBasis),
+        ...(position.feeAccountingIssues
+          ? {}
+          : { unrealizedPnl: subtract(marketValue, position.costBasis) }),
       },
     };
   });

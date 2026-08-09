@@ -61,6 +61,8 @@ function attachLegacyLatestPrice(
     ...position,
     latestPrice: latest.price,
     marketValue,
-    unrealizedPnl: subtract(marketValue, position.costBasis),
+    ...(position.feeAccountingIssues
+      ? {}
+      : { unrealizedPnl: subtract(marketValue, position.costBasis) }),
   };
 }

@@ -4,6 +4,7 @@ export type {
   BinancePriceProvenance,
   CurrencyCode,
   DecimalString,
+  FeeAccountingIssue,
   FeeRule,
   FeeRuleType,
   ISODateString,

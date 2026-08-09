@@ -47,8 +47,7 @@ describe("getPositionsFromLedger", () => {
   });
 
   it("passes price snapshots into the position calculation", () => {
-    const positions = getPositionsFromLedger(
-      createLedgerData({
+    const ledgerData = createLedgerData({
         trades: sampleTrades,
         priceSnapshots: [
           createPriceSnapshot(
@@ -58,8 +57,12 @@ describe("getPositionsFromLedger", () => {
             "2026-07-11",
           ),
         ],
-      }),
-    );
+      });
+    ledgerData.assets = ledgerData.assets.map((asset) => ({
+      ...asset,
+      quoteCurrency: "USD",
+    }));
+    const positions = getPositionsFromLedger(ledgerData);
 
     const btc = positions.find(
       (position) => position.assetSymbol === "BTC",
@@ -68,5 +71,33 @@ describe("getPositionsFromLedger", () => {
     expect(btc?.latestPrice).toBe("70000");
     expect(btc?.marketValue).toBeDefined();
     expect(btc?.unrealizedPnl).toBeDefined();
+  });
+
+  it("keeps market value but withholds unrealized PnL for a foreign fee", () => {
+    const ledgerData = createLedgerData();
+    ledgerData.trades = [
+      {
+        ...sampleTrades[0],
+        currency: "USDT",
+        fee: "1",
+        feeCurrency: "BNB",
+      },
+    ];
+    ledgerData.priceSnapshots = [
+      {
+        ...createPriceSnapshot("price-btc", "BTC", "70000", "2026-07-11"),
+        currency: "USDT",
+      },
+    ];
+
+    const btc = getPositionsFromLedger(ledgerData).find(
+      (position) => position.assetSymbol === "BTC",
+    );
+
+    expect(btc?.marketValue).toBeDefined();
+    expect(btc?.unrealizedPnl).toBeUndefined();
+    expect(btc?.feeAccountingIssues?.[0]).toEqual(
+      expect.objectContaining({ tradeId: sampleTrades[0].id }),
+    );
   });
 });
