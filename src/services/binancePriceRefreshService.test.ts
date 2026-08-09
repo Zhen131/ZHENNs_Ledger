@@ -225,4 +225,35 @@ describe("Binance price refresh", () => {
     expect(skipped.ledgerData).toBe(deletedMappingLedger);
     expect(skipped.skippedAssetSymbols).toEqual(["BTC"]);
   });
+
+  it("skips legacy USD assets without creating or rewriting a Binance price", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assets = ledgerData.assets.map((asset) => ({
+      ...asset,
+      quoteCurrency: "USD",
+    }));
+    ledgerData.trades = [
+      createSimpleTrade("legacy-btc", "buy", "BTC", "1", "2026-07-20"),
+    ];
+    ledgerData.priceSnapshots = [
+      createPriceSnapshot("legacy-price", "BTC", "65000", "2026-07-20"),
+    ];
+    const client = createClient();
+
+    await expect(
+      refreshBinancePrices(ledgerData, TODAY, { client, clock }),
+    ).resolves.toEqual({ successes: [], failures: [] });
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+
+    const merged = mergeBinancePriceRefresh(
+      ledgerData,
+      [success("70000")],
+      () => "unused",
+    );
+    expect(merged.ledgerData).toBe(ledgerData);
+    expect(merged.skippedAssetSymbols).toEqual(["BTC"]);
+    expect(ledgerData.priceSnapshots).toEqual([
+      expect.objectContaining({ id: "legacy-price", currency: "USD" }),
+    ]);
+  });
 });

@@ -6,10 +6,7 @@ import type {
 } from "../models";
 import type { BinanceMarketDataClient } from "../marketData/binanceMarketDataClient";
 import type { BinanceMarketDataFailure } from "../marketData/binanceMarketDataTypes";
-import {
-  isSupportedValuationCurrency,
-  partitionLedgerFactsForToday,
-} from "../policies/ledgerFactPolicy";
+import { partitionLedgerFactsForToday } from "../policies/ledgerFactPolicy";
 import { isZero } from "../utils/decimalMath";
 import {
   captureLedgerTime,
@@ -56,7 +53,7 @@ export async function refreshBinancePrices(
     .filter(
       (asset) =>
         nonZeroSymbols.has(asset.symbol) &&
-        isSupportedValuationCurrency(asset.quoteCurrency) &&
+        asset.quoteCurrency === "USDT" &&
         asset.binanceMapping,
     )
     .map((asset) => ({
@@ -152,7 +149,7 @@ export function mergeBinancePriceRefresh(
       !asset ||
       !asset.binanceMapping ||
       asset.binanceMapping.symbol !== success.mapping.symbol ||
-      !isSupportedValuationCurrency(asset.quoteCurrency)
+      asset.quoteCurrency !== "USDT"
     ) {
       skippedAssetSymbols.push(success.assetSymbol);
       continue;
@@ -194,7 +191,7 @@ export function mergeBinancePriceRefresh(
         id,
         assetSymbol: success.assetSymbol,
         price: success.price,
-        currency: asset.quoteCurrency,
+        currency: "USDT",
         recordedAt: success.recordedAt,
         source: "api",
         binanceProvenance: {
@@ -211,7 +208,7 @@ export function mergeBinancePriceRefresh(
       const updated: PriceSnapshot = {
         ...canonical,
         price: success.price,
-        currency: asset.quoteCurrency,
+        currency: "USDT",
         recordedAt: success.recordedAt,
         source: "api",
         binanceProvenance: {

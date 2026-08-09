@@ -13,7 +13,7 @@ const TIMESTAMP = "2026-07-16T12:00:00.000Z";
 const validDraft: PriceSnapshotDraft = {
   assetSymbol: "BTC",
   price: "70000",
-  currency: "USD",
+  currency: "USDT",
   recordedAt: "2026-07-16",
   source: "manual",
 };
@@ -65,6 +65,33 @@ describe("createValidatedPriceSnapshot", () => {
     }
     expect(dependencies.generateId).not.toHaveBeenCalled();
     expect(dependencies.now).not.toHaveBeenCalled();
+  });
+
+  it("rejects new prices for a legacy USD ledger", () => {
+    const legacyLedger = createInitialLedgerData();
+    legacyLedger.assets = legacyLedger.assets.map((asset) => ({
+      ...asset,
+      quoteCurrency: "USD",
+    }));
+    const dependencies = createDependencies(["unused"]);
+    const result = createValidatedPriceSnapshot(
+      { ...validDraft, currency: "USD" },
+      legacyLedger,
+      dependencies,
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.kind === "validation") {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT",
+            field: "currency",
+          }),
+        ]),
+      );
+    }
+    expect(dependencies.generateId).not.toHaveBeenCalled();
   });
 
   it("retries ID collisions and succeeds within three attempts", () => {

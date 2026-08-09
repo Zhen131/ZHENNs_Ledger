@@ -70,6 +70,7 @@ export function createValidatedPriceSnapshot(
         captureLedgerTime(systemLedgerClock).todayKey,
       requireSupportedValuationCurrency: true,
       requireApiProvenance: true,
+      requiredCurrency: "USDT",
     },
   );
 

@@ -22,6 +22,7 @@ export const PRICE_SNAPSHOT_VALIDATION_ERROR_CODES = {
     "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY",
   BINANCE_PROVENANCE_REQUIRED:
     "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED",
+  NEW_FACT_REQUIRES_USDT: "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT",
 } as const;
 
 export type PriceSnapshotValidationField =
@@ -39,7 +40,8 @@ export type PriceSnapshotValidationError = {
     | "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE"
     | "PRICE_SNAPSHOT_FUTURE_FACT"
     | "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY"
-    | "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED";
+    | "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED"
+    | "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT";
   field: PriceSnapshotValidationField;
   message: string;
 };
@@ -58,6 +60,7 @@ export type PriceSnapshotValidationOptions = {
   todayKey?: string;
   requireSupportedValuationCurrency?: boolean;
   requireApiProvenance?: boolean;
+  requiredCurrency?: string;
 };
 
 export function validatePriceSnapshotDraft(
@@ -129,6 +132,20 @@ export function validatePriceSnapshotDraft(
         PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.UNSUPPORTED_VALUATION_CURRENCY,
         "currency",
         "Only USD/USDT valuation is supported",
+      ),
+    );
+  }
+
+  if (
+    options.requiredCurrency !== undefined &&
+    currency !== undefined &&
+    currency !== options.requiredCurrency
+  ) {
+    errors.push(
+      createError(
+        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
+        "currency",
+        `New price facts must use ${options.requiredCurrency}`,
       ),
     );
   }

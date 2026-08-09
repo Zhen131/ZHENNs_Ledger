@@ -72,6 +72,8 @@ export function createValidatedTrade(
       dependencies.todayKey?.() ??
       captureLedgerTime(systemLedgerClock).todayKey,
     requireSupportedValuationCurrency: true,
+    requiredCurrency: "USDT",
+    requireFeeCurrencyMatch: true,
   });
 
   if (!validationResult.ok) {
@@ -130,8 +132,7 @@ export function createValidatedTrade(
     trade: {
       ...validationResult.value,
       id,
-      feeCurrency:
-        validationResult.value.feeCurrency ?? validationResult.value.currency,
+      feeCurrency: validationResult.value.currency,
       createdAt: timestamp,
       updatedAt: timestamp,
     },

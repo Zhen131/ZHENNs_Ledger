@@ -7,7 +7,7 @@ const EXPECTED_ASSETS = [
     id: "asset-btc",
     symbol: "BTC",
     name: "Bitcoin",
-    quoteCurrency: "USD",
+    quoteCurrency: "USDT",
     binanceMapping: {
       provider: "binance",
       symbol: "BTCUSDT",
@@ -21,7 +21,7 @@ const EXPECTED_ASSETS = [
     id: "asset-eth",
     symbol: "ETH",
     name: "Ethereum",
-    quoteCurrency: "USD",
+    quoteCurrency: "USDT",
     binanceMapping: {
       provider: "binance",
       symbol: "ETHUSDT",
@@ -35,7 +35,7 @@ const EXPECTED_ASSETS = [
     id: "asset-ada",
     symbol: "ADA",
     name: "Cardano",
-    quoteCurrency: "USD",
+    quoteCurrency: "USDT",
     binanceMapping: {
       provider: "binance",
       symbol: "ADAUSDT",

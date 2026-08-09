@@ -11,6 +11,7 @@ import {
   isGreaterThan,
   isNegative,
   isPositive,
+  isZero,
   isWithinTolerance,
   multiply,
   subtract,
@@ -44,6 +45,8 @@ export const TRADE_VALIDATION_ERROR_CODES = {
   TOTAL_VALUE_MISMATCH: "TOTAL_VALUE_MISMATCH",
   INSUFFICIENT_HOLDINGS: "INSUFFICIENT_HOLDINGS",
   CURRENCY_MISMATCH: "CURRENCY_MISMATCH",
+  FEE_CURRENCY_MISMATCH: "FEE_CURRENCY_MISMATCH",
+  NEW_FACT_REQUIRES_USDT: "NEW_FACT_REQUIRES_USDT",
   FUTURE_FACT: "FUTURE_FACT",
   UNSUPPORTED_VALUATION_CURRENCY: "UNSUPPORTED_VALUATION_CURRENCY",
 } as const;
@@ -82,6 +85,8 @@ export type TradeValidationContext = {
   skipHoldingsTimeline?: boolean;
   todayKey?: string;
   requireSupportedValuationCurrency?: boolean;
+  requiredCurrency?: string;
+  requireFeeCurrencyMatch?: boolean;
 };
 
 export type TradeValidationResult =
@@ -161,6 +166,36 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
       context.assets,
       context.priorTrades,
       errors,
+    );
+  }
+
+  if (
+    context.requiredCurrency !== undefined &&
+    currency !== undefined &&
+    currency !== context.requiredCurrency
+  ) {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
+        "currency",
+        `New trade facts must use ${context.requiredCurrency}`,
+      ),
+    );
+  }
+
+  if (
+    context.requireFeeCurrencyMatch &&
+    fee !== undefined &&
+    !isZero(fee) &&
+    currency !== undefined &&
+    (feeCurrency ?? currency) !== currency
+  ) {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.FEE_CURRENCY_MISMATCH,
+        "feeCurrency",
+        "A non-zero fee must use the trade currency",
+      ),
     );
   }
 

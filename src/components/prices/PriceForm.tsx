@@ -97,6 +97,8 @@ function formatValidationError(
       return "价格日期不能晚于今天";
     case "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY":
       return "当前仅支持 USD/USDT 估值";
+    case "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT":
+      return "旧 USD 账本只兼容读取；请新建 USDT 账本后再录入";
     case "PRICE_SNAPSHOT_INVALID_INPUT":
       return `${label}不能为空或格式不正确`;
   }
