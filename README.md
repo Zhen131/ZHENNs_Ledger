@@ -25,15 +25,17 @@ Week 11 evidence is deliberately separated into implemented behavior and indepen
 - Batch 2 implemented C takeover, previous-generation recovery, single-writer coordination, reconnect, password lifecycle, legacy migration, and safe clear. Its development and independent automated checks passed with 51 test files and 596 tests, but `02D` remains `BLOCKED` because the required real Chrome picker, permission, dual-tab, and raw IndexedDB evidence was incomplete.
 - Batch 3 implemented full plaintext backup export, zero-write preflight, structured error reporting, suspicious-duplicate grouping, and whole-ledger import into a newly created empty C. Development finished with 55 test files and 698 tests, and the normal real-Chrome success path passed. `03B` remains `BLOCKED` because a browser cannot guarantee rollback after process death, permanent permission loss, or an external write that wins after close. `03C` and `03D` were not executed.
 
+The Week 12 fee-aware P&L candidate is intentionally retained on the local `zhennn/w12-pnl-fee-accounting` branch and is not merged into `main`. Its development validation passed with 57 test files and 722 tests, typecheck, lint, production build, whitespace checks, and a real-Chrome flow using dedicated fictional `.lftl` files. New ledgers and new amount facts use USDT, actual same-currency fees flow through replayed cost and net P&L, legacy USD facts remain readable, and non-zero foreign-currency fees withhold fee-sensitive derived values instead of being guessed. Independent `01C` review and the resulting `01D` report are still pending, so this is a development candidate rather than an accepted `main` release.
+
 Merging code or passing automated tests does not turn a blocked independent acceptance result into `PASS`.
 
 ## Implemented capabilities
 
 - Buy and sell entry with validation, deterministic business ordering, full-timeline oversell protection, and safe deletion.
-- DCA quantity, average cost, cost basis, realized P&L, latest price, market value, and unrealized P&L derived from ledger facts.
+- DCA quantity, fee-aware average cost and cost basis, net realized P&L, latest price, market value, and net unrealized P&L derived from ledger facts.
 - Manual price snapshots and on-demand Binance latest-price refresh with an eight-second timeout, no retry, no polling, and no WebSocket.
 - One shared price-selection policy for the positions table, allocation chart, and historical value curve.
-- Three fact-derived charts: current USD-equivalent allocation, market-value and cost-basis step history, and a 365-day activity heatmap.
+- Three fact-derived charts: current USDT / legacy-USD-equivalent allocation, market-value and fee-aware cost-basis step history, and a 365-day activity heatmap.
 - Strict future-fact handling: new future facts are rejected; existing future facts enter a restricted correction mode.
 - Runtime validation for forms, stored data, backup input, ISO dates, references, decimal strings, uniqueness, and the complete trade timeline.
 - PBKDF2-SHA-256 with 600,000 iterations and a non-extractable AES-256-GCM session key for encrypted storage.
@@ -50,6 +52,8 @@ Merging code or passing automated tests does not turn a blocked independent acce
 
 - `Trade`, `PriceSnapshot`, assets, fee rules, and Binance mappings are facts.
 - `Position[]`, chart slices, chart points, heat levels, valuation mode, and selected date are derived or session state. They are not persisted in `LedgerData`, C, connection records, or backups.
+- `Trade.totalValue` is the fee-exclusive execution amount. Actual buy fees in the accounting currency increase replayed cost; actual sell fees in that currency reduce net proceeds and realized P&L.
+- A non-zero fee in another currency is never treated as zero and is never guessed as USDT. Fee-sensitive cost and P&L are withheld with an explicit reliability issue until a conversion contract exists.
 - Quantity and money calculations use `DecimalString -> decimal.js`; ledger calculations do not rely on JavaScript floating-point arithmetic.
 - Untrusted form, IndexedDB, file, and JSON input crosses a runtime validator before entering application state.
 - Missing market data remains missing. The application does not substitute trade price, cost, future data, or zero.
@@ -157,11 +161,11 @@ npm run build
 git diff --check
 ```
 
-The most recent development baseline reported 55 test files and 698 passing tests, plus typecheck, lint, production build, and whitespace checks. That result remains development evidence, not a replacement for the blocked independent browser contracts described above.
+The most recent development baseline reported 57 test files and 722 passing tests, plus typecheck, lint, production build, whitespace checks, and the dedicated fictional-file real-Chrome flow. That result remains development evidence, not a replacement for the pending Week 12 independent review or the blocked Week 11 browser contracts described above.
 
 ## Known limits and deferred work
 
-- Fees are stored but are not yet included in net realized or unrealized P&L.
+- Actual fees are included only when they are already denominated in the relevant accounting currency. Fee-rule automation, platform-specific fee policy, and cross-currency fee conversion are not implemented.
 - Position-adjustment transactions and the originally proposed transaction-marker overlay are not implemented.
 - Binance provides latest public prices only. Historical Kline/OHLC, polling, and WebSocket feeds are not implemented.
 - Exported backups remain plaintext.
