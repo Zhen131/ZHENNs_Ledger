@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
 import type { LedgerData, Trade, TradeDraft } from "../../models";
+import { calculateTradeCashImpact } from "../../calculators/tradeCashImpact";
 import { createValidatedTrade } from "../../services/tradeService";
 import type {
   TradeValidationError,
@@ -45,9 +46,9 @@ const fieldLabels: Record<keyof TradeDraft, string> = {
   assetSymbol: "资产",
   quantity: "数量",
   price: "成交均价",
-  totalValue: "总金额",
+  totalValue: "成交金额（不含手续费）",
   currency: "计价货币",
-  fee: "手续费",
+  fee: "实际手续费",
   feeCurrency: "手续费币种",
   feeRuleId: "手续费规则",
   note: "备注",
@@ -83,9 +84,9 @@ function formatValidationError(error: TradeValidationError): string {
     case "VALUE_MUST_BE_POSITIVE":
       return `${label}必须大于 0`;
     case "FEE_MUST_BE_NON_NEGATIVE":
-      return "手续费不能小于 0";
+      return "实际手续费不能小于 0";
     case "TOTAL_VALUE_MISMATCH":
-      return "总金额与数量 × 成交均价不一致";
+      return "成交金额与数量 × 成交均价不一致";
     case "INSUFFICIENT_HOLDINGS":
       return "卖出数量超过该时间点的可用持仓";
     case "CURRENCY_MISMATCH":
@@ -160,6 +161,8 @@ export function TradeForm({
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
     ledgerData.assets[0];
   const currency = selectedAsset?.quoteCurrency ?? "";
+  const isLegacyUsdAsset = currency === "USD";
+  const cashImpactPreview = getCashImpactPreview(form, currency);
 
   function updateField<Field extends keyof TradeFormState>(
     field: Field,
@@ -295,7 +298,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        总金额
+        成交金额（不含手续费）
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -322,7 +325,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        手续费
+        实际手续费
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -354,8 +357,22 @@ export function TradeForm({
       </label>
 
       <div className="md:col-span-2 xl:col-span-4">
+        {cashImpactPreview ? (
+          <p className="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            {cashImpactPreview.kind === "buy-outflow"
+              ? "买入总支出"
+              : "卖出净到账"}
+            ：{cashImpactPreview.amount} {cashImpactPreview.currency}
+          </p>
+        ) : null}
+        {isLegacyUsdAsset ? (
+          <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            旧 USD 资产只兼容读取，不能新增交易；请新建 USDT 账本后继续录入。
+          </p>
+        ) : null}
         <button
-          className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white"
+          className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isLegacyUsdAsset}
           type="submit"
         >
           保存交易
@@ -370,4 +387,25 @@ export function TradeForm({
       </div>
     </form>
   );
+}
+
+function getCashImpactPreview(
+  form: TradeFormState,
+  currency: string,
+) {
+  if (!form.totalValue || !form.fee || !currency) {
+    return undefined;
+  }
+  try {
+    const result = calculateTradeCashImpact({
+      type: form.type,
+      totalValue: form.totalValue,
+      currency,
+      fee: form.fee,
+      feeCurrency: currency,
+    });
+    return result.ok ? result : undefined;
+  } catch {
+    return undefined;
+  }
 }

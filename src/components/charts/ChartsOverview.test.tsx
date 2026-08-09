@@ -90,12 +90,12 @@ describe("ChartsOverview", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "当前 USD 等值持仓分配饼图",
+        name: "当前 USDT 持仓分配饼图",
       }),
     ).not.toBeNull();
     expect(
       screen.getByRole("button", {
-        name: "持仓总市值与持仓成本阶梯线图",
+        name: "持仓总市值与剩余含费成本阶梯线图",
       }),
     ).not.toBeNull();
     expect(

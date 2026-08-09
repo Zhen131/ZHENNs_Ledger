@@ -34,9 +34,9 @@ import {
 import type { PersistentLedgerState } from "../../hooks/usePersistentLedger";
 import { createInitialLedgerData } from "../../state/initialLedgerData";
 import {
-  createAsset,
-  createPriceSnapshot,
-  createSimpleTrade,
+  createAsset as createUsdAssetFixture,
+  createPriceSnapshot as createUsdPriceFixture,
+  createSimpleTrade as createUsdTradeFixture,
 } from "../../test/fixtures";
 import type { LedgerClock } from "../../utils/ledgerDate";
 import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
@@ -44,6 +44,37 @@ import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
 const fixedClock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00"),
 };
+
+function createAsset(
+  ...args: Parameters<typeof createUsdAssetFixture>
+): ReturnType<typeof createUsdAssetFixture> {
+  return { ...createUsdAssetFixture(...args), quoteCurrency: "USDT" };
+}
+
+function createSimpleTrade(
+  ...args: Parameters<typeof createUsdTradeFixture>
+): ReturnType<typeof createUsdTradeFixture> {
+  return {
+    ...createUsdTradeFixture(...args),
+    currency: "USDT",
+    feeCurrency: "USDT",
+  };
+}
+
+function createPriceSnapshot(
+  id: string,
+  assetSymbol: string,
+  price: string,
+  recordedAt: string,
+) {
+  return createUsdPriceFixture(
+    id,
+    assetSymbol,
+    price,
+    recordedAt,
+    "USDT",
+  );
+}
 
 function DashboardShell({
   repository,
@@ -260,7 +291,7 @@ async function fillBuyTrade() {
   );
   await user.type(screen.getByLabelText("数量"), "0.001");
   await user.type(screen.getByLabelText("成交均价"), "70000");
-  await user.type(screen.getByLabelText("总金额"), "70");
+  await user.type(screen.getByLabelText("成交金额（不含手续费）"), "70");
   await user.type(screen.getByLabelText("日期"), "2026-07-14");
 
   return user;
@@ -281,7 +312,10 @@ async function createTrade(input: {
   );
   await user.type(screen.getByLabelText("数量"), input.quantity);
   await user.type(screen.getByLabelText("成交均价"), input.price);
-  await user.type(screen.getByLabelText("总金额"), input.totalValue);
+  await user.type(
+    screen.getByLabelText("成交金额（不含手续费）"),
+    input.totalValue,
+  );
 
   const occurredAtInput = screen.getByLabelText("日期");
   if ((occurredAtInput as HTMLInputElement).value !== input.occurredAt) {
@@ -572,12 +606,12 @@ describe("DashboardShell trade interactions", () => {
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
     expect(within(tradeSection).getByText("买入")).not.toBeNull();
-    expect(within(tradeSection).getByText("70 USD")).not.toBeNull();
+    expect(within(tradeSection).getAllByText("70 USDT")).not.toHaveLength(0);
 
     const positionSection = getSection("资产汇总");
     expect(within(positionSection).getByText("BTC")).not.toBeNull();
     expect(within(positionSection).getByText("0.001")).not.toBeNull();
-    expect(within(positionSection).getByText("70000 USD")).not.toBeNull();
+    expect(within(positionSection).getByText("70000 USDT")).not.toBeNull();
   });
 
   it("shows validator feedback and keeps the ledger unchanged for invalid input", async () => {
@@ -586,12 +620,12 @@ describe("DashboardShell trade interactions", () => {
 
     await user.type(screen.getByLabelText("数量"), "0.001");
     await user.type(screen.getByLabelText("成交均价"), "70000");
-    await user.type(screen.getByLabelText("总金额"), "10");
+    await user.type(screen.getByLabelText("成交金额（不含手续费）"), "10");
     await user.type(screen.getByLabelText("日期"), "2026-07-14");
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
     expect(
-      screen.getByText("总金额与数量 × 成交均价不一致"),
+      screen.getByText("成交金额与数量 × 成交均价不一致"),
     ).not.toBeNull();
     expect(
       within(getSection("交易列表")).getByText(
@@ -678,9 +712,9 @@ describe("DashboardShell trade interactions", () => {
     expect(screen.getByText("价格已加入账本")).not.toBeNull();
 
     const positionSection = getSection("资产汇总");
-    expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
-    expect(within(positionSection).getByText("80 USD")).not.toBeNull();
-    expect(within(positionSection).getByText("10 USD")).not.toBeNull();
+    expect(within(positionSection).getByText("80000 USDT")).not.toBeNull();
+    expect(within(positionSection).getByText("80 USDT")).not.toBeNull();
+    expect(within(positionSection).getByText("10 USDT")).not.toBeNull();
   });
 
   it("hydrates saved LedgerData without overwriting it with initial state", async () => {
@@ -766,12 +800,12 @@ describe("DashboardShell trade interactions", () => {
 
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
-    expect(within(tradeSection).getByText("70 USD")).not.toBeNull();
+    expect(within(tradeSection).getAllByText("70 USDT")).not.toHaveLength(0);
 
     const positionSection = getSection("资产汇总");
-    expect(within(positionSection).getByText("80000 USD")).not.toBeNull();
-    expect(within(positionSection).getByText("80 USD")).not.toBeNull();
-    expect(within(positionSection).getByText("10 USD")).not.toBeNull();
+    expect(within(positionSection).getByText("80000 USDT")).not.toBeNull();
+    expect(within(positionSection).getByText("80 USDT")).not.toBeNull();
+    expect(within(positionSection).getByText("10 USDT")).not.toBeNull();
 
     const secondUser = userEvent.setup();
     const persistedDelete = within(tradeSection).getByRole("button", {
@@ -1231,7 +1265,7 @@ describe("DashboardShell data management", () => {
       expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
       expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
       expect(getSection("交易列表")).not.toBeNull();
-      expect(screen.getByText(/已估值 1 项，总市值 80000 USD 等值/)).not.toBeNull();
+      expect(screen.getByText(/已估值 1 项，总市值 80000 USDT/)).not.toBeNull();
     });
     expect(
       screen.getByRole("button", { name: "手动价格" }).getAttribute(

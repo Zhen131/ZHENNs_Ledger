@@ -28,7 +28,13 @@ import {
   buildTradeHeatmap,
   type ChartRange,
 } from "../../services/chartDataService";
+import { calculateTradeCashImpact } from "../../calculators/tradeCashImpact";
+import {
+  buildLedgerPnlSummary,
+  type SummaryMetric,
+} from "../../services/pnlSummaryService";
 import { getPositionsFromLedger } from "../../services/positionService";
+import { USDT_USD_APPROXIMATION_DISCLOSURE } from "../../services/valuationDisplay";
 import { validateTradeRemoval } from "../../services/tradeRemovalService";
 import {
   getLedgerDateKey,
@@ -73,6 +79,34 @@ function Section({
   );
 }
 
+function SummaryMetricCard({
+  label,
+  metric,
+  valuationLabel,
+}: Readonly<{
+  label: string;
+  metric: SummaryMetric;
+  valuationLabel: string;
+}>) {
+  return (
+    <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <h3 className="text-sm font-medium text-slate-600">{label}</h3>
+      <p className="mt-2 text-xl font-semibold text-slate-950">
+        {metric.value === undefined
+          ? "不可完整计算"
+          : `${metric.value} ${valuationLabel}`}
+      </p>
+      {metric.missingReasons.length > 0 ? (
+        <ul className="mt-2 grid gap-1 text-xs leading-5 text-amber-800">
+          {metric.missingReasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+    </article>
+  );
+}
+
 export function TradeTable({
   trades,
   onDelete,
@@ -86,11 +120,11 @@ export function TradeTable({
   deleteDisabled?: boolean;
   todayKey?: string;
 }>) {
-  const columnCount = onDelete ? 7 : 6;
+  const columnCount = onDelete ? 9 : 8;
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[680px] text-left text-sm">
+      <table className="w-full min-w-[960px] text-left text-sm">
         <thead className="border-b border-slate-200 text-slate-500">
           <tr>
             <th className="py-2 font-medium">日期</th>
@@ -98,7 +132,9 @@ export function TradeTable({
             <th className="py-2 font-medium">资产</th>
             <th className="py-2 font-medium">数量</th>
             <th className="py-2 font-medium">均价</th>
-            <th className="py-2 font-medium">总金额</th>
+            <th className="py-2 font-medium">成交金额（不含手续费）</th>
+            <th className="py-2 font-medium">实际手续费</th>
+            <th className="py-2 font-medium">现金影响</th>
             {onDelete ? <th className="py-2 font-medium">操作</th> : null}
           </tr>
         </thead>
@@ -113,7 +149,9 @@ export function TradeTable({
               </td>
             </tr>
           ) : (
-            trades.map((trade) => (
+            trades.map((trade) => {
+              const cashImpact = calculateTradeCashImpact(trade);
+              return (
               <tr key={trade.id}>
                 <td className="py-3 text-slate-600">
                   {trade.occurredAt}
@@ -133,6 +171,25 @@ export function TradeTable({
                 <td className="py-3 text-slate-600">
                   {trade.totalValue} {trade.currency}
                 </td>
+                <td className="py-3 text-slate-600">
+                  {trade.fee} {trade.feeCurrency}
+                </td>
+                <td className="py-3 text-slate-600">
+                  {cashImpact.ok ? (
+                    <>
+                      {cashImpact.amount} {cashImpact.currency}
+                      <span className="block text-xs text-slate-500">
+                        {cashImpact.kind === "buy-outflow"
+                          ? "买入总支出"
+                          : "卖出净到账"}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-amber-800">
+                      不可可靠计算：{cashImpact.feeCurrency} 手续费未换算
+                    </span>
+                  )}
+                </td>
                 {onDelete ? (
                   <td className="py-3">
                     <ConfirmDeleteButton
@@ -146,7 +203,8 @@ export function TradeTable({
                   </td>
                 ) : null}
               </tr>
-            ))
+              );
+            })
           )}
         </tbody>
       </table>
@@ -279,6 +337,13 @@ export function DashboardShell({
     todayKey,
     mode: valuationPriceMode,
   });
+  const pnlSummary = buildLedgerPnlSummary(ledgerData, {
+    todayKey,
+    mode: valuationPriceMode,
+  });
+  const hasLegacyUsdAssets = ledgerData.assets.some(
+    (asset) => asset.quoteCurrency === "USD",
+  );
   const allocation = buildHoldingAllocation(ledgerData, {
     todayKey,
     mode: valuationPriceMode,
@@ -630,6 +695,14 @@ export function DashboardShell({
               </ul>
             </div>
           ) : null}
+          {hydrationStatus === "ready" && hasLegacyUsdAssets ? (
+            <div className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+              <p className="font-semibold">旧 USD 账本兼容读取</p>
+              <p>
+                旧交易和价格仍可查看；USD 资产不接受新的交易、手动价格或 Binance 价格事实。请在新的 USDT 账本中继续录入。
+              </p>
+            </div>
+          ) : null}
           {isFutureFactCorrectionMode ? (
             <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
               <p className="font-semibold">未来事实纠正模式</p>
@@ -723,6 +796,44 @@ export function DashboardShell({
               />
             </Section>
 
+            <Section title="净盈亏摘要">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <SummaryMetricCard
+                  label="累计买入总支出"
+                  metric={pnlSummary.buyOutflow}
+                  valuationLabel={pnlSummary.valuation.label}
+                />
+                <SummaryMetricCard
+                  label="累计卖出净到账"
+                  metric={pnlSummary.sellProceeds}
+                  valuationLabel={pnlSummary.valuation.label}
+                />
+                <SummaryMetricCard
+                  label="剩余含费成本"
+                  metric={pnlSummary.remainingCostBasis}
+                  valuationLabel={pnlSummary.valuation.label}
+                />
+                <SummaryMetricCard
+                  label="已实现净盈亏"
+                  metric={pnlSummary.realizedPnl}
+                  valuationLabel={pnlSummary.valuation.label}
+                />
+                <SummaryMetricCard
+                  label="未实现净盈亏"
+                  metric={pnlSummary.unrealizedPnl}
+                  valuationLabel={pnlSummary.valuation.label}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                买入总支出 = 成交金额 + 实际手续费；卖出净到账 = 成交金额 - 实际手续费。缺价或无法换算的异币手续费不会按 0 补入。
+              </p>
+              {pnlSummary.valuation.usesApproximation ? (
+                <p className="mt-2 text-sm font-medium text-amber-800">
+                  {USDT_USD_APPROXIMATION_DISCLOSURE}
+                </p>
+              ) : null}
+            </Section>
+
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
               <Section title="资产汇总">
                 <div className="overflow-x-auto">
@@ -731,16 +842,12 @@ export function DashboardShell({
                       <tr>
                         <th className="py-2 font-medium">资产</th>
                         <th className="py-2 font-medium">持仓数量</th>
-                        <th className="py-2 font-medium">平均成本</th>
-                        <th className="py-2 font-medium">
-                          剩余成本基础（暂不计手续费）
-                        </th>
-                        <th className="py-2 font-medium">
-                          已实现盈亏（暂不计手续费）
-                        </th>
+                        <th className="py-2 font-medium">含费平均成本</th>
+                        <th className="py-2 font-medium">剩余含费成本</th>
+                        <th className="py-2 font-medium">已实现净盈亏</th>
                         <th className="py-2 font-medium">当前价格</th>
                         <th className="py-2 font-medium">当前市值</th>
-                        <th className="py-2 font-medium">未实现盈亏</th>
+                        <th className="py-2 font-medium">未实现净盈亏</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -754,24 +861,38 @@ export function DashboardShell({
                           </td>
                         </tr>
                       ) : (
-                        positions.map((position) => (
+                        positions.map((position) => {
+                          const feeAccountingReliable =
+                            !position.feeAccountingIssues;
+                          return (
                           <tr
                             key={`${position.assetSymbol}-${position.currency}`}
                           >
                             <td className="py-3 font-medium">
-                              {position.assetSymbol}
+                              <span>{position.assetSymbol}</span>
+                              {!feeAccountingReliable ? (
+                                <span className="mt-1 block text-xs font-normal text-amber-800">
+                                  异币手续费未换算
+                                </span>
+                              ) : null}
                             </td>
                             <td className="py-3 text-slate-600">
                               {position.quantity}
                             </td>
                             <td className="py-3 text-slate-600">
-                              {position.averageCost} {position.currency}
+                              {feeAccountingReliable
+                                ? `${position.averageCost} ${position.currency}`
+                                : "不可可靠计算"}
                             </td>
                             <td className="py-3 text-slate-600">
-                              {position.costBasis} {position.currency}
+                              {feeAccountingReliable
+                                ? `${position.costBasis} ${position.currency}`
+                                : "不可可靠计算"}
                             </td>
                             <td className="py-3 text-slate-600">
-                              {position.realizedPnl} {position.currency}
+                              {feeAccountingReliable
+                                ? `${position.realizedPnl} ${position.currency}`
+                                : "不可可靠计算"}
                             </td>
                             <td className="py-3 text-slate-500">
                               {position.latestPrice === undefined
@@ -784,12 +905,15 @@ export function DashboardShell({
                                 : `${position.marketValue} ${position.currency}`}
                             </td>
                             <td className="py-3 text-slate-500">
-                              {position.unrealizedPnl === undefined
-                                ? "--"
+                              {!feeAccountingReliable
+                                ? "不可可靠计算"
+                                : position.unrealizedPnl === undefined
+                                  ? "缺少合法价格"
                                 : `${position.unrealizedPnl} ${position.currency}`}
                             </td>
                           </tr>
-                        ))
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

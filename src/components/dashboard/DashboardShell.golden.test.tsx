@@ -13,6 +13,7 @@ import userEvent from "@testing-library/user-event";
 import type { LedgerData } from "../../models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { sampleTradeDrafts } from "../../test/fixtures";
+import { createInitialLedgerData } from "../../state/initialLedgerData";
 import { isWithinTolerance } from "../../utils/decimalMath";
 import type { LedgerClock } from "../../utils/ledgerDate";
 import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
@@ -41,8 +42,11 @@ afterEach(() => {
   cleanup();
 });
 
-function createMemoryRepository(): LedgerRepository {
-  let storedData: LedgerData | null = null;
+function createMemoryRepository(
+  initialData: LedgerData | null = null,
+): LedgerRepository {
+  let storedData: LedgerData | null =
+    initialData === null ? null : structuredClone(initialData);
 
   return {
     load: vi.fn(async () =>
@@ -100,7 +104,7 @@ function expectPositionDecimal(
   expected: string,
 ) {
   const actual = getPositionCellValue(assetSymbol, columnIndex).replace(
-    /\s+USD$/,
+    /\s+(?:USD|USDT)$/,
     "",
   );
 
@@ -115,6 +119,7 @@ async function fillTradeForm(input: {
   totalValue: string;
   occurredAt: string;
   fee: string;
+  expectedCashImpact?: string;
 }) {
   const user = userEvent.setup();
 
@@ -130,15 +135,19 @@ async function fillTradeForm(input: {
   const fields = [
     ["数量", input.quantity],
     ["成交均价", input.price],
-    ["总金额", input.totalValue],
+    ["成交金额（不含手续费）", input.totalValue],
     ["日期", input.occurredAt],
-    ["手续费", input.fee],
+    ["实际手续费", input.fee],
   ] as const;
 
   for (const [label, value] of fields) {
     const field = screen.getByLabelText(label);
     await user.clear(field);
     await user.type(field, value);
+  }
+
+  if (input.expectedCashImpact) {
+    expect(screen.getByText(input.expectedCashImpact)).not.toBeNull();
   }
 
   await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -161,6 +170,173 @@ async function enterGoldenTrades() {
 }
 
 describe("DashboardShell golden UI acceptance", () => {
+  it("shows the fixed fee-aware buy, partial sell, and price example through real forms", async () => {
+    render(<DashboardShell repository={createMemoryRepository()} />);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
+      ).toBeNull();
+    });
+
+    await fillTradeForm({
+      type: "buy",
+      assetSymbol: "BTC",
+      quantity: "0.1",
+      price: "65000",
+      totalValue: "6500",
+      occurredAt: "2026-07-20",
+      fee: "5",
+      expectedCashImpact: "买入总支出：6505 USDT",
+    });
+    await fillTradeForm({
+      type: "sell",
+      assetSymbol: "BTC",
+      quantity: "0.04",
+      price: "70000",
+      totalValue: "2800",
+      occurredAt: "2026-07-21",
+      fee: "3",
+      expectedCashImpact: "卖出净到账：2797 USDT",
+    });
+
+    const user = userEvent.setup();
+    await user.selectOptions(
+      screen.getByLabelText("价格资产", { selector: "select" }),
+      "BTC",
+    );
+    await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.type(screen.getByLabelText("价格日期"), "2026-07-25");
+    await user.click(screen.getByRole("button", { name: "保存价格" }));
+
+    expectPositionDecimal("BTC", 1, "0.06");
+    expectPositionDecimal("BTC", 2, "65050");
+    expectPositionDecimal("BTC", 3, "3903");
+    expectPositionDecimal("BTC", 4, "195");
+    expectPositionDecimal("BTC", 6, "4800");
+    expectPositionDecimal("BTC", 7, "897");
+
+    const summary = getSection("净盈亏摘要");
+    for (const value of ["6505", "2797", "3903", "195", "897"]) {
+      expect(within(summary).getByText(`${value} USDT`)).not.toBeNull();
+    }
+    const trades = getSection("交易列表");
+    expect(within(trades).getByText("6505 USDT")).not.toBeNull();
+    expect(within(trades).getByText("2797 USDT")).not.toBeNull();
+    expect(within(trades).getByText("5 USDT")).not.toBeNull();
+    expect(within(trades).getByText("3 USDT")).not.toBeNull();
+  });
+
+  it("reads an old USD ledger while disabling all new fact entry points", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assets = ledgerData.assets.map((asset) => ({
+      ...asset,
+      quoteCurrency: "USD",
+    }));
+    ledgerData.trades = [
+      {
+        id: "old-usd-buy",
+        occurredAt: "2026-07-20",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "1",
+        price: "10",
+        totalValue: "10",
+        currency: "USD",
+        fee: "0",
+        feeCurrency: "USD",
+        createdAt: "2026-07-20T00:00:00Z",
+        updatedAt: "2026-07-20T00:00:00Z",
+      },
+    ];
+    ledgerData.priceSnapshots = [
+      {
+        id: "old-usd-price",
+        assetSymbol: "BTC",
+        price: "12",
+        currency: "USD",
+        recordedAt: "2026-07-25",
+        source: "manual",
+        createdAt: "2026-07-25T00:00:00Z",
+        updatedAt: "2026-07-25T00:00:00Z",
+      },
+    ];
+
+    render(<DashboardShell repository={createMemoryRepository(ledgerData)} />);
+    await waitFor(() => {
+      expect(screen.getByText("旧 USD 账本兼容读取")).not.toBeNull();
+    });
+
+    expect(within(getSection("交易列表")).getAllByText("10 USD")).not.toHaveLength(0);
+    expectPositionDecimal("BTC", 3, "10");
+    expectPositionDecimal("BTC", 6, "12");
+    expectPositionDecimal("BTC", 7, "2");
+    for (const buttonName of [
+      "保存交易",
+      "保存价格",
+      "刷新 Binance 价格",
+    ]) {
+      expect(
+        (screen.getByRole("button", { name: buttonName }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+    }
+  });
+
+  it("withholds fee-sensitive UI values for an old foreign-fee fact without hiding market value or heatmap counts", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      {
+        id: "foreign-fee-buy",
+        occurredAt: "2026-07-20",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "1",
+        price: "10",
+        totalValue: "10",
+        currency: "USDT",
+        fee: "1",
+        feeCurrency: "BNB",
+        createdAt: "2026-07-20T00:00:00Z",
+        updatedAt: "2026-07-20T00:00:00Z",
+      },
+    ];
+    ledgerData.priceSnapshots = [
+      {
+        id: "foreign-fee-price",
+        assetSymbol: "BTC",
+        price: "12",
+        currency: "USDT",
+        recordedAt: "2026-07-25",
+        source: "manual",
+        createdAt: "2026-07-25T00:00:00Z",
+        updatedAt: "2026-07-25T00:00:00Z",
+      },
+    ];
+
+    render(<DashboardShell repository={createMemoryRepository(ledgerData)} />);
+    await waitFor(() => {
+      expect(
+        screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
+      ).toBeNull();
+    });
+
+    const tradeSection = getSection("交易列表");
+    expect(
+      within(tradeSection).getByText(
+        "不可可靠计算：BNB 手续费未换算",
+      ),
+    ).not.toBeNull();
+    const positionRow = getPositionRow("BTC");
+    expect(within(positionRow).getAllByText("不可可靠计算")).toHaveLength(4);
+    expect(within(positionRow).getAllByText("12 USDT")).toHaveLength(2);
+    expect(within(getSection("净盈亏摘要")).getAllByText("不可完整计算")).toHaveLength(4);
+    expect(screen.getByText(/个成本点因异币手续费无法换算而断开/)).not.toBeNull();
+    expect(screen.getByText(/共 365 个自然日、1 笔交易/)).not.toBeNull();
+  });
+
   it("runs golden, price, oversell, and deletion scenarios through the real forms", async () => {
     render(<DashboardShell repository={createMemoryRepository()} />);
 
@@ -198,7 +374,7 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("BTC", 5, "70000");
     expectPositionDecimal("BTC", 6, "11.4716");
     expectPositionDecimal("BTC", 7, "0.4716");
-    expect(screen.getByText(/已估值 1 项，总市值 11.4716 USD 等值/)).not.toBeNull();
+    expect(screen.getByText(/已估值 1 项，总市值 11.4716 USDT/)).not.toBeNull();
     expect(screen.getByText("未估值资产：ADA、ETH。")).not.toBeNull();
     expect(screen.getByText(/共 365 个自然日、5 笔交易/)).not.toBeNull();
 
