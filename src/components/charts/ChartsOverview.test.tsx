@@ -44,6 +44,7 @@ const allocation: HoldingAllocation = {
   totalMarketValue: "100",
   missingPriceAssets: ["ETH"],
   excludedCurrencyAssets: [],
+  valuation: { label: "USDT", usesApproximation: false },
 };
 const history: HoldingHistoryPoint[] = [
   {
@@ -52,7 +53,9 @@ const history: HoldingHistoryPoint[] = [
     totalMarketValue: "100",
     missingPriceAssets: [],
     excludedCurrencyAssets: [],
+    unreliableFeeAssets: [],
     priceAsOfByAsset: { BTC: "2026-07-25" },
+    valuation: { label: "USDT", usesApproximation: false },
   },
 ];
 const heatmap: TradeHeatmapDay[] = [

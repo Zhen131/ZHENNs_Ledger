@@ -27,6 +27,7 @@ function apiPrice(
 ): PriceSnapshot {
   return {
     ...createPriceSnapshot(id, assetSymbol, price, recordedAt),
+    currency: "USDT",
     source: "api",
     binanceProvenance: {
       provider: "binance",
@@ -48,6 +49,20 @@ function buy(
     ...createSimpleTrade(id, "buy", assetSymbol, quantity, occurredAt),
     price: totalValue,
     totalValue,
+    currency: "USDT",
+    feeCurrency: "USDT",
+  };
+}
+
+function manualPrice(
+  id: string,
+  assetSymbol: string,
+  price: string,
+  recordedAt: string,
+): PriceSnapshot {
+  return {
+    ...createPriceSnapshot(id, assetSymbol, price, recordedAt),
+    currency: "USDT",
   };
 }
 
@@ -60,9 +75,9 @@ describe("holding allocation", () => {
       buy("ada", "ADA", "10", "100", "2026-07-20"),
     ];
     ledgerData.priceSnapshots = [
-      createPriceSnapshot("btc-manual", "BTC", "100", "2026-07-24"),
+      manualPrice("btc-manual", "BTC", "100", "2026-07-24"),
       apiPrice("btc-api", "BTC", "120", TODAY),
-      createPriceSnapshot("eth-manual", "ETH", "40", TODAY),
+      manualPrice("eth-manual", "ETH", "40", TODAY),
     ];
 
     const allocation = buildHoldingAllocation(ledgerData, {
@@ -70,6 +85,7 @@ describe("holding allocation", () => {
       mode: "auto",
     });
     expect(allocation.totalMarketValue).toBe("200");
+    expect(allocation.valuation.label).toBe("USDT");
     expect(allocation.missingPriceAssets).toEqual(["ADA"]);
     expect(allocation.slices).toEqual([
       {
@@ -121,10 +137,11 @@ describe("holding allocation", () => {
       slices: [],
       missingPriceAssets: ["BTC"],
       excludedCurrencyAssets: ["ADA"],
+      valuation: { label: "USDT", usesApproximation: false },
     });
 
     ledgerData.priceSnapshots = [
-      createPriceSnapshot("manual", "BTC", "90", "2026-07-20"),
+      manualPrice("manual", "BTC", "90", "2026-07-20"),
       apiPrice("api", "BTC", "100", TODAY),
     ];
     const manual = buildHoldingAllocation(ledgerData, {
@@ -171,10 +188,12 @@ describe("holding history", () => {
         ),
         price: "80",
         totalValue: "80",
+        currency: "USDT",
+        feeCurrency: "USDT",
       },
     ];
     ledgerData.priceSnapshots = [
-      createPriceSnapshot("old-price", "BTC", "60", "2026-07-18"),
+      manualPrice("old-price", "BTC", "60", "2026-07-18"),
     ];
 
     const points = buildHoldingHistory(ledgerData, {
@@ -206,7 +225,7 @@ describe("holding history", () => {
       buy("eth", "ETH", "1", "50", "2026-07-24"),
     ];
     ledgerData.priceSnapshots = [
-      createPriceSnapshot("btc", "BTC", "120", "2026-07-24"),
+      manualPrice("btc", "BTC", "120", "2026-07-24"),
     ];
     const points = buildHoldingHistory(ledgerData, {
       todayKey: TODAY,
@@ -227,7 +246,7 @@ describe("holding history", () => {
     ];
     ledgerData.priceSnapshots = [
       apiPrice("api", "BTC", "120", TODAY),
-      createPriceSnapshot("future-price", "ETH", "20", "2026-07-26"),
+      manualPrice("future-price", "ETH", "20", "2026-07-26"),
     ];
     const points = buildHoldingHistory(ledgerData, {
       todayKey: TODAY,
@@ -255,10 +274,12 @@ describe("holding history", () => {
           "2026-07-21",
         ),
         totalValue: "110",
+        currency: "USDT",
+        feeCurrency: "USDT",
       },
     ];
     ledgerData.priceSnapshots = [
-      createPriceSnapshot("price", "BTC", "120", "2026-07-20"),
+      manualPrice("price", "BTC", "120", "2026-07-20"),
     ];
     const all = buildHoldingHistory(ledgerData, {
       todayKey: TODAY,
@@ -310,6 +331,30 @@ describe("holding history", () => {
     });
     buildTradeHeatmap(ledgerData, TODAY);
     expect(ledgerData).toEqual(before);
+  });
+
+  it("keeps market value and heat counts but breaks cost after a foreign fee", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      {
+        ...buy("btc", "BTC", "1", "100", "2026-07-20"),
+        fee: "1",
+        feeCurrency: "BNB",
+      },
+    ];
+    ledgerData.priceSnapshots = [
+      manualPrice("btc-price", "BTC", "120", "2026-07-20"),
+    ];
+
+    const point = buildHoldingHistory(ledgerData, {
+      todayKey: TODAY,
+      mode: "auto",
+      range: "all",
+    }).at(-1)!;
+    expect(point.totalCostBasis).toBeUndefined();
+    expect(point.totalMarketValue).toBe("120");
+    expect(point.unreliableFeeAssets).toEqual(["BTC"]);
+    expect(buildTradeHeatmap(ledgerData, TODAY).at(-6)?.total).toBe(1);
   });
 });
 

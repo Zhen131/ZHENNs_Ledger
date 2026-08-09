@@ -13,7 +13,7 @@ import {
 
 export type SelectedPrice = {
   snapshot: PriceSnapshot;
-  effectiveCurrency: "USD";
+  effectiveCurrency: "USD" | "USDT";
   actualSource: "manual" | "binance";
   asOf: string;
 };
@@ -129,7 +129,7 @@ function toSelectedPrice(
 ): SelectedPrice {
   return {
     snapshot,
-    effectiveCurrency: "USD",
+    effectiveCurrency: snapshot.currency as "USD" | "USDT",
     actualSource,
     asOf:
       actualSource === "binance"

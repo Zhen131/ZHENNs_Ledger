@@ -44,8 +44,12 @@ export function ChartsOverview({
   onSelectedTradeDateChange: (date: string | null) => void;
 }>) {
   const allocationOption = useMemo(
-    () => buildAllocationChartOption(allocation.slices),
-    [allocation.slices],
+    () =>
+      buildAllocationChartOption(
+        allocation.slices,
+        allocation.valuation.label,
+      ),
+    [allocation.slices, allocation.valuation.label],
   );
   const historyOption = useMemo(
     () => buildHoldingHistoryChartOption(history),

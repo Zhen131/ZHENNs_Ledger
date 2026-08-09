@@ -15,6 +15,7 @@ function apiPrice(
 ): PriceSnapshot {
   return {
     ...createPriceSnapshot(id, "BTC", price, recordedAt),
+    currency: "USDT",
     source: "api",
     binanceProvenance: {
       provider: "binance",
@@ -25,11 +26,21 @@ function apiPrice(
   };
 }
 
+function manualPrice(
+  id: string,
+  price: string,
+  recordedAt: string,
+): PriceSnapshot {
+  return {
+    ...createPriceSnapshot(id, "BTC", price, recordedAt),
+    currency: "USDT",
+  };
+}
+
 describe("priceSelectionService", () => {
   it("auto mode chooses the newer source and Binance on the same day", () => {
-    const manual = createPriceSnapshot(
+    const manual = manualPrice(
       "manual",
-      "BTC",
       "69000",
       "2026-07-24",
     );
@@ -58,9 +69,8 @@ describe("priceSelectionService", () => {
   });
 
   it("manual mode prefers manual and falls back to auto when absent", () => {
-    const manual = createPriceSnapshot(
+    const manual = manualPrice(
       "manual",
-      "BTC",
       "68000",
       "2026-07-20",
     );
@@ -95,9 +105,8 @@ describe("priceSelectionService", () => {
   });
 
   it("uses stable later corrections within one source and preserves as-of", () => {
-    const first = createPriceSnapshot(
+    const first = manualPrice(
       "first",
-      "BTC",
       "68000",
       "2026-07-25",
     );
@@ -115,7 +124,7 @@ describe("priceSelectionService", () => {
       ),
     ).toEqual({
       snapshot: corrected,
-      effectiveCurrency: "USD",
+      effectiveCurrency: "USDT",
       actualSource: "manual",
       asOf: "2026-07-25",
     });
