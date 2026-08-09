@@ -4,8 +4,8 @@ import { validateBackupEnvelope } from "../backup/backupEnvelope";
 import type { PriceSnapshot } from "../models";
 import { createInitialLedgerData } from "../state/initialLedgerData";
 import {
-  createPriceSnapshot,
-  createSimpleTrade,
+  createUsdtPriceSnapshot as createPriceSnapshot,
+  createUsdtSimpleTrade as createSimpleTrade,
 } from "../test/fixtures";
 import { validateLedgerData } from "../validators/ledgerDataValidator";
 import {

@@ -21,7 +21,7 @@ import {
 } from "../encryption/noopEncryptionService";
 import type { LedgerData } from "../models";
 import { createInitialLedgerData } from "../state/initialLedgerData";
-import { sampleTrades } from "../test/fixtures";
+import { sampleUsdtTrades } from "../test/fixtures";
 import {
   claimLedgerSessionPersistencePort,
   claimReadyLedgerImportExecutionContextForDriver,
@@ -60,7 +60,7 @@ class MemoryStorageAdapter implements StorageAdapter {
 function createLedger(): LedgerData {
   return {
     ...createInitialLedgerData(),
-    trades: structuredClone(sampleTrades),
+    trades: structuredClone(sampleUsdtTrades),
   };
 }
 

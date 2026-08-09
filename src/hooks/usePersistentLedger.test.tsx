@@ -36,10 +36,10 @@ import {
 } from "../repositories/ledgerRepository";
 import { createInitialLedgerData } from "../state/initialLedgerData";
 import {
-  createAsset,
-  createPriceSnapshot,
-  createSimpleTrade,
-  sampleTrades,
+  createUsdtAsset as createAsset,
+  createUsdtPriceSnapshot as createPriceSnapshot,
+  createUsdtSimpleTrade as createSimpleTrade,
+  sampleUsdtTrades as sampleTrades,
 } from "../test/fixtures";
 import type { LedgerClock } from "../utils/ledgerDate";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";

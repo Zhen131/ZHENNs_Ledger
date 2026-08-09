@@ -8,7 +8,7 @@ import {
 import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 import { WebCryptoEncryptionService } from "../encryption/webCryptoEncryptionService";
 import { createInitialLedgerData } from "../state/initialLedgerData";
-import { sampleTrades } from "../test/fixtures";
+import { sampleUsdtTrades } from "../test/fixtures";
 import {
   DefaultLedgerRepository,
   LEDGER_REPOSITORY_ERROR_CODES,
@@ -30,13 +30,13 @@ class MemoryStorageAdapter implements StorageAdapter {
 function createLedger() {
   return {
     ...createInitialLedgerData(),
-    trades: structuredClone(sampleTrades),
+    trades: structuredClone(sampleUsdtTrades),
     priceSnapshots: [
       {
         id: "price-binance-btc",
         assetSymbol: "BTC",
         price: "70000",
-        currency: "USD",
+        currency: "USDT",
         recordedAt: "2026-07-25",
         source: "api" as const,
         binanceProvenance: {

@@ -242,6 +242,10 @@ describe("DefaultLedgerAccessController", () => {
     if (!setup.ok) return;
     const ledgerData = {
       ...createInitialLedgerData(),
+      assets: createInitialLedgerData().assets.map((asset) => ({
+        ...asset,
+        quoteCurrency: "USD",
+      })),
       trades: [
         {
           id: "legacy-migration-trade",
