@@ -15,9 +15,9 @@ The branches are independent long-lived lines. Do not merge, rebase, cherry-pick
 
 ## Current status
 
-The current browser implementation uses Next `15.5.22`, React / React DOM `19.2.8`, ESLint `9.39.5`, and `eslint-config-next` `15.5.22`. `LedgerData.schemaVersion` remains `1`.
+The current browser implementation uses Next `15.5.22`, React / React DOM `19.2.8`, ESLint `9.39.5`, and `eslint-config-next` `15.5.22`. The Week 12 candidate uses `LedgerData.schemaVersion = 2`.
 
-The normal product path stores the ledger in a user-selected encrypted `.lftl` file, called C in the project contracts. Legacy IndexedDB V2 data is no longer the normal entry point; when a complete legacy ledger is detected, the user must unlock it, migrate it to a new C, verify the new file, and explicitly confirm deletion of the legacy record.
+The normal product path stores the ledger in a user-selected encrypted `.lftl` file, called C in the project contracts. New files use the exact `.lftl V2` outer contract and contain only LedgerData V2 payloads. A V1 file, V1 plaintext backup, or complete legacy IndexedDB ledger is identified and rejected without migration, write-back, or automatic deletion.
 
 Week 11 evidence is deliberately separated into implemented behavior and independent acceptance:
 
@@ -32,6 +32,8 @@ Merging code or passing automated tests does not turn a blocked independent acce
 ## Implemented capabilities
 
 - Buy and sell entry with validation, deterministic business ordering, full-timeline oversell protection, and safe deletion.
+- Optional exact trade-platform facts plus deterministic fixed-USDT and fee-exclusive-total percentage rules. Rule candidates require explicit adoption, multiple exact matches fail closed, and the confirmed `Trade.fee` remains historical fact.
+- Fee-rule creation, version replacement, and deactivation without in-place economic edits or physical deletion.
 - DCA quantity, fee-aware average cost and cost basis, net realized P&L, latest price, market value, and net unrealized P&L derived from ledger facts.
 - Manual price snapshots and on-demand Binance latest-price refresh with an eight-second timeout, no retry, no polling, and no WebSocket.
 - One shared price-selection policy for the positions table, allocation chart, and historical value curve.
@@ -42,7 +44,7 @@ Merging code or passing automated tests does not turn a blocked independent acce
 - Passwords and `CryptoKey` objects remain session-only; refresh or close requires another unlock.
 - User-selected `.lftl` storage with current and previous encrypted generations, revision lineage, close-and-read-back verification, reconnect, and fail-closed permission handling.
 - Web Locks, file-entry identity checks, a page lease, a short write lock, and revision re-reading to reduce conflicting browser-tab writes.
-- Plaintext `BackupEnvelopeV1` export and validated whole-ledger restore. Backups remain sensitive plaintext files.
+- Plaintext `BackupEnvelopeV2` export and validated whole-ledger restore. Backups remain sensitive plaintext files.
 - Zero-write backup preflight, SHA-256 content identity, hard-error reporting, suspicious duplicate groups, and no automatic merge or deduplication.
 - Dirty, pending, retry, leave-warning, repository-generation, and stale-async-result protections around persistence.
 - `ResourcePolicy` limits for file bytes, entities, and critical string lengths.
@@ -54,6 +56,7 @@ Merging code or passing automated tests does not turn a blocked independent acce
 - An absent Binance mapping remains absent in storage and exports; runtime fallback does not mutate `LedgerData`. Explicit `null` remains a durable user disable, while an explicit mapping object remains exact.
 - `Position[]`, chart slices, chart points, heat levels, valuation mode, and selected date are derived or session state. They are not persisted in `LedgerData`, C, connection records, or backups.
 - `Trade.totalValue` is the fee-exclusive execution amount. Actual buy fees in the accounting currency increase replayed cost; actual sell fees in that currency reduce net proceeds and realized P&L.
+- Fee-rule matching uses exact `platform + assetSymbol` values. It does not fold case, infer aliases, select the first conflict, or recalculate historical trades after a rule changes.
 - A non-zero fee in another currency is never treated as zero and is never guessed as USDT. Fee-sensitive cost and P&L are withheld with an explicit reliability issue until a conversion contract exists.
 - Quantity and money calculations use `DecimalString -> decimal.js`; ledger calculations do not rely on JavaScript floating-point arithmetic.
 - Untrusted form, IndexedDB, file, and JSON input crosses a runtime validator before entering application state.
@@ -72,6 +75,7 @@ Trade entry:
 
 ```text
 TradeForm
+-> exact active FeeRule match or explicit manual fee
 -> createValidatedTrade(...)
 -> validateTradeDraft(...)
 -> dispatch(trade/add)
@@ -108,14 +112,13 @@ page
 -> user-selected .lftl file
 ```
 
-Legacy IndexedDB migration:
+Retired whole-ledger formats:
 
 ```text
-IndexedDB StoredLedgerEnvelopeV2
--> unlock and fully validate legacy LedgerData
--> create C and complete write / close / read-back / identity checks
--> explicit user confirmation
--> conditional deletion of the legacy record
+V1 .lftl / BackupEnvelopeV1 / complete legacy IndexedDB record
+-> identify the unsupported outer format or record presence
+-> show a clear V2-required message
+-> no password, decryption, migration, write-back, connection publication, or deletion
 ```
 
 ## Source layout
@@ -123,21 +126,21 @@ IndexedDB StoredLedgerEnvelopeV2
 ```text
 src/
   app/           Next.js entry points
-  backup/        BackupEnvelopeV1, canonical serialization, preflight, and download
-  components/    Access gate, dashboard, market data, charts, backup, and fact forms
+  backup/        BackupEnvelopeV2, canonical serialization, preflight, and download
+  components/    Access gate, dashboard, fee rules, market data, charts, backup, and fact forms
   marketData/    Binance public REST client, response validation, and timeout
   models/        Asset, Trade, PriceSnapshot, Position, LedgerData, and related types
   utils/         Shared decimal and date utilities
   calculators/   Pure replay, cost, holdings, and P&L calculations
   policies/      New-fact, import, date, currency, and future-fact boundaries
   validators/    Trade, price, ISO date, resource, and full-ledger validation
-  services/      Fact writes, market refresh, price selection, positions, and charts
+  services/      Fact writes, fee matching, market refresh, price selection, positions, and charts
   state/         Initial ledger, reducer, replace, and hydration state
-  repositories/  Whole-ledger load, save, clear, migration, and validation boundaries
-  encryption/    IndexedDB V2 and .lftl contracts, Base64URL, PBKDF2, and AES-GCM
-  adapters/      Legacy IndexedDB, C connection records, and file handles
+  repositories/  V2 whole-ledger load, save, clear, recovery, and validation boundaries
+  encryption/    Retired IndexedDB detection and .lftl V2 contracts, Base64URL, PBKDF2, and AES-GCM
+  adapters/      Legacy presence detection, minimal C connection records, and file handles
   coordination/  Cross-page lease and short write lock for the same C
-  composition/   Legacy migration and normal C composition roots
+  composition/   Read-only legacy presence detection and normal C composition roots
   test/          Shared deterministic fixtures
 ```
 

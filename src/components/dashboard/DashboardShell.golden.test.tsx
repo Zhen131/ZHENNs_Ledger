@@ -165,7 +165,9 @@ async function enterGoldenTrades() {
       fee: draft.fee ?? "0",
     });
 
-    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("交易已认证保存")).not.toBeNull();
+    });
   }
 }
 

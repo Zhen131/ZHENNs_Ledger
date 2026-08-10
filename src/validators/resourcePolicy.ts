@@ -11,6 +11,7 @@ export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   currency: 32,
   name: 128,
   platform: 128,
+  decimal: 256,
   note: 4_096,
   rawText: 16_384,
 } as const;
@@ -155,6 +156,12 @@ export function evaluateLedgerResourcePolicy(
       limits.symbol,
     );
     checkString(errors, `${path}.currency`, feeRule.currency, limits.currency);
+    checkString(
+      errors,
+      `${path}.${feeRule.type === "fixed" ? "amount" : "rate"}`,
+      feeRule.type === "fixed" ? feeRule.amount : feeRule.rate,
+      limits.decimal,
+    );
     checkOptionalString(
       errors,
       `${path}.replacesFeeRuleId`,
