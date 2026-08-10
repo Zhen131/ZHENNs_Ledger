@@ -102,6 +102,26 @@ describe("createValidatedTrade success", () => {
     }
   });
 
+  it("records a canonical rawText snapshot for structured trades without an external source line", () => {
+    const result = createValidatedTrade(
+      {
+        ...validBuy,
+        fee: "5",
+        platform: "OKX",
+        note: "structured form",
+      },
+      createInitialLedgerData(),
+      createDependencies(["trade-new"]),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.trade.rawText).toBe(
+      'Structured ledger entry: {"occurredAt":"2026-07-14","timePrecision":"day","type":"buy","assetSymbol":"BTC","quantity":"0.001","price":"70000","totalValue":"70","currency":"USDT","fee":"5","feeCurrency":"USDT","platform":"OKX","note":"structured form"}',
+    );
+  });
+
   it("rejects new USD trades without making legacy USD ledgers unreadable", () => {
     const legacyLedger = createInitialLedgerData();
     legacyLedger.assets = legacyLedger.assets.map((asset) => ({

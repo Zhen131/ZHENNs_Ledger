@@ -3,8 +3,14 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createValidatedTrade } from "../services/tradeService";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "../validators";
 import { createLedgerDataContentIdentity } from "./backupContentIdentity";
+import {
+  createBackupEnvelope,
+  serializeBackupEnvelope,
+} from "./backupEnvelope";
 import {
   BACKUP_PREFLIGHT_PAGE_DETAIL_LIMIT,
   BACKUP_PREFLIGHT_REPORT_DETAIL_LIMIT,
@@ -19,6 +25,58 @@ import {
 const TODAY = "2026-07-31";
 
 describe("preflightBackupJson", () => {
+  it("round-trips a structured V2 trade through export and strict rawText preflight", async () => {
+    const ledger = createInitialLedgerData();
+    const created = createValidatedTrade(
+      {
+        occurredAt: "2026-07-14",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "0.001",
+        price: "70000",
+        totalValue: "70",
+        currency: "USDT",
+        fee: "5",
+        feeCurrency: "USDT",
+        platform: "OKX",
+      },
+      ledger,
+      {
+        generateId: () => "structured-trade",
+        now: () => "2026-07-14T12:00:00.000Z",
+        todayKey: () => TODAY,
+      },
+    );
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    ledger.trades = [created.trade];
+
+    const envelope = createBackupEnvelope(ledger, {
+      appVersion: "0.1.0",
+      exportedAt: "2026-07-14T12:30:00.000Z",
+    });
+    expect(envelope.ok).toBe(true);
+    if (!envelope.ok) return;
+
+    const result = await preflightBackupJson(
+      serializeBackupEnvelope(envelope.value),
+      {
+        todayKey: TODAY,
+        selectionGeneration: 1,
+        requireHistoricalRawText: true,
+      },
+    );
+
+    expect(result.hardErrorCount).toBe(0);
+    expect(result.candidate?.trades[0]).toMatchObject({
+      id: "structured-trade",
+      fee: "5",
+      platform: "OKX",
+      rawText: expect.stringMatching(/^Structured ledger entry: /),
+    });
+  });
+
   it("reads the permanent 300-trade fixture, preserves every rawText and returns a frozen candidate", async () => {
     const serialized = readFixture("valid-300.backup.json");
     const before = sha256(serialized);
