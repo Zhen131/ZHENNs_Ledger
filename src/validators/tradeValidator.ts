@@ -141,7 +141,8 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   const currency = readRequiredString(input, "currency", errors);
   const fee = readNonNegativeFee(input.fee, errors);
   const feeCurrency = readOptionalString(input, "feeCurrency", errors);
-  const feeRuleId = readOptionalString(input, "feeRuleId", errors);
+  const platform = readOptionalPersistedString(input, "platform", errors);
+  const feeRuleId = readOptionalPersistedString(input, "feeRuleId", errors);
   const note = readOptionalString(input, "note", errors);
   const rawText = readOptionalString(input, "rawText", errors);
 
@@ -278,6 +279,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
       currency,
       fee,
       ...(feeCurrency === undefined ? {} : { feeCurrency }),
+      ...(platform === undefined ? {} : { platform }),
       ...(feeRuleId === undefined ? {} : { feeRuleId }),
       ...(note === undefined ? {} : { note }),
       ...(rawText === undefined ? {} : { rawText }),
@@ -449,7 +451,7 @@ function readNonNegativeFee(
 
 function readOptionalString(
   input: Record<string, unknown>,
-  field: "feeCurrency" | "feeRuleId" | "note" | "rawText",
+  field: "feeCurrency" | "note" | "rawText",
   errors: TradeValidationError[],
 ): string | undefined {
   const value = input[field];
@@ -467,6 +469,35 @@ function readOptionalString(
       TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
       field,
       `${field} must be a string when provided`,
+    ),
+  );
+  return undefined;
+}
+
+function readOptionalPersistedString(
+  input: Record<string, unknown>,
+  field: "platform" | "feeRuleId",
+  errors: TradeValidationError[],
+): string | undefined {
+  const value = input[field];
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.trim() === value
+  ) {
+    return value;
+  }
+
+  errors.push(
+    createError(
+      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
+      field,
+      `${field} must be a non-empty string without surrounding whitespace when provided`,
     ),
   );
   return undefined;

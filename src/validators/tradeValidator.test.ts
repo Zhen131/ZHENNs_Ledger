@@ -447,6 +447,34 @@ test("defaults an omitted fee to zero", () => {
   }
 });
 
+test("preserves an optional exact platform and fee rule source", () => {
+  const result = validateTradeDraft(
+    { ...validDraft, platform: "OKX", feeRuleId: "rule-okx-btc-v1" },
+    context,
+  );
+
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expect(result.value.platform).toBe("OKX");
+    expect(result.value.feeRuleId).toBe("rule-okx-btc-v1");
+  }
+});
+
+test("rejects blank or surrounding-whitespace platform and fee rule facts", () => {
+  for (const [field, value] of [
+    ["platform", " OKX "],
+    ["platform", ""],
+    ["feeRuleId", " rule-1"],
+    ["feeRuleId", ""],
+  ] as const) {
+    expectError(
+      validateTradeDraft({ ...validDraft, [field]: value }, context),
+      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
+      field,
+    );
+  }
+});
+
 test("keeps legacy USD and foreign-fee facts readable without the new-write policy", () => {
   const result = validateTradeDraft(
     { ...validDraft, fee: "1", feeCurrency: "CNY" },

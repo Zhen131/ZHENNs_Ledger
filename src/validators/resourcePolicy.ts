@@ -99,6 +99,7 @@ export function evaluateLedgerResourcePolicy(
     checkString(errors, `${path}.assetSymbol`, trade.assetSymbol, limits.symbol);
     checkString(errors, `${path}.currency`, trade.currency, limits.currency);
     checkString(errors, `${path}.feeCurrency`, trade.feeCurrency, limits.currency);
+    checkOptionalString(errors, `${path}.platform`, trade.platform, limits.platform);
     checkOptionalString(errors, `${path}.feeRuleId`, trade.feeRuleId, limits.id);
     checkOptionalString(errors, `${path}.note`, trade.note, limits.note);
     checkOptionalString(errors, `${path}.rawText`, trade.rawText, limits.rawText);
@@ -147,7 +148,19 @@ export function evaluateLedgerResourcePolicy(
     checkString(errors, `${path}.id`, feeRule.id, limits.id);
     checkString(errors, `${path}.name`, feeRule.name, limits.name);
     checkString(errors, `${path}.platform`, feeRule.platform, limits.platform);
+    checkString(
+      errors,
+      `${path}.assetSymbol`,
+      feeRule.assetSymbol,
+      limits.symbol,
+    );
     checkString(errors, `${path}.currency`, feeRule.currency, limits.currency);
+    checkOptionalString(
+      errors,
+      `${path}.replacesFeeRuleId`,
+      feeRule.replacesFeeRuleId,
+      limits.id,
+    );
   }
 
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
