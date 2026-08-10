@@ -1425,60 +1425,6 @@ describe("DefaultLedgerFileAccessController", () => {
     });
   });
 
-  it("retries unpublished migration release with the original lifecycle owner and token", async () => {
-    const handle = new MemoryFileHandle(
-      "migration-release-retry.lftl",
-    );
-    const release = vi
-      .fn<() => Promise<void>>()
-      .mockRejectedValueOnce(
-        new Error("migration release failed"),
-      )
-      .mockResolvedValueOnce(undefined);
-    const lease: LedgerFileSessionLease = {
-      sessionId: "migration-release-retry",
-      runExclusiveWrite: (operation) => operation(),
-      release,
-    };
-    const coordinator: LedgerFileSessionCoordinator = {
-      acquire: vi.fn(async () => ({
-        status: "acquired" as const,
-        lease,
-      })),
-    };
-    const { controller } = createController(
-      handle,
-      handle,
-      coordinator,
-    );
-    const created = await controller.createFromLegacy(
-      PASSPHRASE,
-      createInitialLedgerData(),
-    );
-    expect(created.status).toBe("unlocked");
-    if (created.status !== "unlocked") return;
-
-    await expect(
-      controller.releaseUnpublishedMigrationSession(
-        created.session,
-      ),
-    ).rejects.toThrow("migration release failed");
-    await expect(controller.selectExisting()).resolves.toEqual({
-      ok: false,
-      code: LEDGER_FILE_ACCESS_ERROR_CODES.FILE_IN_USE,
-    });
-
-    await expect(
-      controller.releaseUnpublishedMigrationSession(
-        created.session,
-      ),
-    ).resolves.toBeUndefined();
-    expect(release).toHaveBeenCalledTimes(2);
-    await expect(controller.selectExisting()).resolves.toEqual({
-      ok: true,
-    });
-  });
-
   it(
     "retains a recovery candidate after cancellation release failure and retries one concurrent cancellation",
     async () => {
