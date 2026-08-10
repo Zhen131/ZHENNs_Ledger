@@ -15,7 +15,7 @@ The branches are independent long-lived lines. Do not merge, rebase, cherry-pick
 
 ## Current status
 
-The current browser implementation uses Next `15.5.22`, React / React DOM `19.2.8`, ESLint `9.39.5`, and `eslint-config-next` `15.5.22`. The Week 12 candidate uses `LedgerData.schemaVersion = 2`.
+The current browser implementation uses Next `15.5.22`, React / React DOM `19.2.8`, ESLint `9.39.5`, and `eslint-config-next` `15.5.22`. The current `main` product line uses `LedgerData.schemaVersion = 2`.
 
 The normal product path stores the ledger in a user-selected encrypted `.lftl` file, called C in the project contracts. New files use the exact `.lftl V2` outer contract and contain only LedgerData V2 payloads. A V1 file, V1 plaintext backup, or complete legacy IndexedDB ledger is identified and rejected without migration, write-back, or automatic deletion.
 
@@ -27,7 +27,9 @@ Week 11 evidence is deliberately separated into implemented behavior and indepen
 
 The Week 12 fee-aware P&L work has passed its final independent R1 review and is now fast-forwarded into `main`. The original independent `01D` review failed on one P0: loading an otherwise valid legacy USD asset without `binanceMapping` could silently persist a default mapping. R1 preserves absent, explicit `null`, and explicit mapping objects as distinct stored facts, while a read-only runtime resolver supplies built-in defaults only where Binance behavior needs them. The independent `01R1D` review passed 58 test files and 730 tests, typecheck, lint, production build, whitespace checks, and new production real-Chrome flows for absent, null, explicit, and new-USDT ledgers. Its final absent-mapping file round trip produced deeply equal input and exported `LedgerData` without materializing the BTC mapping.
 
-Merging code or passing automated tests does not turn a blocked independent acceptance result into `PASS`.
+The Week 12 V2 and fee-rule batch is also integrated into `main`. Its development run passed 58 test files and 727 tests, typecheck, lint, production build, static residue scans, and an extensive real-Chrome fictional-file matrix covering V2 creation and reopen, fee-rule workflows, V1 rejection, backup restore, permissions, recovery, dual-tab contention, file copies, external revisions, deletion/reselection, responsive layouts, and raw IndexedDB connection records. The product owner deferred the separate `02C` run so that independent review can be consolidated after several feature batches; no Week 12 `02D` result exists.
+
+Merging code or passing development-side checks does not turn a historical blocked or deliberately deferred independent review into `PASS`.
 
 ## Implemented capabilities
 
@@ -165,7 +167,7 @@ npm run build
 git diff --check
 ```
 
-The current accepted Week 12 baseline reports 58 test files and 730 passing tests, plus typecheck, lint, production build, whitespace checks, and the independent fictional-file real-Chrome flows described above. This `01R1D` acceptance does not replace or close the blocked Week 11 browser contracts described above.
+The current `main` development baseline reports 58 test files and 727 passing tests, plus typecheck, lint, production build, whitespace and residue checks, and the V2 fictional-file real-Chrome flows described above. The earlier `01R1D` result remains the independent acceptance evidence for the fee-aware P&L batch; the V2 and fee-rule batch awaits a later consolidated independent review.
 
 ## Known limits and deferred work
 
@@ -173,7 +175,7 @@ The current accepted Week 12 baseline reports 58 test files and 730 passing test
 - Position-adjustment transactions and the originally proposed transaction-marker overlay are not implemented.
 - Binance provides latest public prices only. Historical Kline/OHLC, polling, and WebSocket feeds are not implemented.
 - Exported backups remain plaintext.
-- `02D` and `03B` remain `BLOCKED` under their independent acceptance contracts.
+- The Week 11 `02D` and `03B` results remain historical `BLOCKED` records. Week 12 `02C` is deferred and no Week 12 `02D` has been generated.
 - The current browser compensation flow is not an operating-system atomic transaction.
 - Mac desktop architecture is a product discussion direction, not implemented code.
 - Pagination, virtual lists, and large-ledger performance budgets await a defined benchmark. Do not claim that 25,000 trades are smooth without measured evidence.
@@ -181,6 +183,6 @@ The current accepted Week 12 baseline reports 58 test files and 730 passing test
 
 ## Release history boundary
 
-The Week 10 feature baseline is `5a21529c10d4a27048e4d26d07c7a1641e4c7b87`. The pre-split source baseline is `084ae7da96770721e9e805658928a7884eed779c`, preserved by `CS2026-baseline-2026-08-02`. The independently accepted Week 12 fee-aware P&L implementation and R1 fix were fast-forwarded through `605c7a3c2860b7c4783a8234037882ceca1613c8` before this release-status update.
+The Week 10 feature baseline is `5a21529c10d4a27048e4d26d07c7a1641e4c7b87`. The pre-split source baseline is `084ae7da96770721e9e805658928a7884eed779c`, preserved by `CS2026-baseline-2026-08-02`. The independently accepted Week 12 fee-aware P&L implementation and R1 fix were fast-forwarded through `605c7a3c2860b7c4783a8234037882ceca1613c8`. The V2 and fee-rule implementation was subsequently fast-forwarded through `083b9f7cc3244f8bb96ba81635f4d619ed0a4008` before this release-status update.
 
 Use Git as the source of truth for current branch, remote, and release state. This README does not preserve stale claims about unmerged local candidates.
