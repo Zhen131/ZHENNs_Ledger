@@ -35,6 +35,8 @@ export const LEDGER_FILE_ACCESS_ERROR_CODES = {
   PICKER_UNAVAILABLE: "LEDGER_FILE_PICKER_UNAVAILABLE",
   INVALID_EXTENSION: "LEDGER_FILE_INVALID_EXTENSION",
   NON_EMPTY_CREATE_TARGET: "LEDGER_FILE_NON_EMPTY_CREATE_TARGET",
+  UNSUPPORTED_FILE_VERSION:
+    "LEDGER_FILE_ACCESS_UNSUPPORTED_FILE_VERSION",
   INVALID_FILE: "LEDGER_FILE_ACCESS_INVALID_FILE",
   CREATE_FAILED: "LEDGER_FILE_ACCESS_CREATE_FAILED",
   UNLOCK_FAILED: "LEDGER_FILE_ACCESS_UNLOCK_FAILED",
@@ -1086,10 +1088,32 @@ function mapSelectionError(error: unknown): LedgerFileAccessErrorCode {
     error instanceof LedgerFileRepositoryError &&
     error.code === LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE
   ) {
+    if (hasLedgerFileContractError(
+      error.cause,
+      "LEDGER_FILE_UNSUPPORTED_VERSION",
+    )) {
+      return LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION;
+    }
     return LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE;
   }
 
   return LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE;
+}
+
+function hasLedgerFileContractError(
+  cause: unknown,
+  code: string,
+): boolean {
+  return (
+    Array.isArray(cause) &&
+    cause.some(
+      (item) =>
+        typeof item === "object" &&
+        item !== null &&
+        "code" in item &&
+        item.code === code,
+    )
+  );
 }
 
 function mapUnlockError(error: unknown): LedgerFileAccessErrorCode {
