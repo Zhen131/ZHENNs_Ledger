@@ -10,7 +10,7 @@ import { createPriceSnapshot, createSimpleTrade } from "../test/fixtures";
 
 test("creates an in-memory ledger with built-in assets", () => {
   expect(createInitialLedgerData()).toEqual({
-    schemaVersion: 1,
+    schemaVersion: 2,
     assets: createBuiltInAssets(),
     trades: [],
     priceSnapshots: [],
@@ -170,9 +170,11 @@ test("resets user data and restores independent built-in assets", () => {
         id: "fee-existing",
         name: "Existing fee",
         platform: "Existing platform",
+        assetSymbol: "BTC",
+        status: "active" as const,
         type: "percentage" as const,
         rate: "0.001",
-        currency: "USD",
+        currency: "USDT" as const,
         createdAt: "2026-07-13T00:00:00Z",
         updatedAt: "2026-07-13T00:00:00Z",
       },

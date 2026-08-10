@@ -75,7 +75,7 @@ export function validateLedgerData(
 
   const errors: LedgerDataValidationError[] = [];
 
-  if (input.schemaVersion !== 1) {
+  if (input.schemaVersion !== 2) {
     errors.push(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION,
@@ -103,7 +103,7 @@ export function validateLedgerData(
     .map((value, index) => readAsset(value, index, errors))
     .filter((value): value is Asset => value !== undefined);
   const feeRules = rawFeeRules
-    .map((value, index) => readFeeRule(value, index, errors))
+    .map((value, index) => readFeeRule(value, index, assets, errors))
     .filter((value): value is FeeRule => value !== undefined);
   const trades = rawTrades
     .map((value, index) => readTrade(value, index, assets, errors))
@@ -119,7 +119,7 @@ export function validateLedgerData(
   validateUniqueIdentifiers(priceSnapshots, "priceSnapshots", errors);
   validateUniqueIdentifiers(feeRules, "feeRules", errors);
   validateUniqueAssetSymbols(assets, errors);
-  validateFeeRuleReferences(trades, feeRules, errors);
+  validateFeeRuleReferences(trades, feeRules, assets, errors);
 
   if (
     errors.length === 0 &&
@@ -150,7 +150,7 @@ export function validateLedgerData(
   return {
     ok: true,
     value: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       assets,
       trades,
       priceSnapshots,
@@ -486,6 +486,7 @@ function readPriceSnapshot(
 function readFeeRule(
   value: unknown,
   index: number,
+  assets: readonly Asset[],
   errors: LedgerDataValidationError[],
 ): FeeRule | undefined {
   const path = `feeRules[${index}]`;
@@ -498,26 +499,98 @@ function readFeeRule(
   const errorCount = errors.length;
   const id = readRequiredString(record.id, `${path}.id`, errors);
   const name = readRequiredString(record.name, `${path}.name`, errors);
-  const platform = readRequiredString(
+  const platform = readPersistedString(
     record.platform,
     `${path}.platform`,
     errors,
   );
-  const rate = readNonNegativeDecimal(record.rate, `${path}.rate`, errors);
-  const currency = readRequiredString(
-    record.currency,
-    `${path}.currency`,
+  const assetSymbol = readPersistedString(
+    record.assetSymbol,
+    `${path}.assetSymbol`,
+    errors,
+  );
+  const deactivatedAt = readOptionalISODate(
+    record.deactivatedAt,
+    `${path}.deactivatedAt`,
+    errors,
+  );
+  const replacesFeeRuleId = readOptionalPersistedString(
+    record.replacesFeeRuleId,
+    `${path}.replacesFeeRuleId`,
     errors,
   );
   const createdAt = readISODate(record.createdAt, `${path}.createdAt`, errors);
   const updatedAt = readISODate(record.updatedAt, `${path}.updatedAt`, errors);
+  const status =
+    record.status === "active" || record.status === "inactive"
+      ? record.status
+      : undefined;
 
-  if (record.type !== "percentage") {
+  if (
+    assetSymbol !== undefined &&
+    !assets.some((asset) => asset.symbol === assetSymbol)
+  ) {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
+        `${path}.assetSymbol`,
+        `Unknown asset: ${assetSymbol}`,
+      ),
+    );
+  }
+
+  if (record.status !== "active" && record.status !== "inactive") {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.status`,
+        "Fee rule status must be active or inactive",
+      ),
+    );
+  }
+  if (record.status === "active" && deactivatedAt !== undefined) {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.deactivatedAt`,
+        "An active fee rule cannot have deactivatedAt",
+      ),
+    );
+  }
+  if (record.status === "inactive" && deactivatedAt === undefined) {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.deactivatedAt`,
+        "An inactive fee rule must have deactivatedAt",
+      ),
+    );
+  }
+  if (record.currency !== "USDT") {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.currency`,
+        "Fee rule currency must be USDT",
+      ),
+    );
+  }
+
+  const amount =
+    record.type === "fixed"
+      ? readNonNegativeDecimal(record.amount, `${path}.amount`, errors)
+      : undefined;
+  const rate =
+    record.type === "percentage"
+      ? readNonNegativeDecimal(record.rate, `${path}.rate`, errors)
+      : undefined;
+
+  if (record.type !== "fixed" && record.type !== "percentage") {
     errors.push(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
         `${path}.type`,
-        "Fee rule type must be percentage",
+        "Fee rule type must be fixed or percentage",
       ),
     );
   }
@@ -527,25 +600,43 @@ function readFeeRule(
     id === undefined ||
     name === undefined ||
     platform === undefined ||
-    rate === undefined ||
-    currency === undefined ||
+    assetSymbol === undefined ||
     createdAt === undefined ||
     updatedAt === undefined ||
-    record.type !== "percentage"
+    (record.status !== "active" && record.status !== "inactive") ||
+    (record.type !== "fixed" && record.type !== "percentage") ||
+    record.currency !== "USDT" ||
+    (record.type === "fixed" && amount === undefined) ||
+    (record.type === "percentage" && rate === undefined)
   ) {
     return undefined;
   }
 
-  return {
+  const common = {
     id,
     name,
     platform,
-    type: "percentage",
-    rate,
-    currency,
+    assetSymbol,
+    status: status!,
     createdAt,
     updatedAt,
+    ...(deactivatedAt === undefined ? {} : { deactivatedAt }),
+    ...(replacesFeeRuleId === undefined ? {} : { replacesFeeRuleId }),
   };
+
+  return record.type === "fixed"
+    ? {
+        ...common,
+        type: "fixed",
+        amount: amount!,
+        currency: "USDT",
+      }
+    : {
+        ...common,
+        type: "percentage",
+        rate: rate!,
+        currency: "USDT",
+      };
 }
 
 function validateUniqueIdentifiers(
@@ -602,13 +693,15 @@ function validateUniqueAssetSymbols(
 function validateFeeRuleReferences(
   trades: readonly Trade[],
   feeRules: readonly FeeRule[],
+  assets: readonly Asset[],
   errors: LedgerDataValidationError[],
 ) {
-  const feeRuleIds = new Set(feeRules.map((feeRule) => feeRule.id));
+  const feeRulesById = new Map(feeRules.map((feeRule) => [feeRule.id, feeRule]));
+  const assetSymbols = new Set(assets.map((asset) => asset.symbol));
 
   for (let index = 0; index < trades.length; index += 1) {
     const trade = trades[index];
-    if (trade.feeRuleId && !feeRuleIds.has(trade.feeRuleId)) {
+    if (trade.feeRuleId && !feeRulesById.has(trade.feeRuleId)) {
       errors.push(
         createError(
           LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
@@ -616,6 +709,72 @@ function validateFeeRuleReferences(
           `Unknown fee rule: ${trade.feeRuleId}`,
         ),
       );
+    }
+  }
+
+  for (let index = 0; index < feeRules.length; index += 1) {
+    const feeRule = feeRules[index];
+    const path = `feeRules[${index}]`;
+
+    if (!assetSymbols.has(feeRule.assetSymbol)) {
+      errors.push(
+        createError(
+          LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
+          `${path}.assetSymbol`,
+          `Unknown asset: ${feeRule.assetSymbol}`,
+        ),
+      );
+    }
+
+    if (feeRule.replacesFeeRuleId === undefined) {
+      continue;
+    }
+
+    const replacedRule = feeRulesById.get(feeRule.replacesFeeRuleId);
+    if (replacedRule === undefined) {
+      errors.push(
+        createError(
+          LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
+          `${path}.replacesFeeRuleId`,
+          `Unknown replaced fee rule: ${feeRule.replacesFeeRuleId}`,
+        ),
+      );
+      continue;
+    }
+
+    if (
+      replacedRule.id === feeRule.id ||
+      replacedRule.status !== "inactive" ||
+      replacedRule.platform !== feeRule.platform ||
+      replacedRule.assetSymbol !== feeRule.assetSymbol
+    ) {
+      errors.push(
+        createError(
+          LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
+          `${path}.replacesFeeRuleId`,
+          "A replacement must reference a different inactive rule with the same platform and asset",
+        ),
+      );
+    }
+  }
+
+  for (let index = 0; index < feeRules.length; index += 1) {
+    const visited = new Set<string>();
+    let current: FeeRule | undefined = feeRules[index];
+
+    while (current?.replacesFeeRuleId !== undefined) {
+      if (visited.has(current.id)) {
+        errors.push(
+          createError(
+            LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
+            `feeRules[${index}].replacesFeeRuleId`,
+            "Fee rule replacement links must not form a cycle",
+          ),
+        );
+        break;
+      }
+      visited.add(current.id);
+      current = feeRulesById.get(current.replacesFeeRuleId);
     }
   }
 }
@@ -658,6 +817,42 @@ function readRequiredString(
   return undefined;
 }
 
+function readPersistedString(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): string | undefined {
+  const text = readRequiredString(value, path, errors);
+
+  if (text === undefined) {
+    return undefined;
+  }
+
+  if (text.trim() === text) {
+    return text;
+  }
+
+  errors.push(
+    createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      path,
+      `${path} must not contain surrounding whitespace`,
+    ),
+  );
+  return undefined;
+}
+
+function readOptionalPersistedString(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return readPersistedString(value, path, errors);
+}
+
 function readISODate(
   value: unknown,
   path: string,
@@ -681,6 +876,17 @@ function readISODate(
     ),
   );
   return undefined;
+}
+
+function readOptionalISODate(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return readISODate(value, path, errors);
 }
 
 function readOptionalDecimals(

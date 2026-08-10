@@ -7,7 +7,8 @@ export type ISODateTimeString = string;
 export type TimePrecision = "day" | "minute" | "second";
 export type TradeType = "buy" | "sell";
 export type PriceSource = "manual" | "api";
-export type FeeRuleType = "percentage";
+export type FeeRuleType = "fixed" | "percentage";
+export type FeeRuleStatus = "active" | "inactive";
 export type ValuationPriceMode = "auto" | "manual";
 
 export type BinanceMarketMapping = {
@@ -50,6 +51,7 @@ export type Trade = {
   currency: CurrencyCode;
   fee: DecimalString;
   feeCurrency: CurrencyCode;
+  platform?: string;
   feeRuleId?: string;
   note?: string;
   rawText?: string;
@@ -69,6 +71,7 @@ export type TradeDraft = {
   currency: CurrencyCode;
   fee?: DecimalString;
   feeCurrency?: CurrencyCode;
+  platform?: string;
   feeRuleId?: string;
   note?: string;
   rawText?: string;
@@ -97,16 +100,31 @@ export type PriceSnapshotDraft = {
   note?: string;
 };
 
-export type FeeRule = {
+export type FeeRuleBase = {
   id: string;
   name: string;
   platform: string;
-  type: FeeRuleType;
-  rate: DecimalString;
-  currency: CurrencyCode;
+  assetSymbol: string;
+  status: FeeRuleStatus;
   createdAt: ISODateTimeString;
   updatedAt: ISODateTimeString;
+  deactivatedAt?: ISODateTimeString;
+  replacesFeeRuleId?: string;
 };
+
+export type FixedFeeRule = FeeRuleBase & {
+  type: "fixed";
+  amount: DecimalString;
+  currency: "USDT";
+};
+
+export type PercentageFeeRule = FeeRuleBase & {
+  type: "percentage";
+  rate: DecimalString;
+  currency: "USDT";
+};
+
+export type FeeRule = FixedFeeRule | PercentageFeeRule;
 
 export type FeeAccountingIssue = {
   code: "UNSUPPORTED_FEE_CURRENCY";
@@ -132,7 +150,7 @@ export type Position = {
 };
 
 export type LedgerData = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   assets: Asset[];
   trades: Trade[];
   priceSnapshots: PriceSnapshot[];

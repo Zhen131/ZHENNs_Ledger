@@ -30,9 +30,11 @@ function createCompleteLedger(): LedgerData {
         id: "fee-rule-1",
         name: "Default",
         platform: "Manual",
+        assetSymbol: "BTC",
+        status: "active",
         type: "percentage",
         rate: "0.001",
-        currency: "USD",
+        currency: "USDT",
         createdAt: "2026-07-16T00:00:00Z",
         updatedAt: "2026-07-16T00:00:00Z",
       },
@@ -99,7 +101,12 @@ describe("validateLedgerData", () => {
       "ledgerData",
     );
     expectError(
-      { ...createInitialLedgerData(), schemaVersion: 2 },
+      { ...createInitialLedgerData(), schemaVersion: 1 },
+      LEDGER_DATA_VALIDATION_ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION,
+      "schemaVersion",
+    );
+    expectError(
+      { ...createInitialLedgerData(), schemaVersion: 3 },
       LEDGER_DATA_VALIDATION_ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION,
       "schemaVersion",
     );
@@ -203,8 +210,16 @@ describe("validateLedgerData", () => {
   it("rejects malformed fee rules and dangling fee rule references", () => {
     const input = createCompleteLedger();
     input.feeRules[0] = {
-      ...input.feeRules[0],
+      id: "fee-rule-1",
+      name: "Default",
+      platform: "Manual",
+      assetSymbol: "BTC",
+      status: "active",
+      type: "percentage",
       rate: "-0.1",
+      currency: "USDT",
+      createdAt: "2026-07-16T00:00:00Z",
+      updatedAt: "2026-07-16T00:00:00Z",
     };
     input.trades[0] = {
       ...input.trades[0],
@@ -225,6 +240,164 @@ describe("validateLedgerData", () => {
         ]),
       );
     }
+  });
+
+  it("accepts the complete fixed and percentage fee rule union", () => {
+    const input = createCompleteLedger();
+    input.feeRules = [
+      {
+        id: "fixed-okx-btc-v1",
+        name: "OKX BTC fixed",
+        platform: "OKX",
+        assetSymbol: "BTC",
+        status: "inactive",
+        type: "fixed",
+        amount: "5",
+        currency: "USDT",
+        createdAt: "2026-07-16T00:00:00Z",
+        updatedAt: "2026-07-17T00:00:00Z",
+        deactivatedAt: "2026-07-17T00:00:00Z",
+      },
+      {
+        id: "percentage-okx-btc-v2",
+        name: "OKX BTC percentage",
+        platform: "OKX",
+        assetSymbol: "BTC",
+        status: "active",
+        type: "percentage",
+        rate: "0.001",
+        currency: "USDT",
+        replacesFeeRuleId: "fixed-okx-btc-v1",
+        createdAt: "2026-07-17T00:00:00Z",
+        updatedAt: "2026-07-17T00:00:00Z",
+      },
+    ];
+    input.trades[0] = {
+      ...input.trades[0],
+      platform: "OKX",
+      feeRuleId: "fixed-okx-btc-v1",
+    };
+
+    const result = validateLedgerData(input);
+
+    expect(result).toEqual({ ok: true, value: input });
+  });
+
+  it("rejects invalid fee rule targets, states, currency, and trimmed identifiers", () => {
+    const input = createCompleteLedger();
+    input.feeRules = [
+      {
+        id: "invalid-fixed",
+        name: "Invalid fixed",
+        platform: " OKX",
+        assetSymbol: "DOGE",
+        status: "inactive",
+        type: "fixed",
+        amount: "-1",
+        currency: "USD",
+        createdAt: "2026-07-16T00:00:00Z",
+        updatedAt: "2026-07-16T00:00:00Z",
+      } as never,
+    ];
+
+    const result = validateLedgerData(input);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "feeRules[0].platform" }),
+          expect.objectContaining({ path: "feeRules[0].assetSymbol" }),
+          expect.objectContaining({ path: "feeRules[0].amount" }),
+          expect.objectContaining({ path: "feeRules[0].currency" }),
+          expect.objectContaining({ path: "feeRules[0].deactivatedAt" }),
+        ]),
+      );
+    }
+  });
+
+  it("rejects replacement links that are active, cross-target, missing, or cyclic", () => {
+    const input = createCompleteLedger();
+    input.feeRules = [
+      {
+        id: "rule-a",
+        name: "Rule A",
+        platform: "OKX",
+        assetSymbol: "BTC",
+        status: "inactive",
+        type: "fixed",
+        amount: "5",
+        currency: "USDT",
+        deactivatedAt: "2026-07-17T00:00:00Z",
+        replacesFeeRuleId: "rule-b",
+        createdAt: "2026-07-16T00:00:00Z",
+        updatedAt: "2026-07-17T00:00:00Z",
+      },
+      {
+        id: "rule-b",
+        name: "Rule B",
+        platform: "OKX",
+        assetSymbol: "BTC",
+        status: "inactive",
+        type: "percentage",
+        rate: "0.001",
+        currency: "USDT",
+        deactivatedAt: "2026-07-18T00:00:00Z",
+        replacesFeeRuleId: "rule-a",
+        createdAt: "2026-07-17T00:00:00Z",
+        updatedAt: "2026-07-18T00:00:00Z",
+      },
+      {
+        id: "rule-c",
+        name: "Rule C",
+        platform: "Binance",
+        assetSymbol: "BTC",
+        status: "active",
+        type: "fixed",
+        amount: "6",
+        currency: "USDT",
+        replacesFeeRuleId: "rule-a",
+        createdAt: "2026-07-18T00:00:00Z",
+        updatedAt: "2026-07-18T00:00:00Z",
+      },
+      {
+        id: "rule-d",
+        name: "Rule D",
+        platform: "OKX",
+        assetSymbol: "BTC",
+        status: "active",
+        type: "fixed",
+        amount: "7",
+        currency: "USDT",
+        replacesFeeRuleId: "missing-rule",
+        createdAt: "2026-07-18T00:00:00Z",
+        updatedAt: "2026-07-18T00:00:00Z",
+      },
+    ];
+
+    const result = validateLedgerData(input);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "feeRules[0].replacesFeeRuleId" }),
+          expect.objectContaining({ path: "feeRules[2].replacesFeeRuleId" }),
+          expect.objectContaining({ path: "feeRules[3].replacesFeeRuleId" }),
+        ]),
+      );
+    }
+  });
+
+  it("rejects blank or whitespace-normalized persisted trade platforms", () => {
+    const input = createCompleteLedger();
+    input.trades[0] = { ...input.trades[0], platform: " OKX " };
+
+    expectError(
+      input,
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      "trades[0].platform",
+    );
   });
 
   it("does not mutate deeply frozen runtime input", () => {
