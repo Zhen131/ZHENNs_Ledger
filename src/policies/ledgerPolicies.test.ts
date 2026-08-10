@@ -10,8 +10,8 @@ import {
 import { validateLedgerData } from "../validators/ledgerDataValidator";
 import {
   collectLedgerCompatibilityWarnings,
-  normalizeLedgerDataForRuntime,
   partitionLedgerFactsForToday,
+  resolveAssetBinanceMappingForRuntime,
 } from "./ledgerFactPolicy";
 import { validateLedgerImportPolicy } from "./ledgerImportPolicy";
 
@@ -64,21 +64,38 @@ describe("ledger fact compatibility policy", () => {
     ]);
   });
 
-  it("normalizes only undefined built-in mappings and preserves explicit null", () => {
+  it("resolves absent built-in mappings without changing persisted three-state facts", () => {
     const ledgerData = createInitialLedgerData();
-    ledgerData.assets[0] = {
-      ...ledgerData.assets[0],
-      binanceMapping: undefined,
-    };
+    const absentAsset = { ...ledgerData.assets[0] };
+    delete absentAsset.binanceMapping;
+    ledgerData.assets[0] = absentAsset;
     ledgerData.assets[1] = {
       ...ledgerData.assets[1],
       binanceMapping: null,
     };
+    ledgerData.assets[2] = {
+      ...ledgerData.assets[2],
+      binanceMapping: {
+        provider: "binance",
+        symbol: "ADA-CUSTOM",
+        baseAsset: "ADA",
+        quoteAsset: "USDT",
+      },
+    };
 
-    const normalized = normalizeLedgerDataForRuntime(ledgerData);
-    expect(normalized.assets[0].binanceMapping?.symbol).toBe("BTCUSDT");
-    expect(normalized.assets[1].binanceMapping).toBeNull();
-    expect(ledgerData.assets[0].binanceMapping).toBeUndefined();
+    expect(resolveAssetBinanceMappingForRuntime(ledgerData.assets[0])).toEqual(
+      expect.objectContaining({ symbol: "BTCUSDT" }),
+    );
+    expect(resolveAssetBinanceMappingForRuntime(ledgerData.assets[1])).toBeNull();
+    expect(resolveAssetBinanceMappingForRuntime(ledgerData.assets[2])).toEqual({
+      provider: "binance",
+      symbol: "ADA-CUSTOM",
+      baseAsset: "ADA",
+      quoteAsset: "USDT",
+    });
+    expect(Object.hasOwn(ledgerData.assets[0], "binanceMapping")).toBe(false);
+    expect(ledgerData.assets[1].binanceMapping).toBeNull();
+    expect(ledgerData.assets[2].binanceMapping?.symbol).toBe("ADA-CUSTOM");
   });
 
   it("warns for legacy rescue cases but keeps structural validation readable", () => {

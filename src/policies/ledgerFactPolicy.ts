@@ -93,24 +93,18 @@ export function partitionLedgerFactsForToday(
   };
 }
 
-export function normalizeLedgerDataForRuntime(
-  ledgerData: LedgerData,
-): LedgerData {
-  let changed = false;
-  const assets = ledgerData.assets.map((asset) => {
-    const defaultMapping = DEFAULT_BINANCE_MAPPINGS[asset.symbol];
-    if (asset.binanceMapping !== undefined || defaultMapping === undefined) {
-      return asset;
-    }
+export function resolveAssetBinanceMappingForRuntime(
+  asset: Pick<Asset, "symbol" | "binanceMapping">,
+): BinanceMarketMapping | null {
+  if (asset.binanceMapping === null) {
+    return null;
+  }
+  if (asset.binanceMapping !== undefined) {
+    return { ...asset.binanceMapping };
+  }
 
-    changed = true;
-    return {
-      ...asset,
-      binanceMapping: { ...defaultMapping },
-    };
-  });
-
-  return changed ? { ...ledgerData, assets } : ledgerData;
+  const defaultMapping = DEFAULT_BINANCE_MAPPINGS[asset.symbol];
+  return defaultMapping ? { ...defaultMapping } : null;
 }
 
 export function collectLedgerCompatibilityWarnings(

@@ -6,7 +6,10 @@ import type {
 } from "../models";
 import type { BinanceMarketDataClient } from "../marketData/binanceMarketDataClient";
 import type { BinanceMarketDataFailure } from "../marketData/binanceMarketDataTypes";
-import { partitionLedgerFactsForToday } from "../policies/ledgerFactPolicy";
+import {
+  partitionLedgerFactsForToday,
+  resolveAssetBinanceMappingForRuntime,
+} from "../policies/ledgerFactPolicy";
 import { isZero } from "../utils/decimalMath";
 import {
   captureLedgerTime,
@@ -49,17 +52,18 @@ export async function refreshBinancePrices(
       .filter((position) => !isZero(position.quantity))
       .map((position) => position.assetSymbol),
   );
-  const targets = ledgerData.assets
-    .filter(
-      (asset) =>
-        nonZeroSymbols.has(asset.symbol) &&
-        asset.quoteCurrency === "USDT" &&
-        asset.binanceMapping,
-    )
-    .map((asset) => ({
-      assetSymbol: asset.symbol,
-      mapping: asset.binanceMapping!,
-    }));
+  const targets = ledgerData.assets.flatMap((asset) => {
+    if (
+      !nonZeroSymbols.has(asset.symbol) ||
+      asset.quoteCurrency !== "USDT"
+    ) {
+      return [];
+    }
+    const mapping = resolveAssetBinanceMappingForRuntime(asset);
+    return mapping
+      ? [{ assetSymbol: asset.symbol, mapping }]
+      : [];
+  });
 
   const failures: BinanceAssetRefreshFailure[] = [];
   const validatedTargets: typeof targets = [];
@@ -145,10 +149,16 @@ export function mergeBinancePriceRefresh(
     const asset = ledgerData.assets.find(
       (candidate) => candidate.symbol === success.assetSymbol,
     );
+    const currentMapping = asset
+      ? resolveAssetBinanceMappingForRuntime(asset)
+      : null;
     if (
       !asset ||
-      !asset.binanceMapping ||
-      asset.binanceMapping.symbol !== success.mapping.symbol ||
+      !currentMapping ||
+      currentMapping.provider !== success.mapping.provider ||
+      currentMapping.symbol !== success.mapping.symbol ||
+      currentMapping.baseAsset !== success.mapping.baseAsset ||
+      currentMapping.quoteAsset !== success.mapping.quoteAsset ||
       asset.quoteCurrency !== "USDT"
     ) {
       skippedAssetSymbols.push(success.assetSymbol);

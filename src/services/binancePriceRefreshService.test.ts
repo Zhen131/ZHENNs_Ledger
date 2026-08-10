@@ -68,6 +68,61 @@ function createClient(): BinanceMarketDataClient {
 }
 
 describe("Binance price refresh", () => {
+  it("uses an absent built-in mapping only at runtime without materializing it", async () => {
+    const ledgerData = createInitialLedgerData();
+    delete ledgerData.assets[0].binanceMapping;
+    ledgerData.trades = [
+      createSimpleTrade("btc", "buy", "BTC", "1", "2026-07-20"),
+    ];
+    const client = createClient();
+
+    const result = await refreshBinancePrices(
+      ledgerData,
+      TODAY,
+      { client, clock },
+    );
+
+    expect(result.successes).toEqual([
+      expect.objectContaining({
+        assetSymbol: "BTC",
+        mapping: expect.objectContaining({ symbol: "BTCUSDT" }),
+      }),
+    ]);
+    expect(Object.hasOwn(ledgerData.assets[0], "binanceMapping")).toBe(false);
+
+    const merged = mergeBinancePriceRefresh(
+      ledgerData,
+      result.successes,
+      () => "runtime-fallback-price",
+    );
+    expect(merged.appliedAssetSymbols).toEqual(["BTC"]);
+    expect(merged.ledgerData.priceSnapshots).toEqual([
+      expect.objectContaining({
+        id: "runtime-fallback-price",
+        currency: "USDT",
+      }),
+    ]);
+    expect(
+      Object.hasOwn(merged.ledgerData.assets[0], "binanceMapping"),
+    ).toBe(false);
+  });
+
+  it("treats explicit null as a durable runtime disable", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assets[0].binanceMapping = null;
+    ledgerData.trades = [
+      createSimpleTrade("btc", "buy", "BTC", "1", "2026-07-20"),
+    ];
+    const client = createClient();
+
+    await expect(
+      refreshBinancePrices(ledgerData, TODAY, { client, clock }),
+    ).resolves.toEqual({ successes: [], failures: [] });
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(ledgerData.assets[0].binanceMapping).toBeNull();
+  });
+
   it("validates only mapped nonzero holdings and supports partial success", async () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.trades = [
@@ -232,6 +287,7 @@ describe("Binance price refresh", () => {
       ...asset,
       quoteCurrency: "USD",
     }));
+    delete ledgerData.assets[0].binanceMapping;
     ledgerData.trades = [
       createSimpleTrade("legacy-btc", "buy", "BTC", "1", "2026-07-20"),
     ];
@@ -255,5 +311,6 @@ describe("Binance price refresh", () => {
     expect(ledgerData.priceSnapshots).toEqual([
       expect.objectContaining({ id: "legacy-price", currency: "USD" }),
     ]);
+    expect(Object.hasOwn(ledgerData.assets[0], "binanceMapping")).toBe(false);
   });
 });

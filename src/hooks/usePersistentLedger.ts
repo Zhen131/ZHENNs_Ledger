@@ -13,7 +13,6 @@ import {
 import type { LedgerData } from "../models";
 import {
   collectLedgerCompatibilityWarnings,
-  normalizeLedgerDataForRuntime,
   partitionLedgerFactsForToday,
   type LedgerCompatibilityWarning,
 } from "../policies/ledgerFactPolicy";
@@ -698,9 +697,7 @@ export function usePersistentLedger(
           return;
         }
 
-        const hydratedLedger = normalizeLedgerDataForRuntime(
-          savedLedger ?? createInitialLedgerData(),
-        );
+        const hydratedLedger = savedLedger ?? createInitialLedgerData();
         const resourcePolicyResult =
           evaluateLedgerResourcePolicy(hydratedLedger);
         const serializedLedger = JSON.stringify(hydratedLedger);
@@ -1385,21 +1382,7 @@ export function usePersistentLedger(
         });
       }
 
-      const normalizedLedger = normalizeLedgerDataForRuntime(
-        ledgerResult.value,
-      );
-      const normalizedValidation =
-        validateLedgerData(normalizedLedger);
-      if (
-        !normalizedValidation.ok ||
-        !evaluateLedgerResourcePolicy(normalizedValidation.value).ok
-      ) {
-        return Promise.resolve({
-          ok: false,
-          code: "LEDGER_IMPORT_INVALID_BACKUP",
-        });
-      }
-      const validatedLedger = normalizedValidation.value;
+      const validatedLedger = ledgerResult.value;
       const serializedCandidate = JSON.stringify(validatedLedger);
       const authorizedCandidateIdentity =
         evidence?.candidateIdentity ?? serializedCandidate;

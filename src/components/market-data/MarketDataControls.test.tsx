@@ -468,6 +468,55 @@ describe("MarketDataControls", () => {
     expect(screen.getByText(/不会发送交易、数量、成本、密码或完整账本/)).toBeTruthy();
   });
 
+  it("shows a runtime fallback for an absent mapping and persists null only after explicit deletion", async () => {
+    let latestLedger = createInitialLedgerData();
+    delete latestLedger.assets[0].binanceMapping;
+    const applyLedgerMutation = vi.fn(
+      (mutation: (current: LedgerData) => LedgerData) => {
+        const next = mutation(latestLedger);
+        if (next === latestLedger) {
+          return "noop" as const;
+        }
+        latestLedger = next;
+        return "applied" as const;
+      },
+    );
+    render(
+      <MarketDataControls
+        applyLedgerMutation={applyLedgerMutation}
+        client={createClient()}
+        clock={clock}
+        isWritable
+        ledgerData={latestLedger}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("当前没有需要刷新的非零持仓映射。")).toBeTruthy();
+    });
+
+    expect((screen.getByLabelText("BTC") as HTMLInputElement).value).toBe(
+      "BTCUSDT",
+    );
+    expect(Object.hasOwn(latestLedger.assets[0], "binanceMapping")).toBe(false);
+    const remove = screen.getByRole("button", {
+      name: "删除 BTC Binance 映射",
+    });
+    expect((remove as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(remove);
+    expect(applyLedgerMutation).not.toHaveBeenCalled();
+    expect(Object.hasOwn(latestLedger.assets[0], "binanceMapping")).toBe(false);
+
+    fireEvent.click(remove);
+    expect(applyLedgerMutation).toHaveBeenCalledOnce();
+    expect(Object.hasOwn(latestLedger.assets[0], "binanceMapping")).toBe(true);
+    expect(latestLedger.assets[0].binanceMapping).toBeNull();
+    expect((screen.getByLabelText("BTC") as HTMLInputElement).value).toBe("");
+  });
+
   it("does not abort an active refresh or clear the mapping draft on first delete activation", async () => {
     let latestLedger = createLedgerWithBtc();
     let refreshSignal: AbortSignal | undefined;
