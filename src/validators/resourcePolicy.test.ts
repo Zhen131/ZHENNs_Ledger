@@ -74,6 +74,36 @@ describe("Ledger resource policy", () => {
     });
   });
 
+  it("bounds the persisted fee rule decimal field", () => {
+    const ledger = createInitialLedgerData();
+    ledger.feeRules = [
+      {
+        id: "fee-too-long-rate",
+        name: "fee",
+        platform: "OKX",
+        assetSymbol: "BTC",
+        status: "active",
+        type: "percentage",
+        rate: `0.${"1".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.decimal)}`,
+        currency: "USDT",
+        createdAt: "2026-08-10T00:00:00.000Z",
+        updatedAt: "2026-08-10T00:00:00.000Z",
+      },
+    ];
+
+    expect(evaluateLedgerResourcePolicy(ledger)).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_RESOURCE_POLICY_ERROR_CODES.STRING_LIMIT_EXCEEDED,
+          path: "feeRules[0].rate",
+          limit: DEFAULT_LEDGER_RESOURCE_LIMITS.decimal,
+          actual: DEFAULT_LEDGER_RESOURCE_LIMITS.decimal + 2,
+        }),
+      ],
+    });
+  });
+
   it("rejects a note that exceeds the configured limit by one", () => {
     const ledger = createInitialLedgerData();
     ledger.trades = [

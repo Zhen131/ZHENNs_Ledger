@@ -2,9 +2,16 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
-import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
+import type {
+  ApplyLedgerActionResult,
+  PersistenceStatus,
+} from "../../hooks/usePersistentLedger";
 import type { LedgerData, Trade, TradeDraft } from "../../models";
 import { calculateTradeCashImpact } from "../../calculators/tradeCashImpact";
+import {
+  matchFeeRules,
+  type FeeRuleCandidate,
+} from "../../services/feeRuleService";
 import { createValidatedTrade } from "../../services/tradeService";
 import type {
   TradeValidationError,
@@ -20,6 +27,10 @@ import {
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
   ledgerData: LedgerData;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  persistedVersion: number;
+  persistenceStatus: PersistenceStatus;
   onTradeCreated: (
     trade: Trade,
     timeSnapshot: LedgerTimeSnapshot,
@@ -34,6 +45,7 @@ type TradeFormState = {
   totalValue: string;
   occurredAt: string;
   fee: string;
+  platform: string;
   note: string;
 };
 
@@ -65,6 +77,7 @@ function createInitialFormState(assetSymbol: string): TradeFormState {
     totalValue: "",
     occurredAt: "",
     fee: "0",
+    platform: "",
     note: "",
   };
 }
@@ -131,6 +144,10 @@ function toTradeFormField(field: TradeValidationField): TradeFormField {
 export function TradeForm({
   clock = systemLedgerClock,
   ledgerData,
+  ledgerEpoch,
+  mutationVersion,
+  persistedVersion,
+  persistenceStatus,
   onTradeCreated,
 }: TradeFormProps) {
   const defaultAssetSymbol = ledgerData.assets[0]?.symbol ?? "";
@@ -141,6 +158,11 @@ export function TradeForm({
     Partial<Record<TradeFormField, string>>
   >({});
   const [successMessage, setSuccessMessage] = useState("");
+  const [selectedFeeRuleId, setSelectedFeeRuleId] = useState("");
+  const [sourceChangedMessage, setSourceChangedMessage] = useState("");
+  const [pendingMutationVersion, setPendingMutationVersion] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     setForm((current) => {
@@ -159,19 +181,81 @@ export function TradeForm({
     });
   }, [ledgerData.assets]);
 
+  useEffect(() => {
+    setPendingMutationVersion(null);
+    setSuccessMessage("");
+    setSelectedFeeRuleId("");
+    setSourceChangedMessage("");
+  }, [ledgerEpoch]);
+
+  useEffect(() => {
+    if (pendingMutationVersion === null) return;
+    if (
+      persistedVersion >= pendingMutationVersion &&
+      persistenceStatus === "saved"
+    ) {
+      setPendingMutationVersion(null);
+      setSuccessMessage("交易已认证保存");
+      return;
+    }
+    if (persistenceStatus === "error") {
+      setPendingMutationVersion(null);
+      setSuccessMessage("");
+      setErrors((current) => ({
+        ...current,
+        form: "交易仍在内存中，但尚未保存；请重试保存",
+      }));
+    }
+  }, [pendingMutationVersion, persistedVersion, persistenceStatus]);
+
   const selectedAsset =
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
     ledgerData.assets[0];
   const currency = selectedAsset?.quoteCurrency ?? "";
   const isLegacyUsdAsset = currency === "USD";
   const cashImpactPreview = getCashImpactPreview(form, currency);
+  const feeRuleMatch = matchFeeRules(
+    {
+      ...(form.platform === "" ? {} : { platform: form.platform }),
+      assetSymbol: form.assetSymbol,
+      totalValue: form.totalValue,
+    },
+    ledgerData.feeRules,
+  );
+  const selectedCandidate = getSelectedCandidate(
+    feeRuleMatch,
+    selectedFeeRuleId,
+  );
+  const defaultCandidate =
+    feeRuleMatch.status === "matched"
+      ? feeRuleMatch.candidate
+      : selectedCandidate;
+  const candidateWasModified =
+    selectedCandidate !== undefined && form.fee !== selectedCandidate.fee;
 
   function updateField<Field extends keyof TradeFormState>(
     field: Field,
     value: TradeFormState[Field],
   ) {
     setForm((current) => ({ ...current, [field]: value }));
+    if (
+      (field === "platform" || field === "assetSymbol") &&
+      selectedFeeRuleId !== ""
+    ) {
+      setSelectedFeeRuleId("");
+      setSourceChangedMessage(
+        "平台或资产已变化：保留实际手续费，来源已转为手填。",
+      );
+    }
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
+    setSuccessMessage("");
+  }
+
+  function adoptCandidate(candidate: FeeRuleCandidate) {
+    setForm((current) => ({ ...current, fee: candidate.fee }));
+    setSelectedFeeRuleId(candidate.rule.id);
+    setSourceChangedMessage("");
+    setErrors((current) => ({ ...current, fee: undefined, form: undefined }));
     setSuccessMessage("");
   }
 
@@ -191,6 +275,10 @@ export function TradeForm({
         currency,
         fee: form.fee,
         feeCurrency: currency,
+        ...(form.platform === "" ? {} : { platform: form.platform }),
+        ...(selectedCandidate === undefined
+          ? {}
+          : { feeRuleId: selectedCandidate.rule.id }),
         ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
       },
       ledgerData,
@@ -234,9 +322,13 @@ export function TradeForm({
       ...createInitialFormState(current.assetSymbol),
       type: current.type,
       occurredAt: current.occurredAt,
+      platform: current.platform,
     }));
+    setSelectedFeeRuleId("");
+    setSourceChangedMessage("");
     setErrors({});
-    setSuccessMessage("交易已加入账本");
+    setPendingMutationVersion(mutationVersion + 1);
+    setSuccessMessage("交易待保存");
   }
 
   return (
@@ -327,6 +419,16 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
+        平台（可选，精确匹配）
+        <input
+          className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
+          onChange={(event) => updateField("platform", event.target.value)}
+          placeholder="例如 OKX"
+          value={form.platform}
+        />
+      </label>
+
+      <label className="grid gap-2 text-sm font-medium">
         实际手续费
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
@@ -338,6 +440,68 @@ export function TradeForm({
           <span className="text-xs font-normal text-red-700">{errors.fee}</span>
         ) : null}
       </label>
+
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm md:col-span-2 xl:col-span-4">
+        <p className="font-medium">手续费来源</p>
+        {feeRuleMatch.status === "missing-platform" ? (
+          <p className="mt-1 text-slate-600">未填写平台：不猜测规则，实际手续费为手填。</p>
+        ) : feeRuleMatch.status === "invalid-total-value" ? (
+          <p className="mt-1 text-slate-600">成交金额通过十进制校验后才计算候选。</p>
+        ) : feeRuleMatch.status === "no-match" ? (
+          <p className="mt-1 text-slate-600">无精确匹配规则：实际手续费为手填。</p>
+        ) : feeRuleMatch.status === "conflict" ? (
+          <div className="mt-2 grid gap-2">
+            <p className="font-medium text-red-700">
+              多条 active 规则冲突，系统不会自动选择。
+            </p>
+            <label className="grid gap-1 font-medium">
+              显式选择来源规则
+              <select
+                className="rounded-md border border-red-200 bg-white px-3 py-2 font-normal"
+                onChange={(event) => setSelectedFeeRuleId(event.target.value)}
+                value={selectedFeeRuleId}
+              >
+                <option value="">保持手填</option>
+                {feeRuleMatch.candidates.map((candidate) => (
+                  <option key={candidate.rule.id} value={candidate.rule.id}>
+                    {candidate.rule.name} · {candidate.rule.id} · {candidate.fee} USDT
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : (
+          <p className="mt-1 text-slate-600">找到一条精确规则。</p>
+        )}
+
+        {defaultCandidate ? (
+          <div className="mt-2 rounded-md border border-sky-200 bg-white p-3">
+            <p>
+              候选：{defaultCandidate.fee} {defaultCandidate.currency} · {defaultCandidate.rule.name}
+              （{defaultCandidate.rule.id}）
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {defaultCandidate.rule.type} · 公式 {defaultCandidate.formula}
+            </p>
+            <button
+              className="mt-2 rounded-md border border-sky-300 px-3 py-1.5 font-medium text-sky-900"
+              onClick={() => adoptCandidate(defaultCandidate)}
+              type="button"
+            >
+              {selectedCandidate ? "重新采用当前候选" : "采用此规则候选"}
+            </button>
+          </div>
+        ) : null}
+
+        {candidateWasModified ? (
+          <p className="mt-2 font-medium text-amber-800">
+            实际手续费已由用户修改；规则仅保留为来源追踪。
+          </p>
+        ) : null}
+        {sourceChangedMessage ? (
+          <p className="mt-2 font-medium text-amber-800">{sourceChangedMessage}</p>
+        ) : null}
+      </div>
 
       <label className="grid gap-2 text-sm font-medium">
         计价货币
@@ -360,12 +524,21 @@ export function TradeForm({
 
       <div className="md:col-span-2 xl:col-span-4">
         {cashImpactPreview ? (
-          <p className="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-            {cashImpactPreview.kind === "buy-outflow"
-              ? "买入总支出"
-              : "卖出净到账"}
-            ：{cashImpactPreview.amount} {cashImpactPreview.currency}
-          </p>
+          <div className="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <p>成交金额（不含手续费）：{form.totalValue} {currency}</p>
+            <p>实际手续费：{form.fee} {currency}</p>
+            <p>
+              {cashImpactPreview.kind === "buy-outflow"
+                ? "买入总支出"
+                : "卖出净到账"}
+              ：{cashImpactPreview.amount} {cashImpactPreview.currency}
+            </p>
+            <p>
+              来源：{selectedCandidate
+                ? `${selectedCandidate.rule.name} · ${selectedCandidate.rule.id}`
+                : "手填"}
+            </p>
+          </div>
         ) : null}
         {isLegacyUsdAsset ? (
           <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -383,7 +556,9 @@ export function TradeForm({
           {errors.form ? (
             <p className="text-red-700">{errors.form}</p>
           ) : successMessage ? (
-            <p className="text-emerald-700">{successMessage}</p>
+            <p className={pendingMutationVersion ? "text-sky-800" : "text-emerald-700"}>
+              {successMessage}
+            </p>
           ) : null}
         </div>
       </div>
@@ -410,4 +585,22 @@ function getCashImpactPreview(
   } catch {
     return undefined;
   }
+}
+
+function getSelectedCandidate(
+  match: ReturnType<typeof matchFeeRules>,
+  selectedFeeRuleId: string,
+): FeeRuleCandidate | undefined {
+  if (selectedFeeRuleId === "") return undefined;
+  if (match.status === "matched") {
+    return match.candidate.rule.id === selectedFeeRuleId
+      ? match.candidate
+      : undefined;
+  }
+  if (match.status === "conflict") {
+    return match.candidates.find(
+      ({ rule }) => rule.id === selectedFeeRuleId,
+    );
+  }
+  return undefined;
 }

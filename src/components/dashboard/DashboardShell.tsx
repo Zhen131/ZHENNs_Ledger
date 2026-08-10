@@ -44,6 +44,7 @@ import {
 } from "../../utils/ledgerDate";
 import { PriceForm } from "../prices/PriceForm";
 import { TradeForm } from "../trades/TradeForm";
+import { FeeRuleManager } from "../fees/FeeRuleManager";
 import { BackupControls } from "../backup/BackupControls";
 import { ChartsOverview } from "../charts/ChartsOverview";
 import { MarketDataControls } from "../market-data/MarketDataControls";
@@ -120,7 +121,7 @@ export function TradeTable({
   deleteDisabled?: boolean;
   todayKey?: string;
 }>) {
-  const columnCount = onDelete ? 9 : 8;
+  const columnCount = onDelete ? 10 : 9;
 
   return (
     <div className="overflow-x-auto">
@@ -134,6 +135,7 @@ export function TradeTable({
             <th className="py-2 font-medium">均价</th>
             <th className="py-2 font-medium">成交金额（不含手续费）</th>
             <th className="py-2 font-medium">实际手续费</th>
+            <th className="py-2 font-medium">平台 / 手续费来源</th>
             <th className="py-2 font-medium">现金影响</th>
             {onDelete ? <th className="py-2 font-medium">操作</th> : null}
           </tr>
@@ -173,6 +175,12 @@ export function TradeTable({
                 </td>
                 <td className="py-3 text-slate-600">
                   {trade.fee} {trade.feeCurrency}
+                </td>
+                <td className="py-3 text-slate-600">
+                  {trade.platform ?? "未填写"}
+                  <span className="block text-xs text-slate-500">
+                    {trade.feeRuleId ? `FeeRule ${trade.feeRuleId}` : "手填"}
+                  </span>
                 </td>
                 <td className="py-3 text-slate-600">
                   {cashImpact.ok ? (
@@ -261,6 +269,8 @@ export function DashboardShell({
     replaceLedgerFromBackup,
     persistenceOperation,
     persistenceStatus,
+    mutationVersion,
+    persistedVersion,
     isDirty,
     repositorySwitchBlocked,
     discardDirtyChangesAndSwitchRepository,
@@ -947,14 +957,31 @@ export function DashboardShell({
                 <TradeForm
                   clock={clock}
                   ledgerData={ledgerData}
+                  ledgerEpoch={ledgerEpoch}
+                  mutationVersion={mutationVersion}
                   onTradeCreated={(trade, timeSnapshot) =>
                     applyLedgerAction(
                       { type: "trade/add", trade },
                       timeSnapshot,
                     )
                   }
+                  persistedVersion={persistedVersion}
+                  persistenceStatus={persistenceStatus}
                 />
               </fieldset>
+            </Section>
+
+            <Section title="手续费规则">
+              <FeeRuleManager
+                clock={clock}
+                isWritable={isWritable}
+                ledgerData={ledgerData}
+                ledgerEpoch={ledgerEpoch}
+                mutationVersion={mutationVersion}
+                onAction={applyLedgerAction}
+                persistedVersion={persistedVersion}
+                persistenceStatus={persistenceStatus}
+              />
             </Section>
 
             <Section

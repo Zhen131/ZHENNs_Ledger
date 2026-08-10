@@ -508,7 +508,7 @@ describe("DashboardShell trade interactions", () => {
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
-    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    expect(screen.getByText("交易待保存")).not.toBeNull();
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(screen.getByText("正在保存到本地")).not.toBeNull();
@@ -518,6 +518,7 @@ describe("DashboardShell trade interactions", () => {
     saveDeferred.resolve();
     await waitFor(() => {
       expect(screen.getByText("已保存到本地")).not.toBeNull();
+      expect(screen.getByText("交易已认证保存")).not.toBeNull();
     });
   });
 
@@ -603,7 +604,9 @@ describe("DashboardShell trade interactions", () => {
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
-    expect(screen.getByText("交易已加入账本")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("交易已认证保存")).not.toBeNull();
+    });
 
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
@@ -614,6 +617,185 @@ describe("DashboardShell trade interactions", () => {
     expect(within(positionSection).getByText("BTC")).not.toBeNull();
     expect(within(positionSection).getByText("0.001")).not.toBeNull();
     expect(within(positionSection).getByText("70000 USDT")).not.toBeNull();
+  });
+
+  it("creates, versions, and deactivates fee rules only after authenticated persistence", async () => {
+    const repository = createMemoryRepository();
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+    const section = getSection("手续费规则");
+
+    await user.type(within(section).getByLabelText("规则名"), "OKX BTC fee");
+    await user.type(
+      within(section).getByLabelText("平台（精确匹配）"),
+      "OKX",
+    );
+    await user.type(within(section).getByLabelText("金额（USDT）"), "5");
+    await user.click(
+      within(section).getByRole("button", { name: "新增手续费规则" }),
+    );
+    await waitFor(() => {
+      expect(
+        within(section).getByText("手续费规则已认证保存"),
+      ).not.toBeNull();
+    });
+
+    await user.type(
+      within(section).getByLabelText("OKX BTC fee 新版本金额"),
+      "6",
+    );
+    await user.click(
+      within(section).getByRole("button", {
+        name: "创建新版本并停用旧版",
+      }),
+    );
+    await waitFor(async () => {
+      const stored = await repository.load();
+      expect(stored?.feeRules).toHaveLength(2);
+      expect(stored?.feeRules[0]).toMatchObject({
+        status: "inactive",
+        type: "fixed",
+        amount: "5",
+      });
+      expect(stored?.feeRules[1]).toMatchObject({
+        status: "active",
+        type: "fixed",
+        amount: "6",
+        replacesFeeRuleId: stored?.feeRules[0].id,
+      });
+    });
+
+    const activeRule = (await repository.load())!.feeRules[1];
+    await user.click(
+      within(section).getAllByRole("button", { name: "停用规则" })[0],
+    );
+    await waitFor(async () => {
+      const stored = await repository.load();
+      expect(
+        stored?.feeRules.find(({ id }) => id === activeRule.id),
+      ).toMatchObject({ status: "inactive" });
+      expect(stored?.feeRules).toHaveLength(2);
+    });
+  });
+
+  it("requires explicit fee candidate adoption and persists a user override as history", async () => {
+    const ledger = createInitialLedgerData();
+    ledger.feeRules = [
+      {
+        id: "fee-binance-btc",
+        name: "Binance BTC percentage",
+        platform: "Binance",
+        assetSymbol: "BTC",
+        status: "active",
+        type: "percentage",
+        rate: "0.001",
+        currency: "USDT",
+        createdAt: "2026-08-10T00:00:00.000Z",
+        updatedAt: "2026-08-10T00:00:00.000Z",
+      },
+    ];
+    const repository = createMemoryRepository(ledger);
+    await renderDashboard(repository);
+    const user = userEvent.setup();
+    const tradeSection = getSection("新增交易");
+
+    await user.clear(within(tradeSection).getByLabelText("数量"));
+    await user.type(within(tradeSection).getByLabelText("数量"), "1");
+    await user.clear(within(tradeSection).getByLabelText("成交均价"));
+    await user.type(within(tradeSection).getByLabelText("成交均价"), "6500");
+    await user.clear(within(tradeSection).getByLabelText("成交金额（不含手续费）"));
+    await user.type(
+      within(tradeSection).getByLabelText("成交金额（不含手续费）"),
+      "6500",
+    );
+    await user.type(within(tradeSection).getByLabelText("日期"), "2026-07-14");
+    await user.type(
+      within(tradeSection).getByLabelText("平台（可选，精确匹配）"),
+      "Binance",
+    );
+
+    expect(within(tradeSection).getByText(/候选：6.5 USDT/)).not.toBeNull();
+    expect(
+      (within(tradeSection).getByLabelText("实际手续费") as HTMLInputElement)
+        .value,
+    ).toBe("0");
+    await user.click(
+      within(tradeSection).getByRole("button", { name: "采用此规则候选" }),
+    );
+    expect(
+      (within(tradeSection).getByLabelText("实际手续费") as HTMLInputElement)
+        .value,
+    ).toBe("6.5");
+    await user.clear(within(tradeSection).getByLabelText("实际手续费"));
+    await user.type(within(tradeSection).getByLabelText("实际手续费"), "7");
+    expect(
+      within(tradeSection).getByText(/实际手续费已由用户修改/),
+    ).not.toBeNull();
+    await user.click(
+      within(tradeSection).getByRole("button", { name: "保存交易" }),
+    );
+    await waitFor(() => {
+      expect(within(tradeSection).getByText("交易已认证保存")).not.toBeNull();
+    });
+
+    const stored = await repository.load();
+    expect(stored?.trades[0]).toMatchObject({
+      platform: "Binance",
+      fee: "7",
+      feeCurrency: "USDT",
+      feeRuleId: "fee-binance-btc",
+    });
+
+    const ruleSection = getSection("手续费规则");
+    await user.click(
+      within(ruleSection).getByRole("button", { name: "停用规则" }),
+    );
+    await waitFor(async () => {
+      const afterDeactivation = await repository.load();
+      expect(afterDeactivation?.feeRules[0]).toMatchObject({
+        status: "inactive",
+      });
+      expect(afterDeactivation?.trades[0]).toMatchObject({
+        fee: "7",
+        feeRuleId: "fee-binance-btc",
+      });
+    });
+  });
+
+  it("shows exact-match conflicts and never auto-selects the first active rule", async () => {
+    const ledger = createInitialLedgerData();
+    const common = {
+      name: "OKX BTC fee",
+      platform: "OKX",
+      assetSymbol: "BTC",
+      status: "active" as const,
+      type: "fixed" as const,
+      currency: "USDT" as const,
+      createdAt: "2026-08-10T00:00:00.000Z",
+      updatedAt: "2026-08-10T00:00:00.000Z",
+    };
+    ledger.feeRules = [
+      { ...common, id: "fee-okx-a", amount: "5" },
+      { ...common, id: "fee-okx-b", amount: "7" },
+    ];
+    await renderDashboard(createMemoryRepository(ledger));
+    const user = await fillBuyTrade();
+    const tradeSection = getSection("新增交易");
+    await user.type(
+      within(tradeSection).getByLabelText("平台（可选，精确匹配）"),
+      "OKX",
+    );
+
+    expect(
+      within(tradeSection).getByText(/多条 active 规则冲突/),
+    ).not.toBeNull();
+    expect(
+      (within(tradeSection).getByLabelText("实际手续费") as HTMLInputElement)
+        .value,
+    ).toBe("0");
+    expect(
+      within(tradeSection).queryByRole("button", { name: "采用此规则候选" }),
+    ).toBeNull();
   });
 
   it("shows validator feedback and keeps the ledger unchanged for invalid input", async () => {
