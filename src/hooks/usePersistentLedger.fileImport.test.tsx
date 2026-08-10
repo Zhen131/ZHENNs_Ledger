@@ -25,7 +25,6 @@ import {
   type BackupImportPreflightResult,
 } from "../backup/backupImportPreflight";
 import type { LedgerFileSessionLease } from "../coordination/ledgerFileSessionCoordinator";
-import { normalizeLedgerDataForRuntime } from "../policies/ledgerFactPolicy";
 import {
   claimLedgerSessionPersistencePort,
   createLedgerSession,
@@ -395,7 +394,7 @@ describe("usePersistentLedger ready C import", () => {
     );
   });
 
-  it("accepts a valid legacy B whose built-in Binance mapping is added by the shared canonical identity", async () => {
+  it("imports a valid legacy B without materializing an absent Binance mapping", async () => {
     const parsed = JSON.parse(
       readFixture("valid-300.backup.json"),
     );
@@ -410,8 +409,8 @@ describe("usePersistentLedger ready C import", () => {
     );
     expect(preflight.hardErrorCount).toBe(0);
     if (!preflight.candidate) return;
-    const normalized = normalizeLedgerDataForRuntime(
-      preflight.candidate,
+    expect(Object.hasOwn(preflight.candidate.assets[0], "binanceMapping")).toBe(
+      false,
     );
     const { repository, session } = await createHarness();
     const { result } = renderHook(() =>
@@ -437,8 +436,13 @@ describe("usePersistentLedger ready C import", () => {
       ).resolves.toEqual({ ok: true });
     });
 
-    expect(result.current.ledgerData).toEqual(normalized);
-    await expect(repository.load()).resolves.toEqual(normalized);
+    expect(result.current.ledgerData).toEqual(preflight.candidate);
+    expect(
+      Object.hasOwn(result.current.ledgerData.assets[0], "binanceMapping"),
+    ).toBe(false);
+    const persisted = await repository.load();
+    expect(persisted).toEqual(preflight.candidate);
+    expect(Object.hasOwn(persisted.assets[0], "binanceMapping")).toBe(false);
   });
 
   it("rejects forged zero-error evidence when a historical trade has no rawText", async () => {

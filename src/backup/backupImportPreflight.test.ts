@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "../validators";
-import { normalizeLedgerDataForRuntime } from "../policies/ledgerFactPolicy";
 import { createLedgerDataContentIdentity } from "./backupContentIdentity";
 import {
   BACKUP_PREFLIGHT_PAGE_DETAIL_LIMIT,
@@ -114,7 +113,7 @@ describe("preflightBackupJson", () => {
     expect(result.candidate).toBeUndefined();
   });
 
-  it("uses one canonical candidate identity before and after legacy built-in Binance mappings are normalized", async () => {
+  it("binds identity to exact absent, null, and explicit Binance mapping facts", async () => {
     const parsed = JSON.parse(
       readFixture("valid-300.backup.json"),
     );
@@ -124,17 +123,35 @@ describe("preflightBackupJson", () => {
     );
 
     expect(result.hardErrorCount).toBe(0);
-    expect(result.candidate?.assets[0]?.binanceMapping).toBeUndefined();
+    expect(
+      result.candidate
+        ? Object.hasOwn(result.candidate.assets[0], "binanceMapping")
+        : true,
+    ).toBe(false);
     if (!result.candidate || !result.candidateIdentity) return;
-    const normalized = normalizeLedgerDataForRuntime(
-      result.candidate,
-    );
-    expect(normalized.assets[0]?.binanceMapping?.symbol).toBe(
-      "BTCUSDT",
-    );
+
+    const explicit = structuredClone(result.candidate);
+    explicit.assets[0].binanceMapping = {
+      provider: "binance",
+      symbol: "BTCUSDT",
+      baseAsset: "BTC",
+      quoteAsset: "USDT",
+    };
+    const disabled = structuredClone(result.candidate);
+    disabled.assets[0].binanceMapping = null;
+
     await expect(
-      createLedgerDataContentIdentity(normalized),
+      createLedgerDataContentIdentity(result.candidate),
     ).resolves.toBe(result.candidateIdentity);
+    await expect(createLedgerDataContentIdentity(explicit)).resolves.not.toBe(
+      result.candidateIdentity,
+    );
+    await expect(createLedgerDataContentIdentity(disabled)).resolves.not.toBe(
+      result.candidateIdentity,
+    );
+    await expect(createLedgerDataContentIdentity(explicit)).resolves.not.toBe(
+      await createLedgerDataContentIdentity(disabled),
+    );
   });
 
   it("keeps valid ETH/BTC duplicate warnings visible beside independent hard errors and leaves ADA splits alone", async () => {

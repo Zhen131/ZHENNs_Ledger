@@ -17,6 +17,7 @@ import type {
   LedgerData,
   ValuationPriceMode,
 } from "../../models";
+import { resolveAssetBinanceMappingForRuntime } from "../../policies/ledgerFactPolicy";
 import {
   getBinanceMappingSignature,
   setAssetBinanceMapping,
@@ -472,7 +473,10 @@ export function MarketDataControls({
               </button>
               <ConfirmDeleteButton
                 ariaLabel={`删除 ${asset.symbol} Binance 映射`}
-                disabled={!isWritable || asset.binanceMapping == null}
+                disabled={
+                  !isWritable ||
+                  resolveAssetBinanceMappingForRuntime(asset) === null
+                }
                 label="删除映射"
                 onConfirm={() => removeMapping(asset.symbol)}
               />
@@ -498,7 +502,7 @@ function createMappingDrafts(
   return Object.fromEntries(
     assets.map((asset) => [
       asset.symbol,
-      asset.binanceMapping?.symbol ?? "",
+      resolveAssetBinanceMappingForRuntime(asset)?.symbol ?? "",
     ]),
   );
 }

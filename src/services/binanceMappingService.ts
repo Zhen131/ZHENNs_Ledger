@@ -2,6 +2,7 @@ import type {
   BinanceMarketMapping,
   LedgerData,
 } from "../models";
+import { resolveAssetBinanceMappingForRuntime } from "../policies/ledgerFactPolicy";
 import type {
   BinanceMarketDataClient,
 } from "../marketData/binanceMarketDataClient";
@@ -54,7 +55,7 @@ export function setAssetBinanceMapping(
       return asset;
     }
 
-    const currentSerialized = JSON.stringify(asset.binanceMapping ?? null);
+    const currentSerialized = JSON.stringify(asset.binanceMapping);
     const nextSerialized = JSON.stringify(mapping);
     if (currentSerialized === nextSerialized) {
       return asset;
@@ -74,7 +75,7 @@ export function setAssetBinanceMapping(
 export function getBinanceMappingSignature(ledgerData: LedgerData): string {
   return ledgerData.assets
     .map((asset) => {
-      const mapping = asset.binanceMapping;
+      const mapping = resolveAssetBinanceMappingForRuntime(asset);
       return mapping
         ? `${asset.symbol}:${mapping.provider}:${mapping.symbol}:${mapping.baseAsset}:${mapping.quoteAsset}`
         : `${asset.symbol}:none`;
