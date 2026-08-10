@@ -25,7 +25,7 @@ Week 11 evidence is deliberately separated into implemented behavior and indepen
 - Batch 2 implemented C takeover, previous-generation recovery, single-writer coordination, reconnect, password lifecycle, legacy migration, and safe clear. Its development and independent automated checks passed with 51 test files and 596 tests, but `02D` remains `BLOCKED` because the required real Chrome picker, permission, dual-tab, and raw IndexedDB evidence was incomplete.
 - Batch 3 implemented full plaintext backup export, zero-write preflight, structured error reporting, suspicious-duplicate grouping, and whole-ledger import into a newly created empty C. Development finished with 55 test files and 698 tests, and the normal real-Chrome success path passed. `03B` remains `BLOCKED` because a browser cannot guarantee rollback after process death, permanent permission loss, or an external write that wins after close. `03C` and `03D` were not executed.
 
-The Week 12 fee-aware P&L candidate is intentionally retained on the local `zhennn/w12-pnl-fee-accounting` branch and is not merged into `main`. The original independent `01D` review failed on one P0: loading an otherwise valid legacy USD asset without `binanceMapping` could silently persist a default mapping. The R1 candidate now preserves absent, explicit `null`, and explicit mapping objects as distinct stored facts, while a read-only runtime resolver supplies built-in defaults only where Binance behavior needs them. Its current automated development validation passes 58 test files and 730 tests, typecheck, lint, production build, and whitespace checks. A dedicated fictional legacy USD `.lftl` also passed the development-side real-Chrome import, authenticated write/readback, lock/reopen, export, and exact `LedgerData` comparison flow without materializing the absent BTC mapping. A fresh `01R1D` review is still required, so this remains a development candidate rather than an accepted `main` release.
+The Week 12 fee-aware P&L work has passed its final independent R1 review and is now fast-forwarded into `main`. The original independent `01D` review failed on one P0: loading an otherwise valid legacy USD asset without `binanceMapping` could silently persist a default mapping. R1 preserves absent, explicit `null`, and explicit mapping objects as distinct stored facts, while a read-only runtime resolver supplies built-in defaults only where Binance behavior needs them. The independent `01R1D` review passed 58 test files and 730 tests, typecheck, lint, production build, whitespace checks, and new production real-Chrome flows for absent, null, explicit, and new-USDT ledgers. Its final absent-mapping file round trip produced deeply equal input and exported `LedgerData` without materializing the BTC mapping.
 
 Merging code or passing automated tests does not turn a blocked independent acceptance result into `PASS`.
 
@@ -162,7 +162,7 @@ npm run build
 git diff --check
 ```
 
-The current R1 development baseline reports 58 test files and 730 passing tests, plus typecheck, lint, production build, whitespace checks, and the dedicated fictional-file real-Chrome flow described above. That result remains development evidence, not a replacement for fresh `01R1D` independent review or the blocked Week 11 browser contracts described above.
+The current accepted Week 12 baseline reports 58 test files and 730 passing tests, plus typecheck, lint, production build, whitespace checks, and the independent fictional-file real-Chrome flows described above. This `01R1D` acceptance does not replace or close the blocked Week 11 browser contracts described above.
 
 ## Known limits and deferred work
 
@@ -178,6 +178,6 @@ The current R1 development baseline reports 58 test files and 730 passing tests,
 
 ## Release history boundary
 
-The Week 10 feature baseline is `5a21529c10d4a27048e4d26d07c7a1641e4c7b87`. The current pre-split source baseline is `084ae7da96770721e9e805658928a7884eed779c`, preserved by `CS2026-baseline-2026-08-02`.
+The Week 10 feature baseline is `5a21529c10d4a27048e4d26d07c7a1641e4c7b87`. The pre-split source baseline is `084ae7da96770721e9e805658928a7884eed779c`, preserved by `CS2026-baseline-2026-08-02`. The independently accepted Week 12 fee-aware P&L implementation and R1 fix were fast-forwarded through `605c7a3c2860b7c4783a8234037882ceca1613c8` before this release-status update.
 
 Use Git as the source of truth for current branch, remote, and release state. This README does not preserve stale claims about unmerged local candidates.
