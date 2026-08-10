@@ -303,6 +303,62 @@ function createLedgerWithTrades(count: number): LedgerData {
   };
 }
 
+function createLegacyUsdLedgerWithoutBtcMapping(): LedgerData {
+  const ledgerData = createInitialLedgerData();
+  ledgerData.assets = ledgerData.assets.map((asset) => ({
+    ...asset,
+    quoteCurrency: "USD",
+  }));
+  delete ledgerData.assets[0].binanceMapping;
+  ledgerData.trades = [
+    {
+      id: "legacy-usd-buy",
+      occurredAt: "2026-07-20",
+      timePrecision: "day",
+      type: "buy",
+      assetSymbol: "BTC",
+      quantity: "0.1",
+      price: "65000",
+      totalValue: "6500",
+      currency: "USD",
+      fee: "5",
+      feeCurrency: "USD",
+      rawText: "虚构旧账：以 65000 USD 买入 0.1 BTC，手续费 5 USD。",
+      createdAt: "2026-07-20T08:00:00.000Z",
+      updatedAt: "2026-07-20T08:00:00.000Z",
+    },
+    {
+      id: "legacy-usd-sell",
+      occurredAt: "2026-07-21",
+      timePrecision: "day",
+      type: "sell",
+      assetSymbol: "BTC",
+      quantity: "0.04",
+      price: "70000",
+      totalValue: "2800",
+      currency: "USD",
+      fee: "3",
+      feeCurrency: "USD",
+      rawText: "虚构旧账：以 70000 USD 卖出 0.04 BTC，手续费 3 USD。",
+      createdAt: "2026-07-21T08:00:00.000Z",
+      updatedAt: "2026-07-21T08:00:00.000Z",
+    },
+  ];
+  ledgerData.priceSnapshots = [
+    {
+      id: "legacy-usd-manual-price",
+      assetSymbol: "BTC",
+      price: "70000",
+      currency: "USD",
+      recordedAt: "2026-07-22",
+      source: "manual",
+      createdAt: "2026-07-22T08:00:00.000Z",
+      updatedAt: "2026-07-22T08:00:00.000Z",
+    },
+  ];
+  return ledgerData;
+}
+
 function replaceLedgerFileSalt(
   serialized: string,
   saltByte = 9,
@@ -2568,6 +2624,108 @@ describe("LedgerFileRepository", () => {
       ledger302,
     );
   });
+
+  it(
+    "preserves every legacy USD fact through preflight, import, save, readback, reopen, and export",
+    async () => {
+      const handle = new AtomicLedgerHandle(
+        "legacy-usd-absent-mapping-roundtrip.lftl",
+      );
+      const initialLedger = createInitialLedgerData();
+      const candidate = createLegacyUsdLedgerWithoutBtcMapping();
+      expect(Object.hasOwn(candidate.assets[0], "binanceMapping")).toBe(false);
+      const repository = await LedgerFileRepository.create(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        initialLedger,
+        {
+          generateId: createIdGenerator([
+            "file-legacy-usd-absent-mapping",
+            "revision-empty",
+            "revision-import-legacy-usd",
+          ]),
+          now: createClock([
+            "2026-08-10T08:00:00.000Z",
+            "2026-08-10T08:01:00.000Z",
+          ]),
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      const session = createReadyImportSession(
+        repository,
+        "legacy-usd-absent-mapping-import-session",
+      );
+      const evidence = await createImportEvidence(candidate);
+      await expect(
+        createLedgerDataContentIdentity(candidate),
+      ).resolves.toBe(evidence.candidateIdentity);
+      const authorization =
+        session.readyImportPort?.authorizeReadyImport(
+          evidence,
+          0,
+          evidence.candidateIdentity,
+        );
+      expect(authorization).not.toBeNull();
+      if (!authorization || !session.readyImportPort) return;
+
+      const imported = await session.readyImportPort.importReadyLedger(
+        authorization,
+        candidate,
+        new AbortController().signal,
+      );
+      expect(imported).toEqual(candidate);
+      expect(Object.hasOwn(imported.assets[0], "binanceMapping")).toBe(false);
+
+      await repository.save(imported);
+      const readback = await readVerifiedFile(handle);
+      expect(readback.current.ledgerData).toEqual(candidate);
+      expect(readback.previous?.ledgerData).toEqual(initialLedger);
+      expect(
+        Object.hasOwn(readback.current.ledgerData.assets[0], "binanceMapping"),
+      ).toBe(false);
+      expect(readback.file.current.revisionId).toBe(
+        "revision-import-legacy-usd",
+      );
+      expect(readback.file.previous?.revisionId).toBe(
+        "revision-empty",
+      );
+      expect(handle.writeCount).toBe(2);
+
+      const reopened = await LedgerFileRepository.open(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        {
+          expectedFileId: "file-legacy-usd-absent-mapping",
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      const reopenedLedger = await reopened.load();
+      expect(reopenedLedger).toEqual(candidate);
+      expect(
+        Object.hasOwn(reopenedLedger.assets[0], "binanceMapping"),
+      ).toBe(false);
+
+      const exported = createBackupEnvelope(reopenedLedger, {
+        appVersion: "0.1.0",
+        exportedAt: "2026-08-10T08:03:00.000Z",
+      });
+      expect(exported.ok).toBe(true);
+      if (!exported.ok) return;
+      expect(exported.value.ledgerData).toEqual(candidate);
+      expect(
+        Object.hasOwn(
+          exported.value.ledgerData.assets[0],
+          "binanceMapping",
+        ),
+      ).toBe(false);
+      expect(
+        JSON.parse(serializeBackupEnvelope(exported.value)).ledgerData,
+      ).toEqual(candidate);
+    },
+    20_000,
+  );
 
   it(
     "imports one exact 300-trade B into a new empty C and reopens the verified two-generation file",
