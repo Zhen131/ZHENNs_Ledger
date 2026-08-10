@@ -18,7 +18,7 @@ import type {
   LedgerFileSessionLease,
 } from "../coordination/ledgerFileSessionCoordinator";
 import { bytesToBase64Url } from "../encryption/cryptoEncoding";
-import type { LedgerFileV1 } from "../encryption/ledgerFileContract";
+import type { LedgerFileV2 } from "../encryption/ledgerFileContract";
 import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
 import {
   claimLedgerSessionPersistencePort,
@@ -248,7 +248,7 @@ async function createRecoverableLedgerHandle(): Promise<{
   await repository.save(currentLedger);
   const file = JSON.parse(
     new TextDecoder().decode(handle.bytes),
-  ) as LedgerFileV1;
+  ) as LedgerFileV2;
   handle.bytes = new TextEncoder().encode(
     JSON.stringify({
       ...file,
@@ -896,6 +896,36 @@ describe("DefaultLedgerFileAccessController", () => {
       });
       expect(handle.writes).toBe(0);
     }
+  });
+
+  it("rejects a V1 .lftl before password or connection-record publication", async () => {
+    const handle = await createExistingLedgerHandle("retired-v1");
+    const v2 = JSON.parse(new TextDecoder().decode(handle.bytes));
+    handle.bytes = new TextEncoder().encode(
+      JSON.stringify({ ...v2, fileFormatVersion: 1 }),
+    );
+    const before = handle.bytes.slice();
+    const connection = createConnectionAdapter();
+    const { controller } = createController(
+      new MemoryFileHandle("unused.lftl"),
+      handle,
+      createTestCoordinator(),
+      () => "recovery-test",
+      connection.adapter,
+    );
+
+    await expect(controller.selectExisting()).resolves.toEqual({
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE,
+    });
+    expect(handle.bytes).toEqual(before);
+    expect(handle.writes).toBe(0);
+    expect(connection.adapter.write).not.toHaveBeenCalled();
+    await expect(controller.unlockSelected(PASSPHRASE)).resolves.toEqual({
+      status: "error",
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
+    });
   });
 
   it("selects before asking for a password, keeps wrong-password attempts read-only, and unlocks the same file", async () => {

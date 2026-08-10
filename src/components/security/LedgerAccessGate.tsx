@@ -15,18 +15,14 @@ import {
   getDefaultLedgerFileAccessController,
 } from "../../composition/ledgerAccessComposition";
 import {
-  LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT,
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
   type LedgerAccessErrorCode,
-  type LegacyMigrationCandidate,
-  type LegacyMigrationDeletionAuthorization,
 } from "../../composition/ledgerAccessController";
 import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
   type LedgerFileAccessErrorCode,
-  type LedgerFileMigrationReceipt,
 } from "../../composition/ledgerFileAccessController";
 import {
   type LedgerSession,
@@ -46,9 +42,7 @@ type AccessState =
 
 type AccessPath =
   | "choice"
-  | "legacy-migration-unlock"
-  | "legacy-migration-target"
-  | "legacy-migration-delete"
+  | "legacy-retired"
   | "file-create"
   | "file-reconnect-prompt"
   | "file-reconnect-error"
@@ -65,39 +59,6 @@ const pendingSessionCompletions = new WeakMap<
   LedgerFileAccessController,
   PendingSessionCompletion
 >();
-
-function beginUnpublishedMigrationRelease(
-  controller: LedgerFileAccessController,
-  session: LedgerSession,
-): PendingSessionCompletion | null {
-  const existing = pendingSessionCompletions.get(controller);
-  if (existing) {
-    return existing.session === session ? existing : null;
-  }
-  const release = controller.releaseUnpublishedMigrationSession;
-  if (!release) {
-    return null;
-  }
-  const retry = () => {
-    try {
-      return release.call(controller, session);
-    } catch (error) {
-      return Promise.reject(error);
-    }
-  };
-  const completion = Promise.resolve().then(retry);
-  const pending = { session, retry, completion };
-  pendingSessionCompletions.set(controller, pending);
-  void completion.then(
-    () => {
-      if (pendingSessionCompletions.get(controller) === pending) {
-        pendingSessionCompletions.delete(controller);
-      }
-    },
-    () => undefined,
-  );
-  return pending;
-}
 
 export function LedgerAccessGate({
   accessController = getDefaultLedgerAccessController(),
@@ -117,22 +78,10 @@ export function LedgerAccessGate({
   const [recoveryId, setRecoveryId] = useState<string | null>(null);
   const [reconnectError, setReconnectError] =
     useState<LedgerFileAccessErrorCode | null>(null);
-  const [migrationCandidate, setMigrationCandidate] =
-    useState<LegacyMigrationCandidate | null>(null);
-  const [migrationReceipt, setMigrationReceipt] =
-    useState<LedgerFileMigrationReceipt | null>(null);
-  const [migrationSession, setMigrationSession] =
-    useState<LedgerSession | null>(null);
-  const [migrationDeleteConfirmation, setMigrationDeleteConfirmation] =
-    useState("");
   const mountedRef = useRef(true);
   const operationRef = useRef(false);
   const operationGenerationRef = useRef(0);
   const activeSessionRef = useRef<LedgerSession | null>(null);
-  const unpublishedMigrationSessionRef =
-    useRef<LedgerSession | null>(null);
-  const migrationDeletionAuthorizationRef =
-    useRef<LegacyMigrationDeletionAuthorization | null>(null);
   const sessionDrainRef = useRef<{
     session: LedgerSession;
     drain: PersistentLedgerState["drainForSessionQuiesce"];
@@ -206,15 +155,21 @@ export function LedgerAccessGate({
       return;
     }
 
+    if (
+      legacy.status === "unlock-required" ||
+      legacy.status === "error"
+    ) {
+      setAccessState({
+        status: "error",
+        code:
+          legacy.status === "error"
+            ? legacy.code
+            : LEDGER_ACCESS_ERROR_CODES.UNSUPPORTED_FORMAT,
+      });
+      setAccessPath("legacy-retired");
+      return;
+    }
     setAccessState(legacy);
-    if (legacy.status === "unlock-required") {
-      setAccessPath("legacy-migration-unlock");
-      return;
-    }
-    if (legacy.status === "error") {
-      setAccessPath("legacy-migration-unlock");
-      return;
-    }
     if (reconnect.status === "ready") {
       setAccessPath("file-open-unlock");
     } else if (reconnect.status === "permission-prompt") {
@@ -235,12 +190,6 @@ export function LedgerAccessGate({
     setConfirmation("");
     setRecoveryId(null);
     setReconnectError(null);
-    setMigrationCandidate(null);
-    setMigrationReceipt(null);
-    setMigrationSession(null);
-    setMigrationDeleteConfirmation("");
-    unpublishedMigrationSessionRef.current = null;
-    migrationDeletionAuthorizationRef.current = null;
     setAccessPath("choice");
     void initialize();
 
@@ -249,21 +198,9 @@ export function LedgerAccessGate({
       operationGenerationRef.current += 1;
       operationRef.current = false;
       const activeSession = activeSessionRef.current;
-      const unpublishedMigrationSession =
-        unpublishedMigrationSessionRef.current;
       const registeredDrain = sessionDrainRef.current;
       const finalLock = finalLockRef.current;
       if (
-        unpublishedMigrationSession &&
-        activeSession === unpublishedMigrationSession
-      ) {
-        beginUnpublishedMigrationRelease(
-          fileAccessController,
-          unpublishedMigrationSession,
-        );
-        unpublishedMigrationSessionRef.current = null;
-        activeSessionRef.current = null;
-      } else if (
         activeSession &&
         registeredDrain?.session === activeSession &&
         finalLock?.session !== activeSession
@@ -316,285 +253,6 @@ export function LedgerAccessGate({
     finalLockRef.current = null;
     retryReleaseRef.current = null;
     setAccessState({ status: "unlocked", session });
-  }
-
-  async function submitLegacyMigrationUnlock(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-    if (operationRef.current) {
-      return;
-    }
-    const unlockLegacy =
-      accessController.unlockLegacyForMigration;
-    if (!unlockLegacy) {
-      setFormError(
-        "当前版本缺少安全迁移能力，旧账本保持不变，也不会创建空账本。",
-      );
-      return;
-    }
-
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    const result = await unlockLegacy.call(
-      accessController,
-      passphrase,
-    );
-    if (isCurrentOperation(operation)) {
-      setPassphrase("");
-      if (result.ok) {
-        migrationDeletionAuthorizationRef.current = null;
-        setMigrationCandidate(result.candidate);
-        setAccessPath("legacy-migration-target");
-      } else {
-        setFormError(
-          result.code === LEDGER_ACCESS_ERROR_CODES.READ_FAILED
-            ? "无法读取旧浏览器账本；旧数据保持不变。"
-            : "旧账本密码错误、数据损坏或不符合安全迁移条件；旧数据保持不变。",
-        );
-      }
-    }
-    finishOperation(operation);
-  }
-
-  async function submitLegacyMigrationTarget(
-    event: FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-    if (operationRef.current || !migrationCandidate) {
-      return;
-    }
-    if (passphrase !== confirmation) {
-      setFormError("两次输入的密码不一致");
-      return;
-    }
-    const codePointLength = Array.from(passphrase).length;
-    if (codePointLength < 12 || codePointLength > 128) {
-      setFormError("密码必须为 12 至 128 个字符");
-      return;
-    }
-    const createFromLegacy =
-      fileAccessController.createFromLegacy;
-    const verifyMigrationTarget =
-      fileAccessController.verifyMigrationTarget;
-    if (!createFromLegacy || !verifyMigrationTarget) {
-      setFormError(
-        "当前浏览器或版本缺少安全迁移能力；旧账本保持不变。",
-      );
-      return;
-    }
-
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    const ledgerData = migrationCandidate.readLedgerData();
-    const result = await createFromLegacy.call(
-      fileAccessController,
-      passphrase,
-      ledgerData,
-    );
-    setPassphrase("");
-    setConfirmation("");
-    if (!isCurrentOperation(operation)) {
-      if (result.status === "unlocked") {
-        beginUnpublishedMigrationRelease(
-          fileAccessController,
-          result.session,
-        );
-      }
-      finishOperation(operation);
-      return;
-    }
-    if (result.status === "unlocked") {
-      activeSessionRef.current = result.session;
-      unpublishedMigrationSessionRef.current = result.session;
-      setMigrationSession(result.session);
-      setAccessPath("legacy-migration-delete");
-      try {
-        const receipt = await verifyMigrationTarget.call(
-          fileAccessController,
-          result.session,
-          ledgerData,
-        );
-        if (isCurrentOperation(operation) && receipt) {
-          migrationDeletionAuthorizationRef.current = null;
-          setMigrationReceipt(receipt);
-        } else if (isCurrentOperation(operation)) {
-          setFormError(
-            "新 C 已创建，但迁移复核未通过。旧浏览器账本仍保留，不能删除。",
-          );
-        }
-      } catch {
-        if (isCurrentOperation(operation)) {
-          setFormError(
-            "新 C 已创建，但迁移复核失败。旧浏览器账本仍保留，不能删除。",
-          );
-        }
-      }
-    } else if (
-      result.status === "error" &&
-      result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
-    ) {
-      setFormError(getFileAccessErrorMessage(result.code));
-    }
-    finishOperation(operation);
-  }
-
-  async function retryMigrationTargetVerification() {
-    if (
-      operationRef.current ||
-      !migrationCandidate ||
-      !migrationSession ||
-      !fileAccessController.verifyMigrationTarget
-    ) {
-      return;
-    }
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    try {
-      const receipt =
-        await fileAccessController.verifyMigrationTarget(
-          migrationSession,
-          migrationCandidate.readLedgerData(),
-        );
-      if (isCurrentOperation(operation)) {
-        if (receipt) {
-          migrationDeletionAuthorizationRef.current = null;
-          setMigrationReceipt(receipt);
-        } else {
-          setFormError(
-            "新 C 仍未通过完整复核；旧浏览器账本继续保留。",
-          );
-        }
-      }
-    } catch {
-      if (isCurrentOperation(operation)) {
-        setFormError(
-          "新 C 复核失败；旧浏览器账本继续保留。",
-        );
-      }
-    }
-    finishOperation(operation);
-  }
-
-  async function confirmLegacyMigrationDeletion() {
-    if (
-      operationRef.current ||
-      !migrationCandidate ||
-      !migrationReceipt ||
-      !migrationSession
-    ) {
-      return;
-    }
-    if (
-      migrationDeleteConfirmation !==
-      LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT
-    ) {
-      setFormError(
-        `请输入完整确认文本“${LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT}”`,
-      );
-      return;
-    }
-    const authorize =
-      accessController.authorizeLegacyMigrationDeletion;
-    const removeLegacy =
-      accessController.deleteLegacyAfterMigration;
-    if (!authorize || !removeLegacy) {
-      setFormError(
-        "当前版本缺少安全删除能力；旧浏览器账本继续保留。",
-      );
-      return;
-    }
-
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    let authorization =
-      migrationDeletionAuthorizationRef.current;
-    if (!authorization) {
-      authorization = await authorize.call(
-        accessController,
-        migrationCandidate,
-        migrationReceipt,
-        migrationDeleteConfirmation,
-      );
-      if (authorization && isCurrentOperation(operation)) {
-        migrationDeletionAuthorizationRef.current =
-          authorization;
-      }
-    }
-    if (!isCurrentOperation(operation)) {
-      return;
-    }
-    if (!authorization) {
-      setFormError(
-        "新 C 或旧账本已发生变化，安全核对未通过；旧浏览器账本继续保留。",
-      );
-      finishOperation(operation);
-      return;
-    }
-    const result = await removeLegacy.call(
-      accessController,
-      authorization,
-    );
-    if (isCurrentOperation(operation)) {
-      if (result.ok) {
-        migrationDeletionAuthorizationRef.current = null;
-        unpublishedMigrationSessionRef.current = null;
-        setMigrationDeleteConfirmation("");
-        setMigrationCandidate(null);
-        setMigrationReceipt(null);
-        setMigrationSession(null);
-        enterUnlockedSession(migrationSession);
-      } else {
-        setFormError(
-          result.code ===
-            LEDGER_ACCESS_ERROR_CODES.MIGRATION_SOURCE_CHANGED
-            ? "旧浏览器账本在迁移期间发生了变化，因此没有删除。请保留两份数据并重新核对。"
-            : "旧浏览器账本没有被安全删除；新 C 保持原样，但正式接管尚未完成，可以重试。",
-        );
-      }
-    }
-    finishOperation(operation);
-  }
-
-  async function cancelLegacyMigrationAfterCreate() {
-    if (operationRef.current || !migrationSession) {
-      return;
-    }
-    const release =
-      fileAccessController.releaseUnpublishedMigrationSession;
-    if (!release) {
-      setFormError(
-        "无法证明新 C 已安全释放；旧账本仍保留，请关闭页面后重试。",
-      );
-      return;
-    }
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    try {
-      await release.call(fileAccessController, migrationSession);
-      if (isCurrentOperation(operation)) {
-        activeSessionRef.current = null;
-        unpublishedMigrationSessionRef.current = null;
-        setMigrationSession(null);
-        setMigrationReceipt(null);
-        setMigrationCandidate(null);
-        migrationDeletionAuthorizationRef.current = null;
-        setMigrationDeleteConfirmation("");
-        void initialize();
-      }
-    } catch {
-      if (isCurrentOperation(operation)) {
-        setFormError(
-          "新 C 会话尚未安全释放；旧浏览器账本仍保留，请重试。",
-        );
-      }
-    }
-    finishOperation(operation);
   }
 
   async function submitFileCreate(
@@ -1017,189 +675,15 @@ export function LedgerAccessGate({
     );
   }
 
-  if (accessPath === "legacy-migration-unlock") {
-    if (accessState.status === "error") {
-      return (
-        <AccessPanel
-          description={`${getAccessErrorMessage(
-            accessState.code,
-          )} 旧记录不会被自动删除，也不会回退成空账本。`}
-          title="旧浏览器账本暂时不能安全迁移"
-        >
-          <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
-            onClick={() => void initialize()}
-            type="button"
-          >
-            重新检查
-          </button>
-        </AccessPanel>
-      );
-    }
+  if (accessPath === "legacy-retired") {
     return (
       <AccessPanel
-        description="检测到旧浏览器完整账本。先用原密码只读验证；验证成功后才会让你创建新的 .lftl 文件。此时不会写入或删除旧账本。"
-        title="把旧账本搬到 C"
+        description="检测到旧版浏览器整账。版本 2 不支持解锁、迁移或删除这条旧记录；它会原样保留。请新建版本 2 账本。"
+        title="旧版账本已退役"
       >
-        <form
-          className="space-y-4"
-          onSubmit={submitLegacyMigrationUnlock}
-        >
-          <PasswordField
-            autoComplete="current-password"
-            disabled={isSubmitting}
-            label="旧浏览器账本密码"
-            onChange={setPassphrase}
-            value={passphrase}
-          />
-          <FormError message={formError} />
-          <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
-            disabled={isSubmitting}
-            type="submit"
-          >
-            {isSubmitting ? "正在只读验证…" : "验证旧账本"}
-          </button>
-          <p className="text-sm leading-6 text-slate-600">
-            如果密码错误、数据损坏或你关闭页面，旧 IndexedDB 记录都会原样保留。
-          </p>
-        </form>
-      </AccessPanel>
-    );
-  }
-
-  if (
-    accessPath === "legacy-migration-target" &&
-    migrationCandidate
-  ) {
-    return (
-      <AccessPanel
-        description="旧账本已经只读验证。现在请选择一个全新的空文件位置，并为新的 C 设置核心密码；系统不会覆盖已有文件。"
-        title="创建迁移目标 C"
-      >
-        <form
-          className="space-y-4"
-          onSubmit={submitLegacyMigrationTarget}
-        >
-          <PasswordField
-            autoComplete="new-password"
-            disabled={isSubmitting}
-            label="设置 C 核心密码"
-            onChange={setPassphrase}
-            value={passphrase}
-          />
-          <PasswordField
-            autoComplete="new-password"
-            disabled={isSubmitting}
-            label="再次输入 C 核心密码"
-            onChange={setConfirmation}
-            value={confirmation}
-          />
-          <FormError message={formError} />
-          <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
-            disabled={isSubmitting}
-            type="submit"
-          >
-            {isSubmitting
-              ? "正在写入、关闭并复读…"
-              : "选择新文件并搬入旧账本"}
-          </button>
-          <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-60"
-            disabled={isSubmitting}
-            onClick={() => {
-              setMigrationCandidate(null);
-              setPassphrase("");
-              setConfirmation("");
-              setFormError("");
-              setAccessPath("legacy-migration-unlock");
-            }}
-            type="button"
-          >
-            取消，保留旧账本
-          </button>
-        </form>
-      </AccessPanel>
-    );
-  }
-
-  if (
-    accessPath === "legacy-migration-delete" &&
-    migrationCandidate &&
-    migrationSession
-  ) {
-    return (
-      <AccessPanel
-        description={
-          migrationReceipt
-            ? "旧账本已完整写入新 C，并完成关闭、复读、文件身份和内容验证。只有你再次确认后，系统才会核对并删除那一条旧 IndexedDB 记录。"
-            : "新 C 已创建，但完整迁移回执尚未通过；旧 IndexedDB 记录仍原样保留。"
-        }
-        title={
-          migrationReceipt
-            ? "迁移已验证，确认退出旧账本"
-            : "迁移复核尚未完成"
-        }
-      >
-        <div className="space-y-4">
-          {migrationReceipt ? (
-            <>
-              <label className="grid gap-2 text-sm font-medium text-slate-800">
-                输入“{LEGACY_MIGRATION_DELETE_CONFIRMATION_TEXT}”以确认
-                <input
-                  aria-label="输入删除旧账本确认文本"
-                  className="rounded-md border border-red-300 px-3 py-2 text-slate-950 outline-none focus:ring-2 focus:ring-red-100"
-                  disabled={isSubmitting}
-                  onChange={(event) => {
-                    setMigrationDeleteConfirmation(
-                      event.target.value,
-                    );
-                    setFormError("");
-                  }}
-                  value={migrationDeleteConfirmation}
-                />
-              </label>
-              <p className="text-sm leading-6 text-slate-600">
-                删除只针对迁移时验证过且至今未变化的旧记录；连接新 C 的文件句柄登记不会被删除。
-              </p>
-              <button
-                className="w-full rounded-md bg-red-800 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
-                disabled={isSubmitting}
-                onClick={() =>
-                  void confirmLegacyMigrationDeletion()
-                }
-                type="button"
-              >
-                {isSubmitting
-                  ? "正在复核并删除旧记录…"
-                  : "确认删除旧记录并进入 C"}
-              </button>
-            </>
-          ) : (
-            <button
-              className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
-              disabled={isSubmitting}
-              onClick={() =>
-                void retryMigrationTargetVerification()
-              }
-              type="button"
-            >
-              {isSubmitting ? "正在重新复核…" : "重新复核新 C"}
-            </button>
-          )}
-          <FormError message={formError} />
-          <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-60"
-            disabled={isSubmitting}
-            onClick={() =>
-              void cancelLegacyMigrationAfterCreate()
-            }
-            type="button"
-          >
-            保留旧记录并安全退出新 C
-          </button>
-        </div>
+        <p className="text-sm leading-6 text-slate-600">
+          系统没有读取旧账本业务数据，也不会用空账本覆盖它。
+        </p>
       </AccessPanel>
     );
   }

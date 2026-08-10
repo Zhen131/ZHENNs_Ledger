@@ -50,6 +50,7 @@ const fieldLabels: Record<keyof TradeDraft, string> = {
   currency: "计价货币",
   fee: "实际手续费",
   feeCurrency: "手续费币种",
+  platform: "平台",
   feeRuleId: "手续费规则",
   note: "备注",
   rawText: "原始文本",
@@ -120,6 +121,7 @@ function toTradeFormField(field: TradeValidationField): TradeFormField {
     case "timePrecision":
     case "currency":
     case "feeCurrency":
+    case "platform":
     case "feeRuleId":
     case "rawText":
       return "form";

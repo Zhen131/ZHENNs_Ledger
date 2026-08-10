@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { MAX_LEDGER_FILE_V1_BYTES } from "../encryption/ledgerFileContract";
+import { MAX_LEDGER_FILE_V2_BYTES } from "../encryption/ledgerFileContract";
 import {
   LedgerFileAdapterError,
   LedgerFileHandleAdapter,
@@ -214,7 +214,7 @@ describe("LedgerFileHandleAdapter", () => {
   it("rejects the declared 32 MiB overflow before arrayBuffer", async () => {
     const adapter = new LedgerFileHandleAdapter();
     const handle = new AtomicFakeHandle("large.lftl");
-    handle.declaredSize = MAX_LEDGER_FILE_V1_BYTES + 1;
+    handle.declaredSize = MAX_LEDGER_FILE_V2_BYTES + 1;
 
     await expect(adapter.read(handle)).rejects.toMatchObject({
       stage: "size",
@@ -227,14 +227,14 @@ describe("LedgerFileHandleAdapter", () => {
     async () => {
       const adapter = new LedgerFileHandleAdapter();
       const exact = new AtomicFakeHandle("exact.lftl");
-      exact.bytes = new Uint8Array(MAX_LEDGER_FILE_V1_BYTES);
+      exact.bytes = new Uint8Array(MAX_LEDGER_FILE_V2_BYTES);
       await expect(adapter.read(exact)).resolves.toMatchObject({
-        byteLength: MAX_LEDGER_FILE_V1_BYTES,
+        byteLength: MAX_LEDGER_FILE_V2_BYTES,
       });
 
       const overflow = new AtomicFakeHandle("overflow.lftl");
-      overflow.declaredSize = MAX_LEDGER_FILE_V1_BYTES;
-      overflow.bytes = new Uint8Array(MAX_LEDGER_FILE_V1_BYTES + 1);
+      overflow.declaredSize = MAX_LEDGER_FILE_V2_BYTES;
+      overflow.bytes = new Uint8Array(MAX_LEDGER_FILE_V2_BYTES + 1);
       await expect(adapter.read(overflow)).rejects.toMatchObject({
         stage: "size",
       });

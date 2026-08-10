@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { bytesToBase64Url } from "./cryptoEncoding";
 import {
-  LEDGER_FILE_V1_CONSTANTS,
-  createCanonicalLedgerPayloadV1,
-  createLedgerFileCryptoV1,
-  createLedgerFileGenerationAadV1,
+  LEDGER_FILE_V2_CONSTANTS,
+  createCanonicalLedgerPayloadV2,
+  createLedgerFileCryptoV2,
+  createLedgerFileGenerationAadV2,
   evaluateLedgerFilePayloadByteLength,
-  type EncryptedLedgerGenerationV1,
-  type LedgerFileV1,
-  validateDecryptedLedgerPayloadV1,
-  validateLedgerFileV1,
+  type EncryptedLedgerGenerationV2,
+  type LedgerFileV2,
+  validateDecryptedLedgerPayloadV2,
+  validateLedgerFileV2,
 } from "./ledgerFileContract";
 import { createInitialLedgerData } from "../state/initialLedgerData";
 
@@ -18,22 +18,22 @@ function createGeneration(
   revisionId: string,
   parentRevisionId: string | null,
   ivByte: number,
-): EncryptedLedgerGenerationV1 {
+): EncryptedLedgerGenerationV2 {
   return {
     revisionId,
     parentRevisionId,
-    ledgerSchemaVersion: 1,
+    ledgerSchemaVersion: 2,
     ivBase64Url: bytesToBase64Url(new Uint8Array(12).fill(ivByte)),
     ciphertextBase64Url: bytesToBase64Url(new Uint8Array(16).fill(9)),
   };
 }
 
-function createFile(previous = false): LedgerFileV1 {
+function createFile(previous = false): LedgerFileV2 {
   const first = createGeneration("revision-a", null, 1);
   return {
-    fileFormatVersion: 1,
+    fileFormatVersion: 2,
     fileId: "file-a",
-    crypto: createLedgerFileCryptoV1(
+    crypto: createLedgerFileCryptoV2(
       bytesToBase64Url(new Uint8Array(16).fill(7)),
     ),
     current: previous
@@ -43,18 +43,19 @@ function createFile(previous = false): LedgerFileV1 {
   };
 }
 
-describe("LedgerFileV1 contract", () => {
-  it("accepts exact first and two-generation V1 envelopes", () => {
-    expect(validateLedgerFileV1(createFile()).ok).toBe(true);
-    expect(validateLedgerFileV1(createFile(true)).ok).toBe(true);
+describe("LedgerFileV2 contract", () => {
+  it("accepts exact first and two-generation V2 envelopes", () => {
+    expect(validateLedgerFileV2(createFile()).ok).toBe(true);
+    expect(validateLedgerFileV2(createFile(true)).ok).toBe(true);
   });
 
   it.each([
-    ["unknown file version", { fileFormatVersion: 2 }],
+    ["retired V1 file version", { fileFormatVersion: 1 }],
+    ["unknown file version", { fileFormatVersion: 99 }],
     ["unknown crypto version", { crypto: { cryptoVersion: 2 } }],
     [
       "unknown ledger schema version",
-      { current: { ledgerSchemaVersion: 2 } },
+      { current: { ledgerSchemaVersion: 99 } },
     ],
   ])("rejects %s", (_name, change) => {
     const file = createFile();
@@ -71,20 +72,20 @@ describe("LedgerFileV1 contract", () => {
           : file.current,
     };
 
-    expect(validateLedgerFileV1(changed).ok).toBe(false);
+    expect(validateLedgerFileV2(changed).ok).toBe(false);
   });
 
   it("rejects missing, extra, non-canonical Base64URL, and invalid revision relationships", () => {
     const file = createFile(true);
-    const missing: Partial<LedgerFileV1> = { ...file };
+    const missing: Partial<LedgerFileV2> = { ...file };
     delete missing.previous;
 
-    expect(validateLedgerFileV1(missing).ok).toBe(false);
+    expect(validateLedgerFileV2(missing).ok).toBe(false);
     expect(
-      validateLedgerFileV1({ ...file, businessName: "BTC ledger" }),
+      validateLedgerFileV2({ ...file, businessName: "BTC ledger" }),
     ).toMatchObject({ ok: false });
     expect(
-      validateLedgerFileV1({
+      validateLedgerFileV2({
         ...file,
         crypto: {
           ...file.crypto,
@@ -93,7 +94,7 @@ describe("LedgerFileV1 contract", () => {
       }),
     ).toMatchObject({ ok: false });
     expect(
-      validateLedgerFileV1({
+      validateLedgerFileV2({
         ...file,
         current: {
           ...file.current,
@@ -102,7 +103,7 @@ describe("LedgerFileV1 contract", () => {
       }),
     ).toMatchObject({ ok: false });
     expect(
-      validateLedgerFileV1({
+      validateLedgerFileV2({
         ...file,
         current: {
           ...file.current,
@@ -121,11 +122,11 @@ describe("LedgerFileV1 contract", () => {
       ivBase64Url: file.current.ivBase64Url,
     };
     const aad = new TextDecoder().decode(
-      createLedgerFileGenerationAadV1(file, generation),
+      createLedgerFileGenerationAadV2(file, generation),
     );
 
     expect(JSON.parse(aad)).toEqual({
-      fileFormatVersion: 1,
+      fileFormatVersion: 2,
       fileId: "file-a",
       crypto: {
         cryptoVersion: 1,
@@ -144,7 +145,7 @@ describe("LedgerFileV1 contract", () => {
       generation: {
         revisionId: "revision-b",
         parentRevisionId: "revision-a",
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
         ivBase64Url: file.current.ivBase64Url,
       },
     });
@@ -158,7 +159,7 @@ describe("LedgerFileV1 contract", () => {
       positions: [{ assetSymbol: "BTC" }],
       chartData: { fake: true },
     };
-    const result = createCanonicalLedgerPayloadV1(
+    const result = createCanonicalLedgerPayloadV2(
       ledger,
       "2026-07-28T10:00:00.000Z",
     );
@@ -179,18 +180,18 @@ describe("LedgerFileV1 contract", () => {
       ledgerData: createInitialLedgerData(),
     };
 
-    expect(validateDecryptedLedgerPayloadV1(payload).ok).toBe(true);
+    expect(validateDecryptedLedgerPayloadV2(payload).ok).toBe(true);
     expect(
-      validateDecryptedLedgerPayloadV1({ ...payload, uiState: {} }),
+      validateDecryptedLedgerPayloadV2({ ...payload, uiState: {} }),
     ).toMatchObject({ ok: false });
     expect(
-      validateDecryptedLedgerPayloadV1({
+      validateDecryptedLedgerPayloadV2({
         ...payload,
         ledgerData: { ...payload.ledgerData, kline: [] },
       }),
     ).toMatchObject({ ok: false });
     expect(
-      createCanonicalLedgerPayloadV1(
+      createCanonicalLedgerPayloadV2(
         payload.ledgerData,
         "2026-07-28",
       ),
@@ -200,9 +201,11 @@ describe("LedgerFileV1 contract", () => {
   it("keeps the file and IndexedDB version systems independent", async () => {
     const { LEDGER_CRYPTO_CONSTANTS } = await import("./cryptoEnvelope");
 
-    expect(LEDGER_FILE_V1_CONSTANTS.fileFormatVersion).toBe(1);
+    expect(LEDGER_FILE_V2_CONSTANTS.fileFormatVersion).toBe(2);
     expect(LEDGER_CRYPTO_CONSTANTS.formatVersion).toBe(2);
-    expect(validateLedgerFileV1(createFile()).ok).toBe(true);
+    expect(LEDGER_FILE_V2_CONSTANTS.ledgerSchemaVersion).toBe(2);
+    expect(LEDGER_CRYPTO_CONSTANTS.ledgerSchemaVersion).toBe(1);
+    expect(validateLedgerFileV2(createFile()).ok).toBe(true);
   });
 
   it("accepts exactly 8 MiB of generation plaintext and rejects one extra byte", () => {

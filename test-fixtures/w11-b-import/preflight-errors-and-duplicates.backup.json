@@ -1,10 +1,10 @@
 {
-  "backupFormatVersion": 1,
+  "backupFormatVersion": 2,
   "appVersion": "0.1.0",
   "exportedAt": "2026-07-30T12:00:00Z",
-  "ledgerSchemaVersion": 1,
+  "ledgerSchemaVersion": 2,
   "ledgerData": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "assets": [
       {
         "id": "asset-btc",
@@ -196,9 +196,11 @@
         "id": "fictional-fee-rule",
         "name": "虚构手续费",
         "platform": "测试平台",
+        "assetSymbol": "BTC",
+        "status": "active",
         "type": "percentage",
         "rate": "0.001",
-        "currency": "USD",
+        "currency": "USDT",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       }

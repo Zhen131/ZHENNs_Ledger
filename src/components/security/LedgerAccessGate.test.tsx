@@ -447,14 +447,15 @@ describe("LedgerAccessGate", () => {
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
 
-  it("prioritizes verified legacy migration even when a remembered C is ready", async () => {
+  it("retires a detected legacy record without exposing unlock, migration, or deletion", async () => {
+    const controller = createController({
+      inspect: vi.fn(async () => ({
+        status: "unlock-required" as const,
+      })),
+    });
     render(
       <LedgerAccessGate
-        accessController={createController({
-          inspect: vi.fn(async () => ({
-            status: "unlock-required" as const,
-          })),
-        })}
+        accessController={controller}
         fileAccessController={createFileController({
           inspectRememberedConnection: vi.fn(async () => ({
             status: "ready" as const,
@@ -466,16 +467,18 @@ describe("LedgerAccessGate", () => {
 
     expect(
       await screen.findByRole("heading", {
-        name: "把旧账本搬到 C",
+        name: "旧版账本已退役",
       }),
     ).toBeTruthy();
-    expect(
-      screen.getByLabelText("旧浏览器账本密码"),
-    ).toBeTruthy();
+    expect(screen.getByText(/不支持解锁、迁移或删除/)).toBeTruthy();
+    expect(screen.queryByLabelText("旧浏览器账本密码")).toBeNull();
     expect(
       screen.queryByRole("heading", { name: "解锁所选 C" }),
     ).toBeNull();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
+    expect(controller.unlockLegacyForMigration).not.toHaveBeenCalled();
+    expect(controller.authorizeLegacyMigrationDeletion).not.toHaveBeenCalled();
+    expect(controller.deleteLegacyAfterMigration).not.toHaveBeenCalled();
   });
 
   it("ignores an old inspect result after the controllers change and a new C session is published", async () => {
@@ -1627,6 +1630,7 @@ describe("LedgerAccessGate", () => {
     });
   });
 
+  describe.skip("retired legacy migration behavior", () => {
   it("masks the legacy migration password immediately when submission disables it", async () => {
     let resolveUnlock:
       | ((value: {
@@ -2493,5 +2497,6 @@ describe("LedgerAccessGate", () => {
       screen.queryByText(/清空本地加密账本并重新开始/),
     ).toBeNull();
     expect(controller.resetEncryptedLedger).not.toHaveBeenCalled();
+  });
   });
 });

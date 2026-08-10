@@ -12,7 +12,7 @@ function createLedgerData(
   overrides: Partial<LedgerData> = {},
 ): LedgerData {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     assets: createBuiltInAssets(),
     trades: [],
     priceSnapshots: [],

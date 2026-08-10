@@ -8,10 +8,10 @@ import { isValidISODateOrDateTime } from "../validators/isoDateValidator";
 import { validateLedgerData } from "../validators/ledgerDataValidator";
 import { base64UrlToBytes } from "./cryptoEncoding";
 
-export const LEDGER_FILE_V1_CONSTANTS = {
-  fileFormatVersion: 1,
+export const LEDGER_FILE_V2_CONSTANTS = {
+  fileFormatVersion: 2,
   cryptoVersion: 1,
-  ledgerSchemaVersion: 1,
+  ledgerSchemaVersion: 2,
   kdfName: "PBKDF2",
   kdfHash: "SHA-256",
   kdfIterations: 600_000,
@@ -26,9 +26,9 @@ export const LEDGER_FILE_V1_CONSTANTS = {
   maximumTechnicalIdLength: DEFAULT_LEDGER_RESOURCE_LIMITS.id,
 } as const;
 
-export const MAX_LEDGER_FILE_V1_BYTES = 32 * 1024 * 1024;
+export const MAX_LEDGER_FILE_V2_BYTES = 32 * 1024 * 1024;
 
-export type LedgerFileCryptoV1 = {
+export type LedgerFileCryptoV2 = {
   cryptoVersion: 1;
   kdf: {
     name: "PBKDF2";
@@ -43,29 +43,29 @@ export type LedgerFileCryptoV1 = {
   };
 };
 
-export type EncryptedLedgerGenerationV1 = {
+export type EncryptedLedgerGenerationV2 = {
   revisionId: string;
   parentRevisionId: string | null;
-  ledgerSchemaVersion: 1;
+  ledgerSchemaVersion: 2;
   ivBase64Url: string;
   ciphertextBase64Url: string;
 };
 
-export type LedgerFileV1 = {
-  fileFormatVersion: 1;
+export type LedgerFileV2 = {
+  fileFormatVersion: 2;
   fileId: string;
-  crypto: LedgerFileCryptoV1;
-  current: EncryptedLedgerGenerationV1;
-  previous: EncryptedLedgerGenerationV1 | null;
+  crypto: LedgerFileCryptoV2;
+  current: EncryptedLedgerGenerationV2;
+  previous: EncryptedLedgerGenerationV2 | null;
 };
 
-export type DecryptedLedgerPayloadV1 = {
+export type DecryptedLedgerPayloadV2 = {
   savedAt: string;
   ledgerData: LedgerData;
 };
 
-export type CanonicalLedgerPayloadV1 = {
-  value: DecryptedLedgerPayloadV1;
+export type CanonicalLedgerPayloadV2 = {
+  value: DecryptedLedgerPayloadV2;
   serializedPayload: string;
   serializedLedgerData: string;
 };
@@ -87,11 +87,11 @@ export type LedgerFileContractError = {
 };
 
 export type LedgerFileValidationResult =
-  | { ok: true; value: LedgerFileV1 }
+  | { ok: true; value: LedgerFileV2 }
   | { ok: false; errors: LedgerFileContractError[] };
 
 export type LedgerFilePayloadValidationResult =
-  | { ok: true; value: CanonicalLedgerPayloadV1 }
+  | { ok: true; value: CanonicalLedgerPayloadV2 }
   | { ok: false; errors: LedgerFileContractError[] };
 
 const FILE_KEYS = [
@@ -125,18 +125,18 @@ const LEDGER_DATA_KEYS = [
   "trades",
 ] as const;
 
-export function validateLedgerFileV1(
+export function validateLedgerFileV2(
   input: unknown,
 ): LedgerFileValidationResult {
   if (!isExactObject(input, FILE_KEYS)) {
     return failure(
       "LEDGER_FILE_INVALID_STRUCTURE",
       "file",
-      "Ledger file must contain exactly the V1 top-level fields",
+      "Ledger file must contain exactly the V2 top-level fields",
     );
   }
 
-  if (input.fileFormatVersion !== LEDGER_FILE_V1_CONSTANTS.fileFormatVersion) {
+  if (input.fileFormatVersion !== LEDGER_FILE_V2_CONSTANTS.fileFormatVersion) {
     return failure(
       "LEDGER_FILE_UNSUPPORTED_VERSION",
       "fileFormatVersion",
@@ -156,7 +156,7 @@ export function validateLedgerFileV1(
     return failure(
       "LEDGER_FILE_INVALID_STRUCTURE",
       "crypto",
-      "Ledger file crypto metadata must use the exact V1 shape",
+      "Ledger file crypto metadata must use the exact V2 shape",
     );
   }
 
@@ -168,19 +168,19 @@ export function validateLedgerFileV1(
     return failure(
       "LEDGER_FILE_INVALID_STRUCTURE",
       "crypto",
-      "Ledger file crypto metadata must use the exact V1 shape",
+      "Ledger file crypto metadata must use the exact V2 shape",
     );
   }
   const kdf = crypto.kdf;
   const cipher = crypto.cipher;
   if (
-    crypto.cryptoVersion !== LEDGER_FILE_V1_CONSTANTS.cryptoVersion ||
-    kdf.name !== LEDGER_FILE_V1_CONSTANTS.kdfName ||
-    kdf.hash !== LEDGER_FILE_V1_CONSTANTS.kdfHash ||
-    kdf.iterations !== LEDGER_FILE_V1_CONSTANTS.kdfIterations ||
-    cipher.name !== LEDGER_FILE_V1_CONSTANTS.cipherName ||
-    cipher.keyLength !== LEDGER_FILE_V1_CONSTANTS.keyLength ||
-    cipher.tagLength !== LEDGER_FILE_V1_CONSTANTS.tagLength
+    crypto.cryptoVersion !== LEDGER_FILE_V2_CONSTANTS.cryptoVersion ||
+    kdf.name !== LEDGER_FILE_V2_CONSTANTS.kdfName ||
+    kdf.hash !== LEDGER_FILE_V2_CONSTANTS.kdfHash ||
+    kdf.iterations !== LEDGER_FILE_V2_CONSTANTS.kdfIterations ||
+    cipher.name !== LEDGER_FILE_V2_CONSTANTS.cipherName ||
+    cipher.keyLength !== LEDGER_FILE_V2_CONSTANTS.keyLength ||
+    cipher.tagLength !== LEDGER_FILE_V2_CONSTANTS.tagLength
   ) {
     return failure(
       "LEDGER_FILE_INVALID_CRYPTO_PARAMETERS",
@@ -200,7 +200,7 @@ export function validateLedgerFileV1(
   try {
     if (
       base64UrlToBytes(kdf.saltBase64Url).byteLength !==
-      LEDGER_FILE_V1_CONSTANTS.saltBytes
+      LEDGER_FILE_V2_CONSTANTS.saltBytes
     ) {
       return failure(
         "LEDGER_FILE_INVALID_ENCODING",
@@ -222,7 +222,7 @@ export function validateLedgerFileV1(
     return currentResult;
   }
 
-  let previous: EncryptedLedgerGenerationV1 | null = null;
+  let previous: EncryptedLedgerGenerationV2 | null = null;
   if (input.previous !== null) {
     const previousResult = validateGeneration(input.previous, "previous");
     if (!previousResult.ok) {
@@ -254,11 +254,11 @@ export function validateLedgerFileV1(
 
   return {
     ok: true,
-    value: input as LedgerFileV1,
+    value: input as LedgerFileV2,
   };
 }
 
-export function createCanonicalLedgerPayloadV1(
+export function createCanonicalLedgerPayloadV2(
   ledgerData: unknown,
   savedAt: string,
 ): LedgerFilePayloadValidationResult {
@@ -293,7 +293,7 @@ export function createCanonicalLedgerPayloadV1(
     );
   }
 
-  const value: DecryptedLedgerPayloadV1 = {
+  const value: DecryptedLedgerPayloadV2 = {
     savedAt,
     ledgerData: ledgerResult.value,
   };
@@ -327,7 +327,7 @@ export function evaluateLedgerFilePayloadByteLength(
   return evaluateLedgerJsonResourcePolicy(serializedPayload);
 }
 
-export function validateDecryptedLedgerPayloadV1(
+export function validateDecryptedLedgerPayloadV2(
   input: unknown,
 ): LedgerFilePayloadValidationResult {
   if (
@@ -342,16 +342,16 @@ export function validateDecryptedLedgerPayloadV1(
     );
   }
 
-  return createCanonicalLedgerPayloadV1(input.ledgerData, input.savedAt);
+  return createCanonicalLedgerPayloadV2(input.ledgerData, input.savedAt);
 }
 
-export function createLedgerFileGenerationAadV1(
+export function createLedgerFileGenerationAadV2(
   file: Pick<
-    LedgerFileV1,
+    LedgerFileV2,
     "fileFormatVersion" | "fileId" | "crypto"
   >,
   generation: Omit<
-    EncryptedLedgerGenerationV1,
+    EncryptedLedgerGenerationV2,
     "ciphertextBase64Url"
   >,
 ): Uint8Array {
@@ -383,21 +383,21 @@ export function createLedgerFileGenerationAadV1(
   return new TextEncoder().encode(JSON.stringify(ordered));
 }
 
-export function createLedgerFileCryptoV1(
+export function createLedgerFileCryptoV2(
   saltBase64Url: string,
-): LedgerFileCryptoV1 {
+): LedgerFileCryptoV2 {
   return {
-    cryptoVersion: LEDGER_FILE_V1_CONSTANTS.cryptoVersion,
+    cryptoVersion: LEDGER_FILE_V2_CONSTANTS.cryptoVersion,
     kdf: {
-      name: LEDGER_FILE_V1_CONSTANTS.kdfName,
-      hash: LEDGER_FILE_V1_CONSTANTS.kdfHash,
-      iterations: LEDGER_FILE_V1_CONSTANTS.kdfIterations,
+      name: LEDGER_FILE_V2_CONSTANTS.kdfName,
+      hash: LEDGER_FILE_V2_CONSTANTS.kdfHash,
+      iterations: LEDGER_FILE_V2_CONSTANTS.kdfIterations,
       saltBase64Url,
     },
     cipher: {
-      name: LEDGER_FILE_V1_CONSTANTS.cipherName,
-      keyLength: LEDGER_FILE_V1_CONSTANTS.keyLength,
-      tagLength: LEDGER_FILE_V1_CONSTANTS.tagLength,
+      name: LEDGER_FILE_V2_CONSTANTS.cipherName,
+      keyLength: LEDGER_FILE_V2_CONSTANTS.keyLength,
+      tagLength: LEDGER_FILE_V2_CONSTANTS.tagLength,
     },
   };
 }
@@ -406,13 +406,13 @@ function validateGeneration(
   input: unknown,
   path: "current" | "previous",
 ):
-  | { ok: true; value: EncryptedLedgerGenerationV1 }
+  | { ok: true; value: EncryptedLedgerGenerationV2 }
   | { ok: false; errors: LedgerFileContractError[] } {
   if (!isExactObject(input, GENERATION_KEYS)) {
     return failure(
       "LEDGER_FILE_INVALID_STRUCTURE",
       path,
-      `${path} must use the exact V1 generation shape`,
+      `${path} must use the exact V2 generation shape`,
     );
   }
 
@@ -423,7 +423,7 @@ function validateGeneration(
       isTechnicalId(input.parentRevisionId)
     ) ||
     input.ledgerSchemaVersion !==
-      LEDGER_FILE_V1_CONSTANTS.ledgerSchemaVersion ||
+      LEDGER_FILE_V2_CONSTANTS.ledgerSchemaVersion ||
     typeof input.ivBase64Url !== "string" ||
     typeof input.ciphertextBase64Url !== "string"
   ) {
@@ -438,16 +438,16 @@ function validateGeneration(
     const iv = base64UrlToBytes(input.ivBase64Url);
     const ciphertext = base64UrlToBytes(input.ciphertextBase64Url);
     if (
-      iv.byteLength !== LEDGER_FILE_V1_CONSTANTS.ivBytes ||
+      iv.byteLength !== LEDGER_FILE_V2_CONSTANTS.ivBytes ||
       ciphertext.byteLength <
-        LEDGER_FILE_V1_CONSTANTS.minimumCiphertextBytes ||
+        LEDGER_FILE_V2_CONSTANTS.minimumCiphertextBytes ||
       ciphertext.byteLength >
-        LEDGER_FILE_V1_CONSTANTS.maximumCiphertextBytes
+        LEDGER_FILE_V2_CONSTANTS.maximumCiphertextBytes
     ) {
       return failure(
         "LEDGER_FILE_INVALID_ENCODING",
         path,
-        `${path} IV or ciphertext length is outside the V1 contract`,
+        `${path} IV or ciphertext length is outside the V2 contract`,
       );
     }
   } catch (error) {
@@ -461,7 +461,7 @@ function validateGeneration(
 
   return {
     ok: true,
-    value: input as EncryptedLedgerGenerationV1,
+    value: input as EncryptedLedgerGenerationV2,
   };
 }
 
@@ -470,7 +470,7 @@ function isTechnicalId(value: unknown): value is string {
     typeof value === "string" &&
     value.length > 0 &&
     value.trim().length > 0 &&
-    value.length <= LEDGER_FILE_V1_CONSTANTS.maximumTechnicalIdLength
+    value.length <= LEDGER_FILE_V2_CONSTANTS.maximumTechnicalIdLength
   );
 }
 

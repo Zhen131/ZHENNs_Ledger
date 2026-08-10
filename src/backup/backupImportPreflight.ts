@@ -15,7 +15,7 @@ import {
 import {
   validateBackupEnvelope,
   type BackupEnvelopeError,
-  type BackupEnvelopeV1,
+  type BackupEnvelopeV2,
 } from "./backupEnvelope";
 import { createLedgerDataContentIdentity } from "./backupContentIdentity";
 
@@ -869,5 +869,5 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // Compile-time guard: preflight deliberately keeps the existing B envelope.
-const _backupEnvelopeV1Contract: BackupEnvelopeV1["backupFormatVersion"] = 1;
-void _backupEnvelopeV1Contract;
+const _backupEnvelopeV2Contract: BackupEnvelopeV2["backupFormatVersion"] = 2;
+void _backupEnvelopeV2Contract;

@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
 import {
-  LEDGER_FILE_V1_CONSTANTS,
-  type EncryptedLedgerGenerationV1,
-  type LedgerFileCryptoV1,
+  LEDGER_FILE_V2_CONSTANTS,
+  type EncryptedLedgerGenerationV2,
+  type LedgerFileCryptoV2,
 } from "./ledgerFileContract";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import type { CryptoProvider } from "./ledgerKeyDerivation";
@@ -19,7 +19,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
       },
       '{"savedAt":"2026-07-28T10:00:00.000Z","ledgerData":{"trades":[]}}',
     );
@@ -28,7 +28,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-b",
         parentRevisionId: "revision-a",
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
       },
       '{"savedAt":"2026-07-28T10:01:00.000Z","ledgerData":{"trades":[1]}}',
     );
@@ -56,7 +56,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
       },
       "secret payload",
     );
@@ -79,13 +79,13 @@ describe("LedgerFileCrypto", () => {
       ).rejects.toBeDefined();
     }
 
-    const tamperedMetadata: LedgerFileCryptoV1 = {
+    const tamperedMetadata: LedgerFileCryptoV2 = {
       ...crypto.getCryptoMetadata(),
       cipher: {
         ...crypto.getCryptoMetadata().cipher,
         tagLength: 96,
       },
-    } as unknown as LedgerFileCryptoV1;
+    } as unknown as LedgerFileCryptoV2;
     const changedAad = await LedgerFileCrypto.createForUnlock(
       PASSPHRASE,
       tamperedMetadata,
@@ -126,7 +126,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
       },
       "first",
     );
@@ -135,7 +135,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "b",
         parentRevisionId: "a",
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
       },
       "second",
     );
@@ -143,22 +143,22 @@ describe("LedgerFileCrypto", () => {
     expect(deriveKey).toHaveBeenCalledOnce();
     expect(deriveKey).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: LEDGER_FILE_V1_CONSTANTS.kdfName,
-        hash: LEDGER_FILE_V1_CONSTANTS.kdfHash,
-        iterations: LEDGER_FILE_V1_CONSTANTS.kdfIterations,
+        name: LEDGER_FILE_V2_CONSTANTS.kdfName,
+        hash: LEDGER_FILE_V2_CONSTANTS.kdfHash,
+        iterations: LEDGER_FILE_V2_CONSTANTS.kdfIterations,
       }),
       expect.anything(),
       {
-        name: LEDGER_FILE_V1_CONSTANTS.cipherName,
-        length: LEDGER_FILE_V1_CONSTANTS.keyLength,
+        name: LEDGER_FILE_V2_CONSTANTS.cipherName,
+        length: LEDGER_FILE_V2_CONSTANTS.keyLength,
       },
       false,
       ["encrypt", "decrypt"],
     );
   });
 
-  it("decrypts a C V1 fixture generated before key derivation was decoupled", async () => {
-    const metadata: LedgerFileCryptoV1 = {
+  it("does not authenticate a retired V1 ciphertext under the V2 AAD contract", async () => {
+    const metadata: LedgerFileCryptoV2 = {
       cryptoVersion: 1,
       kdf: {
         name: "PBKDF2",
@@ -172,10 +172,10 @@ describe("LedgerFileCrypto", () => {
         tagLength: 128,
       },
     };
-    const generation: EncryptedLedgerGenerationV1 = {
+    const generation: EncryptedLedgerGenerationV2 = {
       revisionId: "fixture-revision",
       parentRevisionId: null,
-      ledgerSchemaVersion: 1,
+      ledgerSchemaVersion: 2,
       ivBase64Url: "CQkJCQkJCQkJCQkJ",
       ciphertextBase64Url:
         "9zhn4OlMwPmw33DWGPkNJm1YjvAmEOulk7Hfig8ONwFt8kUmMLcJkwwEDBIJ3KIVBPOP4kMWp7TgDWoGyM7h05jLEJ6yt7vGksvXJ8OCnfLyPRpr_cLE7bamZ9FBu1OSv7LpiUFVqvVLdGjpEnBBG90RuplgmJTElLEZo7KCHXnWap0dpalQmD4SyfsICT5Akw",
@@ -187,15 +187,13 @@ describe("LedgerFileCrypto", () => {
 
     await expect(
       crypto.decryptGeneration("fixture-file", generation),
-    ).resolves.toBe(
-      '{"savedAt":"2026-07-29T00:00:00.000Z","ledgerData":{"schemaVersion":1,"assets":[],"trades":[],"priceSnapshots":[],"feeRules":[]}}',
-    );
+    ).rejects.toBeDefined();
   });
 });
 
 function createTamperedGenerations(
-  generation: EncryptedLedgerGenerationV1,
-): Array<[string, EncryptedLedgerGenerationV1]> {
+  generation: EncryptedLedgerGenerationV2,
+): Array<[string, EncryptedLedgerGenerationV2]> {
   const changedCiphertext = base64UrlToBytes(
     generation.ciphertextBase64Url,
   );
@@ -223,8 +221,8 @@ function createTamperedGenerations(
       "file-a",
       {
         ...generation,
-        ledgerSchemaVersion: 2,
-      } as unknown as EncryptedLedgerGenerationV1,
+        ledgerSchemaVersion: 99,
+      } as unknown as EncryptedLedgerGenerationV2,
     ],
     [
       "file-a",
