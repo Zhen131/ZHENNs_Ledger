@@ -25,7 +25,7 @@ Week 11 evidence is deliberately separated into implemented behavior and indepen
 - Batch 2 implemented C takeover, previous-generation recovery, single-writer coordination, reconnect, password lifecycle, legacy migration, and safe clear. Its development and independent automated checks passed with 51 test files and 596 tests, but `02D` remains `BLOCKED` because the required real Chrome picker, permission, dual-tab, and raw IndexedDB evidence was incomplete.
 - Batch 3 implemented full plaintext backup export, zero-write preflight, structured error reporting, suspicious-duplicate grouping, and whole-ledger import into a newly created empty C. Development finished with 55 test files and 698 tests, and the normal real-Chrome success path passed. `03B` remains `BLOCKED` because a browser cannot guarantee rollback after process death, permanent permission loss, or an external write that wins after close. `03C` and `03D` were not executed.
 
-The Week 12 fee-aware P&L candidate is intentionally retained on the local `zhennn/w12-pnl-fee-accounting` branch and is not merged into `main`. Its development validation passed with 57 test files and 722 tests, typecheck, lint, production build, whitespace checks, and a real-Chrome flow using dedicated fictional `.lftl` files. New ledgers and new amount facts use USDT, actual same-currency fees flow through replayed cost and net P&L, legacy USD facts remain readable, and non-zero foreign-currency fees withhold fee-sensitive derived values instead of being guessed. Independent `01C` review and the resulting `01D` report are still pending, so this is a development candidate rather than an accepted `main` release.
+The Week 12 fee-aware P&L candidate is intentionally retained on the local `zhennn/w12-pnl-fee-accounting` branch and is not merged into `main`. The original independent `01D` review failed on one P0: loading an otherwise valid legacy USD asset without `binanceMapping` could silently persist a default mapping. The R1 candidate now preserves absent, explicit `null`, and explicit mapping objects as distinct stored facts, while a read-only runtime resolver supplies built-in defaults only where Binance behavior needs them. Its current automated development validation passes 58 test files and 730 tests, typecheck, lint, production build, and whitespace checks. A dedicated fictional legacy USD `.lftl` also passed the development-side real-Chrome import, authenticated write/readback, lock/reopen, export, and exact `LedgerData` comparison flow without materializing the absent BTC mapping. A fresh `01R1D` review is still required, so this remains a development candidate rather than an accepted `main` release.
 
 Merging code or passing automated tests does not turn a blocked independent acceptance result into `PASS`.
 
@@ -51,6 +51,7 @@ Merging code or passing automated tests does not turn a blocked independent acce
 ## Data and security invariants
 
 - `Trade`, `PriceSnapshot`, assets, fee rules, and Binance mappings are facts.
+- An absent Binance mapping remains absent in storage and exports; runtime fallback does not mutate `LedgerData`. Explicit `null` remains a durable user disable, while an explicit mapping object remains exact.
 - `Position[]`, chart slices, chart points, heat levels, valuation mode, and selected date are derived or session state. They are not persisted in `LedgerData`, C, connection records, or backups.
 - `Trade.totalValue` is the fee-exclusive execution amount. Actual buy fees in the accounting currency increase replayed cost; actual sell fees in that currency reduce net proceeds and realized P&L.
 - A non-zero fee in another currency is never treated as zero and is never guessed as USDT. Fee-sensitive cost and P&L are withheld with an explicit reliability issue until a conversion contract exists.
@@ -161,7 +162,7 @@ npm run build
 git diff --check
 ```
 
-The most recent development baseline reported 57 test files and 722 passing tests, plus typecheck, lint, production build, whitespace checks, and the dedicated fictional-file real-Chrome flow. That result remains development evidence, not a replacement for the pending Week 12 independent review or the blocked Week 11 browser contracts described above.
+The current R1 development baseline reports 58 test files and 730 passing tests, plus typecheck, lint, production build, whitespace checks, and the dedicated fictional-file real-Chrome flow described above. That result remains development evidence, not a replacement for fresh `01R1D` independent review or the blocked Week 11 browser contracts described above.
 
 ## Known limits and deferred work
 
