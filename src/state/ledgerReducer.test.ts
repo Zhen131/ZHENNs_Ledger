@@ -7,6 +7,22 @@ import {
 import { ledgerReducer } from "./ledgerReducer";
 import { createBuiltInAssets } from "../data/builtInAssets";
 import { createPriceSnapshot, createSimpleTrade } from "../test/fixtures";
+import type { FeeRule, FixedFeeRule } from "../models";
+
+function createFeeRule(id = "fee-okx-btc-v1"): FixedFeeRule {
+  return {
+    id,
+    name: "OKX BTC fee",
+    platform: "OKX",
+    assetSymbol: "BTC",
+    status: "active",
+    type: "fixed",
+    amount: "5",
+    currency: "USDT",
+    createdAt: "2026-08-10T00:00:00.000Z",
+    updatedAt: "2026-08-10T00:00:00.000Z",
+  };
+}
 
 test("creates an in-memory ledger with built-in assets", () => {
   expect(createInitialLedgerData()).toEqual({
@@ -208,4 +224,85 @@ test("creates independent built-in assets across consecutive resets", () => {
   for (const [index, asset] of firstReset.assets.entries()) {
     expect(asset).not.toBe(secondReset.assets[index]);
   }
+});
+
+test("adds and deactivates fee rules without physical deletion", () => {
+  const initial = createInitialLedgerData();
+  const rule = createFeeRule();
+  const added = ledgerReducer(initial, { type: "feeRule/add", feeRule: rule });
+  const deactivated = ledgerReducer(added, {
+    type: "feeRule/deactivate",
+    feeRuleId: rule.id,
+    deactivatedAt: "2026-08-10T01:00:00.000Z",
+  });
+
+  expect(added.feeRules).toEqual([rule]);
+  expect(deactivated.feeRules).toEqual([
+    {
+      ...rule,
+      status: "inactive",
+      updatedAt: "2026-08-10T01:00:00.000Z",
+      deactivatedAt: "2026-08-10T01:00:00.000Z",
+    },
+  ]);
+  expect(initial.feeRules).toEqual([]);
+});
+
+test("atomically creates a new rule version and preserves old economics", () => {
+  const oldRule = createFeeRule();
+  const previousLedger = {
+    ...createInitialLedgerData(),
+    feeRules: [oldRule],
+  };
+  const replacement: FeeRule = {
+    ...createFeeRule("fee-okx-btc-v2"),
+    amount: "6",
+    replacesFeeRuleId: oldRule.id,
+    createdAt: "2026-08-10T01:00:00.000Z",
+    updatedAt: "2026-08-10T01:00:00.000Z",
+  };
+  const nextLedger = ledgerReducer(previousLedger, {
+    type: "feeRule/replace",
+    feeRuleId: oldRule.id,
+    replacement,
+    deactivatedAt: "2026-08-10T01:00:00.000Z",
+  });
+
+  expect(nextLedger.feeRules[0]).toEqual({
+    ...oldRule,
+    status: "inactive",
+    updatedAt: "2026-08-10T01:00:00.000Z",
+    deactivatedAt: "2026-08-10T01:00:00.000Z",
+  });
+  expect(nextLedger.feeRules[0]).toMatchObject({ amount: "5" });
+  expect(nextLedger.feeRules[1]).toBe(replacement);
+  expect(previousLedger.feeRules).toEqual([oldRule]);
+});
+
+test("rejects duplicate, stale, and cross-target fee rule mutations as no-ops", () => {
+  const oldRule = createFeeRule();
+  const ledger = { ...createInitialLedgerData(), feeRules: [oldRule] };
+  const duplicate = ledgerReducer(ledger, {
+    type: "feeRule/add",
+    feeRule: { ...oldRule, amount: "99" },
+  });
+  const crossTarget = ledgerReducer(ledger, {
+    type: "feeRule/replace",
+    feeRuleId: oldRule.id,
+    replacement: {
+      ...createFeeRule("fee-cross-target"),
+      platform: "Binance",
+      replacesFeeRuleId: oldRule.id,
+    },
+    deactivatedAt: "2026-08-10T01:00:00.000Z",
+  });
+  const missing = ledgerReducer(ledger, {
+    type: "feeRule/deactivate",
+    feeRuleId: "missing",
+    deactivatedAt: "2026-08-10T01:00:00.000Z",
+  });
+
+  expect(duplicate).toBe(ledger);
+  expect(crossTarget).toBe(ledger);
+  expect(missing).toBe(ledger);
 });
