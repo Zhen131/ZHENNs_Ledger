@@ -2,6 +2,7 @@ import type {
   ISODateTimeString,
   LedgerData,
   Trade,
+  TradeDraft,
 } from "../models";
 import {
   type TradeValidationError,
@@ -127,16 +128,48 @@ export function createValidatedTrade(
     return dependencyFailure("now");
   }
 
+  const persistedDraft = {
+    ...validationResult.value,
+    feeCurrency: validationResult.value.currency,
+  };
+  const rawText =
+    persistedDraft.rawText === undefined ||
+    persistedDraft.rawText.trim() === ""
+      ? createStructuredTradeRawText(persistedDraft)
+      : persistedDraft.rawText;
+
   return {
     ok: true,
     trade: {
-      ...validationResult.value,
+      ...persistedDraft,
       id,
-      feeCurrency: validationResult.value.currency,
+      rawText,
       createdAt: timestamp,
       updatedAt: timestamp,
     },
   };
+}
+
+function createStructuredTradeRawText(
+  trade: Readonly<TradeDraft>,
+): string {
+  return `Structured ledger entry: ${JSON.stringify({
+    occurredAt: trade.occurredAt,
+    timePrecision: trade.timePrecision,
+    type: trade.type,
+    assetSymbol: trade.assetSymbol,
+    quantity: trade.quantity,
+    price: trade.price,
+    totalValue: trade.totalValue,
+    currency: trade.currency,
+    fee: trade.fee ?? "0",
+    feeCurrency: trade.feeCurrency ?? trade.currency,
+    ...(trade.platform === undefined ? {} : { platform: trade.platform }),
+    ...(trade.feeRuleId === undefined
+      ? {}
+      : { feeRuleId: trade.feeRuleId }),
+    ...(trade.note === undefined ? {} : { note: trade.note }),
+  })}`;
 }
 
 function dependencyFailure(
