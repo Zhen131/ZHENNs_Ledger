@@ -1,4 +1,4 @@
-import { MAX_LEDGER_FILE_V1_BYTES } from "../encryption/ledgerFileContract";
+import { MAX_LEDGER_FILE_V2_BYTES } from "../encryption/ledgerFileContract";
 
 export type LedgerFileReadResult = {
   text: string;
@@ -244,7 +244,7 @@ export class LedgerFileHandleAdapter {
       );
     }
 
-    if (file.size > MAX_LEDGER_FILE_V1_BYTES) {
+    if (file.size > MAX_LEDGER_FILE_V2_BYTES) {
       throw new LedgerFileAdapterError(
         "size",
         "Ledger file exceeds the 32 MiB outer limit",
@@ -262,7 +262,7 @@ export class LedgerFileHandleAdapter {
       );
     }
 
-    if (buffer.byteLength > MAX_LEDGER_FILE_V1_BYTES) {
+    if (buffer.byteLength > MAX_LEDGER_FILE_V2_BYTES) {
       throw new LedgerFileAdapterError(
         "size",
         "Ledger file bytes exceed the 32 MiB outer limit",
@@ -291,7 +291,7 @@ export class LedgerFileHandleAdapter {
     this.assertLedgerFileExtension(handle);
     assertWriteNotAborted(signal);
     const byteLength = new TextEncoder().encode(serializedFile).byteLength;
-    if (byteLength > MAX_LEDGER_FILE_V1_BYTES) {
+    if (byteLength > MAX_LEDGER_FILE_V2_BYTES) {
       throw new LedgerFileAdapterError(
         "size",
         "Serialized ledger file exceeds the 32 MiB outer limit",

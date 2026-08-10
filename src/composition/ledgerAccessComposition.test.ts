@@ -79,7 +79,7 @@ class MigrationFileHandle implements LedgerFileHandle {
 }
 
 describe("ledger access composition", () => {
-  it("exposes IndexedDB only as a restricted legacy-exit controller", async () => {
+  it("exposes IndexedDB only as a read-only legacy presence detector", async () => {
     const indexedDBFactory = new IDBFactory();
     const options = {
       databaseName: "composition-integration-test",
@@ -93,9 +93,9 @@ describe("ledger access composition", () => {
     expect("setup" in controller).toBe(false);
     expect("unlock" in controller).toBe(false);
     expect("resetEncryptedLedger" in controller).toBe(false);
-    expect(controller.unlockLegacyForMigration).toEqual(
-      expect.any(Function),
-    );
+    expect("unlockLegacyForMigration" in controller).toBe(false);
+    expect("authorizeLegacyMigrationDeletion" in controller).toBe(false);
+    expect("deleteLegacyAfterMigration" in controller).toBe(false);
   });
 
   it("detects a legacy record without assembling its autosave path", async () => {
@@ -115,6 +115,9 @@ describe("ledger access composition", () => {
     });
     expect("setup" in controller).toBe(false);
     expect("unlock" in controller).toBe(false);
+    expect("unlockLegacyForMigration" in controller).toBe(false);
+    expect("authorizeLegacyMigrationDeletion" in controller).toBe(false);
+    expect("deleteLegacyAfterMigration" in controller).toBe(false);
   });
 
   it("migrates a verified legacy ledger into a new C before conditionally deleting only the unchanged legacy record", async () => {

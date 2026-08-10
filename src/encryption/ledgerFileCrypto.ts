@@ -1,28 +1,28 @@
 import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
 import {
-  LEDGER_FILE_V1_CONSTANTS,
-  createLedgerFileCryptoV1,
-  createLedgerFileGenerationAadV1,
-  type EncryptedLedgerGenerationV1,
-  type LedgerFileCryptoV1,
+  LEDGER_FILE_V2_CONSTANTS,
+  createLedgerFileCryptoV2,
+  createLedgerFileGenerationAadV2,
+  type EncryptedLedgerGenerationV2,
+  type LedgerFileCryptoV2,
 } from "./ledgerFileContract";
 import {
   deriveLedgerKeyWithParameters,
   type CryptoProvider,
 } from "./ledgerKeyDerivation";
 
-const LEDGER_FILE_V1_KEY_DERIVATION_PARAMETERS = {
-  kdfName: LEDGER_FILE_V1_CONSTANTS.kdfName,
-  kdfHash: LEDGER_FILE_V1_CONSTANTS.kdfHash,
-  kdfIterations: LEDGER_FILE_V1_CONSTANTS.kdfIterations,
-  cipherName: LEDGER_FILE_V1_CONSTANTS.cipherName,
-  keyLength: LEDGER_FILE_V1_CONSTANTS.keyLength,
+const LEDGER_FILE_V2_KEY_DERIVATION_PARAMETERS = {
+  kdfName: LEDGER_FILE_V2_CONSTANTS.kdfName,
+  kdfHash: LEDGER_FILE_V2_CONSTANTS.kdfHash,
+  kdfIterations: LEDGER_FILE_V2_CONSTANTS.kdfIterations,
+  cipherName: LEDGER_FILE_V2_CONSTANTS.cipherName,
+  keyLength: LEDGER_FILE_V2_CONSTANTS.keyLength,
 } as const;
 
 export class LedgerFileCrypto {
   private constructor(
     private readonly key: CryptoKey,
-    private readonly metadata: LedgerFileCryptoV1,
+    private readonly metadata: LedgerFileCryptoV2,
     private readonly cryptoProvider: CryptoProvider,
   ) {}
 
@@ -31,35 +31,35 @@ export class LedgerFileCrypto {
     cryptoProvider: CryptoProvider = globalThis.crypto,
   ): Promise<LedgerFileCrypto> {
     const salt = cryptoProvider.getRandomValues(
-      new Uint8Array(LEDGER_FILE_V1_CONSTANTS.saltBytes),
+      new Uint8Array(LEDGER_FILE_V2_CONSTANTS.saltBytes),
     );
     const key = await deriveLedgerKeyWithParameters(
       passphrase,
       salt,
-      LEDGER_FILE_V1_KEY_DERIVATION_PARAMETERS,
+      LEDGER_FILE_V2_KEY_DERIVATION_PARAMETERS,
       cryptoProvider,
     );
     return new LedgerFileCrypto(
       key,
-      createLedgerFileCryptoV1(bytesToBase64Url(salt)),
+      createLedgerFileCryptoV2(bytesToBase64Url(salt)),
       cryptoProvider,
     );
   }
 
   static async createForUnlock(
     passphrase: string,
-    metadata: LedgerFileCryptoV1,
+    metadata: LedgerFileCryptoV2,
     cryptoProvider: CryptoProvider = globalThis.crypto,
   ): Promise<LedgerFileCrypto> {
     const salt = base64UrlToBytes(metadata.kdf.saltBase64Url);
-    if (salt.byteLength !== LEDGER_FILE_V1_CONSTANTS.saltBytes) {
+    if (salt.byteLength !== LEDGER_FILE_V2_CONSTANTS.saltBytes) {
       throw new Error("Invalid ledger file salt");
     }
 
     const key = await deriveLedgerKeyWithParameters(
       passphrase,
       salt,
-      LEDGER_FILE_V1_KEY_DERIVATION_PARAMETERS,
+      LEDGER_FILE_V2_KEY_DERIVATION_PARAMETERS,
       cryptoProvider,
     );
     return new LedgerFileCrypto(
@@ -69,11 +69,11 @@ export class LedgerFileCrypto {
     );
   }
 
-  getCryptoMetadata(): LedgerFileCryptoV1 {
+  getCryptoMetadata(): LedgerFileCryptoV2 {
     return cloneLedgerFileCryptoMetadata(this.metadata);
   }
 
-  matchesCryptoMetadata(metadata: LedgerFileCryptoV1): boolean {
+  matchesCryptoMetadata(metadata: LedgerFileCryptoV2): boolean {
     return sameLedgerFileCryptoMetadata(this.metadata, metadata);
   }
 
@@ -82,20 +82,20 @@ export class LedgerFileCrypto {
     revision: {
       revisionId: string;
       parentRevisionId: string | null;
-      ledgerSchemaVersion: 1;
+      ledgerSchemaVersion: 2;
     },
     serializedPayload: string,
-  ): Promise<EncryptedLedgerGenerationV1> {
+  ): Promise<EncryptedLedgerGenerationV2> {
     const iv = this.cryptoProvider.getRandomValues(
-      new Uint8Array(LEDGER_FILE_V1_CONSTANTS.ivBytes),
+      new Uint8Array(LEDGER_FILE_V2_CONSTANTS.ivBytes),
     );
     const generationMetadata = {
       ...revision,
       ivBase64Url: bytesToBase64Url(iv),
     };
-    const additionalData = createLedgerFileGenerationAadV1(
+    const additionalData = createLedgerFileGenerationAadV2(
       {
-        fileFormatVersion: LEDGER_FILE_V1_CONSTANTS.fileFormatVersion,
+        fileFormatVersion: LEDGER_FILE_V2_CONSTANTS.fileFormatVersion,
         fileId,
         crypto: this.metadata,
       },
@@ -103,10 +103,10 @@ export class LedgerFileCrypto {
     );
     const encrypted = await this.cryptoProvider.subtle.encrypt(
       {
-        name: LEDGER_FILE_V1_CONSTANTS.cipherName,
+        name: LEDGER_FILE_V2_CONSTANTS.cipherName,
         iv: toArrayBuffer(iv),
         additionalData: toArrayBuffer(additionalData),
-        tagLength: LEDGER_FILE_V1_CONSTANTS.tagLength,
+        tagLength: LEDGER_FILE_V2_CONSTANTS.tagLength,
       },
       this.key,
       toArrayBuffer(new TextEncoder().encode(serializedPayload)),
@@ -120,7 +120,7 @@ export class LedgerFileCrypto {
 
   async decryptGeneration(
     fileId: string,
-    generation: EncryptedLedgerGenerationV1,
+    generation: EncryptedLedgerGenerationV2,
   ): Promise<string> {
     const iv = base64UrlToBytes(generation.ivBase64Url);
     const ciphertext = base64UrlToBytes(
@@ -132,9 +132,9 @@ export class LedgerFileCrypto {
       ledgerSchemaVersion: generation.ledgerSchemaVersion,
       ivBase64Url: generation.ivBase64Url,
     };
-    const additionalData = createLedgerFileGenerationAadV1(
+    const additionalData = createLedgerFileGenerationAadV2(
       {
-        fileFormatVersion: LEDGER_FILE_V1_CONSTANTS.fileFormatVersion,
+        fileFormatVersion: LEDGER_FILE_V2_CONSTANTS.fileFormatVersion,
         fileId,
         crypto: this.metadata,
       },
@@ -142,10 +142,10 @@ export class LedgerFileCrypto {
     );
     const decrypted = await this.cryptoProvider.subtle.decrypt(
       {
-        name: LEDGER_FILE_V1_CONSTANTS.cipherName,
+        name: LEDGER_FILE_V2_CONSTANTS.cipherName,
         iv: toArrayBuffer(iv),
         additionalData: toArrayBuffer(additionalData),
-        tagLength: LEDGER_FILE_V1_CONSTANTS.tagLength,
+        tagLength: LEDGER_FILE_V2_CONSTANTS.tagLength,
       },
       this.key,
       toArrayBuffer(ciphertext),
@@ -156,8 +156,8 @@ export class LedgerFileCrypto {
 }
 
 export function sameLedgerFileCryptoMetadata(
-  left: LedgerFileCryptoV1,
-  right: LedgerFileCryptoV1,
+  left: LedgerFileCryptoV2,
+  right: LedgerFileCryptoV2,
 ): boolean {
   return (
     left.cryptoVersion === right.cryptoVersion &&
@@ -172,8 +172,8 @@ export function sameLedgerFileCryptoMetadata(
 }
 
 function cloneLedgerFileCryptoMetadata(
-  metadata: LedgerFileCryptoV1,
-): LedgerFileCryptoV1 {
+  metadata: LedgerFileCryptoV2,
+): LedgerFileCryptoV2 {
   return {
     cryptoVersion: metadata.cryptoVersion,
     kdf: { ...metadata.kdf },

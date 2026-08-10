@@ -16,13 +16,13 @@ import {
   validateLedgerData,
 } from "../validators";
 
-export const BACKUP_FORMAT_VERSION = 1;
+export const BACKUP_FORMAT_VERSION = 2;
 
-export type BackupEnvelopeV1 = {
-  backupFormatVersion: 1;
+export type BackupEnvelopeV2 = {
+  backupFormatVersion: 2;
   appVersion: string;
   exportedAt: string;
-  ledgerSchemaVersion: 1;
+  ledgerSchemaVersion: 2;
   ledgerData: LedgerData;
 };
 
@@ -45,7 +45,7 @@ export type BackupEnvelopeError =
   | LedgerImportPolicyError;
 
 export type BackupEnvelopeResult =
-  | { ok: true; value: BackupEnvelopeV1 }
+  | { ok: true; value: BackupEnvelopeV2 }
   | { ok: false; errors: BackupEnvelopeError[] };
 
 export type BackupMetadata = {
@@ -82,7 +82,7 @@ export function createBackupEnvelope(
   };
 }
 
-export function serializeBackupEnvelope(envelope: BackupEnvelopeV1): string {
+export function serializeBackupEnvelope(envelope: BackupEnvelopeV2): string {
   return `${JSON.stringify(envelope, null, 2)}\n`;
 }
 
@@ -140,7 +140,7 @@ export function validateBackupEnvelope(
   });
   errors.push(...metadataErrors);
 
-  const hasSupportedLedgerSchemaVersion = input.ledgerSchemaVersion === 1;
+  const hasSupportedLedgerSchemaVersion = input.ledgerSchemaVersion === 2;
   if (!hasSupportedLedgerSchemaVersion) {
     errors.push(
       createError(
@@ -192,7 +192,7 @@ export function validateBackupEnvelope(
       backupFormatVersion: BACKUP_FORMAT_VERSION,
       appVersion: input.appVersion as string,
       exportedAt: input.exportedAt as string,
-      ledgerSchemaVersion: 1,
+      ledgerSchemaVersion: 2,
       ledgerData: ledgerResult.value,
     },
   };

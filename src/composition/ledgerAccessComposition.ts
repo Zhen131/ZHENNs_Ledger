@@ -9,7 +9,7 @@ import {
 } from "../adapters/ledgerFileConnectionAdapter";
 import { DefaultLedgerFileSessionCoordinator } from "../coordination/ledgerFileSessionCoordinator";
 import {
-  DefaultLegacyLedgerExitController,
+  LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
 } from "./ledgerAccessController";
 import {
@@ -23,26 +23,20 @@ let defaultFileAccessController: LedgerFileAccessController | undefined;
 export function createApplicationLedgerAccessController(
   storageOptions: IndexedDbStorageAdapterOptions = {},
 ): LedgerAccessController {
-  const legacyExitController = new DefaultLegacyLedgerExitController(
-    new IndexedDbStorageAdapter(storageOptions),
-  );
+  const legacyPresenceStorage = new IndexedDbStorageAdapter(storageOptions);
   return Object.freeze({
-    inspect: () => legacyExitController.inspect(),
-    unlockLegacyForMigration: (passphrase: string) =>
-      legacyExitController.unlockLegacyForMigration(passphrase),
-    authorizeLegacyMigrationDeletion: (
-      ...args: Parameters<
-        DefaultLegacyLedgerExitController["authorizeLegacyMigrationDeletion"]
-      >
-    ) =>
-      legacyExitController.authorizeLegacyMigrationDeletion(
-        ...args,
-      ),
-    deleteLegacyAfterMigration: (
-      ...args: Parameters<
-        DefaultLegacyLedgerExitController["deleteLegacyAfterMigration"]
-      >
-    ) => legacyExitController.deleteLegacyAfterMigration(...args),
+    inspect: async () => {
+      try {
+        return (await legacyPresenceStorage.read()) === null
+          ? { status: "setup-required" as const }
+          : { status: "unlock-required" as const };
+      } catch {
+        return {
+          status: "error" as const,
+          code: LEDGER_ACCESS_ERROR_CODES.READ_FAILED,
+        };
+      }
+    },
   });
 }
 

@@ -347,6 +347,28 @@ describe("preflightBackupJson", () => {
     expect(result.candidate?.trades[0].rawText).toBeUndefined();
   });
 
+  it("rejects a V1 backup during zero-write preflight and creates no candidate", async () => {
+    const parsed = JSON.parse(readFixture("valid-300.backup.json"));
+    parsed.backupFormatVersion = 1;
+    parsed.ledgerSchemaVersion = 1;
+    parsed.ledgerData.schemaVersion = 1;
+
+    const result = await preflight(`${JSON.stringify(parsed, null, 2)}\n`);
+
+    expect(result.hardErrorCount).toBeGreaterThan(0);
+    expect(result.retainedDetails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "hard-error",
+          code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+          path: "backupFormatVersion",
+        }),
+      ]),
+    );
+    expect(result.candidate).toBeUndefined();
+    expect(result.candidateIdentity).toBeUndefined();
+  });
+
   it("reports a real JSON parser location or explicitly says the location is unavailable", async () => {
     const result = await preflight("{\n  invalid", 3);
     const detail = result.retainedDetails[0];

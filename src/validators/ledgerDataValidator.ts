@@ -617,7 +617,7 @@ function readFeeRule(
     name,
     platform,
     assetSymbol,
-    status: status!,
+    status: status as FeeRule["status"],
     createdAt,
     updatedAt,
     ...(deactivatedAt === undefined ? {} : { deactivatedAt }),

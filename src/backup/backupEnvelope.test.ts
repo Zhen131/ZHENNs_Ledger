@@ -14,7 +14,7 @@ const metadata = {
   exportedAt: "2026-07-23T12:34:56.789Z",
 };
 
-describe("BackupEnvelopeV1", () => {
+describe("BackupEnvelopeV2", () => {
   it("creates a detached, versioned backup envelope", () => {
     const ledger = createInitialLedgerData();
     const result = createBackupEnvelope(ledger, metadata);
@@ -25,7 +25,7 @@ describe("BackupEnvelopeV1", () => {
         backupFormatVersion: BACKUP_FORMAT_VERSION,
         appVersion: "0.1.0",
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
         ledgerData: ledger,
       },
     });
@@ -128,10 +128,10 @@ describe("BackupEnvelopeV1", () => {
   it("rejects invalid metadata and mismatched schema versions", () => {
     const ledger = createInitialLedgerData();
     const result = validateBackupEnvelope({
-      backupFormatVersion: 1,
+      backupFormatVersion: 2,
       appVersion: "",
       exportedAt: "2026-07-23",
-      ledgerSchemaVersion: 2,
+      ledgerSchemaVersion: 1,
       ledgerData: ledger,
     });
 
@@ -152,16 +152,41 @@ describe("BackupEnvelopeV1", () => {
     }
   });
 
+  it("rejects a V1 backup without returning a V2 value", () => {
+    const ledger = createInitialLedgerData();
+    const result = validateBackupEnvelope({
+      backupFormatVersion: 1,
+      appVersion: metadata.appVersion,
+      exportedAt: metadata.exportedAt,
+      ledgerSchemaVersion: 1,
+      ledgerData: { ...ledger, schemaVersion: 1 },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      errors: expect.arrayContaining([
+        expect.objectContaining({
+          code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+          path: "backupFormatVersion",
+        }),
+        expect.objectContaining({
+          code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+          path: "ledgerSchemaVersion",
+        }),
+      ]),
+    });
+  });
+
   it("rejects resource-exhausting payloads after structural validation", () => {
     const ledger = createInitialLedgerData();
     ledger.assets[0].name = "x".repeat(129);
 
     expect(
       validateBackupEnvelope({
-        backupFormatVersion: 1,
+        backupFormatVersion: 2,
         appVersion: metadata.appVersion,
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
         ledgerData: ledger,
       }),
     ).toEqual({
