@@ -169,7 +169,7 @@ The current accepted Week 12 baseline reports 58 test files and 730 passing test
 
 ## Known limits and deferred work
 
-- Actual fees are included only when they are already denominated in the relevant accounting currency. Fee-rule automation, platform-specific fee policy, and cross-currency fee conversion are not implemented.
+- Actual fees are included only when they are already denominated in the relevant accounting currency. Candidate rules support fixed USDT amounts and fee-exclusive-total percentages; tiered rates, minimum fees, exchange-specific rounding, and cross-currency conversion are not implemented.
 - Position-adjustment transactions and the originally proposed transaction-marker overlay are not implemented.
 - Binance provides latest public prices only. Historical Kline/OHLC, polling, and WebSocket feeds are not implemented.
 - Exported backups remain plaintext.
