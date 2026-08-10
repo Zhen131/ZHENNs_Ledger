@@ -459,6 +459,81 @@ describe("usePersistentLedger hydration safety", () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
+  it("hydrates and ordinarily saves a legacy USD ledger without materializing an absent Binance mapping", async () => {
+    const legacyLedger = createInitialLedgerData();
+    legacyLedger.assets = legacyLedger.assets.map((asset) => ({
+      ...asset,
+      quoteCurrency: "USD",
+    }));
+    delete legacyLedger.assets[0].binanceMapping;
+    legacyLedger.trades = [
+      {
+        ...createSimpleTrade(
+          "legacy-usd-trade",
+          "buy",
+          "BTC",
+          "1",
+          "2026-07-20",
+        ),
+        currency: "USD",
+        fee: "0.01",
+        feeCurrency: "USD",
+      },
+    ];
+    legacyLedger.priceSnapshots = [
+      {
+        ...createPriceSnapshot(
+          "legacy-usd-price",
+          "BTC",
+          "70000",
+          "2026-07-20",
+        ),
+        currency: "USD",
+      },
+    ];
+    const repository = createRepository({
+      load: vi.fn(async () => structuredClone(legacyLedger)),
+    });
+    const { result } = renderHook(() => usePersistentLedger(repository));
+
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    expect(result.current.ledgerData).toEqual(legacyLedger);
+    expect(
+      Object.hasOwn(result.current.ledgerData.assets[0], "binanceMapping"),
+    ).toBe(false);
+    expect(repository.save).not.toHaveBeenCalled();
+
+    act(() => {
+      expect(
+        result.current.applyLedgerMutation((current) => ({
+          ...current,
+          trades: current.trades.map((trade) => ({
+            ...trade,
+            note: "reviewed without migration",
+          })),
+        })),
+      ).toBe("applied");
+    });
+
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledOnce();
+    });
+    const persisted = vi.mocked(repository.save).mock.calls[0][0];
+    expect(Object.hasOwn(persisted.assets[0], "binanceMapping")).toBe(false);
+    expect(persisted.assets[0].quoteCurrency).toBe("USD");
+    expect(persisted.trades[0]).toEqual(
+      expect.objectContaining({
+        currency: "USD",
+        fee: "0.01",
+        feeCurrency: "USD",
+        note: "reviewed without migration",
+      }),
+    );
+    expect(persisted.priceSnapshots[0].currency).toBe("USD");
+  });
+
   it("treats an empty database as no saved data without writing initial state", async () => {
     const repository = createRepository();
     const { result } = renderHook(() => usePersistentLedger(repository));
