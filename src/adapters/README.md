@@ -14,4 +14,9 @@ composition exposes only a null/non-null inspection result from its `read()`;
 legacy decrypt, migration, write, clear, and conditional-delete operations are
 not reachable through the V2 application controller.
 
-Adapters do not parse `LedgerData`, encrypt payloads, or calculate business data. They must not leak IndexedDB APIs into UI, services, reducers, or calculators. `read()` returns `unknown | null`; the access layer and repository independently validate the encrypted envelope.
+Adapters do not parse `LedgerData`, encrypt payloads, or calculate business
+data. They must not leak IndexedDB APIs into UI, services, reducers, or
+calculators. The active connection adapter validates its exact three-field
+record before returning it. The retired adapter returns `unknown | null`; V2
+production code treats that value only as legacy presence, while negative tests
+validate historical envelopes at their explicit boundary.

@@ -23,9 +23,11 @@ export type IndexedDbStorageAdapterOptions = {
 };
 
 /**
- * 原生 IndexedDB whole-blob 实现。
+ * Retired native IndexedDB whole-blob implementation.
  *
- * 它只保存一个固定 key 的 envelope，不解析账本、不调用加密、不计算业务数据。
+ * The V2 production composition calls only `read()` and reduces the result to
+ * legacy presence. Historical write, clear, and conditional-delete methods
+ * remain available to explicit negative tests, not to the V2 UI controller.
  */
 export class IndexedDbStorageAdapter
   implements LegacyLedgerExitStorageAdapter
