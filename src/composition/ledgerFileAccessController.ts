@@ -16,12 +16,9 @@ import {
 import { validatePassphrase } from "../encryption/passphrasePolicy";
 import type { LedgerData } from "../models";
 import {
-  claimLedgerSessionPersistencePort,
   createLedgerSession,
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   type LedgerSession,
-  type LedgerSessionPersistencePort,
-  type SessionQuiesceToken,
 } from "../repositories/ledgerRepository";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
@@ -88,39 +85,12 @@ export type LedgerFileReconnectResult =
       code: LedgerFileAccessErrorCode;
     };
 
-const ledgerFileMigrationReceiptBrand = Symbol(
-  "ledger-file-migration-receipt",
-);
-
-export type LedgerFileMigrationReceipt = Readonly<{
-  sessionId: string;
-  generation: number;
-  fileId: string;
-  verifiedRevisionId: string;
-  serializedLedgerData: string;
-  [ledgerFileMigrationReceiptBrand]: true;
-}>;
-
 export interface LedgerFileAccessController {
   inspectRememberedConnection(): Promise<LedgerFileReconnectResult>;
   requestRememberedPermission(): Promise<LedgerFileReconnectResult>;
   reselectRememberedConnection(): Promise<LedgerFileSelectionResult>;
   forgetRememberedConnection(): Promise<void>;
   create(passphrase: string): Promise<LedgerFileAccessSessionResult>;
-  createFromLegacy?(
-    passphrase: string,
-    ledgerData: LedgerData,
-  ): Promise<LedgerFileAccessSessionResult>;
-  verifyMigrationTarget?(
-    session: LedgerSession,
-    expectedLedgerData: LedgerData,
-  ): Promise<LedgerFileMigrationReceipt | null>;
-  revalidateMigrationReceipt?(
-    receipt: LedgerFileMigrationReceipt,
-  ): Promise<boolean>;
-  releaseUnpublishedMigrationSession?(
-    session: LedgerSession,
-  ): Promise<void>;
   selectExisting(): Promise<LedgerFileSelectionResult>;
   unlockSelected(
     passphrase: string,
@@ -166,38 +136,6 @@ class LedgerFileConnectionCommitError extends Error {
     super("Could not save the verified ledger file connection");
     this.name = "LedgerFileConnectionCommitError";
   }
-}
-
-type LedgerFileMigrationReceiptRuntime = {
-  readonly controller: DefaultLedgerFileAccessController;
-  readonly session: LedgerSession;
-  readonly repository: LedgerFileRepository;
-  readonly receipt: LedgerFileMigrationReceipt;
-};
-
-const ledgerFileMigrationReceiptRuntimes = new WeakMap<
-  LedgerFileMigrationReceipt,
-  LedgerFileMigrationReceiptRuntime
->();
-type UnpublishedMigrationReleaseRuntime = {
-  readonly controller: DefaultLedgerFileAccessController;
-  readonly session: LedgerSession;
-  readonly owner: object;
-  readonly port: LedgerSessionPersistencePort;
-  tokenPromise: Promise<SessionQuiesceToken> | null;
-};
-const unpublishedMigrationReleaseRuntimes = new WeakMap<
-  LedgerSession,
-  UnpublishedMigrationReleaseRuntime
->();
-
-export function revalidateLedgerFileMigrationReceipt(
-  receipt: LedgerFileMigrationReceipt,
-): Promise<boolean> {
-  const runtime = ledgerFileMigrationReceiptRuntimes.get(receipt);
-  return runtime
-    ? runtime.controller.revalidateMigrationReceipt(receipt)
-    : Promise.resolve(false);
 }
 
 export class DefaultLedgerFileAccessController
@@ -423,117 +361,6 @@ export class DefaultLedgerFileAccessController
       passphrase,
       createInitialLedgerData(),
     );
-  }
-
-  async createFromLegacy(
-    passphrase: string,
-    ledgerData: LedgerData,
-  ): Promise<LedgerFileAccessSessionResult> {
-    return this.createWithInitialLedger(passphrase, ledgerData);
-  }
-
-  async verifyMigrationTarget(
-    session: LedgerSession,
-    expectedLedgerData: LedgerData,
-  ): Promise<LedgerFileMigrationReceipt | null> {
-    const active = this.activeSession;
-    if (
-      !active ||
-      active.session !== session ||
-      session.generation !== 0
-    ) {
-      return null;
-    }
-    const loaded = await active.repository.load();
-    const serializedLedgerData = JSON.stringify(loaded);
-    if (serializedLedgerData !== JSON.stringify(expectedLedgerData)) {
-      return null;
-    }
-    await active.repository.verifyCurrentDiskState();
-    const receipt: LedgerFileMigrationReceipt = Object.freeze({
-      sessionId: session.sessionId,
-      generation: session.generation,
-      fileId: active.repository.getVerifiedFileId(),
-      verifiedRevisionId:
-        active.repository.getVerifiedRevisionId(),
-      serializedLedgerData,
-      [ledgerFileMigrationReceiptBrand]: true as const,
-    });
-    ledgerFileMigrationReceiptRuntimes.set(receipt, {
-      controller: this,
-      session,
-      repository: active.repository,
-      receipt,
-    });
-    return receipt;
-  }
-
-  async revalidateMigrationReceipt(
-    receipt: LedgerFileMigrationReceipt,
-  ): Promise<boolean> {
-    const runtime = ledgerFileMigrationReceiptRuntimes.get(receipt);
-    const active = this.activeSession;
-    if (
-      !runtime ||
-      runtime.controller !== this ||
-      runtime.receipt !== receipt ||
-      !active ||
-      active.session !== runtime.session ||
-      active.repository !== runtime.repository ||
-      receipt.sessionId !== runtime.session.sessionId ||
-      receipt.generation !== runtime.session.generation ||
-      receipt.fileId !== runtime.repository.getVerifiedFileId() ||
-      receipt.verifiedRevisionId !==
-        runtime.repository.getVerifiedRevisionId()
-    ) {
-      return false;
-    }
-    try {
-      await runtime.repository.verifyCurrentDiskState();
-      const loaded = await runtime.repository.load();
-      return JSON.stringify(loaded) === receipt.serializedLedgerData;
-    } catch {
-      return false;
-    }
-  }
-
-  async releaseUnpublishedMigrationSession(
-    session: LedgerSession,
-  ): Promise<void> {
-    let runtime = unpublishedMigrationReleaseRuntimes.get(session);
-    if (runtime && runtime.controller !== this) {
-      throw new Error(
-        "Migration session belongs to another file controller",
-      );
-    }
-    if (!runtime) {
-      if (this.activeSession?.session !== session) {
-        return;
-      }
-      const owner = {};
-      const port = claimLedgerSessionPersistencePort(
-        session,
-        owner,
-      );
-      runtime = {
-        controller: this,
-        session,
-        owner,
-        port,
-        tokenPromise: null,
-      };
-      unpublishedMigrationReleaseRuntimes.set(session, runtime);
-    }
-    if (!runtime.tokenPromise) {
-      const request = session.beginQuiesce("route-leave");
-      runtime.tokenPromise = runtime.port.completeQuiesce(
-        request,
-        Promise.resolve(),
-      );
-    }
-    const token = await runtime.tokenPromise;
-    await session.releaseAfterQuiesce(token);
-    unpublishedMigrationReleaseRuntimes.delete(session);
   }
 
   private async createWithInitialLedger(

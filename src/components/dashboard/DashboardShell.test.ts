@@ -79,17 +79,17 @@ const sellTrade = Object.freeze({
 }) satisfies Trade;
 
 describe("TradeTable", () => {
-  it("renders an eight-column empty state", () => {
+  it("renders a nine-column empty state", () => {
     const html = renderToStaticMarkup(
       createElement(TradeTable, { trades: [] }),
     );
 
     expect(html).toContain(
-      'colSpan="8">暂无交易。添加交易后，这里会自动显示。</td>',
+      'colSpan="9">暂无交易。添加交易后，这里会自动显示。</td>',
     );
   });
 
-  it("maps a formal buy trade to all eight display columns", () => {
+  it("maps a formal buy trade to all nine display columns", () => {
     const html = renderToStaticMarkup(
       createElement(TradeTable, { trades: [buyTrade] }),
     );

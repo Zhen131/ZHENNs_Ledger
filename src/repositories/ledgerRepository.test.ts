@@ -175,7 +175,7 @@ describe("DefaultLedgerRepository", () => {
     const repository = new DefaultLedgerRepository(storage, encryption);
     const invalidLedger = {
       ...createInitialLedgerData(),
-      schemaVersion: 2,
+      schemaVersion: 1,
     } as unknown as LedgerData;
 
     await expect(repository.save(invalidLedger)).rejects.toMatchObject({

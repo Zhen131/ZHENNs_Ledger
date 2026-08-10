@@ -207,17 +207,17 @@ describe("strict import policy", () => {
 
     const backup = validateBackupEnvelope(
       {
-        backupFormatVersion: 1,
+        backupFormatVersion: 2,
         appVersion: "0.1.0",
         exportedAt: "2026-07-25T12:00:00Z",
-        ledgerSchemaVersion: 1,
+        ledgerSchemaVersion: 2,
         ledgerData,
       },
       TODAY,
     );
     expect(backup.ok).toBe(true);
     if (backup.ok) {
-      expect(backup.value.ledgerData.schemaVersion).toBe(1);
+      expect(backup.value.ledgerData.schemaVersion).toBe(2);
       expect(
         backup.value.ledgerData.priceSnapshots[0].binanceProvenance?.symbol,
       ).toBe("BTCUSDT");
