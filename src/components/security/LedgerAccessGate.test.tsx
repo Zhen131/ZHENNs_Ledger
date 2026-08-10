@@ -797,6 +797,33 @@ describe("LedgerAccessGate", () => {
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
 
+  it("explains that retired or unknown .lftl versions require a new V2 ledger", async () => {
+    const user = userEvent.setup();
+    const fileController = createFileController({
+      selectExisting: vi.fn(async () => ({
+        ok: false as const,
+        code: LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION,
+      })),
+    });
+    render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择 C（.lftl）" }),
+    );
+
+    expect(
+      screen.getByText(/版本 2 不支持解锁或迁移/),
+    ).toBeTruthy();
+    expect(screen.getByText(/请新建版本 2 账本/)).toBeTruthy();
+    expect(screen.queryByLabelText("C 核心密码")).toBeNull();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+  });
+
   it("ignores a slow file selection from an old controller after the controller changes", async () => {
     const accessController = createController();
     const slowSelection =

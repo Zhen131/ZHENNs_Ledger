@@ -916,7 +916,7 @@ describe("DefaultLedgerFileAccessController", () => {
 
     await expect(controller.selectExisting()).resolves.toEqual({
       ok: false,
-      code: LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION,
     });
     expect(handle.bytes).toEqual(before);
     expect(handle.writes).toBe(0);
