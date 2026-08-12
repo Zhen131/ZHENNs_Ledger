@@ -16,11 +16,11 @@ import {
   type LedgerFileHandle,
   type LedgerFilePickerProvider,
   type LedgerFileWritable,
-} from "../../adapters/ledgerFileHandleAdapter";
-import type { LedgerFileSessionLease } from "../../coordination/ledgerFileSessionCoordinator";
+} from "@/platform/files";
+import type { LedgerFileSessionLease } from "@/platform/coordination";
 import {
   type LedgerAccessController,
-} from "../../composition/ledgerAccessController";
+} from "@/platform/legacy";
 import {
   DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,
@@ -35,8 +35,8 @@ import {
   type LedgerSession,
   type LedgerSessionPersistencePort,
   type SessionQuiesceToken,
-} from "../../repositories/ledgerRepository";
-import { LedgerFileRepository } from "../../repositories/ledgerFileRepository";
+} from "@/platform/persistence";
+import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import { LedgerAccessGate } from "./LedgerAccessGate";
 

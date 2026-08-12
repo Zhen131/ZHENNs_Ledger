@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { StorageAdapter } from "../adapters/storageAdapter";
+import type { StorageAdapter } from "@/platform/legacy";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
-} from "../backup/backupEnvelope";
+} from "@/backup/backupEnvelope";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
@@ -12,9 +12,9 @@ import {
   revokeBackupImportPreflightReceipt,
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
-} from "../backup/backupImportPreflight";
-import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
-import type { EncryptionService } from "../encryption/encryptionService";
+} from "@/backup/backupImportPreflight";
+import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
+import type { EncryptionService } from "@/platform/legacy";
 import {
   createNoopStoredLedgerEnvelope,
   NoopEncryptionService,

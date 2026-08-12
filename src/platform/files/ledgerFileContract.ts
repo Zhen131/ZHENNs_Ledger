@@ -6,7 +6,7 @@ import {
 } from "@/core/validation";
 import { isValidISODateOrDateTime } from "@/core/validation";
 import { validateLedgerData } from "@/core/validation";
-import { base64UrlToBytes } from "./cryptoEncoding";
+import { base64UrlToBytes } from "@/platform/encryption";
 
 export const LEDGER_FILE_V2_CONSTANTS = {
   fileFormatVersion: 2,

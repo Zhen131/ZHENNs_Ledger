@@ -32,12 +32,12 @@ import {
   type LedgerRepository,
   type SessionQuiesceRequest,
   type SessionQuiesceToken,
-} from "../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
   LedgerFileRepository,
   LedgerFileRepositoryError,
-} from "../repositories/ledgerFileRepository";
+} from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import type { HydrationStatus } from "../state/hydrationState";
 import {

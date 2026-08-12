@@ -11,7 +11,7 @@ import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
 import {
   createBinanceMarketDataClient,
   type BinanceMarketDataClient,
-} from "../../marketData/binanceMarketDataClient";
+} from "@/platform/integrations";
 import type {
   Asset,
   LedgerData,

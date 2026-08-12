@@ -7,16 +7,16 @@ import {
   LedgerFileHandleAdapter,
   type LedgerFileHandle,
   type LedgerFileWritable,
-} from "../adapters/ledgerFileHandleAdapter";
-import type { LedgerFileSessionLease } from "../coordination/ledgerFileSessionCoordinator";
-import { bytesToBase64Url } from "../encryption/cryptoEncoding";
-import type { LedgerFileV2 } from "../encryption/ledgerFileContract";
+} from "@/platform/files";
+import type { LedgerFileSessionLease } from "@/platform/coordination";
+import { bytesToBase64Url } from "@/platform/encryption";
+import type { LedgerFileV2 } from "@/platform/files";
 import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,
   type LedgerRepository,
-} from "../repositories/ledgerRepository";
-import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
+} from "@/platform/persistence";
+import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import type { LedgerClock } from "@/core/shared";

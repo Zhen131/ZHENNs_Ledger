@@ -1,7 +1,7 @@
 import {
   type StoredLedgerEnvelopeV2,
   validateStoredLedgerEnvelopeV2,
-} from "../encryption/cryptoEnvelope";
+} from "@/platform/legacy";
 import type {
   LegacyLedgerConditionalDeleteResult,
   LegacyLedgerExitStorageAdapter,

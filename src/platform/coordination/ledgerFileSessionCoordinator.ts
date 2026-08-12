@@ -1,4 +1,4 @@
-import type { LedgerFileHandle } from "../adapters/ledgerFileHandleAdapter";
+import type { LedgerFileHandle } from "@/platform/files";
 
 const ADMISSION_LOCK_NAME =
   "local-first-trading-ledger:file-session:admission:v1";

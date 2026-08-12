@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bytesToBase64Url } from "./cryptoEncoding";
+import { bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_V2_CONSTANTS,
   createCanonicalLedgerPayloadV2,
@@ -199,7 +199,7 @@ describe("LedgerFileV2 contract", () => {
   });
 
   it("keeps the file and IndexedDB version systems independent", async () => {
-    const { LEDGER_CRYPTO_CONSTANTS } = await import("./cryptoEnvelope");
+    const { LEDGER_CRYPTO_CONSTANTS } = await import("@/platform/legacy");
 
     expect(LEDGER_FILE_V2_CONSTANTS.fileFormatVersion).toBe(2);
     expect(LEDGER_CRYPTO_CONSTANTS.formatVersion).toBe(2);

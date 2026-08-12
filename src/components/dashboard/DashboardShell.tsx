@@ -21,7 +21,7 @@ import {
   type LedgerSessionCapabilities,
   type SessionQuiesceReason,
   type LedgerStorageKind,
-} from "../../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import {
   buildHoldingAllocation,
   buildHoldingHistory,

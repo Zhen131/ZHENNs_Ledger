@@ -18,7 +18,7 @@ import {
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
   type LedgerAccessErrorCode,
-} from "../../composition/ledgerAccessController";
+} from "@/platform/legacy";
 import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
@@ -27,7 +27,7 @@ import {
 import {
   type LedgerSession,
   type SessionQuiesceReason,
-} from "../../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import type { PersistentLedgerState } from "../../hooks/usePersistentLedger";
 import { DashboardShell } from "../dashboard/DashboardShell";
 

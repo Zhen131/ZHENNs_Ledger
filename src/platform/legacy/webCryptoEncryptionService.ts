@@ -1,4 +1,4 @@
-import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
+import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   createCryptoAadV1,
   createCryptoEnvelopeMetadataV1,
@@ -10,9 +10,9 @@ import type { EncryptionService } from "./encryptionService";
 import {
   deriveLedgerKeyWithParameters,
   type CryptoProvider,
-} from "./ledgerKeyDerivation";
+} from "@/platform/encryption";
 
-export type { CryptoProvider } from "./ledgerKeyDerivation";
+export type { CryptoProvider } from "@/platform/encryption";
 
 const INDEXED_DB_V2_KEY_DERIVATION_PARAMETERS = {
   kdfName: LEDGER_CRYPTO_CONSTANTS.kdfName,

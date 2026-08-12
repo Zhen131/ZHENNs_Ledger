@@ -5,8 +5,8 @@ import type {
 import { resolveAssetBinanceMappingForRuntime } from "@/core/policies";
 import type {
   BinanceMarketDataClient,
-} from "../marketData/binanceMarketDataClient";
-import type { BinanceMarketDataFailure } from "../marketData/binanceMarketDataTypes";
+} from "@/platform/integrations";
+import type { BinanceMarketDataFailure } from "@/platform/integrations";
 
 export type BinanceMappingValidationResult =
   | { ok: true; mapping: BinanceMarketMapping }

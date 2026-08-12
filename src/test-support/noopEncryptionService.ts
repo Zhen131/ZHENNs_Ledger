@@ -1,10 +1,10 @@
-import type { EncryptionService } from "@/encryption/encryptionService";
-import { base64UrlToBytes, bytesToBase64Url } from "@/encryption/cryptoEncoding";
+import type { EncryptionService } from "@/platform/legacy";
+import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   createCryptoEnvelopeMetadataV1,
   type StoredLedgerEnvelopeV2,
   validateStoredLedgerEnvelopeV2,
-} from "@/encryption/cryptoEnvelope";
+} from "@/platform/legacy";
 
 const TEST_SALT = new Uint8Array(16);
 const TEST_IV = new Uint8Array(12);

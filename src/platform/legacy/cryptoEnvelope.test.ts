@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bytesToBase64Url } from "./cryptoEncoding";
+import { bytesToBase64Url } from "@/platform/encryption";
 import {
   createCryptoAadV1,
   createCryptoEnvelopeMetadataV1,
