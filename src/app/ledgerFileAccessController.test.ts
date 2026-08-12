@@ -866,8 +866,13 @@ describe("DefaultLedgerFileAccessController", () => {
         throw cancellation;
       }),
     };
+    const connection = createConnectionAdapter();
     const controller = new DefaultLedgerFileAccessController(
       new LedgerFileHandleAdapter(provider),
+      {},
+      createTestCoordinator(),
+      () => "unused-recovery",
+      connection.adapter,
     );
 
     await expect(controller.create(PASSPHRASE)).resolves.toEqual({
@@ -878,6 +883,35 @@ describe("DefaultLedgerFileAccessController", () => {
     await expect(controller.selectExisting()).resolves.toEqual({
       ok: false,
       code: LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED,
+    });
+    expect(connection.adapter.write).not.toHaveBeenCalled();
+    expect(connection.current()).toBeNull();
+  });
+
+  it("rejects a non-.lftl Open fallback before reading or publishing a connection", async () => {
+    const handle = new MemoryFileHandle("not-a-ledger.json", "{}");
+    const getFile = vi.spyOn(handle, "getFile");
+    const connection = createConnectionAdapter();
+    const { controller } = createController(
+      new MemoryFileHandle("unused.lftl"),
+      handle,
+      createTestCoordinator(),
+      () => "unused-recovery",
+      connection.adapter,
+    );
+
+    await expect(controller.selectExisting()).resolves.toEqual({
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_EXTENSION,
+    });
+    expect(getFile).not.toHaveBeenCalled();
+    expect(handle.writes).toBe(0);
+    expect(connection.adapter.write).not.toHaveBeenCalled();
+    expect(connection.current()).toBeNull();
+    await expect(controller.unlockSelected(PASSPHRASE)).resolves.toEqual({
+      status: "error",
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
     });
   });
 
