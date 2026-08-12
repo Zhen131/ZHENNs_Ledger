@@ -75,7 +75,7 @@ describe("MarketDataControls", () => {
     expect(client.fetchLatestPrices).not.toHaveBeenCalled();
     expect(
       (screen.getByRole("button", {
-        name: "刷新 Binance 价格",
+        name: "立即更新 Binance 行情",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });

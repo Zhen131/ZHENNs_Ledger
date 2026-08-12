@@ -79,6 +79,18 @@ textarea {
   }
 }
 
+@keyframes ledger-save-pop {
+  0% {
+    transform: scale(1);
+  }
+  55% {
+    transform: scale(1.008);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

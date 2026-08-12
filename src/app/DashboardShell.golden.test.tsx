@@ -196,6 +196,9 @@ describe("DashboardShell golden UI acceptance", () => {
       fee: "5",
       expectedCashImpact: "买入总支出：6505 USDT",
     });
+    await waitFor(() => {
+      expect(screen.getByText("交易已认证保存")).not.toBeNull();
+    });
     await fillTradeForm({
       type: "sell",
       assetSymbol: "BTC",
@@ -206,6 +209,9 @@ describe("DashboardShell golden UI acceptance", () => {
       fee: "3",
       expectedCashImpact: "卖出净到账：2797 USDT",
     });
+    await waitFor(() => {
+      expect(screen.getByText("交易已认证保存")).not.toBeNull();
+    });
 
     const user = userEvent.setup();
     await user.selectOptions(
@@ -213,6 +219,7 @@ describe("DashboardShell golden UI acceptance", () => {
       "BTC",
     );
     await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.clear(screen.getByLabelText("价格日期"));
     await user.type(screen.getByLabelText("价格日期"), "2026-07-25");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
@@ -282,7 +289,7 @@ describe("DashboardShell golden UI acceptance", () => {
     for (const buttonName of [
       "保存交易",
       "保存价格",
-      "刷新 Binance 价格",
+      "立即更新 Binance 行情",
     ]) {
       expect(
         (screen.getByRole("button", { name: buttonName }) as HTMLButtonElement)
@@ -374,10 +381,13 @@ describe("DashboardShell golden UI acceptance", () => {
       "BTC",
     );
     await user.type(screen.getByLabelText("当前价格"), "70000");
+    await user.clear(screen.getByLabelText("价格日期"));
     await user.type(screen.getByLabelText("价格日期"), "2026-04-15");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
-    expect(screen.getByText("价格已加入账本")).not.toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("价格已认证保存")).not.toBeNull();
+    });
     expectPositionDecimal("BTC", 5, "70000");
     expectPositionDecimal("BTC", 6, "11.4716");
     expectPositionDecimal("BTC", 7, "0.4716");

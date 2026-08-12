@@ -302,8 +302,12 @@ async function fillBuyTrade() {
   );
   await user.type(screen.getByLabelText("数量"), "0.001");
   await user.type(screen.getByLabelText("成交均价"), "70000");
-  await user.type(screen.getByLabelText("成交金额（不含手续费）"), "70");
-  await user.type(screen.getByLabelText("日期"), "2026-07-14");
+  const totalValueInput = screen.getByLabelText("成交金额（不含手续费）");
+  await user.clear(totalValueInput);
+  await user.type(totalValueInput, "70");
+  const dateInput = screen.getByLabelText("日期");
+  await user.clear(dateInput);
+  await user.type(dateInput, "2026-07-14");
 
   return user;
 }
@@ -341,11 +345,26 @@ async function createTrade(input: {
 describe("DashboardShell persistent workspace navigation", () => {
   it("switches all five pages without rehydrating and preserves mounted form input", async () => {
     const repository = createMemoryRepository();
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "dashboard-navigation",
+    });
     const user = userEvent.setup();
-    await renderDashboard(repository);
+    render(<DashboardShell session={session} />);
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          "正在读取本地账本，完成前不会写入任何数据。",
+        ),
+      ).toBeNull();
+    });
 
+    await user.click(screen.getByRole("button", { name: "记账" }));
     await user.type(screen.getByLabelText("数量"), "0.25");
-    for (const page of ["记账", "交易", "导入与导出", "设置", "首页"]) {
+    await user.type(screen.getByLabelText("当前价格"), "75000");
+    for (const page of ["交易", "导入与导出", "设置", "首页", "记账"]) {
       await user.click(screen.getByRole("button", { name: page }));
       expect(
         screen.getByRole("heading", { level: 1, name: page }),
@@ -356,6 +375,9 @@ describe("DashboardShell persistent workspace navigation", () => {
     expect((screen.getByLabelText("数量") as HTMLInputElement).value).toBe(
       "0.25",
     );
+    expect(
+      (screen.getByLabelText("当前价格") as HTMLInputElement).value,
+    ).toBe("75000");
   });
 });
 
@@ -538,7 +560,9 @@ describe("DashboardShell trade interactions", () => {
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
-    expect(screen.getByText("交易待保存")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "正在保存…" }),
+    ).toHaveProperty("disabled", true);
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(screen.getByText("正在保存到本地")).not.toBeNull();
@@ -738,6 +762,7 @@ describe("DashboardShell trade interactions", () => {
       within(tradeSection).getByLabelText("成交金额（不含手续费）"),
       "6500",
     );
+    await user.clear(within(tradeSection).getByLabelText("日期"));
     await user.type(within(tradeSection).getByLabelText("日期"), "2026-07-14");
     await user.type(
       within(tradeSection).getByLabelText("平台（可选，精确匹配）"),
@@ -835,6 +860,7 @@ describe("DashboardShell trade interactions", () => {
     await user.type(screen.getByLabelText("数量"), "0.001");
     await user.type(screen.getByLabelText("成交均价"), "70000");
     await user.type(screen.getByLabelText("成交金额（不含手续费）"), "10");
+    await user.clear(screen.getByLabelText("日期"));
     await user.type(screen.getByLabelText("日期"), "2026-07-14");
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
@@ -918,12 +944,14 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await screen.findByText("交易已认证保存");
 
     await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.clear(screen.getByLabelText("价格日期"));
     await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
-    expect(screen.getByText("价格已加入账本")).not.toBeNull();
+    expect(await screen.findByText("价格已认证保存")).not.toBeNull();
 
     const positionSection = getSection("资产汇总");
     expect(within(positionSection).getByText("80000 USDT")).not.toBeNull();
@@ -997,6 +1025,7 @@ describe("DashboardShell trade interactions", () => {
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
     await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.clear(screen.getByLabelText("价格日期"));
     await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
