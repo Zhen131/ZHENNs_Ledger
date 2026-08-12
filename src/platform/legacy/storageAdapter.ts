@@ -1,4 +1,4 @@
-import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
+import type { StoredLedgerEnvelopeV2 } from "./cryptoEnvelope";
 
 /**
  * StorageAdapter 只负责外部存储，不理解 LedgerData 或加密内容。

@@ -58,6 +58,7 @@ Use `./file` within one directory. Across boundaries, use only:
 ```text
 @/core/<area>
 @/platform/<area>
+@/platform/persistence/identity
 @/features/<feature>
 @/features/<feature>/ui
 @/app
@@ -67,6 +68,8 @@ Use `./file` within one directory. Across boundaries, use only:
 ```
 
 Parent-relative imports, internal deep aliases, and other `@root` targets are rejected by ESLint and the source-layout test.
+
+`@/platform/persistence/identity` is the only narrow platform sub-entry. It exposes only ledger-content identity functions so backup preflight can use them without loading the persistence repository barrel. Code already inside an area must use exact same-directory `./file` imports instead of re-entering its own stable entry.
 
 ## Adding a feature
 

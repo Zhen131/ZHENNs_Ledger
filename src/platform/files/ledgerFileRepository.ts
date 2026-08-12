@@ -2,8 +2,7 @@ import {
   LedgerFileAdapterError,
   type LedgerFileHandle,
   type LedgerFileHandleAdapter,
-} from "@/platform/files";
-import type { LedgerFileSessionLease } from "@/platform/coordination";
+} from "./ledgerFileHandleAdapter";
 import {
   createCanonicalLedgerPayloadV2,
   type CanonicalLedgerPayloadV2,
@@ -12,9 +11,10 @@ import {
   type LedgerFileV2,
   validateDecryptedLedgerPayloadV2,
   validateLedgerFileV2,
-} from "@/platform/files";
+} from "./ledgerFileContract";
+import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";
-import { LedgerFileCrypto } from "@/platform/files";
+import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import type { CryptoProvider } from "@/platform/encryption";
 import type { LedgerData } from "@/core/models";
 import {
