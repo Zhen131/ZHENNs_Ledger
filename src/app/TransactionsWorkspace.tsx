@@ -38,6 +38,7 @@ type PendingDelete =
     };
 
 const DELETE_DELAY_MS = 5_000;
+const SUCCESS_FEEDBACK_MS = 4_000;
 
 export function TransactionsWorkspace({
   active,
@@ -252,6 +253,12 @@ export function TransactionsWorkspace({
     persistenceStatus,
   ]);
 
+  useEffect(() => {
+    if (feedback !== "交易已删除") return;
+    const timeout = setTimeout(() => setFeedback(""), SUCCESS_FEEDBACK_MS);
+    return () => clearTimeout(timeout);
+  }, [feedback]);
+
   function armDelete(tradeId: string) {
     if (!isWritable || pendingDelete?.phase === "persisting") return;
     clearPendingDelete();
@@ -368,7 +375,7 @@ export function TransactionsWorkspace({
       </SurfaceCard>
 
       <SurfaceCard className="sticky top-0 z-20 p-4">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-4">
           <label className="grid gap-1 text-xs font-medium text-[var(--ledger-muted)]">
             时间范围
             <select
@@ -441,7 +448,7 @@ export function TransactionsWorkspace({
           aria-live="polite"
           className={`rounded-md border px-4 py-3 text-sm ${
             feedback === "交易已删除"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
               : feedback.includes("无法") || feedback.includes("尚未保存")
                 ? "border-red-200 bg-red-50 text-red-800"
                 : "border-amber-200 bg-amber-50 text-amber-900"

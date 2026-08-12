@@ -117,6 +117,18 @@ describe("HomeWorkspace", () => {
     expect(screen.getByText(/2026-08-12/)).toBeTruthy();
   });
 
+  it("stacks cards at phone width and uses the 1100px workspace breakpoint", () => {
+    renderHome();
+    const workspace = screen.getByRole("region", { name: "首页工作区" });
+    const summaryGrid = workspace.querySelector("div.grid.grid-cols-1");
+    expect(summaryGrid?.className).toContain("sm:grid-cols-2");
+    expect(summaryGrid?.className).toContain("min-[1100px]:grid-cols-4");
+    expect(workspace.innerHTML).toContain("min-[1100px]:grid-cols-3");
+    expect(
+      screen.getByRole("button", { name: /记一笔交易/ }).innerHTML,
+    ).toContain("motion-reduce:transform-none");
+  });
+
   it("routes heatmap days, recent facts and view-all through explicit intents", async () => {
     const onNavigateToTransactions = vi.fn();
     const { props } = renderHome({ onNavigateToTransactions });

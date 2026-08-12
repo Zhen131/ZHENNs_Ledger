@@ -26,6 +26,8 @@ import {
   type LedgerTimeSnapshot,
 } from "@/core/shared";
 
+const SUCCESS_FEEDBACK_MS = 4_000;
+
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
   ledgerData: LedgerData;
@@ -264,6 +266,15 @@ export function TradeForm({
     persistedVersion,
     persistenceStatus,
   ]);
+
+  useEffect(() => {
+    if (successMessage !== "交易已认证保存") return;
+    const timeout = setTimeout(
+      () => setSuccessMessage(""),
+      SUCCESS_FEEDBACK_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [successMessage]);
 
   const selectedAsset =
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
@@ -700,7 +711,13 @@ export function TradeForm({
           {errors.form ? (
             <p className="text-red-700">{errors.form}</p>
           ) : successMessage ? (
-            <p className={pendingMutationVersion ? "text-sky-800" : "text-emerald-700"}>
+            <p
+              className={
+                pendingMutationVersion
+                  ? "text-sky-800"
+                  : "text-emerald-700 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
+              }
+            >
               {successMessage}
             </p>
           ) : null}

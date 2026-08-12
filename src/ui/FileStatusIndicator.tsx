@@ -28,11 +28,11 @@ export function FileStatusIndicator({
   return (
     <span
       aria-live={tone === "error" ? "assertive" : "polite"}
-      className={`inline-flex items-center gap-1.5 text-xs font-medium ${TONE_CLASS[tone]}`}
+      className={`inline-flex min-w-0 max-w-full items-center gap-1.5 text-xs font-medium ${TONE_CLASS[tone]}`}
       role={tone === "error" ? "alert" : "status"}
     >
       <LedgerIcon className="h-3.5 w-3.5 shrink-0" name={icon} />
-      <span>{label}</span>
+      <span className="min-w-0 break-words">{label}</span>
     </span>
   );
 }

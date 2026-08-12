@@ -9,13 +9,13 @@ export function formatBackupImportReportMarkdown(
   result: BackupImportPreflightResult,
 ): string {
   const lines: string[] = [
-    "# B 历史导入预检报告",
+    "# 明文备份预检报告",
     "",
     "> 隐私提醒：本报告可能包含交易日期、资产、买卖方向、数量和金额等敏感信息；复制或保存前请确认目标位置安全。",
     "",
     "## 摘要",
     "",
-    `- B 内容 SHA-256：\`${result.contentIdentity.sha256}\``,
+    `- 备份内容 SHA-256：\`${result.contentIdentity.sha256}\``,
     `- UTF-8 字节数：${result.contentIdentity.utf8ByteLength}`,
     `- 选择代次：${result.selectionGeneration}`,
     `- 硬错误总数：${result.hardErrorCount}`,
@@ -29,7 +29,7 @@ export function formatBackupImportReportMarkdown(
   if (result.metadata) {
     lines.push(
       "",
-      "## B 元数据",
+      "## 备份元数据",
       "",
       `- 应用版本：${textOrUnavailable(result.metadata.appVersion)}`,
       `- 导出时间：${textOrUnavailable(result.metadata.exportedAt)}`,
@@ -69,7 +69,7 @@ export function formatBackupImportReportMarkdown(
 
   lines.push(
     "",
-    "> 可疑重复只是提示。本应用没有自动修改、删除、合并或去重任何交易，也没有修改、移动、删除或主动上传原 B 文件。",
+    "> 可疑重复只是提示。本应用没有自动修改、删除、合并或去重任何交易，也没有修改、移动、删除或主动上传原备份文件。",
     "",
   );
   return lines.join("\n");
@@ -143,7 +143,7 @@ function formatConclusion(result: BackupImportPreflightResult): string {
   if (result.suspiciousGroupCount > 0) {
     return "预检结构通过，但必须先对当前可疑组做一次明确确认。";
   }
-  return "预检通过；本报告本身不代表已经写入 C。";
+  return "预检通过；本报告本身不代表已经写入当前账本文件。";
 }
 
 function formatTradeSummary(summary: BackupTradeSummary): string {

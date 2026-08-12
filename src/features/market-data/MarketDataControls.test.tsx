@@ -76,7 +76,13 @@ describe("MarketDataControls", () => {
     await act(async () => undefined);
     expect(client.fetchLatestPrices).not.toHaveBeenCalled();
     expect(screen.queryByText("估值价格模式")).toBeNull();
-    expect(screen.getByText("配置 Binance Spot 交易对")).not.toBeNull();
+    const mappingSummary = screen.getByText("配置 Binance Spot 交易对");
+    expect(mappingSummary).not.toBeNull();
+    const mappingScroller = mappingSummary.parentElement?.querySelector("div");
+    expect(mappingScroller?.className).toContain("overflow-x-auto");
+    expect(mappingScroller?.firstElementChild?.className).toContain(
+      "md:min-w-[720px]",
+    );
     expect(screen.getByText("BTC")).not.toBeNull();
     expect(screen.queryByLabelText("BTC Binance 交易对")).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "编辑" })[0]);
@@ -102,6 +108,9 @@ describe("MarketDataControls", () => {
     await act(async () => undefined);
     expect(client.validateSpotSymbol).not.toHaveBeenCalled();
     expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("暂不可修改：当前账本只读或文件操作尚未完成。"),
+    ).not.toBeNull();
     expect(
       (screen.getByRole("button", {
         name: "立即更新 Binance 行情",

@@ -391,5 +391,9 @@ describe("TransactionsWorkspace delayed deletion", () => {
       />,
     );
     expect(screen.getByText("交易已删除")).not.toBeNull();
+    act(() => vi.advanceTimersByTime(3_999));
+    expect(screen.getByText("交易已删除")).not.toBeNull();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.queryByText("交易已删除")).toBeNull();
   });
 });

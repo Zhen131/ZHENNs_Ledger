@@ -538,7 +538,7 @@ export function usePersistentLedger(
           ) {
             setPersistenceError(
               requiresReopen
-                ? "C 已在本页面之外发生变化。当前修改尚未保存；为避免覆盖新版本，请重新打开该 C。"
+                ? "账本文件已在本页面之外发生变化。当前修改尚未保存；为避免覆盖新版本，请重新打开该文件。"
                 : "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
             );
           }
@@ -1201,8 +1201,8 @@ export function usePersistentLedger(
               ) {
                 setPersistenceError(
                   readyClearAttempted
-                    ? "清空当前 C 的结果未确认，页面没有显示成功；请重试以核对同一次清空操作"
-                    : "清空当前 C 未通过安全确认，文件没有写入",
+                    ? "清空当前账本文件的结果未确认，页面没有显示成功；请重试以核对同一次清空操作"
+                    : "清空当前账本文件未通过安全确认，文件没有写入",
                 );
               }
             } else {
@@ -1496,7 +1496,7 @@ export function usePersistentLedger(
               if (mountedRef.current) {
                 setIsReadOnly(true);
                 setPersistenceError(
-                  "导入后的 C 无法确认，也无法证明已恢复原文件；当前会话已停止全部写入，请立即锁定并保留该文件用于恢复。",
+                  "导入后的账本文件无法确认，也无法证明已恢复原文件；当前会话已停止全部写入，请立即锁定并保留该文件用于恢复。",
                 );
               }
               return {
@@ -1511,7 +1511,7 @@ export function usePersistentLedger(
             ) {
               if (mountedRef.current) {
                 setPersistenceError(
-                  "导入未完成；已复读确认 C 恢复为导入前的完整版本，页面没有替换。",
+                  "导入未完成；已复读确认原账本文件恢复为导入前的完整版本，页面没有替换。",
                 );
               }
               return {
@@ -1538,7 +1538,7 @@ export function usePersistentLedger(
             ) {
               if (mountedRef.current) {
                 setPersistenceError(
-                  "导入写入前发现 C 已在本页面之外发生变化；本次导入没有写入，请重新打开该 C。",
+                  "导入写入前发现账本文件已在本页面之外发生变化；本次导入没有写入，请重新打开该文件。",
                 );
               }
               return {
@@ -1554,7 +1554,7 @@ export function usePersistentLedger(
             }
             if (mountedRef.current) {
               setPersistenceError(
-                "导入在写入 C 前失败，页面没有替换；未取得“旧 C 已恢复”的事后证据。",
+                "导入在写入账本文件前失败，页面没有替换；未取得“原文件已恢复”的事后证据。",
               );
             }
             return {
@@ -1582,7 +1582,7 @@ export function usePersistentLedger(
           if (mountedRef.current) {
             setIsReadOnly(true);
             setPersistenceError(
-              "导入写回后的账本与预检候选不一致；当前会话已停止全部写入，请立即锁定并重新打开 C。",
+              "导入写回后的账本与预检候选不一致；当前会话已停止全部写入，请立即锁定并重新打开账本文件。",
             );
           }
           return {

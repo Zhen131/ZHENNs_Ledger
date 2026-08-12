@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -11,7 +11,10 @@ import {
 
 afterEach(cleanup);
 
-function renderSettings(onClear = vi.fn(async () => true)) {
+function renderSettings(
+  onClear = vi.fn(async () => true),
+  overrides: Partial<Parameters<typeof SettingsWorkspace>[0]> = {},
+) {
   return {
     onClear,
     ...render(
@@ -28,6 +31,7 @@ function renderSettings(onClear = vi.fn(async () => true)) {
         persistenceOperation="idle"
         repositorySwitchBlocked={false}
         storageKind="ledger-file"
+        {...overrides}
       />,
     ),
   };
@@ -90,5 +94,55 @@ describe("SettingsWorkspace", () => {
 
     expect(screen.queryByRole("region", { name: "清空账本确认" })).toBeNull();
     expect(onClear).not.toHaveBeenCalled();
+  });
+
+  it("explains a disabled dangerous action next to its control", async () => {
+    renderSettings(vi.fn(async () => true), { isReadOnly: true });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    const trigger = screen.getByRole("button", {
+      name: "打开清空账本操作",
+    }) as HTMLButtonElement;
+    expect(trigger.disabled).toBe(true);
+    expect(trigger.getAttribute("aria-describedby")).toBe(
+      "clear-ledger-disabled-reason",
+    );
+    expect(
+      screen.getByText("暂不可用：当前账本处于只读保护，不能清空。"),
+    ).not.toBeNull();
+  });
+
+  it("keeps authenticated success visible before fading ordinary feedback", async () => {
+    vi.useFakeTimers();
+    try {
+      renderSettings();
+      fireEvent.click(screen.getByRole("tab", { name: "危险操作" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "打开清空账本操作" }),
+      );
+      fireEvent.change(screen.getByLabelText("输入清空确认文本"), {
+        target: { value: PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT },
+      });
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole("button", { name: "确认清空账本内容" }),
+        );
+      });
+
+      expect(
+        screen.getByText("当前账本内容已清空，.lftl 文件仍然存在"),
+      ).not.toBeNull();
+      act(() => vi.advanceTimersByTime(3_999));
+      expect(
+        screen.getByText("当前账本内容已清空，.lftl 文件仍然存在"),
+      ).not.toBeNull();
+      act(() => vi.advanceTimersByTime(1));
+      expect(
+        screen.queryByText("当前账本内容已清空，.lftl 文件仍然存在"),
+      ).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

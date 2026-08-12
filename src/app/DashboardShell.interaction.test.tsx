@@ -1375,7 +1375,7 @@ describe("DashboardShell data management", () => {
       createBackupFile(createInitialLedgerData()),
     );
     expect(
-      await screen.findByText("B 历史导入预检报告"),
+      await screen.findByText("明文备份预检报告"),
     ).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "确认恢复备份" }),
@@ -1708,7 +1708,7 @@ describe("DashboardShell data management", () => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(
         screen.getByText(
-          /取消时会尝试恢复并复读导入前的完整 C；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
+          /取消时会尝试恢复并复读导入前的完整内容；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
         ),
       ).not.toBeNull();
     });

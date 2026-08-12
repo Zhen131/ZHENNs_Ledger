@@ -43,6 +43,8 @@ const initialForm: FormState = {
   value: "",
 };
 
+const SUCCESS_FEEDBACK_MS = 4_000;
+
 export function FeeRuleManager({
   clock = systemLedgerClock,
   isWritable,
@@ -97,6 +99,15 @@ export function FeeRuleManager({
       setError("手续费规则仍在内存中，但尚未保存；请重试保存");
     }
   }, [pendingVersion, persistedVersion, persistenceStatus]);
+
+  useEffect(() => {
+    if (message !== "手续费规则已认证保存") return;
+    const timeout = setTimeout(
+      () => setMessage(""),
+      SUCCESS_FEEDBACK_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [message]);
 
   function apply(action: LedgerAction, pendingMessage: string) {
     setError("");
@@ -185,6 +196,14 @@ export function FeeRuleManager({
 
   return (
     <div className="grid gap-5">
+      {!isWritable ? (
+        <p
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          role="status"
+        >
+          暂不可修改：当前账本只读或文件操作尚未完成。
+        </p>
+      ) : null}
       {conflicts.length > 0 ? (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
           <p className="font-semibold">存在手续费规则冲突</p>
@@ -200,7 +219,7 @@ export function FeeRuleManager({
       <div
         className={
           presentation === "settings"
-            ? "grid min-w-0 gap-5 lg:grid-cols-[minmax(260px,.4fr)_minmax(0,.6fr)]"
+            ? "grid min-w-0 gap-5 min-[1100px]:grid-cols-[minmax(260px,.4fr)_minmax(0,.6fr)]"
             : "contents"
         }
       >
@@ -295,7 +314,7 @@ export function FeeRuleManager({
         {ledgerData.feeRules.length === 0 ? (
           <p className="text-sm text-slate-500">暂无手续费规则。</p>
         ) : ledgerData.feeRules.map((rule) => (
-          <article className="rounded-md border border-slate-200 p-3 text-sm" key={rule.id}>
+          <article className="min-w-0 break-words rounded-md border border-slate-200 p-3 text-sm" key={rule.id}>
             <p className="font-medium">
               {rule.name} · {rule.platform} + {rule.assetSymbol} · {rule.status}
             </p>
@@ -347,7 +366,17 @@ export function FeeRuleManager({
 
       <div aria-live="polite" className="min-h-5 text-sm">
         {error ? <p className="text-red-700">{error}</p> : null}
-        {!error && message ? <p className={pendingVersion ? "text-sky-800" : "text-emerald-700"}>{message}</p> : null}
+        {!error && message ? (
+          <p
+            className={
+              pendingVersion
+                ? "text-sky-800"
+                : "text-emerald-700 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
+            }
+          >
+            {message}
+          </p>
+        ) : null}
       </div>
     </div>
   );

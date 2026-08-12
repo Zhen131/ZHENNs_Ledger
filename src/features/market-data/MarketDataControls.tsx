@@ -363,6 +363,14 @@ export function MarketDataControls({
 
   return (
     <div className="grid gap-5">
+      {!isWritable ? (
+        <p
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          role="status"
+        >
+          暂不可修改：当前账本只读或文件操作尚未完成。
+        </p>
+      ) : null}
       {showRefresh ? (
       <>
       <div className="flex flex-wrap items-center gap-3">
@@ -465,7 +473,8 @@ export function MarketDataControls({
 
       {showMappings ? <details open={expandMappings}>
         <summary className="cursor-pointer font-semibold">配置 Binance Spot 交易对</summary>
-        <div className="mt-3 grid gap-3">
+        <div className="mt-3 min-w-0 overflow-x-auto">
+          <div className="grid min-w-0 gap-3 md:min-w-[720px]">
           {compactMappings ? (
             <div className="hidden grid-cols-[7rem_1fr_1fr_auto] gap-3 px-3 text-xs font-semibold text-[var(--ledger-muted)] md:grid">
               <span>资产</span>
@@ -598,6 +607,7 @@ export function MarketDataControls({
             </div>
             );
           })}
+          </div>
         </div>
       </details> : null}
     </div>
