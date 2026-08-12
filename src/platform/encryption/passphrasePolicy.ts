@@ -1,5 +1,5 @@
 export const PASSPHRASE_POLICY = {
-  minimumCodePoints: 12,
+  minimumCodePoints: 8,
   maximumCodePoints: 128,
 } as const;
 

@@ -111,7 +111,7 @@ describe("LedgerFileHandleAdapter", () => {
     const provider = createPickerProvider(save, open);
     const adapter = new LedgerFileHandleAdapter(provider);
     const ledgerFileType = {
-      description: "Local-First Trading Ledger",
+      description: "Zhenn's Ledger",
       accept: { "application/json": [".lftl"] },
     };
 
