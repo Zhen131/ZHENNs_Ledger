@@ -22,7 +22,7 @@ import {
   createBackupEnvelope,
   parseBackupJson,
   serializeBackupEnvelope,
-} from "../backup/backupEnvelope";
+} from "@/features/backup";
 import { createTestLedgerRepository } from "@/test-support";
 import {
   claimLedgerSessionPersistencePort,

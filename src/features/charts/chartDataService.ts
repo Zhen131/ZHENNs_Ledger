@@ -34,12 +34,12 @@ import {
   createPriceSelectionAccumulator,
   getSelectedPrice,
   type PriceSelectionAccumulator,
-} from "./priceSelectionService";
-import { getValuedPositionsFromLedger } from "./positionService";
+} from "@/features/portfolio";
+import { getValuedPositionsFromLedger } from "@/features/portfolio";
 import {
   createValuationDisplay,
   type ValuationDisplay,
-} from "./valuationDisplay";
+} from "@/features/portfolio";
 
 export type HoldingAllocationSlice = {
   assetSymbol: string;

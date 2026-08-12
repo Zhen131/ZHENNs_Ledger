@@ -23,7 +23,7 @@ import {
   createLedgerBackupImportEvidence,
   preflightBackupJson,
   type BackupImportPreflightResult,
-} from "../backup/backupImportPreflight";
+} from "@/features/backup";
 import type { LedgerFileSessionLease } from "@/platform/coordination";
 import {
   claimLedgerSessionPersistencePort,

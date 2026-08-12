@@ -2,13 +2,13 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
-import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
+import type { ApplyLedgerActionResult } from "@/app";
 import type {
   LedgerData,
   PriceSnapshot,
   PriceSnapshotDraft,
 } from "@/core/models";
-import { createValidatedPriceSnapshot } from "../../services/priceSnapshotService";
+import { createValidatedPriceSnapshot } from "./priceSnapshotService";
 import type {
   PriceSnapshotValidationError,
   PriceSnapshotValidationField,

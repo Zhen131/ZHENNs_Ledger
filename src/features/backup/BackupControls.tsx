@@ -7,13 +7,13 @@ import {
   type ChangeEvent,
 } from "react";
 
-import packageJson from "../../../package.json";
-import { downloadBackupJson } from "../../backup/backupDownload";
+import packageJson from "@root/package.json";
+import { downloadBackupJson } from "./backupDownload";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
   type BackupEnvelopeError,
-} from "../../backup/backupEnvelope";
+} from "./backupEnvelope";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
@@ -24,11 +24,11 @@ import {
   type BackupPreflightDetail,
   type BackupSuspicionConfirmationReceipt,
   type LedgerBackupImportEvidence,
-} from "../../backup/backupImportPreflight";
-import { formatBackupImportReportMarkdown } from "../../backup/backupImportReport";
-import type { PersistenceOperation } from "../../hooks/usePersistentLedger";
+} from "./backupImportPreflight";
+import { formatBackupImportReportMarkdown } from "./backupImportReport";
+import type { PersistenceOperation } from "@/app";
 import type { LedgerData } from "@/core/models";
-import type { HydrationStatus } from "../../state/hydrationState";
+import type { HydrationStatus } from "@/app";
 import {
   captureLedgerTime,
   systemLedgerClock,

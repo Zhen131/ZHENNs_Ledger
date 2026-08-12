@@ -7,8 +7,8 @@ import type {
   HoldingAllocation,
   HoldingHistoryPoint,
   TradeHeatmapDay,
-} from "../../services/chartDataService";
-import { USDT_USD_APPROXIMATION_DISCLOSURE } from "../../services/valuationDisplay";
+} from "./chartDataService";
+import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
 import { EChart } from "./EChart";
 import {
   buildAllocationChartOption,

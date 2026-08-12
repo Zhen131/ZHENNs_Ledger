@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-import type { ApplyLedgerActionResult } from "../../hooks/usePersistentLedger";
+import type { ApplyLedgerActionResult } from "@/app";
 import {
   createBinanceMarketDataClient,
   type BinanceMarketDataClient,
@@ -22,14 +22,14 @@ import {
   getBinanceMappingSignature,
   setAssetBinanceMapping,
   validateBinanceMapping,
-} from "../../services/binanceMappingService";
+} from "./binanceMappingService";
 import {
   mergeBinancePriceRefresh,
   refreshBinancePrices,
   type BinanceAssetRefreshFailure,
-} from "../../services/binancePriceRefreshService";
-import { getPositionsFromLedger } from "../../services/positionService";
-import { selectPriceAsOf } from "../../services/priceSelectionService";
+} from "./binancePriceRefreshService";
+import { getPositionsFromLedger } from "@/features/portfolio";
+import { selectPriceAsOf } from "@/features/portfolio";
 import { isZero } from "@/core/shared";
 import {
   captureLedgerTime,
@@ -39,7 +39,7 @@ import {
 import {
   ConfirmDeleteButton,
   type ConfirmDeleteOutcome,
-} from "../common/ConfirmDeleteButton";
+} from "@/ui";
 
 const defaultClient = createBinanceMarketDataClient();
 

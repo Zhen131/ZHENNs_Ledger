@@ -4,7 +4,7 @@ import type {
   HoldingAllocationSlice,
   HoldingHistoryPoint,
   TradeHeatmapDay,
-} from "../../services/chartDataService";
+} from "./chartDataService";
 
 type PieDatum = {
   name: string;

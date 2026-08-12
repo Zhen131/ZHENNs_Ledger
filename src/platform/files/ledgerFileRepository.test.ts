@@ -9,12 +9,12 @@ import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
-} from "@/backup/backupEnvelope";
+} from "@/features/backup";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   preflightBackupJson,
-} from "@/backup/backupImportPreflight";
+} from "@/features/backup";
 import { bytesToBase64Url } from "@/platform/encryption";
 import {
   type DecryptedLedgerPayloadV2,

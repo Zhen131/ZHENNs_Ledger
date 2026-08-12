@@ -78,7 +78,7 @@ function preflight(serialized: string) {
 
 function readFixture(name: string): string {
   return readFileSync(
-    new URL(`../../test-fixtures/w11-b-import/${name}`, import.meta.url),
+    new URL(`../../../test-fixtures/w11-b-import/${name}`, import.meta.url),
     "utf8",
   );
 }

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { LedgerData, TradeDraft } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
-import { createValidatedPriceSnapshot } from "@/services/priceSnapshotService";
-import { createValidatedTrade } from "@/services/tradeService";
+import { createValidatedPriceSnapshot } from "@/features/prices";
+import { createValidatedTrade } from "@/features/trades";
 
 const TODAY = "2026-07-25";
 const NOW = "2026-07-25T12:00:00Z";

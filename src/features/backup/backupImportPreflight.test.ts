@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { createInitialLedgerData } from "@/core/state";
-import { createValidatedTrade } from "../services/tradeService";
+import { createValidatedTrade } from "@/features/trades";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import {
@@ -513,7 +513,7 @@ function getSuspiciousDetails(
 
 function readFixture(name: string): string {
   return readFileSync(
-    new URL(`../../test-fixtures/w11-b-import/${name}`, import.meta.url),
+    new URL(`../../../test-fixtures/w11-b-import/${name}`, import.meta.url),
     "utf8",
   );
 }

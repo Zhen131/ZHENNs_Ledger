@@ -5,14 +5,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
-} from "../../hooks/usePersistentLedger";
+} from "@/app";
 import type { LedgerData, Trade, TradeDraft } from "@/core/models";
 import { calculateTradeCashImpact } from "@/core/calculations";
 import {
   matchFeeRules,
   type FeeRuleCandidate,
-} from "../../services/feeRuleService";
-import { createValidatedTrade } from "../../services/tradeService";
+} from "@/features/fees";
+import { createValidatedTrade } from "./tradeService";
 import type {
   TradeValidationError,
   TradeValidationField,
