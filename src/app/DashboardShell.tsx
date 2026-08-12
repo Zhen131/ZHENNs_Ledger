@@ -634,8 +634,7 @@ export function DashboardShell({
         workspace.navigateToPage(page);
       }}
     >
-      <HomeWorkspace active={workspace.currentPage === "home"}>
-          {showLockConfirmation ? (
+      {showLockConfirmation ? (
             <section
               aria-label="未保存修改锁定确认"
               className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900"
@@ -844,7 +843,10 @@ export function DashboardShell({
             </div>
           ) : null}
 
-          <div className="grid gap-5">
+          <div
+            className="grid gap-5"
+            hidden={session !== undefined && workspace.currentPage === "home"}
+          >
             <Section title="图表总览与 Binance 行情">
               <MarketDataControls
                 applyLedgerMutation={applyLedgerMutation}
@@ -1198,7 +1200,43 @@ export function DashboardShell({
               </div>
             </Section>
           </div>
-      </HomeWorkspace>
+      <HomeWorkspace
+        active={session !== undefined && workspace.currentPage === "home"}
+        allocation={allocation}
+        heatmap={heatmap}
+        history={history}
+        ledgerData={ledgerData}
+        onNavigateToPrice={() =>
+          workspace.navigate({ page: "record", focus: "price" })
+        }
+        onNavigateToTrade={() =>
+          workspace.navigate({ page: "record", focus: "trade" })
+        }
+        onNavigateToTransactions={(intent) => {
+          if (intent?.clearFilters) {
+            workspace.navigate({
+              page: "transactions",
+              clearFilters: true,
+            });
+          } else {
+            workspace.navigate({
+              page: "transactions",
+              ...(intent?.filterDate
+                ? { filterDate: intent.filterDate }
+                : {}),
+              ...(intent?.expandTradeId
+                ? { expandTradeId: intent.expandTradeId }
+                : {}),
+            });
+          }
+        }}
+        onRangeChange={setChartRange}
+        onValuationPriceModeChange={setValuationPriceMode}
+        pnlSummary={pnlSummary}
+        positions={positions}
+        range={chartRange}
+        valuationPriceMode={valuationPriceMode}
+      />
       <RecordWorkspace active={workspace.currentPage === "record"} />
       <TransactionsWorkspace
         active={workspace.currentPage === "transactions"}
