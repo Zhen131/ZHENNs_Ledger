@@ -28,6 +28,7 @@ import {
   type LedgerSession,
   type SessionQuiesceReason,
 } from "@/platform/persistence";
+import { validatePassphrase } from "@/platform/encryption";
 import type { PersistentLedgerState } from "./usePersistentLedger";
 import { DashboardShell } from "./DashboardShell";
 
@@ -266,9 +267,8 @@ export function LedgerAccessGate({
       setFormError("两次输入的密码不一致");
       return;
     }
-    const codePointLength = Array.from(passphrase).length;
-    if (codePointLength < 12 || codePointLength > 128) {
-      setFormError("密码必须为 12 至 128 个字符");
+    if (!validatePassphrase(passphrase).ok) {
+      setFormError("密码必须为 8 至 128 个 Unicode 字符");
       return;
     }
 
@@ -465,7 +465,7 @@ export function LedgerAccessGate({
     } catch {
       if (isCurrentOperation(operation)) {
         setFormError(
-          "无法确认恢复候选的文件锁已经释放。C 仍保持关闭，请重试取消恢复。",
+          "无法确认恢复候选的文件锁已经释放。账本仍保持关闭，请重试取消恢复。",
         );
       }
     } finally {
@@ -638,7 +638,7 @@ export function LedgerAccessGate({
         description="已停止接收新操作，正在等待已经接受的保存或清空安全收尾。"
         title="正在安全锁定"
       >
-        <p aria-live="polite" className="text-sm text-slate-600">
+        <p aria-live="polite" className="text-sm text-[var(--ledger-muted)]">
           完成后会释放当前文件并回到密码入口，请稍候…
         </p>
       </AccessPanel>
@@ -652,7 +652,7 @@ export function LedgerAccessGate({
         title="安全释放尚未完成"
       >
         <button
-          className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
+          className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
           onClick={() => void retryFailedSessionRelease()}
           type="button"
         >
@@ -668,7 +668,7 @@ export function LedgerAccessGate({
         description="正在检查此浏览器中的本地账本。"
         title="正在检查本地账本"
       >
-        <p aria-live="polite" className="text-sm text-slate-600">
+        <p aria-live="polite" className="text-sm text-[var(--ledger-muted)]">
           请稍候…
         </p>
       </AccessPanel>
@@ -681,7 +681,7 @@ export function LedgerAccessGate({
         description="检测到旧版浏览器整账。版本 2 不支持解锁、迁移或删除这条旧记录；它会原样保留。请新建版本 2 账本。"
         title="旧版账本已退役"
       >
-        <p className="text-sm leading-6 text-slate-600">
+        <p className="text-sm leading-6 text-[var(--ledger-muted)]">
           系统没有读取旧账本业务数据，也不会用空账本覆盖它。
         </p>
       </AccessPanel>
@@ -691,12 +691,12 @@ export function LedgerAccessGate({
   if (accessPath === "file-reconnect-prompt") {
     return (
       <AccessPanel
-        description="浏览器记得上次使用的 C，但需要你明确重新授权。点击前不会请求权限，也不会创建空账本。"
-        title="重新连接上次的 C"
+        description="浏览器记得上次使用的账本，但需要你明确重新授权。点击前不会请求权限，也不会创建空账本。"
+        title="重新连接上次的账本"
       >
         <div className="grid gap-3">
           <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)] disabled:opacity-60"
             disabled={isSubmitting}
             onClick={() => void requestRememberedConnection()}
             type="button"
@@ -704,12 +704,12 @@ export function LedgerAccessGate({
             {isSubmitting ? "正在重新连接…" : "重新连接"}
           </button>
           <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 disabled:opacity-60"
+            className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)] disabled:opacity-60"
             disabled={isSubmitting}
             onClick={() => void reselectRememberedConnection()}
             type="button"
           >
-            重新选择原来的 C
+            重新选择原来的账本
           </button>
           <button
             className="w-full text-sm font-medium text-red-700 disabled:opacity-60"
@@ -731,20 +731,20 @@ export function LedgerAccessGate({
         description={
           reconnectError
             ? getFileAccessErrorMessage(reconnectError)
-            : "无法安全重新连接上次的 C。"
+            : "无法安全重新连接上次的账本。"
         }
-        title="上次的 C 暂时不可用"
+        title="上次的账本暂时不可用"
       >
         <div className="grid gap-3">
           <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 disabled:opacity-60"
+            className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)] disabled:opacity-60"
             disabled={isSubmitting}
             onClick={() => void reselectRememberedConnection()}
             type="button"
           >
-            {isSubmitting ? "正在核对…" : "重新选择原来的 C"}
+            {isSubmitting ? "正在核对…" : "重新选择原来的账本"}
           </button>
-          <p className="text-sm leading-6 text-slate-600">
+          <p className="text-sm leading-6 text-[var(--ledger-muted)]">
             只有浏览器确认是同一个实际文件，并且文件内的账本身份也一致，才会继续。名字相同或 fileId 相同的复制件都不算。
           </p>
           <button
@@ -765,26 +765,26 @@ export function LedgerAccessGate({
     return (
       <AccessPanel
         description="完整账本只保存在你选择的加密 .lftl 文件中。浏览器只记住上次选择的文件和少量连接信息，不会另存一份完整账本。"
-        title="选择或新建 C"
+        title="选择账本"
       >
         <div className="grid gap-3">
           <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+            className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)] disabled:opacity-60"
+            disabled={isSubmitting}
+            onClick={() => void selectFileToOpen()}
+            type="button"
+          >
+            {isSubmitting ? "正在选择…" : "选择账本"}
+          </button>
+          <button
+            className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-3 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)]"
             onClick={() => {
               setFormError("");
               setAccessPath("file-create");
             }}
             type="button"
           >
-            新建 C（.lftl）
-          </button>
-          <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-60"
-            disabled={isSubmitting}
-            onClick={() => void selectFileToOpen()}
-            type="button"
-          >
-            {isSubmitting ? "正在选择…" : "选择 C（.lftl）"}
+            新建账本
           </button>
           <FormError message={formError} />
         </div>
@@ -795,34 +795,34 @@ export function LedgerAccessGate({
   if (accessPath === "file-create") {
     return (
       <AccessPanel
-        description="C 使用一个核心密码加密。没有恢复码或后门；忘记密码将永久失去对此 C 的访问。"
-        title="新建加密工作文件 C"
+        description="账本使用一个核心密码加密。没有恢复码或后门；忘记密码将永久失去对此账本的访问。密码长度为 8 至 128 个 Unicode 字符。"
+        title="新建加密账本"
       >
         <form className="space-y-4" onSubmit={submitFileCreate}>
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="设置 C 核心密码"
+            label="设置账本核心密码"
             onChange={setPassphrase}
             value={passphrase}
           />
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="再次输入 C 核心密码"
+            label="再次输入账本核心密码"
             onChange={setConfirmation}
             value={confirmation}
           />
           <FormError message={formError} />
           <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)] disabled:opacity-60"
             disabled={isSubmitting}
             type="submit"
           >
             {isSubmitting ? "正在创建并复读…" : "选择位置并创建"}
           </button>
           <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700"
+            className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)]"
             disabled={isSubmitting}
             onClick={returnToChoice}
             type="button"
@@ -837,27 +837,27 @@ export function LedgerAccessGate({
   if (accessPath === "file-open-unlock") {
     return (
       <AccessPanel
-        description="只会打开刚才明确选择的一个 C。密码错误或文件认证失败不会写入该文件。"
-        title="解锁所选 C"
+        description="只会打开刚才明确选择的一个账本。密码错误或文件认证失败不会写入该文件。"
+        title="解锁所选账本"
       >
         <form className="space-y-4" onSubmit={submitFileUnlock}>
           <PasswordField
             autoComplete="current-password"
             disabled={isSubmitting}
-            label="C 核心密码"
+            label="账本核心密码"
             onChange={setPassphrase}
             value={passphrase}
           />
           <FormError message={formError} />
           <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)] disabled:opacity-60"
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "正在认证…" : "解锁所选 C"}
+            {isSubmitting ? "正在认证…" : "解锁所选账本"}
           </button>
           <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700"
+            className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)]"
             disabled={isSubmitting}
             onClick={returnToChoice}
             type="button"
@@ -876,12 +876,12 @@ export function LedgerAccessGate({
         title="确认恢复上一版"
       >
         <div className="space-y-4">
-          <p className="text-sm leading-6 text-slate-700">
+          <p className="text-sm leading-6 text-[var(--ledger-muted)]">
             当前版本没有通过完整认证与账本校验；上一版已独立验证。确认后只会用上一版内容生成一个新的当前版本，不会把损坏版本中的新增内容伪装成已恢复。
           </p>
           <FormError message={formError} />
           <button
-            className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)] disabled:opacity-60"
             disabled={isSubmitting}
             onClick={() => void confirmFileRecovery()}
             type="button"
@@ -889,7 +889,7 @@ export function LedgerAccessGate({
             {isSubmitting ? "正在恢复并复读…" : "确认恢复上一版"}
           </button>
           <button
-            className="w-full rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-60"
+            className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)] disabled:opacity-60"
             disabled={isSubmitting}
             onClick={() => void cancelFileRecovery()}
             type="button"
@@ -910,7 +910,7 @@ export function LedgerAccessGate({
         title="无法打开本地账本"
       >
         <button
-          className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+          className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
           onClick={() => void initialize()}
           type="button"
         >
@@ -922,11 +922,11 @@ export function LedgerAccessGate({
 
   return (
     <AccessPanel
-      description="没有进入任何完整账本写入链。请重新检查 C 连接状态。"
+      description="没有进入任何完整账本写入链。请重新检查账本连接状态。"
       title="账本入口已安全停止"
     >
       <button
-        className="w-full rounded-md bg-slate-950 px-4 py-2.5 text-sm font-medium text-white"
+        className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
         onClick={() => void initialize()}
         type="button"
       >
@@ -946,13 +946,13 @@ function AccessPanel({
   children: ReactNode;
 }>) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Local-First Trading Ledger
+    <main className="flex min-h-screen items-center justify-center bg-[var(--ledger-canvas)] px-4 py-10">
+      <section className="w-full max-w-md rounded-[24px] border border-[var(--ledger-border)] bg-[var(--ledger-shell)] p-7 shadow-[var(--ledger-shadow)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ledger-accent-strong)]">
+          Zhenn&apos;s Ledger
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-950">{title}</h1>
-        <p className="mb-6 mt-2 text-sm leading-6 text-slate-600">
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--ledger-ink)]">{title}</h1>
+        <p className="mb-6 mt-2 text-sm leading-6 text-[var(--ledger-muted)]">
           {description}
         </p>
         {children}
@@ -1123,48 +1123,48 @@ function getFileAccessErrorMessage(
 ): string {
   switch (code) {
     case LEDGER_FILE_ACCESS_ERROR_CODES.PICKER_UNAVAILABLE:
-      return "当前浏览器不支持 C 文件选择，请使用受支持的 Chrome。";
+      return "当前浏览器不支持账本文件选择，请使用受支持的 Chrome。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_EXTENSION:
-      return "请选择扩展名为 .lftl 的 C 文件。";
+      return "请选择扩展名为 .lftl 的账本文件。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.NON_EMPTY_CREATE_TARGET:
-      return "为防止覆盖已有文件，本次未创建；请选择新文件名，或使用“选择 C”打开已有文件。";
+      return "为防止覆盖已有文件，本次未创建；请选择新文件名，或使用“选择账本”打开已有文件。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION:
       return "检测到旧版或未知 .lftl 格式。版本 2 不支持解锁或迁移；未写入所选文件。请新建版本 2 账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:
-      return "所选文件不是合法 C，或文件结构已经损坏；未写入任何内容。";
+      return "所选文件不是合法账本，或文件结构已经损坏；未写入任何内容。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED:
-      return "密码错误或文件认证失败；未写入所选 C。";
+      return "密码错误或文件认证失败；未写入所选账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION:
-      return "请重新选择要打开的 C。";
+      return "请重新选择要打开的账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.FILE_IN_USE:
-      return "这个实际 C 已被另一个页面或尚未完成释放的会话占用。请先安全退出或完成释放，再主动重试。";
+      return "这个实际账本已被另一个页面或尚未完成释放的会话占用。请先安全退出或完成释放，再主动重试。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_UNSUPPORTED:
-      return "当前浏览器缺少安全的多页面文件协调能力，已关闭 C 写入入口。";
+      return "当前浏览器缺少安全的多页面文件协调能力，已关闭账本写入入口。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_FAILED:
-      return "无法确认这个 C 是否已被其他页面使用，已按安全规则停止打开。请关闭其他页面后主动重试。";
+      return "无法确认这个账本是否已被其他页面使用，已按安全规则停止打开。请关闭其他页面后主动重试。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_NOT_FOUND:
-      return "恢复请求已经失效，请重新选择并解锁 C。";
+      return "恢复请求已经失效，请重新选择并解锁账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_FAILED:
       return "上一版恢复写入、关闭或复读验证失败，尚未进入账本；可以重试或取消。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.EXTERNAL_CHANGE:
-      return "C 在本页面之外发生了变化。为避免覆盖新版本，请取消并重新打开该 C。";
+      return "账本在本页面之外发生了变化。为避免覆盖新版本，请取消并重新打开该账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_INVALID:
-      return "保存的 C 连接记录已损坏或版本不受支持。系统没有清空、覆盖或改绑任何账本。";
+      return "保存的账本连接记录已损坏或版本不受支持。系统没有清空、覆盖或改绑任何账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_SAVE_FAILED:
-      return "C 已完成文件验证，但浏览器没能保存下次重连所需的最小连接记录，因此没有进入账本，也没有伪装成功。请保留该 C 并重试当前操作。";
+      return "账本已完成文件验证，但浏览器没能保存下次重连所需的最小连接记录，因此没有进入账本，也没有伪装成功。请保留该账本并重试当前操作。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.PERMISSION_DENIED:
-      return "浏览器没有获得这个 C 的读写权限。系统不会创建空账本或退回另一份账本冒充它。";
+      return "浏览器没有获得这个账本的读写权限。系统不会创建空账本或退回另一份账本冒充它。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.PERMISSION_REQUIRED:
-      return "这个 C 仍需要明确授权；只有点击“重新连接”后才会请求权限。";
+      return "这个账本仍需要明确授权；只有点击“重新连接”后才会请求权限。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECONNECT_FAILED:
-      return "上次的 C 可能已移动、删除或不可读取。系统没有创建空账本，也没有静默切换到浏览器账本。";
+      return "上次的账本可能已移动、删除或不可读取。系统没有创建空账本，也没有静默切换到浏览器账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.WRONG_RECONNECT_FILE:
-      return "所选文件不是上次连接的同一个实际 C；即使名字或 fileId 相同也不会改绑或写入。";
+      return "所选文件不是上次连接的同一个实际账本；即使名字或 fileId 相同也不会改绑或写入。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CREATE_FAILED:
-      return "C 创建、关闭或复读验证失败，不能进入账本。";
+      return "账本创建、关闭或复读验证失败，不能进入账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED:
       return "";
     default:
-      return "C 文件操作失败，未报告保存成功。";
+      return "账本文件操作失败，未报告保存成功。";
   }
 }

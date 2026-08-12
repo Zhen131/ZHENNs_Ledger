@@ -305,6 +305,24 @@ async function expectSelectedTrade(
 }
 
 describe("DefaultLedgerFileAccessController", () => {
+  it("rejects 7 code points before the picker and creates with 8 Unicode code points", async () => {
+    const handle = new MemoryFileHandle("eight-code-points.lftl");
+    const { controller, provider } = createController(handle);
+
+    await expect(controller.create("a".repeat(7))).resolves.toEqual({
+      status: "error",
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.CREATE_FAILED,
+    });
+    expect(provider.showSaveFilePicker).not.toHaveBeenCalled();
+
+    await expect(controller.create("账本🔐safe8")).resolves.toMatchObject({
+      status: "unlocked",
+      ok: true,
+    });
+    expect(provider.showSaveFilePicker).toHaveBeenCalledOnce();
+  });
+
   it("treats an empty connection store as no remembered C without querying permission", async () => {
     const handle = new MemoryFileHandle("empty-record.lftl");
     const connection = createConnectionAdapter();
