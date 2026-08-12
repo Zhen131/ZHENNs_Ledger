@@ -130,7 +130,7 @@ export class LedgerFileHandleAdapter {
       const handles = await provider.showOpenFilePicker({
         multiple: false,
         types: [...FILE_PICKER_TYPES],
-        excludeAcceptAllOption: true,
+        excludeAcceptAllOption: false,
       });
       const handle = handles[0];
       if (!handle || handles.length !== 1) {

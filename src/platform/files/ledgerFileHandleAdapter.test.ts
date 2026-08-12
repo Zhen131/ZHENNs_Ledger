@@ -105,6 +105,31 @@ describe("LedgerFileHandleAdapter", () => {
     );
   });
 
+  it("keeps Save strict while Open offers an accept-all fallback with the same .lftl hint", async () => {
+    const save = new AtomicFakeHandle("created.lftl");
+    const open = new AtomicFakeHandle("existing.lftl", "{}");
+    const provider = createPickerProvider(save, open);
+    const adapter = new LedgerFileHandleAdapter(provider);
+    const ledgerFileType = {
+      description: "Local-First Trading Ledger",
+      accept: { "application/json": [".lftl"] },
+    };
+
+    await adapter.pickNewLedgerFile();
+    await adapter.pickExistingLedgerFile();
+
+    expect(provider.showSaveFilePicker).toHaveBeenCalledWith({
+      suggestedName: "local-first-trading-ledger.lftl",
+      types: [ledgerFileType],
+      excludeAcceptAllOption: true,
+    });
+    expect(provider.showOpenFilePicker).toHaveBeenCalledWith({
+      multiple: false,
+      types: [ledgerFileType],
+      excludeAcceptAllOption: false,
+    });
+  });
+
   it("preserves native entry identity comparison instead of inferring it from name or bytes", async () => {
     const original = new AtomicFakeHandle("same-name.lftl", "{}");
     const byteCopy = new AtomicFakeHandle("same-name.lftl", "{}");
@@ -198,6 +223,19 @@ describe("LedgerFileHandleAdapter", () => {
       });
     },
   );
+
+  it("rejects a non-.lftl Open fallback selection before reading or writing it", async () => {
+    const handle = new AtomicFakeHandle("ledger.json", "not a ledger");
+    const provider = createPickerProvider(handle, handle);
+    const adapter = new LedgerFileHandleAdapter(provider);
+
+    await expect(adapter.pickExistingLedgerFile()).rejects.toMatchObject({
+      stage: "extension",
+    });
+    expect(handle.getFile).not.toHaveBeenCalled();
+    expect(handle.createWritable).not.toHaveBeenCalled();
+    expect(handle.events).toEqual([]);
+  });
 
   it("allows only an empty create target and never opens a writable for a non-empty target", async () => {
     const adapter = new LedgerFileHandleAdapter();
