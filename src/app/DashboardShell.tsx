@@ -19,7 +19,6 @@ import { TransactionsWorkspace } from "./TransactionsWorkspace";
 import { TransferWorkspace } from "./TransferWorkspace";
 import { SettingsWorkspace } from "./SettingsWorkspace";
 import { useLedgerWorkspaceSession } from "./useLedgerWorkspaceSession";
-import type { Trade } from "@/core/models";
 import {
   INDEXED_DB_LEDGER_CAPABILITIES,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
@@ -34,7 +33,6 @@ import {
   buildHoldingHistory,
   buildTradeHeatmap,
 } from "@/features/charts";
-import { calculateTradeCashImpact } from "@/core/calculations";
 import {
   buildLedgerPnlSummary,
   type SummaryMetric,
@@ -49,7 +47,7 @@ import {
   type LedgerClock,
 } from "@/core/shared";
 import { PriceForm } from "@/features/prices/ui";
-import { TradeForm } from "@/features/trades/ui";
+import { TradeForm, TradeTable } from "@/features/trades/ui";
 import { FeeRuleManager } from "@/features/fees/ui";
 import { BackupControls } from "@/features/backup/ui";
 import { ChartsOverview } from "@/features/charts/ui";
@@ -151,118 +149,6 @@ function SummaryMetricCard({
         </ul>
       ) : null}
     </article>
-  );
-}
-
-export function TradeTable({
-  trades,
-  onDelete,
-  deleteDisabled = false,
-  todayKey,
-}: Readonly<{
-  trades: readonly Trade[];
-  onDelete?: (
-    tradeId: string,
-  ) => ConfirmDeleteOutcome | Promise<ConfirmDeleteOutcome>;
-  deleteDisabled?: boolean;
-  todayKey?: string;
-}>) {
-  const columnCount = onDelete ? 10 : 9;
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[960px] text-left text-sm">
-        <thead className="border-b border-slate-200 text-slate-500">
-          <tr>
-            <th className="py-2 font-medium">日期</th>
-            <th className="py-2 font-medium">类型</th>
-            <th className="py-2 font-medium">资产</th>
-            <th className="py-2 font-medium">数量</th>
-            <th className="py-2 font-medium">均价</th>
-            <th className="py-2 font-medium">成交金额（不含手续费）</th>
-            <th className="py-2 font-medium">实际手续费</th>
-            <th className="py-2 font-medium">平台 / 手续费来源</th>
-            <th className="py-2 font-medium">现金影响</th>
-            {onDelete ? <th className="py-2 font-medium">操作</th> : null}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {trades.length === 0 ? (
-            <tr>
-              <td
-                className="py-8 text-center text-slate-500"
-                colSpan={columnCount}
-              >
-                暂无交易。添加交易后，这里会自动显示。
-              </td>
-            </tr>
-          ) : (
-            trades.map((trade) => {
-              const cashImpact = calculateTradeCashImpact(trade);
-              return (
-              <tr key={trade.id}>
-                <td className="py-3 text-slate-600">
-                  {trade.occurredAt}
-                  {todayKey &&
-                  isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
-                    <span className="ml-2 font-medium text-red-700">
-                      无效未来事实
-                    </span>
-                  ) : null}
-                </td>
-                <td className="py-3 text-slate-600">
-                  {trade.type === "buy" ? "买入" : "卖出"}
-                </td>
-                <td className="py-3 font-medium">{trade.assetSymbol}</td>
-                <td className="py-3 text-slate-600">{trade.quantity}</td>
-                <td className="py-3 text-slate-600">{trade.price}</td>
-                <td className="py-3 text-slate-600">
-                  {trade.totalValue} {trade.currency}
-                </td>
-                <td className="py-3 text-slate-600">
-                  {trade.fee} {trade.feeCurrency}
-                </td>
-                <td className="py-3 text-slate-600">
-                  {trade.platform ?? "未填写"}
-                  <span className="block text-xs text-slate-500">
-                    {trade.feeRuleId ? `FeeRule ${trade.feeRuleId}` : "手填"}
-                  </span>
-                </td>
-                <td className="py-3 text-slate-600">
-                  {cashImpact.ok ? (
-                    <>
-                      {cashImpact.amount} {cashImpact.currency}
-                      <span className="block text-xs text-slate-500">
-                        {cashImpact.kind === "buy-outflow"
-                          ? "买入总支出"
-                          : "卖出净到账"}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-amber-800">
-                      不可可靠计算：{cashImpact.feeCurrency} 手续费未换算
-                    </span>
-                  )}
-                </td>
-                {onDelete ? (
-                  <td className="py-3">
-                    <ConfirmDeleteButton
-                      ariaLabel={`删除 ${
-                        trade.type === "buy" ? "买入" : "卖出"
-                      } ${trade.assetSymbol} ${trade.occurredAt}`}
-                      disabled={deleteDisabled}
-                      label="删除"
-                      onConfirm={() => onDelete(trade.id)}
-                    />
-                  </td>
-                ) : null}
-              </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
@@ -1306,9 +1192,27 @@ export function DashboardShell({
         tradeDraft={workspace.tradeDraft}
       />
       ) : null}
-      <TransactionsWorkspace
-        active={workspace.currentPage === "transactions"}
-      />
+      {session ? (
+        <TransactionsWorkspace
+          active={workspace.currentPage === "transactions"}
+          intent={
+            workspace.intent?.page === "transactions"
+              ? workspace.intent
+              : null
+          }
+          isWritable={isWritable}
+          ledgerData={ledgerData}
+          ledgerEpoch={ledgerEpoch}
+          mutationVersion={mutationVersion}
+          onDeleteTrade={(tradeId) =>
+            applyLedgerAction({ type: "trade/delete", tradeId })
+          }
+          onIntentConsumed={workspace.consumeIntent}
+          persistedVersion={persistedVersion}
+          persistenceStatus={persistenceStatus}
+          todayKey={todayKey}
+        />
+      ) : null}
       <TransferWorkspace active={workspace.currentPage === "transfer"} />
       <SettingsWorkspace active={workspace.currentPage === "settings"} />
     </LedgerWorkspaceFrame>
