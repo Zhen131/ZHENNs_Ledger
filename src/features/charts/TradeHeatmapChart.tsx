@@ -36,7 +36,7 @@ export function TradeHeatmapChart({
   const totalTrades = heatmap.reduce((total, day) => total + day.total, 0);
 
   return (
-    <article className="min-w-0 overflow-hidden rounded-2xl border border-[var(--ledger-border)] bg-[var(--ledger-surface)] p-4">
+    <article className="min-w-0 overflow-hidden rounded-2xl border border-[var(--ledger-border)] bg-[var(--ledger-surface)] p-4 min-[1100px]:p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-[var(--ledger-ink)]">
@@ -61,7 +61,11 @@ export function TradeHeatmapChart({
       </div>
       <EChart
         ariaLabel="最近 365 天交易活跃热力图"
-        className={compact ? "mt-2 h-32 w-full" : "mt-3 h-56 w-full"}
+        className={
+          compact
+            ? "mt-2 h-32 w-full min-[1100px]:h-24"
+            : "mt-3 h-56 w-full"
+        }
         events={events}
         option={option}
       />

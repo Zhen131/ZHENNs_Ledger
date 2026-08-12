@@ -59,6 +59,7 @@ import {
 } from "@/ui";
 
 const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
+const FILE_SAVED_FEEDBACK_MS = 4_000;
 
 type ClearConfirmationMode = "normal" | "recovery";
 
@@ -241,6 +242,7 @@ export function DashboardShell({
   const [clearSuccessMessage, setClearSuccessMessage] = useState("");
   const [showLockConfirmation, setShowLockConfirmation] =
     useState(false);
+  const [showSavedFeedback, setShowSavedFeedback] = useState(false);
   const mountedRef = useRef(true);
   const currentRepositoryRef = useRef(repository);
   currentRepositoryRef.current = repository;
@@ -252,6 +254,20 @@ export function DashboardShell({
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (persistenceStatus !== "saved") {
+      setShowSavedFeedback(false);
+      return;
+    }
+
+    setShowSavedFeedback(true);
+    const timeout = setTimeout(
+      () => setShowSavedFeedback(false),
+      FILE_SAVED_FEEDBACK_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [persistedVersion, persistenceStatus]);
 
   useEffect(() => {
     if (
@@ -649,10 +665,10 @@ export function DashboardShell({
               >
                 正在保存到本地
               </p>
-            ) : persistenceStatus === "saved" ? (
+            ) : persistenceStatus === "saved" && showSavedFeedback ? (
               <p
                 aria-live="polite"
-                className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
               >
                 已保存到本地
               </p>

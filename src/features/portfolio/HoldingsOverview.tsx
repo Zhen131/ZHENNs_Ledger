@@ -60,10 +60,10 @@ export function HoldingsOverview({
           暂无可按当前市值排序的非零持仓。
         </p>
       ) : (
-        <ul className="mt-3 grid gap-2">
+        <ul className="mt-3 grid gap-2 min-[1100px]:mt-2 min-[1100px]:gap-1">
           {topPositions.map((position) => (
             <li
-              className="flex min-w-0 flex-col items-start justify-between gap-1 rounded-xl bg-[var(--ledger-surface-muted)] px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3"
+              className="flex min-w-0 flex-col items-start justify-between gap-1 rounded-xl bg-[var(--ledger-surface-muted)] px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3 min-[1100px]:py-1.5"
               key={`${position.assetSymbol}-${position.currency}`}
             >
               <span>
