@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
+import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_V2_CONSTANTS,
   type EncryptedLedgerGenerationV2,
   type LedgerFileCryptoV2,
 } from "./ledgerFileContract";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
-import type { CryptoProvider } from "./ledgerKeyDerivation";
+import type { CryptoProvider } from "@/platform/encryption";
 
 const PASSPHRASE = "correct horse battery staple";
 

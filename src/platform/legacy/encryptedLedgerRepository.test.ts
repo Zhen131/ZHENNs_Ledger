@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { StorageAdapter } from "../adapters/storageAdapter";
+import type { StorageAdapter } from "@/platform/legacy";
 import {
   base64UrlToBytes,
   bytesToBase64Url,
-} from "../encryption/cryptoEncoding";
-import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
-import { WebCryptoEncryptionService } from "../encryption/webCryptoEncryptionService";
+} from "@/platform/encryption";
+import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
+import { WebCryptoEncryptionService } from "@/platform/legacy";
 import { createInitialLedgerData } from "@/core/state";
 import { sampleUsdtTrades } from "@/test-support";
 import {
   DefaultLedgerRepository,
   LEDGER_REPOSITORY_ERROR_CODES,
-} from "./ledgerRepository";
+} from "@/platform/persistence";
 
 const PASSPHRASE = "correct horse battery staple";
 

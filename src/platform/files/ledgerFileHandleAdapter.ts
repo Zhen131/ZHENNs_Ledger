@@ -1,4 +1,4 @@
-import { MAX_LEDGER_FILE_V2_BYTES } from "../encryption/ledgerFileContract";
+import { MAX_LEDGER_FILE_V2_BYTES } from "@/platform/files";
 
 export type LedgerFileReadResult = {
   text: string;

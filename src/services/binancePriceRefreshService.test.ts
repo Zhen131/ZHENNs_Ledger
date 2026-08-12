@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { BinanceMarketDataClient } from "../marketData/binanceMarketDataClient";
+import type { BinanceMarketDataClient } from "@/platform/integrations";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import {

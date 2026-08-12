@@ -1,4 +1,4 @@
-import { base64UrlToBytes } from "./cryptoEncoding";
+import { base64UrlToBytes } from "@/platform/encryption";
 
 export const LEDGER_CRYPTO_CONSTANTS = {
   formatVersion: 2,

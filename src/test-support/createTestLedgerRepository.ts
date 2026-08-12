@@ -1,12 +1,12 @@
 import {
   IndexedDbStorageAdapter,
   type IndexedDbStorageAdapterOptions,
-} from "@/adapters/indexedDbStorageAdapter";
+} from "@/platform/legacy";
 import { NoopEncryptionService } from "./noopEncryptionService";
 import {
   DefaultLedgerRepository,
   type LedgerRepository,
-} from "@/repositories/ledgerRepository";
+} from "@/platform/persistence";
 
 export function createTestLedgerRepository(
   storageOptions: IndexedDbStorageAdapterOptions = {},

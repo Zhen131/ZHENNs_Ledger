@@ -5,24 +5,24 @@ import {
   type LedgerFileHandle,
   type LedgerFilePickerProvider,
   type LedgerFileWritable,
-} from "../adapters/ledgerFileHandleAdapter";
+} from "@/platform/files";
 import {
   LedgerFileConnectionRecordError,
   type
   LedgerFileConnectionAdapter,
   type
   LedgerFileConnectionRecordV1,
-} from "../adapters/ledgerFileConnectionAdapter";
+} from "@/platform/files";
 import type {
   LedgerFileSessionCoordinator,
   LedgerFileSessionLease,
-} from "../coordination/ledgerFileSessionCoordinator";
-import { bytesToBase64Url } from "../encryption/cryptoEncoding";
-import type { LedgerFileV2 } from "../encryption/ledgerFileContract";
-import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
+} from "@/platform/coordination";
+import { bytesToBase64Url } from "@/platform/encryption";
+import type { LedgerFileV2 } from "@/platform/files";
+import { LedgerFileRepository } from "@/platform/files";
 import {
   claimLedgerSessionPersistencePort,
-} from "../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import {

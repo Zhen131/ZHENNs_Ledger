@@ -4,26 +4,26 @@ import {
   LedgerFileHandleAdapter,
   type LedgerFileHandle,
   type LedgerFileWritable,
-} from "../adapters/ledgerFileHandleAdapter";
-import { createLedgerDataContentIdentity } from "../backup/backupContentIdentity";
+} from "@/platform/files";
+import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
-} from "../backup/backupEnvelope";
+} from "@/backup/backupEnvelope";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   preflightBackupJson,
-} from "../backup/backupImportPreflight";
-import { bytesToBase64Url } from "../encryption/cryptoEncoding";
+} from "@/backup/backupImportPreflight";
+import { bytesToBase64Url } from "@/platform/encryption";
 import {
   type DecryptedLedgerPayloadV2,
   type LedgerFileV2,
   validateDecryptedLedgerPayloadV2,
   validateLedgerFileV2,
-} from "../encryption/ledgerFileContract";
-import { LedgerFileCrypto } from "../encryption/ledgerFileCrypto";
-import type { CryptoProvider } from "../encryption/webCryptoEncryptionService";
+} from "@/platform/files";
+import { LedgerFileCrypto } from "@/platform/files";
+import type { CryptoProvider } from "@/platform/encryption";
 import type { LedgerData, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import {
@@ -32,12 +32,12 @@ import {
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   LedgerSessionLifecycleError,
   type LedgerBackupImportEvidence,
-} from "./ledgerRepository";
+} from "@/platform/persistence";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
   LedgerFileRepository,
 } from "./ledgerFileRepository";
-import type { LedgerFileSessionLease } from "../coordination/ledgerFileSessionCoordinator";
+import type { LedgerFileSessionLease } from "@/platform/coordination";
 
 const PASSPHRASE = "correct horse battery staple";
 const TEST_SESSION_LEASE: LedgerFileSessionLease = {

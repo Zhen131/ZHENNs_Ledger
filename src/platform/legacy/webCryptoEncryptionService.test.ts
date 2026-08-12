@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
+import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   createCryptoEnvelopeMetadataV1,
   type StoredLedgerEnvelopeV2,

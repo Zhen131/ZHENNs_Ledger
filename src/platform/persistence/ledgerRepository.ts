@@ -1,10 +1,10 @@
-import type { StorageAdapter } from "../adapters/storageAdapter";
+import type { StorageAdapter } from "@/platform/legacy";
 import {
   inspectLedgerBackupImportEvidence,
   type LedgerBackupImportEvidence,
-} from "../backup/backupImportPreflight";
-import { validateStoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
-import type { EncryptionService } from "../encryption/encryptionService";
+} from "@/backup/backupImportPreflight";
+import { validateStoredLedgerEnvelopeV2 } from "@/platform/legacy";
+import type { EncryptionService } from "@/platform/legacy";
 import type { LedgerData } from "@/core/models";
 import { validateLedgerData } from "@/core/validation";
 
@@ -113,7 +113,7 @@ export type ReadyLedgerClearExecutionContext = Readonly<{
   [readyLedgerClearExecutionContextBrand]: true;
 }>;
 
-export type { LedgerBackupImportEvidence } from "../backup/backupImportPreflight";
+export type { LedgerBackupImportEvidence } from "@/backup/backupImportPreflight";
 
 export type ReadyLedgerImportAuthorization = Readonly<{
   sessionId: string;

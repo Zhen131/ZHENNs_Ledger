@@ -24,13 +24,13 @@ import type {
   LedgerSessionCapabilities,
   LedgerStorageKind,
   SessionQuiesceReason,
-} from "../../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import {
   claimReadyLedgerClearExecutionContextForDriver,
   createLedgerSession,
   createReadyLedgerClearAuthorizationForDriver,
   LEDGER_FILE_CAPABILITIES,
-} from "../../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import type { PersistentLedgerState } from "../../hooks/usePersistentLedger";
 import { createInitialLedgerData } from "@/core/state";
 import {

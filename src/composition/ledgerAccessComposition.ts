@@ -1,17 +1,17 @@
 import {
   IndexedDbStorageAdapter,
   type IndexedDbStorageAdapterOptions,
-} from "../adapters/indexedDbStorageAdapter";
-import { LedgerFileHandleAdapter } from "../adapters/ledgerFileHandleAdapter";
+} from "@/platform/legacy";
+import { LedgerFileHandleAdapter } from "@/platform/files";
 import {
   IndexedDbLedgerFileConnectionAdapter,
   type IndexedDbLedgerFileConnectionAdapterOptions,
-} from "../adapters/ledgerFileConnectionAdapter";
-import { DefaultLedgerFileSessionCoordinator } from "../coordination/ledgerFileSessionCoordinator";
+} from "@/platform/files";
+import { DefaultLedgerFileSessionCoordinator } from "@/platform/coordination";
 import {
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
-} from "./ledgerAccessController";
+} from "@/platform/legacy";
 import {
   DefaultLedgerFileAccessController,
   type LedgerFileAccessController,

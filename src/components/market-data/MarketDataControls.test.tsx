@@ -10,8 +10,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { BinanceMarketDataClient } from "../../marketData/binanceMarketDataClient";
-import type { BinanceTickerBatchResult } from "../../marketData/binanceMarketDataTypes";
+import type { BinanceMarketDataClient } from "@/platform/integrations";
+import type { BinanceTickerBatchResult } from "@/platform/integrations";
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";

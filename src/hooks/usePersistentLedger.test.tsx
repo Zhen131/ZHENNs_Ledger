@@ -12,8 +12,8 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LedgerData, Trade } from "@/core/models";
-import type { StorageAdapter } from "../adapters/storageAdapter";
-import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
+import type { StorageAdapter } from "@/platform/legacy";
+import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
 import {
   createNoopStoredLedgerEnvelope,
   NoopEncryptionService,
@@ -33,7 +33,7 @@ import {
   LEDGER_REPOSITORY_ERROR_CODES,
   LedgerSessionLifecycleError,
   type LedgerRepository,
-} from "../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createUsdtAsset as createAsset,

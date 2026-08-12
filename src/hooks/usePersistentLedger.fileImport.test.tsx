@@ -17,22 +17,22 @@ import {
   LedgerFileHandleAdapter,
   type LedgerFileHandle,
   type LedgerFileWritable,
-} from "../adapters/ledgerFileHandleAdapter";
+} from "@/platform/files";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   preflightBackupJson,
   type BackupImportPreflightResult,
 } from "../backup/backupImportPreflight";
-import type { LedgerFileSessionLease } from "../coordination/ledgerFileSessionCoordinator";
+import type { LedgerFileSessionLease } from "@/platform/coordination";
 import {
   claimLedgerSessionPersistencePort,
   createLedgerSession,
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   type LedgerBackupImportEvidence,
   type LedgerSession,
-} from "../repositories/ledgerRepository";
-import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
+} from "@/platform/persistence";
+import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger } from "./usePersistentLedger";

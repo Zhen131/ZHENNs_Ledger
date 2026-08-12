@@ -11,7 +11,7 @@ import {
 import userEvent from "@testing-library/user-event";
 
 import type { LedgerData } from "@/core/models";
-import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import type { LedgerRepository } from "@/platform/persistence";
 import { sampleTradeDrafts } from "@/test-support";
 import { createInitialLedgerData } from "@/core/state";
 import { isWithinTolerance } from "@/core/shared";

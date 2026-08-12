@@ -2,8 +2,8 @@ import {
   LedgerFileAdapterError,
   type LedgerFileHandle,
   type LedgerFileHandleAdapter,
-} from "../adapters/ledgerFileHandleAdapter";
-import type { LedgerFileSessionLease } from "../coordination/ledgerFileSessionCoordinator";
+} from "@/platform/files";
+import type { LedgerFileSessionLease } from "@/platform/coordination";
 import {
   createCanonicalLedgerPayloadV2,
   type CanonicalLedgerPayloadV2,
@@ -12,10 +12,10 @@ import {
   type LedgerFileV2,
   validateDecryptedLedgerPayloadV2,
   validateLedgerFileV2,
-} from "../encryption/ledgerFileContract";
-import { createLedgerDataContentIdentity } from "../backup/backupContentIdentity";
-import { LedgerFileCrypto } from "../encryption/ledgerFileCrypto";
-import type { CryptoProvider } from "../encryption/webCryptoEncryptionService";
+} from "@/platform/files";
+import { createLedgerDataContentIdentity } from "@/platform/persistence";
+import { LedgerFileCrypto } from "@/platform/files";
+import type { CryptoProvider } from "@/platform/encryption";
 import type { LedgerData } from "@/core/models";
 import {
   claimReadyLedgerImportExecutionContextForDriver,
@@ -36,7 +36,7 @@ import {
   type ReadyLedgerImportAuthorization,
   type ReadyLedgerImportAuthorizationContext,
   type ReadyLedgerImportExecutionContext,
-} from "./ledgerRepository";
+} from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 
 export const LEDGER_FILE_REPOSITORY_ERROR_CODES = {

@@ -1,8 +1,8 @@
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, vi } from "vitest";
 
-import type { LedgerFileHandle } from "../adapters/ledgerFileHandleAdapter";
-import { IndexedDbStorageAdapter } from "../adapters/indexedDbStorageAdapter";
+import type { LedgerFileHandle } from "@/platform/files";
+import { IndexedDbStorageAdapter } from "@/platform/legacy";
 import { createNoopStoredLedgerEnvelope } from "@/test-support";
 import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
 import {

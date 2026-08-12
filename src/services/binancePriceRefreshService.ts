@@ -4,8 +4,8 @@ import type {
   LedgerData,
   PriceSnapshot,
 } from "@/core/models";
-import type { BinanceMarketDataClient } from "../marketData/binanceMarketDataClient";
-import type { BinanceMarketDataFailure } from "../marketData/binanceMarketDataTypes";
+import type { BinanceMarketDataClient } from "@/platform/integrations";
+import type { BinanceMarketDataFailure } from "@/platform/integrations";
 import {
   partitionLedgerFactsForToday,
   resolveAssetBinanceMappingForRuntime,

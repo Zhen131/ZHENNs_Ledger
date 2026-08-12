@@ -2,24 +2,24 @@ import {
   LedgerFileAdapterError,
   type LedgerFileHandle,
   type LedgerFileHandleAdapter,
-} from "../adapters/ledgerFileHandleAdapter";
+} from "@/platform/files";
 import {
   LedgerFileConnectionRecordError,
   type LedgerFileConnectionAdapter,
   type LedgerFileConnectionRecordV1,
-} from "../adapters/ledgerFileConnectionAdapter";
+} from "@/platform/files";
 import {
   DefaultLedgerFileSessionCoordinator,
   type LedgerFileSessionCoordinator,
   type LedgerFileSessionLease,
-} from "../coordination/ledgerFileSessionCoordinator";
-import { validatePassphrase } from "../encryption/passphrasePolicy";
+} from "@/platform/coordination";
+import { validatePassphrase } from "@/platform/encryption";
 import type { LedgerData } from "@/core/models";
 import {
   createLedgerSession,
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   type LedgerSession,
-} from "../repositories/ledgerRepository";
+} from "@/platform/persistence";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
   LedgerFileRepository,
@@ -27,7 +27,7 @@ import {
   type LedgerFileRecoveryCandidate,
   inspectLedgerFile,
   type LedgerFileRepositoryDependencies,
-} from "../repositories/ledgerFileRepository";
+} from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 
 export const LEDGER_FILE_ACCESS_ERROR_CODES = {

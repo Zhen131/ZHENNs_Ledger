@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Position, Trade } from "@/core/models";
-import type { LedgerRepository } from "../../repositories/ledgerRepository";
+import type { LedgerRepository } from "@/platform/persistence";
 import { getPositionsFromLedger } from "../../services/positionService";
 import { createInitialLedgerData } from "@/core/state";
 import { ledgerReducer } from "@/core/state";

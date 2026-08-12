@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   LedgerFileHandle,
   LedgerFileWritable,
-} from "../adapters/ledgerFileHandleAdapter";
+} from "@/platform/files";
 import {
   BrowserLedgerFileCoordinationRuntime,
   DefaultLedgerFileSessionCoordinator,

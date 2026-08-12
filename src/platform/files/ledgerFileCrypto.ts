@@ -1,4 +1,4 @@
-import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
+import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_V2_CONSTANTS,
   createLedgerFileCryptoV2,
@@ -9,7 +9,7 @@ import {
 import {
   deriveLedgerKeyWithParameters,
   type CryptoProvider,
-} from "./ledgerKeyDerivation";
+} from "@/platform/encryption";
 
 const LEDGER_FILE_V2_KEY_DERIVATION_PARAMETERS = {
   kdfName: LEDGER_FILE_V2_CONSTANTS.kdfName,
