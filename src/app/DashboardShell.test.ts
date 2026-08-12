@@ -235,8 +235,9 @@ describe("DashboardShell ledger views", () => {
       }),
     );
 
-    expect(html).not.toContain("lg:w-60 lg:shrink-0");
-    expect(html).toContain("max-w-7xl px-5");
+    expect(html).toContain("w-48 shrink-0");
+    expect(html).toContain("max-w-[1500px] overflow-hidden");
+    expect(html).toContain("min-h-0 flex-1 overflow-y-auto");
     expect(html).toContain(
       'class="min-w-0 rounded-lg border border-slate-200',
     );

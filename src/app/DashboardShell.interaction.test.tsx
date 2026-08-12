@@ -334,6 +334,27 @@ async function createTrade(input: {
   return user;
 }
 
+describe("DashboardShell persistent workspace navigation", () => {
+  it("switches all five pages without rehydrating and preserves mounted form input", async () => {
+    const repository = createMemoryRepository();
+    const user = userEvent.setup();
+    await renderDashboard(repository);
+
+    await user.type(screen.getByLabelText("数量"), "0.25");
+    for (const page of ["记账", "交易", "导入与导出", "设置", "首页"]) {
+      await user.click(screen.getByRole("button", { name: page }));
+      expect(
+        screen.getByRole("heading", { level: 1, name: page }),
+      ).toBeTruthy();
+    }
+
+    expect(repository.load).toHaveBeenCalledOnce();
+    expect((screen.getByLabelText("数量") as HTMLInputElement).value).toBe(
+      "0.25",
+    );
+  });
+});
+
 describe("DashboardShell immediate lock decision B", () => {
   it("does not begin locking on the first dirty click and uses the same final action only after explicit discard", async () => {
     const saveDeferred = createDeferred<void>();
@@ -373,7 +394,7 @@ describe("DashboardShell immediate lock decision B", () => {
     });
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
     expect(
       screen.getByRole("region", {
@@ -391,7 +412,7 @@ describe("DashboardShell immediate lock decision B", () => {
     expect(onFinalLock).not.toHaveBeenCalled();
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
     await user.click(
       screen.getByRole("button", {
@@ -445,7 +466,7 @@ describe("DashboardShell immediate lock decision B", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
     await user.click(
       screen.getByRole("button", { name: "重新保存" }),
@@ -491,7 +512,7 @@ describe("DashboardShell immediate lock decision B", () => {
     });
 
     await userEvent.setup().click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
 
     expect(onFinalLock).toHaveBeenCalledOnce();
