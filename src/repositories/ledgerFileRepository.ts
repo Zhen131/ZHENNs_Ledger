@@ -16,7 +16,7 @@ import {
 import { createLedgerDataContentIdentity } from "../backup/backupContentIdentity";
 import { LedgerFileCrypto } from "../encryption/ledgerFileCrypto";
 import type { CryptoProvider } from "../encryption/webCryptoEncryptionService";
-import type { LedgerData } from "../models";
+import type { LedgerData } from "@/core/models";
 import {
   claimReadyLedgerImportExecutionContextForDriver,
   claimReadyLedgerClearExecutionContextForDriver,
@@ -37,7 +37,7 @@ import {
   type ReadyLedgerImportAuthorizationContext,
   type ReadyLedgerImportExecutionContext,
 } from "./ledgerRepository";
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 
 export const LEDGER_FILE_REPOSITORY_ERROR_CODES = {
   INVALID_CANDIDATE: "LEDGER_FILE_INVALID_CANDIDATE",

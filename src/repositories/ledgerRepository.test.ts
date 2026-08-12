@@ -18,10 +18,10 @@ import type { EncryptionService } from "../encryption/encryptionService";
 import {
   createNoopStoredLedgerEnvelope,
   NoopEncryptionService,
-} from "../encryption/noopEncryptionService";
-import type { LedgerData } from "../models";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { sampleUsdtTrades } from "../test/fixtures";
+} from "@/test-support";
+import type { LedgerData } from "@/core/models";
+import { createInitialLedgerData } from "@/core/state";
+import { sampleUsdtTrades } from "@/test-support";
 import {
   claimLedgerSessionPersistencePort,
   claimReadyLedgerImportExecutionContextForDriver,

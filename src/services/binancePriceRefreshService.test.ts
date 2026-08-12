@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { BinanceMarketDataClient } from "../marketData/binanceMarketDataClient";
-import type { LedgerClock } from "../utils/ledgerDate";
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import type { LedgerClock } from "@/core/shared";
+import { createInitialLedgerData } from "@/core/state";
 import {
   createPriceSnapshot,
   createSimpleTrade,
-} from "../test/fixtures";
+} from "@/test-support";
 import {
   mergeBinancePriceRefresh,
   refreshBinancePrices,

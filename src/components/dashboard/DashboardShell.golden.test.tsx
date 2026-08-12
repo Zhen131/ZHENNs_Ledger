@@ -10,12 +10,12 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { LedgerData } from "../../models";
+import type { LedgerData } from "@/core/models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
-import { sampleTradeDrafts } from "../../test/fixtures";
-import { createInitialLedgerData } from "../../state/initialLedgerData";
-import { isWithinTolerance } from "../../utils/decimalMath";
-import type { LedgerClock } from "../../utils/ledgerDate";
+import { sampleTradeDrafts } from "@/test-support";
+import { createInitialLedgerData } from "@/core/state";
+import { isWithinTolerance } from "@/core/shared";
+import type { LedgerClock } from "@/core/shared";
 import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
 
 const fixedClock: LedgerClock = {

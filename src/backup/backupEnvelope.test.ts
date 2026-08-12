@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 import {
   BACKUP_FORMAT_VERSION,
   createBackupEnvelope,

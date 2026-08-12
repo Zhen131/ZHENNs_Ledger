@@ -10,16 +10,16 @@ import {
   useState,
 } from "react";
 
-import type { LedgerData } from "../models";
+import type { LedgerData } from "@/core/models";
 import {
   collectLedgerCompatibilityWarnings,
   partitionLedgerFactsForToday,
   type LedgerCompatibilityWarning,
-} from "../policies/ledgerFactPolicy";
+} from "@/core/policies";
 import {
   validateLedgerImportPolicy,
   type LedgerImportPolicyError,
-} from "../policies/ledgerImportPolicy";
+} from "@/core/policies";
 import {
   assertSessionQuiesceRequest,
   claimLedgerSessionPersistencePort,
@@ -38,17 +38,17 @@ import {
   LedgerFileRepository,
   LedgerFileRepositoryError,
 } from "../repositories/ledgerFileRepository";
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 import type { HydrationStatus } from "../state/hydrationState";
 import {
   ledgerReducer,
   type LedgerAction,
-} from "../state/ledgerReducer";
+} from "@/core/state";
 import {
   evaluateLedgerResourcePolicy,
   type LedgerResourcePolicyError,
-} from "../validators/resourcePolicy";
-import { validateLedgerData } from "../validators/ledgerDataValidator";
+} from "@/core/validation";
+import { validateLedgerData } from "@/core/validation";
 import {
   captureLedgerTime,
   isLedgerFactInFuture,
@@ -56,7 +56,7 @@ import {
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
-} from "../utils/ledgerDate";
+} from "@/core/shared";
 
 export type PersistentLedgerState = {
   ledgerData: LedgerData;

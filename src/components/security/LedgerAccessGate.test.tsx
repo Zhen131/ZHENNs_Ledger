@@ -37,7 +37,7 @@ import {
   type SessionQuiesceToken,
 } from "../../repositories/ledgerRepository";
 import { LedgerFileRepository } from "../../repositories/ledgerFileRepository";
-import { createInitialLedgerData } from "../../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 import { LedgerAccessGate } from "./LedgerAccessGate";
 
 const PASSPHRASE = "correct horse battery staple";

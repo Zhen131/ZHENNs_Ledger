@@ -5,8 +5,8 @@ import {
 } from "../backup/backupImportPreflight";
 import { validateStoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 import type { EncryptionService } from "../encryption/encryptionService";
-import type { LedgerData } from "../models";
-import { validateLedgerData } from "../validators/ledgerDataValidator";
+import type { LedgerData } from "@/core/models";
+import { validateLedgerData } from "@/core/validation";
 
 export const LEDGER_REPOSITORY_ERROR_CODES = {
   READ_FAILED: "LEDGER_REPOSITORY_READ_FAILED",

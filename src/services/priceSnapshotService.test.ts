@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { PriceSnapshotDraft } from "../models";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { createPriceSnapshot } from "../test/fixtures";
+import type { PriceSnapshotDraft } from "@/core/models";
+import { createInitialLedgerData } from "@/core/state";
+import { createPriceSnapshot } from "@/test-support";
 import {
   PRICE_SNAPSHOT_SERVICE_ERROR_CODES,
   createValidatedPriceSnapshot,

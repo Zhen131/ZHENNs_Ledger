@@ -14,7 +14,7 @@ import {
   type LedgerFileSessionLease,
 } from "../coordination/ledgerFileSessionCoordinator";
 import { validatePassphrase } from "../encryption/passphrasePolicy";
-import type { LedgerData } from "../models";
+import type { LedgerData } from "@/core/models";
 import {
   createLedgerSession,
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
@@ -28,7 +28,7 @@ import {
   inspectLedgerFile,
   type LedgerFileRepositoryDependencies,
 } from "../repositories/ledgerFileRepository";
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 
 export const LEDGER_FILE_ACCESS_ERROR_CODES = {
   CANCELLED: "LEDGER_FILE_ACCESS_CANCELLED",

@@ -12,7 +12,7 @@ import {
   validateDecryptedLedgerPayloadV2,
   validateLedgerFileV2,
 } from "./ledgerFileContract";
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 
 function createGeneration(
   revisionId: string,

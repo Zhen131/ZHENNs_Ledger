@@ -24,8 +24,8 @@ import {
 } from "../encryption/ledgerFileContract";
 import { LedgerFileCrypto } from "../encryption/ledgerFileCrypto";
 import type { CryptoProvider } from "../encryption/webCryptoEncryptionService";
-import type { LedgerData, Trade } from "../models";
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import type { LedgerData, Trade } from "@/core/models";
+import { createInitialLedgerData } from "@/core/state";
 import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,

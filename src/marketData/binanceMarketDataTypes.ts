@@ -1,4 +1,4 @@
-import type { DecimalString } from "../models";
+import type { DecimalString } from "@/core/models";
 
 export type BinanceMarketDataFailureCode =
   | "BINANCE_ABORTED"

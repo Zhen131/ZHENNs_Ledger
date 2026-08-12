@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { FeeRule } from "../models";
+import type { FeeRule } from "@/core/models";
 import {
   calculateFeeRuleCandidate,
   matchFeeRules,

@@ -7,8 +7,8 @@ import {
 } from "../encryption/cryptoEncoding";
 import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 import { WebCryptoEncryptionService } from "../encryption/webCryptoEncryptionService";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { sampleUsdtTrades } from "../test/fixtures";
+import { createInitialLedgerData } from "@/core/state";
+import { sampleUsdtTrades } from "@/test-support";
 import {
   DefaultLedgerRepository,
   LEDGER_REPOSITORY_ERROR_CODES,

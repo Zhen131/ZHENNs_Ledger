@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { LedgerFileHandle } from "../adapters/ledgerFileHandleAdapter";
 import { IndexedDbStorageAdapter } from "../adapters/indexedDbStorageAdapter";
-import { createNoopStoredLedgerEnvelope } from "../encryption/noopEncryptionService";
+import { createNoopStoredLedgerEnvelope } from "@/test-support";
 import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
 import {
   createApplicationLedgerAccessController,

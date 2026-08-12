@@ -1,5 +1,5 @@
-import type { DecimalString, FeeRule } from "../models";
-import { multiply, toDecimal } from "../utils/decimalMath";
+import type { DecimalString, FeeRule } from "@/core/models";
+import { multiply, toDecimal } from "@/core/shared";
 
 export type FeeRuleCandidate = Readonly<{
   rule: FeeRule;

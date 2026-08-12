@@ -1,5 +1,5 @@
-import type { LedgerData } from "../models";
-import { validateLedgerData } from "../validators/ledgerDataValidator";
+import type { LedgerData } from "@/core/models";
+import { validateLedgerData } from "@/core/validation";
 
 export async function createSerializedContentIdentity(
   serialized: string,

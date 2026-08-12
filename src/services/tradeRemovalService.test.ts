@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { getPositionsFromLedger } from "./positionService";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { sampleTrades } from "../test/fixtures";
+import { createInitialLedgerData } from "@/core/state";
+import { sampleTrades } from "@/test-support";
 import {
   TRADE_REMOVAL_ERROR_CODES,
   validateTradeRemoval,

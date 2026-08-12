@@ -23,8 +23,8 @@ import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
 import {
   claimLedgerSessionPersistencePort,
 } from "../repositories/ledgerRepository";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { createUsdtSimpleTrade as createSimpleTrade } from "../test/fixtures";
+import { createInitialLedgerData } from "@/core/state";
+import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import {
   DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,

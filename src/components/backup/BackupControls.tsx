@@ -27,19 +27,19 @@ import {
 } from "../../backup/backupImportPreflight";
 import { formatBackupImportReportMarkdown } from "../../backup/backupImportReport";
 import type { PersistenceOperation } from "../../hooks/usePersistentLedger";
-import type { LedgerData } from "../../models";
+import type { LedgerData } from "@/core/models";
 import type { HydrationStatus } from "../../state/hydrationState";
 import {
   captureLedgerTime,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
-} from "../../utils/ledgerDate";
+} from "@/core/shared";
 import {
   evaluateLedgerByteLengthResourcePolicy,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
-} from "../../validators";
+} from "@/core/validation";
 
 type ImportState =
   | "idle"

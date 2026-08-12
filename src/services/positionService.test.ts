@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { LedgerData } from "../models";
-import { createBuiltInAssets } from "../data/builtInAssets";
+import type { LedgerData } from "@/core/models";
+import { createBuiltInAssets } from "@/core/catalog";
 import {
   createPriceSnapshot,
   sampleTrades,
-} from "../test/fixtures";
+} from "@/test-support";
 import { getPositionsFromLedger } from "./positionService";
 
 function createLedgerData(

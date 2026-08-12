@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Trade } from "../models";
+import type { Trade } from "@/core/models";
 import {
   groupSuspiciousBackupTrades,
   type IndexedBackupTrade,
