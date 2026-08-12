@@ -24,6 +24,7 @@ type FeeRuleManagerProps = Readonly<{
   persistedVersion: number;
   persistenceStatus: PersistenceStatus;
   onAction: (action: LedgerAction) => ApplyLedgerActionResult;
+  presentation?: "legacy" | "settings";
 }>;
 
 type FormState = {
@@ -51,6 +52,7 @@ export function FeeRuleManager({
   persistedVersion,
   persistenceStatus,
   onAction,
+  presentation = "legacy",
 }: FeeRuleManagerProps) {
   const [form, setForm] = useState<FormState>(() => ({
     ...initialForm,
@@ -195,7 +197,29 @@ export function FeeRuleManager({
         </div>
       ) : null}
 
-      <form className="grid gap-3 md:grid-cols-5" onSubmit={submitNewRule}>
+      <div
+        className={
+          presentation === "settings"
+            ? "grid min-w-0 gap-5 lg:grid-cols-[minmax(260px,.4fr)_minmax(0,.6fr)]"
+            : "contents"
+        }
+      >
+      <form
+        className={
+          presentation === "settings"
+            ? "order-2 grid content-start gap-3 rounded-lg border border-slate-200 p-4 md:grid-cols-2"
+            : "grid gap-3 md:grid-cols-5"
+        }
+        onSubmit={submitNewRule}
+      >
+        {presentation === "settings" ? (
+          <div className="md:col-span-2">
+            <h3 className="font-semibold">新增规则版本</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              历史规则不原地改写；调整费率时创建新版本并停用旧版。
+            </p>
+          </div>
+        ) : null}
         <label className="grid gap-1 text-sm font-medium">
           规则名
           <input
@@ -258,7 +282,16 @@ export function FeeRuleManager({
         </button>
       </form>
 
-      <div className="grid gap-3">
+      <div
+        className={
+          presentation === "settings"
+            ? "order-1 grid content-start gap-3"
+            : "grid gap-3"
+        }
+      >
+        {presentation === "settings" ? (
+          <h3 className="font-semibold">规则历史</h3>
+        ) : null}
         {ledgerData.feeRules.length === 0 ? (
           <p className="text-sm text-slate-500">暂无手续费规则。</p>
         ) : ledgerData.feeRules.map((rule) => (
@@ -309,6 +342,7 @@ export function FeeRuleManager({
             ) : null}
           </article>
         ))}
+      </div>
       </div>
 
       <div aria-live="polite" className="min-h-5 text-sm">

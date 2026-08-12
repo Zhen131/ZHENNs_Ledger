@@ -463,6 +463,29 @@ export function DashboardShell({
     );
   }
 
+  async function handleSettingsClear(
+    mode: "normal" | "recovery",
+  ): Promise<boolean> {
+    if (
+      (mode === "normal" && hydrationStatus !== "ready") ||
+      (mode === "recovery" && hydrationStatus !== "error")
+    ) {
+      return false;
+    }
+    const operationRepository = repository;
+    const result = await clearLedger(clearConfirmationText);
+    if (
+      !mountedRef.current ||
+      currentRepositoryRef.current !== operationRepository ||
+      !result.ok
+    ) {
+      return false;
+    }
+    setTradeRemovalError("");
+    setSelectedTradeDate(null);
+    return true;
+  }
+
   function requestImmediateLock() {
     if (!session || !onFinalLock || lifecycleStatus !== "active") {
       return;
@@ -742,7 +765,7 @@ export function DashboardShell({
             </div>
           ) : null}
 
-          {session === undefined || workspace.currentPage === "settings" ? (
+          {session === undefined ? (
           <div className="grid gap-5">
             {session === undefined ? (
             <>
@@ -1213,8 +1236,70 @@ export function DashboardShell({
           todayKey={todayKey}
         />
       ) : null}
-      <TransferWorkspace active={workspace.currentPage === "transfer"} />
-      <SettingsWorkspace active={workspace.currentPage === "settings"} />
+      {session ? (
+        <TransferWorkspace
+          active={workspace.currentPage === "transfer"}
+          backupPanel={
+            <BackupControls
+              canImportBackup={capabilities.canImportBackup}
+              clock={clock}
+              hydrationStatus={hydrationStatus}
+              isDirty={isDirty}
+              isReadOnly={isReadOnly}
+              ledgerData={ledgerData}
+              onImport={replaceLedgerFromBackup}
+              persistenceOperation={persistenceOperation}
+              persistenceStatus={persistenceStatus}
+              presentation="transfer"
+              requiresHistoricalRawText={storageKind === "ledger-file"}
+              showPlaintextWarning={false}
+            />
+          }
+          storageKind={storageKind}
+        />
+      ) : null}
+      {session ? (
+        <SettingsWorkspace
+          active={workspace.currentPage === "settings"}
+          canClearHydrationError={capabilities.canClearHydrationError}
+          canClearReadyLedger={capabilities.canClearReadyLedger}
+          feePanel={
+            <FeeRuleManager
+              clock={clock}
+              isWritable={isWritable}
+              ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mutationVersion={mutationVersion}
+              onAction={applyLedgerAction}
+              persistedVersion={persistedVersion}
+              persistenceStatus={persistenceStatus}
+              presentation="settings"
+            />
+          }
+          hydrationStatus={hydrationStatus}
+          isReadOnly={isReadOnly}
+          ledgerEpoch={ledgerEpoch}
+          marketPanel={
+            <MarketDataControls
+              applyLedgerMutation={applyLedgerMutation}
+              clock={clock}
+              compactMappings
+              expandMappings
+              isWritable={isWritable}
+              ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mode={valuationPriceMode}
+              onModeChange={setValuationPriceMode}
+              showRefresh={false}
+              todayKey={todayKey}
+            />
+          }
+          onClear={handleSettingsClear}
+          persistenceOperation={persistenceOperation}
+          repositorySwitchBlocked={repositorySwitchBlocked}
+          storageKind={storageKind}
+        />
+      ) : null}
     </LedgerWorkspaceFrame>
   );
 }
