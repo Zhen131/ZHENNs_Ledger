@@ -24,6 +24,8 @@ import {
   type LedgerTimeSnapshot,
 } from "@/core/shared";
 
+const SUCCESS_FEEDBACK_MS = 4_000;
+
 type PriceFormProps = Readonly<{
   clock?: LedgerClock;
   ledgerData: LedgerData;
@@ -234,6 +236,15 @@ export function PriceForm({
     persistenceStatus,
   ]);
 
+  useEffect(() => {
+    if (!successMessage || successMessage === "正在保存…") return;
+    const timeout = setTimeout(
+      () => setSuccessMessage(""),
+      SUCCESS_FEEDBACK_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [successMessage]);
+
   const selectedAsset =
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
     ledgerData.assets[0];
@@ -433,7 +444,9 @@ export function PriceForm({
         {errors.form ? (
           <p className="text-red-700">{errors.form}</p>
         ) : successMessage ? (
-          <p className="text-emerald-700">{successMessage}</p>
+          <p className="text-emerald-700 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]">
+            {successMessage}
+          </p>
         ) : null}
       </div>
       </div>

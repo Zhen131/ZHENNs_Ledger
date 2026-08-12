@@ -458,7 +458,7 @@ export function DashboardShell({
     setClearConfirmationValue("");
     setClearSuccessMessage(
       storageKind === "ledger-file"
-        ? "当前 C 账本内容已清空"
+        ? "当前账本文件内容已清空"
         : "账本已清空",
     );
   }
@@ -1050,7 +1050,7 @@ export function DashboardShell({
                     type="button"
                   >
                     {storageKind === "ledger-file"
-                      ? "清空当前 C 账本"
+                      ? "清空当前账本文件"
                       : "清空本地账本"}
                   </button>
                 ) : null}
@@ -1072,7 +1072,7 @@ export function DashboardShell({
                     <p className="font-medium text-red-900">
                       {clearConfirmationMode === "normal"
                         ? storageKind === "ledger-file"
-                          ? "这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C。文件仍会保留清空前的上一可用版，之后若当前代损坏，恢复可能回到清空前数据。"
+                          ? "这只会清空当前账本内容，不删除 .lftl 文件，也不影响其他账本文件。文件仍会保留清空前的上一可用版，之后若当前代损坏，恢复可能回到清空前数据。"
                           : "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。"
                         : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。"}
                     </p>
@@ -1107,7 +1107,7 @@ export function DashboardShell({
                         type="button"
                       >
                         {storageKind === "ledger-file"
-                          ? "确认清空当前 C 内容"
+                          ? "确认清空当前账本内容"
                           : "确认永久清空"}
                       </button>
                       <button

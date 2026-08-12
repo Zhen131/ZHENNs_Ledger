@@ -94,7 +94,16 @@ export function RecordWorkspace({
         </p>
       </SurfaceCard>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.85fr)]">
+      {!isWritable ? (
+        <p
+          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          role="status"
+        >
+          暂不可录入：当前账本只读或文件操作尚未完成，请查看顶部文件状态。
+        </p>
+      ) : null}
+
+      <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(0,1.35fr)_minmax(320px,.85fr)]">
         <SurfaceCard className="min-w-0 p-5">
           <div className="mb-4">
             <h3 className="font-semibold">新增交易</h3>

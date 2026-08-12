@@ -12,6 +12,7 @@ import type { HydrationStatus } from "./hydrationState";
 import type { PersistenceOperation } from "./usePersistentLedger";
 
 export const PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空账本";
+const SUCCESS_FEEDBACK_MS = 4_000;
 
 type SettingsTab = "market" | "fees" | "danger";
 type ClearMode = "normal" | "recovery";
@@ -79,6 +80,12 @@ export function SettingsWorkspace({
   }, [ledgerEpoch]);
 
   useEffect(() => {
+    if (!success) return;
+    const timeout = setTimeout(() => setSuccess(""), SUCCESS_FEEDBACK_MS);
+    return () => clearTimeout(timeout);
+  }, [success]);
+
+  useEffect(() => {
     if (!dangerExpanded) return;
     const closeFromEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") closeDanger({ restoreFocus: true });
@@ -111,6 +118,16 @@ export function SettingsWorkspace({
     );
   }
 
+  const clearDisabledReason = !clearMode
+    ? "当前文件状态不允许清空"
+    : isReadOnly
+      ? "当前账本处于只读保护，不能清空"
+      : repositorySwitchBlocked
+        ? "文件切换尚未完成，暂不能清空"
+        : persistenceOperation !== "idle"
+          ? "当前文件操作完成前暂不能清空"
+          : "";
+
   return (
     <section
       aria-label="设置工作区"
@@ -126,7 +143,7 @@ export function SettingsWorkspace({
 
       <div
         aria-label="设置分类"
-        className="flex flex-wrap gap-2 rounded-xl border border-[var(--ledger-border)] bg-[var(--ledger-surface-muted)] p-2"
+        className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--ledger-border)] bg-[var(--ledger-surface-muted)] p-2 sm:grid-cols-3"
         role="tablist"
       >
         {(
@@ -137,6 +154,7 @@ export function SettingsWorkspace({
           ] as const
         ).map(([value, label]) => (
           <button
+            aria-controls={`settings-panel-${value}`}
             aria-selected={tab === value}
             className={
               tab === value
@@ -157,29 +175,67 @@ export function SettingsWorkspace({
       </div>
 
       {tab === "market" ? (
-        <SurfaceCard className="min-w-0 p-5">{marketPanel}</SurfaceCard>
+        <SurfaceCard
+          className="min-w-0 p-5"
+          id="settings-panel-market"
+          role="tabpanel"
+        >
+          {marketPanel}
+        </SurfaceCard>
       ) : null}
       {tab === "fees" ? (
-        <SurfaceCard className="min-w-0 p-5">{feePanel}</SurfaceCard>
+        <SurfaceCard
+          className="min-w-0 p-5"
+          id="settings-panel-fees"
+          role="tabpanel"
+        >
+          {feePanel}
+        </SurfaceCard>
       ) : null}
       {tab === "danger" ? (
-        <SurfaceCard className="min-w-0 border-red-100 p-5">
+        <SurfaceCard
+          className="min-w-0 border-red-100 p-5"
+          id="settings-panel-danger"
+          role="tabpanel"
+        >
           {!dangerExpanded ? (
-            <button
-              className="rounded-md border border-red-200 bg-red-50 px-4 py-2 font-semibold text-red-800 disabled:opacity-50"
-              disabled={!clearMode || clearDisabled}
-              onClick={() => {
-                setDangerExpanded(true);
-                setError("");
-                setSuccess("");
-              }}
-              ref={dangerTriggerRef}
-              type="button"
-            >
-              打开清空账本操作
-            </button>
+            <div className="grid justify-items-start gap-2">
+              <button
+                aria-controls="clear-ledger-confirmation"
+                aria-describedby={
+                  clearDisabledReason
+                    ? "clear-ledger-disabled-reason"
+                    : undefined
+                }
+                aria-expanded="false"
+                className="rounded-md border border-red-200 bg-red-50 px-4 py-2 font-semibold text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!clearMode || clearDisabled}
+                onClick={() => {
+                  setDangerExpanded(true);
+                  setError("");
+                  setSuccess("");
+                }}
+                ref={dangerTriggerRef}
+                type="button"
+              >
+                打开清空账本操作
+              </button>
+              {clearDisabledReason ? (
+                <p
+                  className="text-sm text-[var(--ledger-muted)]"
+                  id="clear-ledger-disabled-reason"
+                >
+                  暂不可用：{clearDisabledReason}。
+                </p>
+              ) : null}
+            </div>
           ) : (
-            <div className="grid gap-4" role="region" aria-label="清空账本确认">
+            <div
+              aria-label="清空账本确认"
+              className="grid gap-4"
+              id="clear-ledger-confirmation"
+              role="region"
+            >
               <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-900">
                 <p className="font-semibold">这会清空当前账本内容</p>
                 <p>
@@ -234,7 +290,10 @@ export function SettingsWorkspace({
       ) : null}
 
       {success ? (
-        <p aria-live="polite" className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <p
+          aria-live="polite"
+          className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
+        >
           {success}
         </p>
       ) : null}

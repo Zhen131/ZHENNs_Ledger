@@ -260,9 +260,9 @@ function WorkspaceTradeTable({
 
 function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs font-medium text-[var(--ledger-muted)]">{label}</dt>
-      <dd className="mt-1 text-[var(--ledger-ink)]">{value}</dd>
+      <dd className="mt-1 break-words text-[var(--ledger-ink)]">{value}</dd>
     </div>
   );
 }

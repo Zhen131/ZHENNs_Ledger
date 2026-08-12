@@ -85,7 +85,7 @@ export function HomeWorkspace({
       data-workspace-page="home"
     >
       {ledgerData.trades.length === 0 ? (
-        <SurfaceCard className="flex items-center justify-between gap-4 border-[var(--ledger-border-strong)] bg-[var(--ledger-accent-soft)] p-4">
+        <SurfaceCard className="flex flex-col items-start justify-between gap-4 border-[var(--ledger-border-strong)] bg-[var(--ledger-accent-soft)] p-4 sm:flex-row sm:items-center">
           <div>
             <h2 className="font-semibold">还没有交易记录</h2>
             <p className="mt-1 text-sm text-[var(--ledger-muted)]">
@@ -102,7 +102,7 @@ export function HomeWorkspace({
         </SurfaceCard>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-4">
         <MetricCard
           label="当前总市值"
           metric={
@@ -128,7 +128,7 @@ export function HomeWorkspace({
         />
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(260px,.75fr)]">
+      <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(0,1.65fr)_minmax(260px,.75fr)]">
         <SurfaceCard className="min-w-0 p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -195,7 +195,7 @@ export function HomeWorkspace({
               </span>
             </span>
             <LedgerIcon
-              className="h-6 w-6 text-[var(--ledger-accent-strong)] transition-transform group-hover:translate-x-1"
+              className="h-6 w-6 text-[var(--ledger-accent-strong)] transition-transform group-hover:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none"
               name="arrow-right"
             />
           </button>
@@ -212,7 +212,7 @@ export function HomeWorkspace({
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-3">
+      <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-3">
         <SurfaceCard className="min-w-0 p-4">
           <HoldingsOverview
             onShowAll={openDetails}
@@ -248,20 +248,20 @@ export function HomeWorkspace({
               {latestTrades.map((trade) => (
                 <li key={trade.id}>
                   <button
-                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left hover:bg-[var(--ledger-surface-muted)]"
+                    className="flex min-w-0 w-full flex-col items-start justify-between gap-1 rounded-xl px-2 py-2 text-left hover:bg-[var(--ledger-surface-muted)] sm:flex-row sm:items-center sm:gap-3"
                     onClick={() =>
                       onNavigateToTransactions({ expandTradeId: trade.id })
                     }
                     type="button"
                   >
-                    <span>
+                    <span className="min-w-0 break-words">
                       <strong>{trade.assetSymbol}</strong>
                       <span className="ml-2 text-xs text-[var(--ledger-muted)]">
                         {trade.type === "buy" ? "买入" : "卖出"} ·{" "}
                         {trade.occurredAt}
                       </span>
                     </span>
-                    <span className="ledger-numeric">
+                    <span className="ledger-numeric max-w-full break-all">
                       {trade.totalValue} {trade.currency}
                     </span>
                   </button>

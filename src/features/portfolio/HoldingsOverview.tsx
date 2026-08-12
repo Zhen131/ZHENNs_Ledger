@@ -63,7 +63,7 @@ export function HoldingsOverview({
         <ul className="mt-3 grid gap-2">
           {topPositions.map((position) => (
             <li
-              className="flex items-center justify-between gap-3 rounded-xl bg-[var(--ledger-surface-muted)] px-3 py-2.5"
+              className="flex min-w-0 flex-col items-start justify-between gap-1 rounded-xl bg-[var(--ledger-surface-muted)] px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3"
               key={`${position.assetSymbol}-${position.currency}`}
             >
               <span>
@@ -72,7 +72,7 @@ export function HoldingsOverview({
                   {position.quantity}
                 </span>
               </span>
-              <span className="ledger-numeric text-sm font-semibold">
+              <span className="ledger-numeric max-w-full break-all text-sm font-semibold">
                 {position.marketValue} {position.currency}
               </span>
             </li>

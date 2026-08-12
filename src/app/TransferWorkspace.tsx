@@ -30,7 +30,7 @@ export function TransferWorkspace({
         ⚠ 明文备份包含完整资产、交易、价格和手续费规则。请核对浏览器实际下载位置；同步目录可能自动上传文件，不再需要时请安全删除。
       </p>
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(220px,.7fr)_minmax(0,1.3fr)]">
+      <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(220px,.7fr)_minmax(0,1.3fr)]">
         <SurfaceCard className="p-5">
           <h3 className="font-semibold">导出明文账本</h3>
           <p className="mt-2 text-sm leading-6 text-[var(--ledger-muted)]">
@@ -40,7 +40,7 @@ export function TransferWorkspace({
         <SurfaceCard className="p-5">
           <h3 className="font-semibold">预检并完整替换</h3>
           <p className="mt-2 text-sm leading-6 text-[var(--ledger-muted)]">
-            先只读预检；只有通过现有 capability、receipt 和复读验证后才会写入，不会合并账本。
+            先只读预检；只有通过当前文件授权、预检凭据和复读验证后才会写入，不会合并账本。
           </p>
         </SurfaceCard>
       </div>

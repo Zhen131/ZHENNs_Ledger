@@ -606,7 +606,7 @@ describe("usePersistentLedger ready C import", () => {
         createInitialLedgerData(),
       );
       expect(result.current.persistenceError).toBe(
-        "导入未完成；已复读确认 C 恢复为导入前的完整版本，页面没有替换。",
+        "导入未完成；已复读确认原账本文件恢复为导入前的完整版本，页面没有替换。",
       );
     },
     20_000,
@@ -874,7 +874,7 @@ describe("usePersistentLedger ready C import", () => {
       writablesBeforeImport,
     );
     expect(result.current.persistenceError).toBe(
-      "导入写入前发现 C 已在本页面之外发生变化；本次导入没有写入，请重新打开该 C。",
+      "导入写入前发现账本文件已在本页面之外发生变化；本次导入没有写入，请重新打开该文件。",
     );
   });
 
@@ -955,7 +955,7 @@ describe("usePersistentLedger ready C import", () => {
 
     expect(handle.writeCount).toBe(writesBeforeImport);
     expect(result.current.persistenceError).toBe(
-      "导入在写入 C 前失败，页面没有替换；未取得“旧 C 已恢复”的事后证据。",
+      "导入在写入账本文件前失败，页面没有替换；未取得“原文件已恢复”的事后证据。",
     );
   });
 });
