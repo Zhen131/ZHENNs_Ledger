@@ -42,6 +42,7 @@ export function buildAllocationChartOption(
   }));
 
   return {
+    color: ["#d9822b", "#8f9b73", "#c8a56a", "#9a6d4a", "#6f7f72"],
     tooltip: {
       trigger: "item",
       formatter: (params: TooltipParams) => {
@@ -55,7 +56,7 @@ export function buildAllocationChartOption(
           `<strong>${datum.name}</strong>`,
           `${datum.marketValue} ${valuationLabel}`,
           `${ratio.toFixed(2)}%`,
-          `${source} · as-of ${datum.asOf}`,
+          `${source} · 截至 ${datum.asOf}`,
         ].join("<br/>");
       },
     },
@@ -134,7 +135,17 @@ export function buildHoldingHistoryChartOption(
         step: "end",
         smooth: false,
         connectNulls: false,
-        showSymbol: points.length <= 30,
+        showSymbol: false,
+        lineStyle: {
+          color: "#d9822b",
+          width: 2.5,
+        },
+        itemStyle: {
+          color: "#d9822b",
+        },
+        areaStyle: {
+          color: "rgba(217, 130, 43, 0.12)",
+        },
         data: points.map((point) =>
           point.totalMarketValue === undefined
             ? "-"
@@ -147,7 +158,15 @@ export function buildHoldingHistoryChartOption(
         step: "end",
         smooth: false,
         connectNulls: false,
-        showSymbol: points.length <= 30,
+        showSymbol: false,
+        lineStyle: {
+          color: "#8b8176",
+          type: "dashed",
+          width: 2,
+        },
+        itemStyle: {
+          color: "#8b8176",
+        },
         data: points.map((point) =>
           point.totalCostBasis === undefined
             ? "-"
@@ -199,11 +218,11 @@ export function buildTradeHeatmapChartOption(
       left: "center",
       bottom: 0,
       pieces: [
-        { value: 0, label: "无交易", color: "#e2e8f0" },
-        { value: 1, label: "低", color: "#bbf7d0" },
-        { value: 2, label: "较低", color: "#4ade80" },
-        { value: 3, label: "较高", color: "#16a34a" },
-        { value: 4, label: "最高", color: "#166534" },
+        { value: 0, label: "无交易", color: "#eee9e2" },
+        { value: 1, label: "低", color: "#f6d9b5" },
+        { value: 2, label: "较低", color: "#eab36f" },
+        { value: 3, label: "较高", color: "#d9822b" },
+        { value: 4, label: "最高", color: "#9c4f1a" },
       ],
     },
     calendar: {

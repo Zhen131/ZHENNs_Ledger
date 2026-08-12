@@ -41,7 +41,7 @@ describe("chart option builders", () => {
       asOf: "2026-07-25T08:00:00Z",
     });
     expect(tooltip.formatter({ data: data[0] })).toContain(
-      "Binance · as-of 2026-07-25T08:00:00Z",
+      "Binance · 截至 2026-07-25T08:00:00Z",
     );
     expect(tooltip.formatter({ data: data[0] })).toContain(
       "12.34567890123456789 USDT",
@@ -81,6 +81,8 @@ describe("chart option builders", () => {
       step: "end",
       smooth: false,
       connectNulls: false,
+      showSymbol: false,
+      lineStyle: { color: "#d9822b", width: 2.5 },
       data: [12, "-"],
     });
     expect(series[1]).toMatchObject({
@@ -89,6 +91,8 @@ describe("chart option builders", () => {
       step: "end",
       smooth: false,
       connectNulls: false,
+      showSymbol: false,
+      lineStyle: { color: "#8b8176", type: "dashed", width: 2 },
       data: [10, 15],
     });
     expect((option.yAxis as Record<string, unknown>).name).toBe("USDT");

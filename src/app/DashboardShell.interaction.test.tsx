@@ -288,6 +288,10 @@ async function renderDashboard(
 async function fillBuyTrade() {
   const user = userEvent.setup();
 
+  if (screen.queryByRole("button", { name: "保存交易" }) === null) {
+    await user.click(screen.getByRole("button", { name: "记账" }));
+  }
+
   await user.selectOptions(
     screen.getByLabelText("类型", { selector: "select" }),
     "buy",
@@ -1390,6 +1394,7 @@ describe("DashboardShell data management", () => {
     });
     render(<DashboardShell session={session} />);
     const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "设置" }));
     await screen.findByText(/当前 .lftl 文件是唯一正式完整账本/);
 
     await user.click(
