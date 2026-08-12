@@ -27,27 +27,27 @@ import {
   buildHoldingHistory,
   buildTradeHeatmap,
   type ChartRange,
-} from "../../services/chartDataService";
+} from "@/features/charts";
 import { calculateTradeCashImpact } from "@/core/calculations";
 import {
   buildLedgerPnlSummary,
   type SummaryMetric,
-} from "../../services/pnlSummaryService";
-import { getPositionsFromLedger } from "../../services/positionService";
-import { USDT_USD_APPROXIMATION_DISCLOSURE } from "../../services/valuationDisplay";
-import { validateTradeRemoval } from "../../services/tradeRemovalService";
+} from "@/features/portfolio";
+import { getPositionsFromLedger } from "@/features/portfolio";
+import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
+import { validateTradeRemoval } from "@/features/trades";
 import {
   getLedgerDateKey,
   isLedgerFactInFuture,
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
-import { PriceForm } from "../prices/PriceForm";
-import { TradeForm } from "../trades/TradeForm";
-import { FeeRuleManager } from "../fees/FeeRuleManager";
-import { BackupControls } from "../backup/BackupControls";
-import { ChartsOverview } from "../charts/ChartsOverview";
-import { MarketDataControls } from "../market-data/MarketDataControls";
+import { PriceForm } from "@/features/prices/ui";
+import { TradeForm } from "@/features/trades/ui";
+import { FeeRuleManager } from "@/features/fees/ui";
+import { BackupControls } from "@/features/backup/ui";
+import { ChartsOverview } from "@/features/charts/ui";
+import { MarketDataControls } from "@/features/market-data/ui";
 import {
   ConfirmDeleteButton,
   type ConfirmDeleteOutcome,

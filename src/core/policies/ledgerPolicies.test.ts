@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validateBackupEnvelope } from "@/backup/backupEnvelope";
+import { validateBackupEnvelope } from "@/features/backup";
 import type { PriceSnapshot } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import {

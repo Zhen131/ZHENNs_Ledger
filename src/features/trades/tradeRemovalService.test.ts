@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getPositionsFromLedger } from "./positionService";
+import { getPositionsFromLedger } from "@/features/portfolio";
 import { createInitialLedgerData } from "@/core/state";
 import { sampleTrades } from "@/test-support";
 import {

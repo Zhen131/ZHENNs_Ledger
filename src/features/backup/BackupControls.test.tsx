@@ -19,7 +19,7 @@ import {
   createBackupEnvelope,
   parseBackupJson,
   serializeBackupEnvelope,
-} from "../../backup/backupEnvelope";
+} from "./backupEnvelope";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
@@ -27,7 +27,7 @@ import {
   preflightBackupJson,
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
-} from "../../backup/backupImportPreflight";
+} from "./backupImportPreflight";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";

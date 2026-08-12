@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
-} from "../../hooks/usePersistentLedger";
+} from "@/app";
 import type { FeeRule, LedgerData } from "@/core/models";
 import type { LedgerAction } from "@/core/state";
 import { isNegative, toDecimal } from "@/core/shared";

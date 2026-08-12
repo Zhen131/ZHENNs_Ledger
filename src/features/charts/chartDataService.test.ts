@@ -15,7 +15,7 @@ import {
   buildHoldingHistory,
   buildTradeHeatmap,
 } from "./chartDataService";
-import { getPositionsFromLedger } from "./positionService";
+import { getPositionsFromLedger } from "@/features/portfolio";
 
 const TODAY = "2026-07-25";
 

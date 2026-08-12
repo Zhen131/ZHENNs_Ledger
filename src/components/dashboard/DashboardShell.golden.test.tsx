@@ -32,10 +32,15 @@ function DashboardShell({
   );
 }
 
-vi.mock("../charts/EChart", () => ({
-  EChart: ({ ariaLabel }: { ariaLabel: string }) => (
-    <div aria-label={ariaLabel} role="img" />
-  ),
+vi.mock("echarts/core", () => ({
+  init: vi.fn(() => ({
+    dispose: vi.fn(),
+    off: vi.fn(),
+    on: vi.fn(),
+    resize: vi.fn(),
+    setOption: vi.fn(),
+  })),
+  use: vi.fn(),
 }));
 
 afterEach(() => {

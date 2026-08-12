@@ -4,7 +4,7 @@ import type { StorageAdapter } from "@/platform/legacy";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
-} from "@/backup/backupEnvelope";
+} from "@/features/backup";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
@@ -12,7 +12,7 @@ import {
   revokeBackupImportPreflightReceipt,
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
-} from "@/backup/backupImportPreflight";
+} from "@/features/backup";
 import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
 import type { EncryptionService } from "@/platform/legacy";
 import {

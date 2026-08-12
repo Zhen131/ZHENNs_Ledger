@@ -4,13 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Position, Trade } from "@/core/models";
 import type { LedgerRepository } from "@/platform/persistence";
-import { getPositionsFromLedger } from "../../services/positionService";
+import { getPositionsFromLedger } from "@/features/portfolio";
 import { createInitialLedgerData } from "@/core/state";
 import { ledgerReducer } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
 import { DashboardShell, TradeTable } from "./DashboardShell";
 
-vi.mock("../../services/positionService", () => ({
+vi.mock("@/features/portfolio", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/portfolio")>()),
   getPositionsFromLedger: vi.fn(),
   getValuedPositionsFromLedger: vi.fn(() => []),
 }));

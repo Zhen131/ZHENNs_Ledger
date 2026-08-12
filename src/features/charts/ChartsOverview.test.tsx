@@ -7,7 +7,7 @@ import type {
   HoldingAllocation,
   HoldingHistoryPoint,
   TradeHeatmapDay,
-} from "../../services/chartDataService";
+} from "./chartDataService";
 
 vi.mock("./EChart", () => ({
   EChart: ({

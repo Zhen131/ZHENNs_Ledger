@@ -14,7 +14,7 @@ import userEvent from "@testing-library/user-event";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
-} from "../../backup/backupEnvelope";
+} from "@/features/backup";
 import { createTestLedgerRepository } from "@/test-support";
 import type { LedgerData } from "@/core/models";
 import type {
@@ -104,24 +104,29 @@ function DashboardShell({
   );
 }
 
-vi.mock("../charts/EChart", () => ({
-  EChart: ({
-    ariaLabel,
-    events,
-  }: {
-    ariaLabel: string;
-    events?: Record<string, (params: unknown) => void>;
-  }) => (
-    <button
-      aria-label={ariaLabel}
-      onClick={() =>
-        events?.click?.({
-          data: ["2026-07-14", 1, 1, 1, 0],
-        })
-      }
-      type="button"
-    />
-  ),
+vi.mock("echarts/core", () => ({
+  init: vi.fn((container: HTMLElement) => {
+    const handlers = new Map<string, (params: unknown) => void>();
+    const dispatchClick = () =>
+      handlers.get("click")?.({
+        data: ["2026-07-14", 1, 1, 1, 0],
+      });
+    container.addEventListener("click", dispatchClick);
+
+    return {
+      dispose: vi.fn(() =>
+        container.removeEventListener("click", dispatchClick),
+      ),
+      off: vi.fn((eventName: string) => handlers.delete(eventName)),
+      on: vi.fn(
+        (eventName: string, handler: (params: unknown) => void) =>
+          handlers.set(eventName, handler),
+      ),
+      resize: vi.fn(),
+      setOption: vi.fn(),
+    };
+  }),
+  use: vi.fn(),
 }));
 
 afterEach(() => {
@@ -1070,7 +1075,7 @@ describe("DashboardShell trade interactions", () => {
     const user = userEvent.setup();
 
     await user.click(
-      screen.getByRole("button", {
+      screen.getByRole("img", {
         name: "最近 365 天交易活跃热力图",
       }),
     );
@@ -1080,7 +1085,7 @@ describe("DashboardShell trade interactions", () => {
     expect(within(filteredSection).queryByText("ETH")).toBeNull();
 
     await user.click(
-      screen.getByRole("button", {
+      screen.getByRole("img", {
         name: "最近 365 天交易活跃热力图",
       }),
     );
@@ -1425,7 +1430,7 @@ describe("DashboardShell data management", () => {
 
     await user.click(screen.getByRole("button", { name: "手动价格" }));
     await user.click(
-      screen.getByRole("button", {
+      screen.getByRole("img", {
         name: "最近 365 天交易活跃热力图",
       }),
     );
@@ -1726,7 +1731,7 @@ describe("DashboardShell data management", () => {
 
     expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
     await user.click(
-      screen.getByRole("button", {
+      screen.getByRole("img", {
         name: "最近 365 天交易活跃热力图",
       }),
     );

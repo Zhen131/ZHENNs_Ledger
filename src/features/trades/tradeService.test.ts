@@ -7,7 +7,7 @@ import {
   TRADE_VALIDATION_ERROR_CODES,
   validateTradeDraft,
 } from "@/core/validation";
-import { getPositionsFromLedger } from "./positionService";
+import { getPositionsFromLedger } from "@/features/portfolio";
 import {
   TRADE_SERVICE_ERROR_CODES,
   createValidatedTrade,
