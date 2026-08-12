@@ -12,7 +12,14 @@ import {
   usePersistentLedger,
   type PersistentLedgerState,
 } from "./usePersistentLedger";
-import type { Trade, ValuationPriceMode } from "@/core/models";
+import { LedgerWorkspaceFrame } from "./LedgerWorkspaceFrame";
+import { HomeWorkspace } from "./HomeWorkspace";
+import { RecordWorkspace } from "./RecordWorkspace";
+import { TransactionsWorkspace } from "./TransactionsWorkspace";
+import { TransferWorkspace } from "./TransferWorkspace";
+import { SettingsWorkspace } from "./SettingsWorkspace";
+import { useLedgerWorkspaceSession } from "./useLedgerWorkspaceSession";
+import type { Trade } from "@/core/models";
 import {
   INDEXED_DB_LEDGER_CAPABILITIES,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
@@ -26,7 +33,6 @@ import {
   buildHoldingAllocation,
   buildHoldingHistory,
   buildTradeHeatmap,
-  type ChartRange,
 } from "@/features/charts";
 import { calculateTradeCashImpact } from "@/core/calculations";
 import {
@@ -50,6 +56,7 @@ import { ChartsOverview } from "@/features/charts/ui";
 import { MarketDataControls } from "@/features/market-data/ui";
 import {
   ConfirmDeleteButton,
+  type FileStatusTone,
   type ConfirmDeleteOutcome,
 } from "@/ui";
 
@@ -59,6 +66,45 @@ type ClearConfirmationMode = "normal" | "recovery";
 
 function shortLedgerId(id: string): string {
   return id.length <= 12 ? id : `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
+function getWorkspaceFileStatus({
+  hydrationStatus,
+  persistenceStatus,
+  hasError,
+  isDirty,
+  isReadOnly,
+  repositorySwitchBlocked,
+}: Readonly<{
+  hydrationStatus: "loading" | "ready" | "error";
+  persistenceStatus: "idle" | "saving" | "saved" | "error";
+  hasError: boolean;
+  isDirty: boolean;
+  isReadOnly: boolean;
+  repositorySwitchBlocked: boolean;
+}>): { label: string; tone: FileStatusTone } {
+  if (repositorySwitchBlocked) {
+    return { label: "切换已阻止", tone: "error" };
+  }
+  if (hydrationStatus === "loading") {
+    return { label: "正在读取账本", tone: "idle" };
+  }
+  if (hydrationStatus === "error" || hasError) {
+    return { label: "文件需要处理", tone: "error" };
+  }
+  if (isReadOnly) {
+    return { label: "只读账本", tone: "read-only" };
+  }
+  if (persistenceStatus === "saving") {
+    return { label: "正在保存到加密文件", tone: "saving" };
+  }
+  if (persistenceStatus === "saved") {
+    return { label: "已保存到加密文件", tone: "saved" };
+  }
+  if (isDirty) {
+    return { label: "有修改等待保存", tone: "warning" };
+  }
+  return { label: "加密文件已连接", tone: "idle" };
 }
 
 function Section({
@@ -286,9 +332,17 @@ export function DashboardShell({
     capabilities,
     session,
   );
-  const [valuationPriceMode, setValuationPriceMode] =
-    useState<ValuationPriceMode>("auto");
-  const [chartRange, setChartRange] = useState<ChartRange>("30d");
+  const workspace = useLedgerWorkspaceSession({
+    ledgerEpoch,
+    defaultAssetSymbol: ledgerData.assets[0]?.symbol ?? "",
+    todayKey,
+  });
+  const {
+    valuationPriceMode,
+    setValuationPriceMode,
+    chartRange,
+    setChartRange,
+  } = workspace;
   const [selectedTradeDate, setSelectedTradeDate] = useState<string | null>(
     null,
   );
@@ -511,10 +565,16 @@ export function DashboardShell({
     if (!session || !onFinalLock || lifecycleStatus !== "active") {
       return;
     }
-    if (isDirty) {
+    if (
+      isDirty ||
+      workspace.hasDrafts ||
+      persistenceStatus === "saving" ||
+      persistenceStatus === "error"
+    ) {
       setShowLockConfirmation(true);
       return;
     }
+    workspace.resetSessionUi();
     void onFinalLock(
       drainForSessionQuiesce,
       "immediate-lock",
@@ -526,6 +586,7 @@ export function DashboardShell({
       return;
     }
     setShowLockConfirmation(false);
+    workspace.resetSessionUi();
     void onFinalLock(
       drainForSessionQuiesce,
       "immediate-lock",
@@ -534,10 +595,19 @@ export function DashboardShell({
 
   async function retrySaveBeforeLock() {
     const saved = await retryPersistence();
-    if (saved && mountedRef.current) {
+    if (saved && mountedRef.current && !workspace.hasDrafts) {
       setShowLockConfirmation(false);
     }
   }
+
+  const fileStatus = getWorkspaceFileStatus({
+    hydrationStatus,
+    persistenceStatus,
+    hasError: persistenceError !== "",
+    isDirty,
+    isReadOnly,
+    repositorySwitchBlocked,
+  });
 
   if (lifecycleStatus === "quiescing") {
     return (
@@ -550,29 +620,21 @@ export function DashboardShell({
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
-        <header className="mb-6 border-b border-slate-200 pb-6">
-          <p className="text-sm font-medium text-slate-500">
-            本地优先交易账本
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-            Local-First Trading Ledger
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            本地记录交易和真实价格事实，持仓、盈亏与图表由同一份账本实时推导。
-          </p>
-          {session?.storageKind === "ledger-file" && onFinalLock ? (
-            <button
-              className="mt-4 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-              onClick={requestImmediateLock}
-              type="button"
-            >
-              立即锁定
-            </button>
-          ) : null}
-        </header>
-
+    <LedgerWorkspaceFrame
+      currentPage={workspace.currentPage}
+      fileStatusLabel={fileStatus.label}
+      fileStatusTone={fileStatus.tone}
+      onLock={
+        session?.storageKind === "ledger-file" && onFinalLock
+          ? requestImmediateLock
+          : undefined
+      }
+      onNavigate={(page) => {
+        setSelectedTradeDate(null);
+        workspace.navigateToPage(page);
+      }}
+    >
+      <HomeWorkspace active={workspace.currentPage === "home"}>
           {showLockConfirmation ? (
             <section
               aria-label="未保存修改锁定确认"
@@ -580,7 +642,9 @@ export function DashboardShell({
             >
               <p className="font-medium">还有内容没保存</p>
               <p className="mt-1 leading-6">
-                你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。
+                {workspace.hasDrafts
+                  ? "还有未提交的表单草稿。锁定会丢弃草稿；已经进入底层写入的操作仍会安全收尾，不会被强行打断。"
+                  : "你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。"}
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <button
@@ -1134,7 +1198,13 @@ export function DashboardShell({
               </div>
             </Section>
           </div>
-      </div>
-    </main>
+      </HomeWorkspace>
+      <RecordWorkspace active={workspace.currentPage === "record"} />
+      <TransactionsWorkspace
+        active={workspace.currentPage === "transactions"}
+      />
+      <TransferWorkspace active={workspace.currentPage === "transfer"} />
+      <SettingsWorkspace active={workspace.currentPage === "settings"} />
+    </LedgerWorkspaceFrame>
   );
 }
