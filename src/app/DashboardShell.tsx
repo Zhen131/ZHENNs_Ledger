@@ -367,6 +367,22 @@ export function DashboardShell({
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      showLockConfirmation &&
+      persistenceStatus === "saved" &&
+      !isDirty &&
+      !workspace.hasDrafts
+    ) {
+      setShowLockConfirmation(false);
+    }
+  }, [
+    isDirty,
+    persistenceStatus,
+    showLockConfirmation,
+    workspace.hasDrafts,
+  ]);
+
   useLayoutEffect(() => {
     if (session) {
       onSessionDrainReady?.(session, drainForSessionQuiesce);
@@ -594,10 +610,7 @@ export function DashboardShell({
   }
 
   async function retrySaveBeforeLock() {
-    const saved = await retryPersistence();
-    if (saved && mountedRef.current && !workspace.hasDrafts) {
-      setShowLockConfirmation(false);
-    }
+    await retryPersistence();
   }
 
   const fileStatus = getWorkspaceFileStatus({
@@ -843,15 +856,15 @@ export function DashboardShell({
             </div>
           ) : null}
 
-          <div
-            className="grid gap-5"
-            hidden={session !== undefined && workspace.currentPage === "home"}
-          >
+          {session === undefined || workspace.currentPage === "settings" ? (
+          <div className="grid gap-5">
+            {session === undefined ? (
+            <>
             <Section title="图表总览与 Binance 行情">
               <MarketDataControls
                 applyLedgerMutation={applyLedgerMutation}
                 clock={clock}
-                isWritable={isWritable}
+                isWritable={session === undefined && isWritable}
                 ledgerData={ledgerData}
                 ledgerEpoch={ledgerEpoch}
                 mode={valuationPriceMode}
@@ -998,18 +1011,24 @@ export function DashboardShell({
 
               <Section title="价格输入">
                 <fieldset
-                  className={isWritable ? "" : "opacity-60"}
-                  disabled={!isWritable}
+                  className={
+                    session === undefined && isWritable ? "" : "opacity-60"
+                  }
+                  disabled={session !== undefined || !isWritable}
                 >
                   <PriceForm
                     clock={clock}
                     ledgerData={ledgerData}
+                    ledgerEpoch={ledgerEpoch}
+                    mutationVersion={mutationVersion}
                     onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
                       applyLedgerAction({
                         type: "priceSnapshot/add",
                         priceSnapshot,
                       }, timeSnapshot)
                     }
+                    persistedVersion={persistedVersion}
+                    persistenceStatus={persistenceStatus}
                   />
                 </fieldset>
               </Section>
@@ -1017,8 +1036,10 @@ export function DashboardShell({
 
             <Section title="新增交易">
               <fieldset
-                className={isWritable ? "" : "opacity-60"}
-                disabled={!isWritable}
+                className={
+                  session === undefined && isWritable ? "" : "opacity-60"
+                }
+                disabled={session !== undefined || !isWritable}
               >
                 <TradeForm
                   clock={clock}
@@ -1040,7 +1061,7 @@ export function DashboardShell({
             <Section title="手续费规则">
               <FeeRuleManager
                 clock={clock}
-                isWritable={isWritable}
+                isWritable={session === undefined && isWritable}
                 ledgerData={ledgerData}
                 ledgerEpoch={ledgerEpoch}
                 mutationVersion={mutationVersion}
@@ -1066,7 +1087,7 @@ export function DashboardShell({
                 </p>
               ) : null}
               <TradeTable
-                deleteDisabled={!isWritable}
+                deleteDisabled={session !== undefined || !isWritable}
                 onDelete={
                   hydrationStatus === "ready" ? handleDeleteTrade : undefined
                 }
@@ -1074,6 +1095,9 @@ export function DashboardShell({
                 todayKey={todayKey}
               />
             </Section>
+
+            </>
+            ) : null}
 
             <Section title="数据管理">
               <div className="grid gap-4 text-sm text-slate-700">
@@ -1200,6 +1224,7 @@ export function DashboardShell({
               </div>
             </Section>
           </div>
+          ) : null}
       <HomeWorkspace
         active={session !== undefined && workspace.currentPage === "home"}
         allocation={allocation}
@@ -1237,7 +1262,50 @@ export function DashboardShell({
         range={chartRange}
         valuationPriceMode={valuationPriceMode}
       />
-      <RecordWorkspace active={workspace.currentPage === "record"} />
+      {session ? (
+      <RecordWorkspace
+        active={workspace.currentPage === "record"}
+        clock={clock}
+        focusIntent={
+          workspace.intent?.page === "record" ? workspace.intent.focus : null
+        }
+        isWritable={isWritable}
+        ledgerData={ledgerData}
+        ledgerEpoch={ledgerEpoch}
+        marketDataPanel={
+            <MarketDataControls
+              applyLedgerMutation={applyLedgerMutation}
+              clock={clock}
+              isWritable={isWritable}
+              ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mode={valuationPriceMode}
+              onModeChange={setValuationPriceMode}
+              showMappings={false}
+              todayKey={todayKey}
+            />
+        }
+        mutationVersion={mutationVersion}
+        onIntentConsumed={workspace.consumeIntent}
+        onPriceDraftChange={workspace.setPriceDraft}
+        onPriceReset={workspace.resetPriceDraft}
+        onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
+          applyLedgerAction(
+            { type: "priceSnapshot/add", priceSnapshot },
+            timeSnapshot,
+          )
+        }
+        onTradeCreated={(trade, timeSnapshot) =>
+          applyLedgerAction({ type: "trade/add", trade }, timeSnapshot)
+        }
+        onTradeDraftChange={workspace.setTradeDraft}
+        onTradeReset={workspace.resetTradeDraft}
+        persistedVersion={persistedVersion}
+        persistenceStatus={persistenceStatus}
+        priceDraft={workspace.priceDraft}
+        tradeDraft={workspace.tradeDraft}
+      />
+      ) : null}
       <TransactionsWorkspace
         active={workspace.currentPage === "transactions"}
       />

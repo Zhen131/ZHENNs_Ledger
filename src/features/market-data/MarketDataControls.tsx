@@ -57,6 +57,7 @@ type MarketDataControlsProps = {
   client?: BinanceMarketDataClient;
   clock?: LedgerClock;
   generateId?: () => string;
+  showMappings?: boolean;
 };
 
 type RefreshState = {
@@ -82,6 +83,7 @@ export function MarketDataControls({
   client = defaultClient,
   clock = systemLedgerClock,
   generateId = () => globalThis.crypto.randomUUID(),
+  showMappings = true,
 }: Readonly<MarketDataControlsProps>) {
   const activeTodayKey = todayKey ?? captureLedgerTime(clock).todayKey;
   const assets = ledgerData.assets;
@@ -375,8 +377,8 @@ export function MarketDataControls({
           type="button"
         >
           {refreshState.status === "loading"
-            ? "正在刷新 Binance 价格"
-            : "刷新 Binance 价格"}
+            ? "正在更新 Binance 行情"
+            : "立即更新 Binance 行情"}
         </button>
       </div>
 
@@ -429,7 +431,7 @@ export function MarketDataControls({
                         selected.actualSource === "binance"
                           ? "Binance"
                           : "手动"
-                      } · as-of ${selected.asOf}`
+                      } · 截至 ${selected.asOf}`
                     : "无合法价格"}
                   {failure ? ` · 本次刷新失败：${failure.message}` : ""}
                 </li>
@@ -439,7 +441,7 @@ export function MarketDataControls({
         )}
       </div>
 
-      <details>
+      {showMappings ? <details>
         <summary className="cursor-pointer font-semibold">配置 Binance Spot 交易对</summary>
         <div className="mt-3 grid gap-3">
           {ledgerData.assets.map((asset) => (
@@ -491,7 +493,7 @@ export function MarketDataControls({
             </div>
           ))}
         </div>
-      </details>
+      </details> : null}
     </div>
   );
 }
