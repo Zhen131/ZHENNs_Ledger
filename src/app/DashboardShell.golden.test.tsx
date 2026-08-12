@@ -177,6 +177,17 @@ async function enterGoldenTrades() {
 }
 
 describe("DashboardShell golden UI acceptance", () => {
+  it("keeps the file status healthy after hydration without an error", async () => {
+    render(<DashboardShell repository={createMemoryRepository()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toContain(
+        "加密文件已连接",
+      );
+    });
+    expect(screen.queryByText("文件需要处理")).toBeNull();
+  });
+
   it("shows the fixed fee-aware buy, partial sell, and price example through real forms", async () => {
     render(<DashboardShell repository={createMemoryRepository()} />);
 
