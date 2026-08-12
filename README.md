@@ -29,6 +29,8 @@ The Week 12 fee-aware P&L work has passed its final independent R1 review and is
 
 The Week 12 V2 and fee-rule batch is also integrated into `main`. Its development run passed 58 test files and 727 tests, typecheck, lint, production build, static residue scans, and an extensive real-Chrome fictional-file matrix covering V2 creation and reopen, fee-rule workflows, V1 rejection, backup restore, permissions, recovery, dual-tab contention, file copies, external revisions, deletion/reselection, responsive layouts, and raw IndexedDB connection records. The product owner deferred the separate `02C` run so that independent review can be consolidated after several feature batches; no Week 12 `02D` result exists.
 
+The Week 13 source-layout refactor is now integrated into `main`. It consolidates the application into explicit `app`, `core`, `features`, `platform`, `ui`, and `test-support` areas, with stable cross-boundary entry points and precise same-area imports. The R1 repair removed 15 self-referential stable-entry imports, eliminated three static dependency cycles covering 14 files, and added TypeScript-AST source-graph checks plus generated ESLint restrictions. It also keeps the strict `.lftl` save contract while allowing the macOS Open picker to expose an `All Files` fallback; the application still rejects non-`.lftl` selections before file reads or password flow. The final R1 development run passed 59 test files and 737 tests, typecheck, lint, production build, whitespace checks, adversarial guard fixtures, and a real-Chrome create/save/lock/reopen flow with native macOS picker evidence at 1280px and 390px. The Week 13 `01D` report records development-side `PASS`; a separate post-R1 independent review has not yet been recorded.
+
 Merging code or passing development-side checks does not turn a historical blocked or deliberately deferred independent review into `PASS`.
 
 ## Implemented capabilities
@@ -158,7 +160,7 @@ npm run build
 git diff --check
 ```
 
-The current `main` development baseline reports 58 test files and 727 passing tests, plus typecheck, lint, production build, whitespace and residue checks, and the V2 fictional-file real-Chrome flows described above. The earlier `01R1D` result remains the independent acceptance evidence for the fee-aware P&L batch; the V2 and fee-rule batch awaits a later consolidated independent review.
+The current `main` development baseline reports 59 test files and 737 passing tests, plus typecheck, lint, production build, whitespace checks, source-layout graph checks, and the V2 fictional-file real-Chrome flows described above. The earlier `01R1D` result remains the independent acceptance evidence for the fee-aware P&L batch. The V2 and fee-rule batch still awaits its consolidated independent review, and the integrated Week 13 source-layout R1 still awaits a separate post-R1 independent review.
 
 ## Known limits and deferred work
 
@@ -167,6 +169,7 @@ The current `main` development baseline reports 58 test files and 727 passing te
 - Binance provides latest public prices only. Historical Kline/OHLC, polling, and WebSocket feeds are not implemented.
 - Exported backups remain plaintext.
 - The Week 11 `02D` and `03B` results remain historical `BLOCKED` records. Week 12 `02C` is deferred and no Week 12 `02D` has been generated.
+- The Week 13 source-layout R1 has development-side `PASS` evidence and is integrated into `main`, but no separate post-R1 independent review has been recorded yet.
 - The current browser compensation flow is not an operating-system atomic transaction.
 - Mac desktop architecture is a product discussion direction, not implemented code.
 - Pagination, virtual lists, and large-ledger performance budgets await a defined benchmark. Do not claim that 25,000 trades are smooth without measured evidence.
@@ -174,6 +177,6 @@ The current `main` development baseline reports 58 test files and 727 passing te
 
 ## Release history boundary
 
-The Week 10 feature baseline is `5a21529c10d4a27048e4d26d07c7a1641e4c7b87`. The pre-split source baseline is `084ae7da96770721e9e805658928a7884eed779c`, preserved by `CS2026-baseline-2026-08-02`. The independently accepted Week 12 fee-aware P&L implementation and R1 fix were fast-forwarded through `605c7a3c2860b7c4783a8234037882ceca1613c8`. The V2 and fee-rule implementation was subsequently fast-forwarded through `083b9f7cc3244f8bb96ba81635f4d619ed0a4008` before this release-status update.
+The Week 10 feature baseline is `5a21529c10d4a27048e4d26d07c7a1641e4c7b87`. The pre-split source baseline is `084ae7da96770721e9e805658928a7884eed779c`, preserved by `CS2026-baseline-2026-08-02`. The independently accepted Week 12 fee-aware P&L implementation and R1 fix were fast-forwarded through `605c7a3c2860b7c4783a8234037882ceca1613c8`. The V2 and fee-rule implementation was subsequently fast-forwarded through `083b9f7cc3244f8bb96ba81635f4d619ed0a4008`. The Week 13 source-layout implementation and R1 repair were fast-forwarded through `beef4c897f29b55d4d111c97c765d439cf4f1fe3` before this release-status update.
 
 Use Git as the source of truth for current branch, remote, and release state. This README does not preserve stale claims about unmerged local candidates.
