@@ -525,7 +525,7 @@ export function DashboardShell({
   const fileStatus = getWorkspaceFileStatus({
     hydrationStatus,
     persistenceStatus,
-    hasError: persistenceError !== "",
+    hasError: persistenceError !== null,
     isDirty,
     isReadOnly,
     repositorySwitchBlocked,
