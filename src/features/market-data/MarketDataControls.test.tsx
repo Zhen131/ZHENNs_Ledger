@@ -55,6 +55,35 @@ function createLedgerWithBtc(): LedgerData {
 }
 
 describe("MarketDataControls", () => {
+  it("renders expanded mapping settings without triggering a second automatic refresh", async () => {
+    const client = createClient();
+    render(
+      <MarketDataControls
+        applyLedgerMutation={vi.fn(() => "applied" as const)}
+        client={client}
+        clock={clock}
+        compactMappings
+        expandMappings
+        isWritable
+        ledgerData={createLedgerWithBtc()}
+        ledgerEpoch={1}
+        mode="auto"
+        onModeChange={vi.fn()}
+        showRefresh={false}
+      />,
+    );
+
+    await act(async () => undefined);
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(screen.queryByText("估值价格模式")).toBeNull();
+    expect(screen.getByText("配置 Binance Spot 交易对")).not.toBeNull();
+    expect(screen.getByText("BTC")).not.toBeNull();
+    expect(screen.queryByLabelText("BTC Binance 交易对")).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: "编辑" })[0]);
+    expect(screen.getByLabelText("BTC Binance 交易对")).not.toBeNull();
+    expect(screen.getByText(/不会发送交易、数量、成本、密码/)).not.toBeNull();
+  });
+
   it("does not auto refresh or allow manual refresh while the ledger is not writable", async () => {
     const client = createClient();
     render(

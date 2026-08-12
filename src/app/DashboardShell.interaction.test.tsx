@@ -1424,43 +1424,44 @@ describe("DashboardShell data management", () => {
     render(<DashboardShell session={session} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "设置" }));
-    await screen.findByText(/当前 .lftl 文件是唯一正式完整账本/);
+    await screen.findByRole("tab", { name: "行情与交易对" });
 
     await user.click(
-      await screen.findByRole("button", {
-        name: "清空当前 C 账本",
-      }),
+      screen.getByRole("tab", { name: "危险操作" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
     );
     expect(
       screen.getByText(
-        /这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C/,
+        /自定义资产、交易、价格和手续费规则都会清空/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/上一可用版/)).toBeTruthy();
+    expect(screen.getByText(/不会删除当前 .lftl 文件/)).toBeTruthy();
     await user.click(
       screen.getByRole("button", {
-        name: "确认清空当前 C 内容",
+        name: "确认清空账本内容",
       }),
     );
     expect(
       screen.getByText(
-        "请输入完整确认文本“清空当前C账本”",
+        "请输入完整确认文本“清空账本”",
       ),
     ).toBeTruthy();
     expect(authorizeReadyClear).not.toHaveBeenCalled();
 
     await user.type(
       screen.getByLabelText("输入清空确认文本"),
-      "清空当前C账本",
+      "清空账本",
     );
     await user.click(
       screen.getByRole("button", {
-        name: "确认清空当前 C 内容",
+        name: "确认清空账本内容",
       }),
     );
     await waitFor(() => {
       expect(
-        screen.getByText("当前 C 账本内容已清空"),
+        screen.getByText("当前账本内容已清空，.lftl 文件仍然存在"),
       ).toBeTruthy();
     });
     expect(authorizeReadyClear).toHaveBeenCalledWith(
@@ -1472,6 +1473,7 @@ describe("DashboardShell data management", () => {
     );
     expect(clearReadyLedger).toHaveBeenCalledOnce();
     expect(repository.clear).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "导入与导出" }));
     expect(
       screen.getByLabelText("选择账本备份文件"),
     ).toBeTruthy();

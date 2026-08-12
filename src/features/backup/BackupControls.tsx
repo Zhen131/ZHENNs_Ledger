@@ -80,6 +80,8 @@ type BackupControlsProps = {
     code?: string;
     errors?: BackupEnvelopeError[];
   }>;
+  presentation?: "legacy" | "transfer";
+  showPlaintextWarning?: boolean;
 };
 
 export function BackupControls({
@@ -94,6 +96,8 @@ export function BackupControls({
   requiresHistoricalRawText = !canImportBackup,
   preflight = preflightBackupJson,
   onImport,
+  presentation = "legacy",
+  showPlaintextWarning = true,
 }: Readonly<BackupControlsProps>) {
   const [importState, setImportState] = useState<ImportState>("idle");
   const [message, setMessage] = useState("");
@@ -468,12 +472,26 @@ export function BackupControls({
   }
 
   return (
-    <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div
+      className={
+        presentation === "transfer"
+          ? "grid min-w-0 gap-4"
+          : "grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4"
+      }
+    >
+      {showPlaintextWarning ? (
       <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950">
         账本备份是未加密明文，任何能访问文件的人都可能读取完整资产、交易和价格。导出只会发起浏览器下载，请确认实际下载结果和保存位置，并将文件移至安全位置或在不再需要时删除。若保存到
         iCloud Drive、OneDrive 等同步目录，系统可能自动上传或同步。
       </p>
-      <div className="flex flex-wrap gap-3">
+      ) : null}
+      <div
+        className={
+          presentation === "transfer"
+            ? "grid gap-3 lg:grid-cols-[minmax(220px,.7fr)_minmax(0,1.3fr)]"
+            : "flex flex-wrap gap-3"
+        }
+      >
         {showExport ? (
           <button
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -481,12 +499,16 @@ export function BackupControls({
             onClick={handleExport}
             type="button"
           >
-            导出完整账本备份
+            {presentation === "transfer"
+              ? "导出明文账本"
+              : "导出完整账本备份"}
           </button>
         ) : null}
         {showPreflight ? (
-          <label className="w-fit cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-            选择备份文件并预检
+          <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 text-center font-medium text-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+            {presentation === "transfer"
+              ? "选择明文备份并预检"
+              : "选择备份文件并预检"}
             <input
               accept="application/json,.json"
               aria-label="选择账本备份文件"
