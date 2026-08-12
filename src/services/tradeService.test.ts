@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { LedgerData, TradeDraft } from "../models";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { createSimpleTrade } from "../test/fixtures";
+import type { LedgerData, TradeDraft } from "@/core/models";
+import { createInitialLedgerData } from "@/core/state";
+import { createSimpleTrade } from "@/test-support";
 import {
   TRADE_VALIDATION_ERROR_CODES,
   validateTradeDraft,
-} from "../validators/tradeValidator";
+} from "@/core/validation";
 import { getPositionsFromLedger } from "./positionService";
 import {
   TRADE_SERVICE_ERROR_CODES,

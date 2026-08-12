@@ -17,9 +17,9 @@ import {
   type LedgerRepository,
 } from "../repositories/ledgerRepository";
 import { LedgerFileRepository } from "../repositories/ledgerFileRepository";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { createUsdtSimpleTrade as createSimpleTrade } from "../test/fixtures";
-import type { LedgerClock } from "../utils/ledgerDate";
+import { createInitialLedgerData } from "@/core/state";
+import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
+import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger } from "./usePersistentLedger";
 
 const PASSPHRASE = "correct horse battery staple";

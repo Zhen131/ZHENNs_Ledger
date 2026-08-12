@@ -28,9 +28,9 @@ import {
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
 } from "../../backup/backupImportPreflight";
-import { createInitialLedgerData } from "../../state/initialLedgerData";
-import { createUsdtSimpleTrade as createSimpleTrade } from "../../test/fixtures";
-import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "../../validators";
+import { createInitialLedgerData } from "@/core/state";
+import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
+import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
 import { BackupControls } from "./BackupControls";
 
 afterEach(() => {

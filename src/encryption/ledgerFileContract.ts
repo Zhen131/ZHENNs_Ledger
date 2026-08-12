@@ -1,11 +1,11 @@
-import type { LedgerData } from "../models";
+import type { LedgerData } from "@/core/models";
 import {
   DEFAULT_LEDGER_RESOURCE_LIMITS,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
-} from "../validators/resourcePolicy";
-import { isValidISODateOrDateTime } from "../validators/isoDateValidator";
-import { validateLedgerData } from "../validators/ledgerDataValidator";
+} from "@/core/validation";
+import { isValidISODateOrDateTime } from "@/core/validation";
+import { validateLedgerData } from "@/core/validation";
 import { base64UrlToBytes } from "./cryptoEncoding";
 
 export const LEDGER_FILE_V2_CONSTANTS = {

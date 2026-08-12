@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { PriceSnapshot } from "../models";
-import { createInitialLedgerData } from "../state/initialLedgerData";
-import { createPriceSnapshot } from "../test/fixtures";
+import type { PriceSnapshot } from "@/core/models";
+import { createInitialLedgerData } from "@/core/state";
+import { createPriceSnapshot } from "@/test-support";
 import { selectPriceAsOf } from "./priceSelectionService";
 
 const asset = createInitialLedgerData().assets[0];

@@ -2,12 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Position, Trade } from "../../models";
+import type { Position, Trade } from "@/core/models";
 import type { LedgerRepository } from "../../repositories/ledgerRepository";
 import { getPositionsFromLedger } from "../../services/positionService";
-import { createInitialLedgerData } from "../../state/initialLedgerData";
-import { ledgerReducer } from "../../state/ledgerReducer";
-import type { LedgerClock } from "../../utils/ledgerDate";
+import { createInitialLedgerData } from "@/core/state";
+import { ledgerReducer } from "@/core/state";
+import type { LedgerClock } from "@/core/shared";
 import { DashboardShell, TradeTable } from "./DashboardShell";
 
 vi.mock("../../services/positionService", () => ({

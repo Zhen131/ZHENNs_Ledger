@@ -15,8 +15,8 @@ import {
   createBackupEnvelope,
   serializeBackupEnvelope,
 } from "../../backup/backupEnvelope";
-import { createTestLedgerRepository } from "../../test/createTestLedgerRepository";
-import type { LedgerData } from "../../models";
+import { createTestLedgerRepository } from "@/test-support";
+import type { LedgerData } from "@/core/models";
 import type {
   LedgerRepository,
   LedgerReadyClearDriver,
@@ -32,13 +32,13 @@ import {
   LEDGER_FILE_CAPABILITIES,
 } from "../../repositories/ledgerRepository";
 import type { PersistentLedgerState } from "../../hooks/usePersistentLedger";
-import { createInitialLedgerData } from "../../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 import {
   createAsset as createUsdAssetFixture,
   createPriceSnapshot as createUsdPriceFixture,
   createSimpleTrade as createUsdTradeFixture,
-} from "../../test/fixtures";
-import type { LedgerClock } from "../../utils/ledgerDate";
+} from "@/test-support";
+import type { LedgerClock } from "@/core/shared";
 import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
 
 const fixedClock: LedgerClock = {

@@ -12,10 +12,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BinanceMarketDataClient } from "../../marketData/binanceMarketDataClient";
 import type { BinanceTickerBatchResult } from "../../marketData/binanceMarketDataTypes";
-import type { LedgerData } from "../../models";
-import { createInitialLedgerData } from "../../state/initialLedgerData";
-import { createSimpleTrade } from "../../test/fixtures";
-import type { LedgerClock } from "../../utils/ledgerDate";
+import type { LedgerData } from "@/core/models";
+import { createInitialLedgerData } from "@/core/state";
+import { createSimpleTrade } from "@/test-support";
+import type { LedgerClock } from "@/core/shared";
 import { MarketDataControls } from "./MarketDataControls";
 
 afterEach(cleanup);

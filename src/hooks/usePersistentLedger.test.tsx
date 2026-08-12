@@ -11,19 +11,19 @@ import {
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { LedgerData, Trade } from "../models";
+import type { LedgerData, Trade } from "@/core/models";
 import type { StorageAdapter } from "../adapters/storageAdapter";
 import type { StoredLedgerEnvelopeV2 } from "../encryption/cryptoEnvelope";
 import {
   createNoopStoredLedgerEnvelope,
   NoopEncryptionService,
-} from "../encryption/noopEncryptionService";
+} from "@/test-support";
 import {
   createBackupEnvelope,
   parseBackupJson,
   serializeBackupEnvelope,
 } from "../backup/backupEnvelope";
-import { createTestLedgerRepository } from "../test/createTestLedgerRepository";
+import { createTestLedgerRepository } from "@/test-support";
 import {
   claimLedgerSessionPersistencePort,
   createLedgerSession,
@@ -34,14 +34,14 @@ import {
   LedgerSessionLifecycleError,
   type LedgerRepository,
 } from "../repositories/ledgerRepository";
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 import {
   createUsdtAsset as createAsset,
   createUsdtPriceSnapshot as createPriceSnapshot,
   createUsdtSimpleTrade as createSimpleTrade,
   sampleUsdtTrades as sampleTrades,
-} from "../test/fixtures";
-import type { LedgerClock } from "../utils/ledgerDate";
+} from "@/test-support";
+import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
 
 const fixedClock: LedgerClock = {

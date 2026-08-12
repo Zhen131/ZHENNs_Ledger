@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { createInitialLedgerData } from "../state/initialLedgerData";
+import { createInitialLedgerData } from "@/core/state";
 import { createValidatedTrade } from "../services/tradeService";
-import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "../validators";
+import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
 import { createLedgerDataContentIdentity } from "./backupContentIdentity";
 import {
   createBackupEnvelope,
