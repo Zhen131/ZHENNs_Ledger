@@ -3,6 +3,7 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -569,11 +570,31 @@ describe("DashboardShell trade interactions", () => {
     });
     expect(screen.queryByText("已保存到本地")).toBeNull();
 
-    saveDeferred.resolve();
-    await waitFor(() => {
-      expect(screen.getByText("已保存到本地")).not.toBeNull();
-      expect(screen.getByText("交易已认证保存")).not.toBeNull();
-    });
+    const feedbackTimeouts: Array<() => void> = [];
+    const nativeSetTimeout = globalThis.setTimeout.bind(globalThis);
+    const timeoutSpy = vi
+      .spyOn(globalThis, "setTimeout")
+      .mockImplementation((callback, delay, ...args) => {
+        if (delay === 4_000 && typeof callback === "function") {
+          feedbackTimeouts.push(() => callback(...args));
+          return 1 as unknown as ReturnType<typeof setTimeout>;
+        }
+        return nativeSetTimeout(callback, delay, ...args);
+      });
+
+    try {
+      saveDeferred.resolve();
+      await waitFor(() => {
+        expect(screen.getByText("已保存到本地")).not.toBeNull();
+        expect(screen.getByText("交易已认证保存")).not.toBeNull();
+      });
+      expect(feedbackTimeouts.length).toBeGreaterThan(0);
+
+      act(() => feedbackTimeouts.forEach((dismiss) => dismiss()));
+      expect(screen.queryByText("已保存到本地")).toBeNull();
+    } finally {
+      timeoutSpy.mockRestore();
+    }
   });
 
   it("lets the user retry the latest failed local save", async () => {

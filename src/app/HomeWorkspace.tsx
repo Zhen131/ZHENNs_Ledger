@@ -81,7 +81,7 @@ export function HomeWorkspace({
   return (
     <section
       aria-label="首页工作区"
-      className="grid min-w-0 gap-4"
+      className="grid min-w-0 gap-4 min-[1100px]:gap-3"
       data-workspace-page="home"
     >
       {ledgerData.trades.length === 0 ? (
@@ -129,7 +129,7 @@ export function HomeWorkspace({
       </div>
 
       <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(0,1.65fr)_minmax(260px,.75fr)]">
-        <SurfaceCard className="min-w-0 p-4">
+        <SurfaceCard className="min-w-0 p-4 min-[1100px]:p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-semibold">资产趋势</h2>
@@ -244,11 +244,11 @@ export function HomeWorkspace({
               暂无交易。
             </p>
           ) : (
-            <ul className="mt-3 grid gap-2 text-sm">
+            <ul className="mt-3 grid gap-2 text-sm min-[1100px]:mt-2 min-[1100px]:gap-1">
               {latestTrades.map((trade) => (
                 <li key={trade.id}>
                   <button
-                    className="flex min-w-0 w-full flex-col items-start justify-between gap-1 rounded-xl px-2 py-2 text-left hover:bg-[var(--ledger-surface-muted)] sm:flex-row sm:items-center sm:gap-3"
+                    className="flex min-w-0 w-full flex-col items-start justify-between gap-1 rounded-xl px-2 py-2 text-left hover:bg-[var(--ledger-surface-muted)] sm:flex-row sm:items-center sm:gap-3 min-[1100px]:py-1"
                     onClick={() =>
                       onNavigateToTransactions({ expandTradeId: trade.id })
                     }
@@ -297,7 +297,7 @@ function MetricCard({
   const missingReasons =
     typeof metric === "object" ? metric.missingReasons : missing;
   return (
-    <SurfaceCard className="min-w-0 p-4">
+    <SurfaceCard className="min-w-0 p-4 min-[1100px]:p-3">
       <h2 className="text-xs font-medium text-[var(--ledger-muted)]">{label}</h2>
       <p className="ledger-numeric mt-2 truncate text-xl font-semibold">
         {metricValue === undefined
