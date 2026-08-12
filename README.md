@@ -127,24 +127,15 @@ V1 .lftl / BackupEnvelopeV1 / complete legacy IndexedDB record
 
 ```text
 src/
-  app/           Next.js entry points
-  backup/        BackupEnvelopeV2, canonical serialization, preflight, and download
-  components/    Access gate, dashboard, fee rules, market data, charts, backup, and fact forms
-  marketData/    Binance public REST client, response validation, and timeout
-  models/        Asset, Trade, PriceSnapshot, Position, LedgerData, and related types
-  utils/         Shared decimal and date utilities
-  calculators/   Pure replay, cost, holdings, and P&L calculations
-  policies/      New-fact, import, date, currency, and future-fact boundaries
-  validators/    Trade, price, ISO date, resource, and full-ledger validation
-  services/      Fact writes, fee matching, market refresh, price selection, positions, and charts
-  state/         Initial ledger, reducer, replace, and hydration state
-  repositories/  V2 whole-ledger load, save, clear, recovery, and validation boundaries
-  encryption/    Retired IndexedDB detection and .lftl V2 contracts, Base64URL, PBKDF2, and AES-GCM
-  adapters/      Legacy presence detection, minimal C connection records, and file handles
-  coordination/  Cross-page lease and short write lock for the same C
-  composition/   Read-only legacy presence detection and normal C composition roots
-  test/          Shared deterministic fixtures
+  app/           Next.js entries, access control, Dashboard, composition, and persistence flow
+  core/          Models, calculations, catalog, policies, shared primitives, state, and validation
+  features/      Backup, charts, fees, market data, portfolio, prices, and trades
+  platform/      Files, persistence, encryption, coordination, integrations, and legacy boundaries
+  ui/            Shared UI primitives
+  test-support/  Shared fixtures, test doubles, and source-layout checks
 ```
+
+See [`src/README.md`](src/README.md) for placement rules and the stable import contract.
 
 ## Local development
 
