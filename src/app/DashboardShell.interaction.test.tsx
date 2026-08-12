@@ -31,7 +31,7 @@ import {
   createReadyLedgerClearAuthorizationForDriver,
   LEDGER_FILE_CAPABILITIES,
 } from "@/platform/persistence";
-import type { PersistentLedgerState } from "../../hooks/usePersistentLedger";
+import type { PersistentLedgerState } from "./usePersistentLedger";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createAsset as createUsdAssetFixture,

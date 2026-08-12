@@ -25,7 +25,7 @@ import {
   DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
-} from "../../composition/ledgerFileAccessController";
+} from "./ledgerFileAccessController";
 import {
   claimLedgerSessionPersistencePort,
   createLedgerSession,
@@ -58,7 +58,7 @@ function getMockPersistencePort(
   return port;
 }
 
-vi.mock("../dashboard/DashboardShell", () => ({
+vi.mock("./DashboardShell", () => ({
   DashboardShell: ({
     session,
     onFinalLock,

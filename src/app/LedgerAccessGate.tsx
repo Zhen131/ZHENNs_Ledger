@@ -13,7 +13,7 @@ import {
 import {
   getDefaultLedgerAccessController,
   getDefaultLedgerFileAccessController,
-} from "../../composition/ledgerAccessComposition";
+} from "./ledgerAccessComposition";
 import {
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
@@ -23,13 +23,13 @@ import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
   type LedgerFileAccessErrorCode,
-} from "../../composition/ledgerFileAccessController";
+} from "./ledgerFileAccessController";
 import {
   type LedgerSession,
   type SessionQuiesceReason,
 } from "@/platform/persistence";
-import type { PersistentLedgerState } from "../../hooks/usePersistentLedger";
-import { DashboardShell } from "../dashboard/DashboardShell";
+import type { PersistentLedgerState } from "./usePersistentLedger";
+import { DashboardShell } from "./DashboardShell";
 
 type AccessState =
   | { status: "checking" }

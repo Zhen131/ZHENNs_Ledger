@@ -1,4 +1,4 @@
-import { LedgerAccessGate } from "@/components/security/LedgerAccessGate";
+import { LedgerAccessGate } from "./LedgerAccessGate";
 
 export default function Home() {
   return <LedgerAccessGate />;
