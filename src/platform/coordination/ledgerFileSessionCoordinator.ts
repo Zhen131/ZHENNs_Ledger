@@ -1,4 +1,9 @@
-import type { LedgerFileHandle } from "@/platform/files";
+import type {
+  LedgerFileHandle,
+  LedgerFileSessionLease,
+} from "@/platform/files";
+
+export type { LedgerFileSessionLease } from "@/platform/files";
 
 const ADMISSION_LOCK_NAME =
   "local-first-trading-ledger:file-session:admission:v1";
@@ -14,12 +19,6 @@ export type AcquireLedgerFileSessionResult =
   | { status: "acquired"; lease: LedgerFileSessionLease }
   | { status: "in-use" }
   | { status: "unsupported" | "coordination-failed" };
-
-export interface LedgerFileSessionLease {
-  readonly sessionId: string;
-  runExclusiveWrite<T>(operation: () => Promise<T>): Promise<T>;
-  release(): Promise<void>;
-}
 
 export interface LedgerFileSessionCoordinator {
   acquire(

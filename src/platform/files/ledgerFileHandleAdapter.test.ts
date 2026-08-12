@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { MAX_LEDGER_FILE_V2_BYTES } from "@/platform/files";
+import { MAX_LEDGER_FILE_V2_BYTES } from "./ledgerFileContract";
 import {
   LedgerFileAdapterError,
   LedgerFileHandleAdapter,

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialLedgerData } from "@/core/state";
 import { createValidatedTrade } from "@/features/trades";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
-import { createLedgerDataContentIdentity } from "@/platform/persistence";
+import { createLedgerDataContentIdentity } from "@/platform/persistence/identity";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,

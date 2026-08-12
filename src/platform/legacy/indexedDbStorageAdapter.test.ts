@@ -1,7 +1,7 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
+import type { StoredLedgerEnvelopeV2 } from "./cryptoEnvelope";
 import { createNoopStoredLedgerEnvelope } from "@/test-support";
 import { IndexedDbStorageAdapter } from "./indexedDbStorageAdapter";
 

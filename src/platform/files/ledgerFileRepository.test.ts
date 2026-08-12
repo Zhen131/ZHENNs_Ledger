@@ -4,7 +4,7 @@ import {
   LedgerFileHandleAdapter,
   type LedgerFileHandle,
   type LedgerFileWritable,
-} from "@/platform/files";
+} from "./ledgerFileHandleAdapter";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import {
   createBackupEnvelope,
@@ -21,8 +21,8 @@ import {
   type LedgerFileV2,
   validateDecryptedLedgerPayloadV2,
   validateLedgerFileV2,
-} from "@/platform/files";
-import { LedgerFileCrypto } from "@/platform/files";
+} from "./ledgerFileContract";
+import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import type { CryptoProvider } from "@/platform/encryption";
 import type { LedgerData, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
@@ -37,7 +37,7 @@ import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
   LedgerFileRepository,
 } from "./ledgerFileRepository";
-import type { LedgerFileSessionLease } from "@/platform/coordination";
+import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 
 const PASSPHRASE = "correct horse battery staple";
 const TEST_SESSION_LEASE: LedgerFileSessionLease = {

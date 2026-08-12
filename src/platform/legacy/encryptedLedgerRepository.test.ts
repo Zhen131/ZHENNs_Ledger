@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { StorageAdapter } from "@/platform/legacy";
+import type { StorageAdapter } from "./storageAdapter";
 import {
   base64UrlToBytes,
   bytesToBase64Url,
 } from "@/platform/encryption";
-import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
-import { WebCryptoEncryptionService } from "@/platform/legacy";
+import type { StoredLedgerEnvelopeV2 } from "./cryptoEnvelope";
+import { WebCryptoEncryptionService } from "./webCryptoEncryptionService";
 import { createInitialLedgerData } from "@/core/state";
 import { sampleUsdtTrades } from "@/test-support";
 import {

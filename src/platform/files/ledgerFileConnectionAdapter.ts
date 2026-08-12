@@ -1,5 +1,5 @@
 import type { LedgerFileHandle } from "./ledgerFileHandleAdapter";
-import { LEDGER_FILE_V2_CONSTANTS } from "@/platform/files";
+import { LEDGER_FILE_V2_CONSTANTS } from "./ledgerFileContract";
 
 export const LEDGER_FILE_CONNECTION_DEFAULTS = {
   databaseName: "local-first-trading-ledger-file-connections",

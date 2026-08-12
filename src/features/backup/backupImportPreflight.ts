@@ -17,7 +17,7 @@ import {
   type BackupEnvelopeError,
   type BackupEnvelopeV2,
 } from "./backupEnvelope";
-import { createLedgerDataContentIdentity } from "@/platform/persistence";
+import { createLedgerDataContentIdentity } from "@/platform/persistence/identity";
 
 export const BACKUP_PREFLIGHT_PAGE_DETAIL_LIMIT = 50;
 export const BACKUP_PREFLIGHT_REPORT_DETAIL_LIMIT = 1000;
