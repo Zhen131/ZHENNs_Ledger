@@ -39,7 +39,7 @@ import {
   LedgerFileRepositoryError,
 } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
-import type { HydrationStatus } from "../state/hydrationState";
+import type { HydrationStatus } from "./hydrationState";
 import {
   ledgerReducer,
   type LedgerAction,

@@ -11,7 +11,7 @@ import {
 import {
   usePersistentLedger,
   type PersistentLedgerState,
-} from "../../hooks/usePersistentLedger";
+} from "./usePersistentLedger";
 import type { Trade, ValuationPriceMode } from "@/core/models";
 import {
   INDEXED_DB_LEDGER_CAPABILITIES,
@@ -51,7 +51,7 @@ import { MarketDataControls } from "@/features/market-data/ui";
 import {
   ConfirmDeleteButton,
   type ConfirmDeleteOutcome,
-} from "../common/ConfirmDeleteButton";
+} from "@/ui";
 
 const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 

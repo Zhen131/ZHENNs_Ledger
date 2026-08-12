@@ -1,1 +1,1 @@
-export * from "@/components/common/ConfirmDeleteButton";
+export * from "./ConfirmDeleteButton";
