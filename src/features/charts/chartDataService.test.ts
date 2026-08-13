@@ -364,10 +364,17 @@ describe("trade heatmap", () => {
     date: string,
     count: number,
     type: "buy" | "sell" = "buy",
+    assetSymbol = "BTC",
   ) {
     for (let index = 0; index < count; index += 1) {
       ledgerData.trades.push(
-        createSimpleTrade(`${date}-${type}-${index}`, type, "BTC", "1", date),
+        createSimpleTrade(
+          `${date}-${assetSymbol}-${type}-${index}`,
+          type,
+          assetSymbol,
+          "1",
+          date,
+        ),
       );
     }
   }
@@ -393,7 +400,25 @@ describe("trade heatmap", () => {
       buys: 1,
       sells: 0,
       level: 4,
+      activityGroups: [
+        { assetSymbol: "BTC", type: "buy", count: 1 },
+      ],
     });
+  });
+
+  it("groups activity by asset and direction with stable count-first ordering", () => {
+    const ledgerData = createInitialLedgerData();
+    addTrades(ledgerData, TODAY, 2, "sell", "ETH");
+    addTrades(ledgerData, TODAY, 2, "buy", "BTC");
+    addTrades(ledgerData, TODAY, 2, "sell", "BTC");
+    addTrades(ledgerData, TODAY, 1, "buy", "ADA");
+
+    expect(buildTradeHeatmap(ledgerData, TODAY).at(-1)?.activityGroups).toEqual([
+      { assetSymbol: "BTC", type: "buy", count: 2 },
+      { assetSymbol: "BTC", type: "sell", count: 2 },
+      { assetSymbol: "ETH", type: "sell", count: 2 },
+      { assetSymbol: "ADA", type: "buy", count: 1 },
+    ]);
   });
 
   it("uses max-ratio boundaries, equal counts, single nonzero and extreme skew", () => {

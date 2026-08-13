@@ -9,6 +9,7 @@ import {
   buildAllocationChartOption,
   buildHoldingHistoryChartOption,
   buildTradeHeatmapChartOption,
+  TRADE_HEATMAP_LEVEL_COLORS,
   toFiniteChartNumber,
 } from "./chartOptionBuilders";
 
@@ -133,6 +134,13 @@ describe("chart option builders", () => {
         buys: index === 364 ? 1 : 0,
         sells: index === 364 ? 1 : 0,
         level: index === 364 ? 4 : 0,
+        activityGroups:
+          index === 364
+            ? [
+                { assetSymbol: "BTC", type: "buy", count: 1 },
+                { assetSymbol: "BTC", type: "sell", count: 1 },
+              ]
+            : [],
       }),
     );
 
@@ -157,6 +165,9 @@ describe("chart option builders", () => {
       "较高",
       "最高",
     ]);
+    expect(visualMap.pieces.map((piece) => piece.color)).toEqual(
+      TRADE_HEATMAP_LEVEL_COLORS,
+    );
     expect(calendar.range).toEqual(["day-0", "day-364"]);
   });
 

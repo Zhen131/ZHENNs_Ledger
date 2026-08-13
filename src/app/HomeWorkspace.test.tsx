@@ -12,7 +12,7 @@ import type {
   TradeHeatmapDay,
 } from "@/features/charts";
 import { createUsdtSimpleTrade } from "@/test-support";
-import { HomeWorkspace, getLatestTrades } from "./HomeWorkspace";
+import { HomeWorkspace } from "./HomeWorkspace";
 
 afterEach(cleanup);
 
@@ -21,15 +21,24 @@ vi.mock("@/features/charts/ui", () => ({
   HoldingTrendChart: () => <div>trend-chart</div>,
   TradeHeatmapChart: ({
     onSelectedTradeDateChange,
+    onViewAll,
+    variant,
   }: {
     onSelectedTradeDateChange: (date: string) => void;
+    onViewAll: () => void;
+    variant: string;
   }) => (
-    <button
-      onClick={() => onSelectedTradeDateChange("2026-08-10")}
-      type="button"
-    >
-      heatmap-chart
-    </button>
+    <div data-testid="heatmap-chart" data-variant={variant}>
+      <button
+        onClick={() => onSelectedTradeDateChange("2026-08-10")}
+        type="button"
+      >
+        heatmap-chart
+      </button>
+      <button onClick={onViewAll} type="button">
+        view-all-trades
+      </button>
+    </div>
   ),
 }));
 
@@ -103,7 +112,7 @@ function renderHome(overrides: Partial<Parameters<typeof HomeWorkspace>[0]> = {}
 }
 
 describe("HomeWorkspace", () => {
-  it("shows four factual metrics, the only quick trade CTA and latest trades", () => {
+  it("shows four factual metrics and removes the duplicate recent-trade card", () => {
     renderHome();
     for (const label of [
       "当前总市值",
@@ -114,7 +123,9 @@ describe("HomeWorkspace", () => {
       expect(screen.getByRole("heading", { name: label })).toBeTruthy();
     }
     expect(screen.getByRole("button", { name: /记一笔交易/ })).toBeTruthy();
-    expect(screen.getByText(/2026-08-12/)).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "最近交易" })).toBeNull();
+    expect(screen.queryByText(/2026-08-12/)).toBeNull();
+    expect(screen.getByTestId("heatmap-chart").dataset.variant).toBe("home");
   });
 
   it("stacks cards at phone width and uses the 1100px workspace breakpoint", () => {
@@ -123,13 +134,15 @@ describe("HomeWorkspace", () => {
     const summaryGrid = workspace.querySelector("div.grid.grid-cols-1");
     expect(summaryGrid?.className).toContain("sm:grid-cols-2");
     expect(summaryGrid?.className).toContain("min-[1100px]:grid-cols-4");
-    expect(workspace.innerHTML).toContain("min-[1100px]:grid-cols-3");
+    expect(workspace.innerHTML).toContain(
+      "min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]",
+    );
     expect(
       screen.getByRole("button", { name: /记一笔交易/ }).innerHTML,
     ).toContain("motion-reduce:transform-none");
   });
 
-  it("routes heatmap days, recent facts and view-all through explicit intents", async () => {
+  it("routes heatmap days and view-all through explicit intents", async () => {
     const onNavigateToTransactions = vi.fn();
     const { props } = renderHome({ onNavigateToTransactions });
     const user = userEvent.setup();
@@ -138,11 +151,7 @@ describe("HomeWorkspace", () => {
     expect(onNavigateToTransactions).toHaveBeenCalledWith({
       filterDate: "2026-08-10",
     });
-    await user.click(screen.getByRole("button", { name: /BTC.*2026-08-12/ }));
-    expect(onNavigateToTransactions).toHaveBeenCalledWith({
-      expandTradeId: "latest",
-    });
-    await user.click(screen.getByRole("button", { name: "查看全部交易" }));
+    await user.click(screen.getByRole("button", { name: "view-all-trades" }));
     expect(onNavigateToTransactions).toHaveBeenCalledWith({
       clearFilters: true,
     });
@@ -191,20 +200,4 @@ describe("HomeWorkspace", () => {
     ).toBeNull();
   });
 
-  it("sorts latest trades without mutating ledger input", () => {
-    const trades = [
-      createUsdtSimpleTrade("first", "buy", "BTC", "1", "2026-08-12"),
-      createUsdtSimpleTrade("second", "buy", "ETH", "1", "2026-08-12"),
-      createUsdtSimpleTrade("old", "buy", "ADA", "1", "2026-08-01"),
-    ];
-    expect(getLatestTrades(trades, 2).map((trade) => trade.id)).toEqual([
-      "first",
-      "second",
-    ]);
-    expect(trades.map((trade) => trade.id)).toEqual([
-      "first",
-      "second",
-      "old",
-    ]);
-  });
 });

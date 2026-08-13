@@ -65,6 +65,10 @@ const heatmap: TradeHeatmapDay[] = [
     buys: 2,
     sells: 1,
     level: 4,
+    activityGroups: [
+      { assetSymbol: "BTC", type: "buy", count: 2 },
+      { assetSymbol: "BTC", type: "sell", count: 1 },
+    ],
   },
 ];
 
