@@ -2,7 +2,7 @@
 
 ## Branch role
 
-- This worktree must remain on `main` and serves the long-term personal ledger product.
+- This worktree serves the long-term `main` product line. It normally stays on `main`; an explicitly authorized product feature branch may be used until the user decides whether to integrate it.
 - The separate `CS2026` worktree serves the graduation thesis.
 - Verify the current worktree path and `git branch --show-current` before any mutation.
 - Never merge, rebase, cherry-pick, copy fixes, or edit both long-lived branches automatically.
@@ -10,8 +10,8 @@
 
 ## Language
 
-- The product UI and internal source material may remain Chinese.
-- Write `README.md`, module documentation, release notes, and new Git commit subjects in English.
+- The product UI and root `README.md` are Chinese-first for the user's long-term personal use.
+- Write module documentation, release notes, `AGENTS.md`, and new Git commit subjects in English.
 - Keep historical commit messages unchanged. Do not rewrite Git history for translation.
 - The outer planning and log repository remains Chinese-first and follows its own rules.
 
