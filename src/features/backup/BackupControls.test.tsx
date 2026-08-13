@@ -585,7 +585,7 @@ describe("BackupControls", () => {
         expect(onImport).toHaveBeenCalledOnce();
         expect(
           screen.getByText(
-            /取消时会尝试恢复并复读导入前的完整 C；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
+            /取消时会尝试恢复并复读导入前的完整内容；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
           ),
         ).not.toBeNull();
         expect(capturedSignal?.aborted).toBe(false);
@@ -631,15 +631,15 @@ describe("BackupControls", () => {
     ],
     [
       "LEDGER_IMPORT_BASE_RESTORED",
-      "导入未完成；已复读确认 C 恢复为导入前的完整版本，当前页面未变更。",
+      "导入未完成；已复读确认原账本文件恢复为导入前的完整版本，当前页面未变更。",
     ],
     [
       "LEDGER_IMPORT_SOURCE_CHANGED",
-      "导入写入前发现 C 已发生外部变化；本次导入没有写入，请重新打开该 C。",
+      "导入写入前发现账本文件已发生外部变化；本次导入没有写入，请重新打开该文件。",
     ],
     [
       "LEDGER_IMPORT_RECOVERY_BLOCKED",
-      "无法确认导入结果，也无法证明 C 已恢复；当前会话已停止写入，请立即锁定并保留文件用于恢复。",
+      "无法确认导入结果，也无法证明原账本文件已恢复；当前会话已停止写入，请立即锁定并保留文件用于恢复。",
     ],
     [
       "LEDGER_REPOSITORY_WRITE_FAILED",
@@ -765,7 +765,7 @@ describe("BackupControls", () => {
     await user.upload(input, firstFile);
     await user.upload(input, secondFile);
     await waitFor(() => {
-      expect(screen.getByText("B 历史导入预检报告")).not.toBeNull();
+      expect(screen.getByText("明文备份预检报告")).not.toBeNull();
     });
     await act(async () => {
       firstRead.resolve("{");
@@ -856,8 +856,8 @@ describe("BackupControls", () => {
     await user.upload(screen.getByLabelText("选择账本备份文件"), file);
 
     await waitFor(() => {
-      expect(screen.getByText("B 历史导入预检报告")).not.toBeNull();
-      expect(screen.getByText(/当前 C 仅开放 B 的只读预检/)).not.toBeNull();
+      expect(screen.getByText("明文备份预检报告")).not.toBeNull();
+      expect(screen.getByText(/当前账本仅开放明文备份的只读预检/)).not.toBeNull();
     });
     expect(screen.getByText("300")).not.toBeNull();
     expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
@@ -944,7 +944,7 @@ describe("BackupControls", () => {
       ).toBeNull();
       await user.click(screen.getByRole("button", { name: "取消" }));
       expect(
-        screen.queryByText("B 历史导入预检报告"),
+        screen.queryByText("明文备份预检报告"),
       ).toBeNull();
       expect(onImport).not.toHaveBeenCalled();
       expect(facts).toEqual(before);
@@ -1090,7 +1090,7 @@ describe("BackupControls", () => {
     });
 
     await user.upload(screen.getByLabelText("选择账本备份文件"), file);
-    await screen.findByText("B 历史导入预检报告");
+    await screen.findByText("明文备份预检报告");
     await user.click(
       screen.getByRole("button", { name: "复制 Markdown 报告" }),
     );
@@ -1133,7 +1133,7 @@ describe("BackupControls", () => {
       await pending.promise;
     });
 
-    expect(screen.queryByText("B 历史导入预检报告")).toBeNull();
+    expect(screen.queryByText("明文备份预检报告")).toBeNull();
     expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
     expect(createLedgerBackupImportEvidence(eventualResult)).toBeNull();
     expect(inspectLedgerBackupImportEvidence(eventualEvidence!)).toBeNull();
@@ -1259,7 +1259,7 @@ describe("BackupControls", () => {
     const input = screen.getByLabelText("选择账本备份文件");
 
     await user.upload(input, first.file);
-    await screen.findByText("B 历史导入预检报告");
+    await screen.findByText("明文备份预检报告");
     await user.click(
       screen.getByRole("button", { name: "复制 Markdown 报告" }),
     );
@@ -1305,7 +1305,7 @@ describe("BackupControls", () => {
         screen.getByLabelText("选择账本备份文件"),
         fixture.file,
       );
-      await screen.findByText("B 历史导入预检报告");
+      await screen.findByText("明文备份预检报告");
       await user.click(
         screen.getByRole("button", { name: "复制 Markdown 报告" }),
       );

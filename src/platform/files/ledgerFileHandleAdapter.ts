@@ -87,7 +87,7 @@ export class LedgerFileAdapterError extends Error {
 
 const FILE_PICKER_TYPES = [
   {
-    description: "Local-First Trading Ledger",
+    description: "Zhenn's Ledger",
     accept: {
       "application/json": [".lftl"],
     },

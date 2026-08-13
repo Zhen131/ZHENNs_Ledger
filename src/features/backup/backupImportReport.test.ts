@@ -16,7 +16,7 @@ describe("formatBackupImportReportMarkdown", () => {
     const report = formatBackupImportReportMarkdown(result);
 
     expect(report).toMatch(
-      /^# B 历史导入预检报告\n\n> 隐私提醒：本报告可能包含交易日期、资产、买卖方向、数量和金额等敏感信息/,
+      /^# 明文备份预检报告\n\n> 隐私提醒：本报告可能包含交易日期、资产、买卖方向、数量和金额等敏感信息/,
     );
     expect(report).toContain(`硬错误总数：${result.hardErrorCount}`);
     expect(report).toContain(

@@ -80,6 +80,8 @@ type BackupControlsProps = {
     code?: string;
     errors?: BackupEnvelopeError[];
   }>;
+  presentation?: "legacy" | "transfer";
+  showPlaintextWarning?: boolean;
 };
 
 export function BackupControls({
@@ -94,6 +96,8 @@ export function BackupControls({
   requiresHistoricalRawText = !canImportBackup,
   preflight = preflightBackupJson,
   onImport,
+  presentation = "legacy",
+  showPlaintextWarning = true,
 }: Readonly<BackupControlsProps>) {
   const [importState, setImportState] = useState<ImportState>("idle");
   const [message, setMessage] = useState("");
@@ -284,7 +288,7 @@ export function BackupControls({
       } catch {
         if (isCurrentSelection(selectionGeneration)) {
           setImportState("preflight-blocked");
-          setMessage("预检执行失败；未写入当前账本或 C 文件。");
+          setMessage("预检执行失败；未写入当前账本或账本文件。");
         }
         return;
       }
@@ -317,7 +321,7 @@ export function BackupControls({
       setMessage(
         canImportBackup
           ? "预检通过；确认后才会进入既有备份恢复写入。"
-          : "预检通过；当前 C 只开放只读预检，未调用导入或保存写入口。",
+          : "预检通过；当前账本只开放只读预检，没有执行导入或保存。",
       );
     })();
   }
@@ -347,7 +351,7 @@ export function BackupControls({
     setMessage(
       canImportBackup
         ? "已确认当前可疑组；仍未写入，需再次确认完整覆盖。"
-        : "已确认当前可疑组；当前 C 仍只开放只读预检，未调用任何写入口。",
+        : "已确认当前可疑组；当前账本仍只开放只读预检，没有执行写入。",
     );
   }
 
@@ -441,11 +445,11 @@ export function BackupControls({
           : importResult.code === "LEDGER_IMPORT_CANCELLED"
             ? "已取消导入；当前页面未替换。"
             : importResult.code === "LEDGER_IMPORT_BASE_RESTORED"
-              ? "导入未完成；已复读确认 C 恢复为导入前的完整版本，当前页面未变更。"
+              ? "导入未完成；已复读确认原账本文件恢复为导入前的完整版本，当前页面未变更。"
               : importResult.code === "LEDGER_IMPORT_SOURCE_CHANGED"
-                ? "导入写入前发现 C 已发生外部变化；本次导入没有写入，请重新打开该 C。"
+                ? "导入写入前发现账本文件已发生外部变化；本次导入没有写入，请重新打开该文件。"
                 : importResult.code === "LEDGER_IMPORT_RECOVERY_BLOCKED"
-                  ? "无法确认导入结果，也无法证明 C 已恢复；当前会话已停止写入，请立即锁定并保留文件用于恢复。"
+                  ? "无法确认导入结果，也无法证明原账本文件已恢复；当前会话已停止写入，请立即锁定并保留文件用于恢复。"
                   : "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
     );
   }
@@ -468,27 +472,47 @@ export function BackupControls({
   }
 
   return (
-    <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div
+      className={
+        presentation === "transfer"
+          ? "grid min-w-0 gap-4"
+          : "grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4"
+      }
+    >
+      {showPlaintextWarning ? (
       <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950">
         账本备份是未加密明文，任何能访问文件的人都可能读取完整资产、交易和价格。导出只会发起浏览器下载，请确认实际下载结果和保存位置，并将文件移至安全位置或在不再需要时删除。若保存到
         iCloud Drive、OneDrive 等同步目录，系统可能自动上传或同步。
       </p>
-      <div className="flex flex-wrap gap-3">
+      ) : null}
+      <div
+        className={
+          presentation === "transfer"
+            ? "grid gap-3 min-[1100px]:grid-cols-[minmax(220px,.7fr)_minmax(0,1.3fr)]"
+            : "flex flex-wrap gap-3"
+        }
+      >
         {showExport ? (
           <button
+            aria-describedby={persistenceOperation !== "idle" ? "backup-controls-disabled-reason" : undefined}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!canExport}
             onClick={handleExport}
             type="button"
           >
-            导出完整账本备份
+            {presentation === "transfer"
+              ? "导出明文账本"
+              : "导出完整账本备份"}
           </button>
         ) : null}
         {showPreflight ? (
-          <label className="w-fit cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-            选择备份文件并预检
+          <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 text-center font-medium text-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+            {presentation === "transfer"
+              ? "选择明文备份并预检"
+              : "选择备份文件并预检"}
             <input
               accept="application/json,.json"
+              aria-describedby={persistenceOperation !== "idle" ? "backup-controls-disabled-reason" : undefined}
               aria-label="选择账本备份文件"
               className="sr-only"
               disabled={!canSelect}
@@ -500,11 +524,17 @@ export function BackupControls({
         ) : null}
       </div>
 
+      {persistenceOperation !== "idle" ? (
+        <p className="text-sm text-[var(--ledger-muted)]" id="backup-controls-disabled-reason">
+          暂不可用：当前文件操作完成后才能继续导入或导出。
+        </p>
+      ) : null}
+
       {hydrationStatus === "loading" ? <p>读取完成前不可预检、导入或导出。</p> : null}
       {hydrationStatus === "error" ? (
         <>
           <p>可使用有效备份恢复本地账本。</p>
-          <p>系统会先做纯预检；只有具备写入 capability 时才可恢复。</p>
+          <p>系统会先做纯预检；只有取得当前文件的写入授权后才可恢复。</p>
         </>
       ) : null}
       {isReadOnly ? (
@@ -519,7 +549,7 @@ export function BackupControls({
           <p aria-live="polite">
             {importState === "reading"
               ? "正在读取备份文件。"
-              : "正在执行只读预检；不会写入当前账本或 C 文件。"}
+              : "正在执行只读预检；不会写入当前账本或账本文件。"}
           </p>
           <button
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
@@ -567,7 +597,7 @@ export function BackupControls({
         <div className="grid gap-3 border-t border-slate-200 pt-3">
           <p className="font-medium text-amber-900">
             {hydrationStatus === "error"
-              ? "恢复成功后覆盖损坏 record；失败保留原 record。"
+              ? "恢复成功后替换损坏的账本内容；失败时保留原内容。"
               : isDirty
                 ? "导入将完整覆盖当前账本，不合并数据。页面中尚未落盘的数据也会被覆盖；可先导出救援备份。"
                 : "导入将完整覆盖当前账本，不合并数据。"}
@@ -598,8 +628,7 @@ export function BackupControls({
 
       {importState === "ready-without-suspicions" && !canImportBackup ? (
         <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sky-900">
-          当前 C 仅开放 B 的只读预检与报告复制；没有导入写 capability，本次操作未调用
-          save、clear 或任何 C writable。
+          当前账本仅开放明文备份的只读预检与报告复制；没有开放完整替换，本次操作未写入账本文件。
         </p>
       ) : null}
 
@@ -624,8 +653,7 @@ export function BackupControls({
       {importState === "importing" ? (
         <div className="flex flex-wrap items-center gap-3">
           <p aria-live="polite">
-            正在写入并复读验证 C；若写入已经开始，取消时会尝试恢复并复读导入前的完整
-            C；如果无法确认恢复，当前会话会停止后续写入并明确报错。
+            正在写入并复读验证账本文件；若写入已经开始，取消时会尝试恢复并复读导入前的完整内容；如果无法确认恢复，当前会话会停止后续写入并明确报错。
           </p>
           <button
             className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
@@ -672,7 +700,7 @@ function PreflightReportView({
 }>) {
   return (
     <section className="grid gap-3 border-t border-slate-200 pt-3">
-      <h3 className="font-semibold text-slate-900">B 历史导入预检报告</h3>
+      <h3 className="font-semibold text-slate-900">明文备份预检报告</h3>
       <p className="text-sm text-amber-900">
         隐私提醒：报告可能包含交易日期、资产、买卖方向、数量和金额；复制前请确认目标位置安全。
       </p>
@@ -711,7 +739,7 @@ function PreflightReportView({
         </div>
       </dl>
       <p className="break-all text-xs text-slate-600">
-        B SHA-256：<code>{result.contentIdentity.sha256}</code>
+        备份 SHA-256：<code>{result.contentIdentity.sha256}</code>
       </p>
       {result.hardErrorCount > 0 ? (
         <p>

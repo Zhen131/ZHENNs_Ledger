@@ -8,7 +8,8 @@ import { getPositionsFromLedger } from "@/features/portfolio";
 import { createInitialLedgerData } from "@/core/state";
 import { ledgerReducer } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
-import { DashboardShell, TradeTable } from "./DashboardShell";
+import { TradeTable } from "@/features/trades/ui";
+import { DashboardShell } from "./DashboardShell";
 
 vi.mock("@/features/portfolio", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/portfolio")>()),
@@ -235,8 +236,10 @@ describe("DashboardShell ledger views", () => {
       }),
     );
 
-    expect(html).not.toContain("lg:w-60 lg:shrink-0");
-    expect(html).toContain("max-w-7xl px-5");
+    expect(html).toContain("min-[1100px]:w-48");
+    expect(html).toContain("max-w-[1500px] flex-col overflow-hidden");
+    expect(html).toContain("min-[1100px]:overflow-y-auto");
+    expect(html).toContain("min-[1100px]:flex-row");
     expect(html).toContain(
       'class="min-w-0 rounded-lg border border-slate-200',
     );

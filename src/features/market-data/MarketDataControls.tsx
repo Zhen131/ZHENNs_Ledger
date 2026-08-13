@@ -57,6 +57,10 @@ type MarketDataControlsProps = {
   client?: BinanceMarketDataClient;
   clock?: LedgerClock;
   generateId?: () => string;
+  showMappings?: boolean;
+  showRefresh?: boolean;
+  expandMappings?: boolean;
+  compactMappings?: boolean;
 };
 
 type RefreshState = {
@@ -82,6 +86,10 @@ export function MarketDataControls({
   client = defaultClient,
   clock = systemLedgerClock,
   generateId = () => globalThis.crypto.randomUUID(),
+  showMappings = true,
+  showRefresh = true,
+  expandMappings = false,
+  compactMappings = false,
 }: Readonly<MarketDataControlsProps>) {
   const activeTodayKey = todayKey ?? captureLedgerTime(clock).todayKey;
   const assets = ledgerData.assets;
@@ -95,6 +103,9 @@ export function MarketDataControls({
   const [mappingMessages, setMappingMessages] = useState<
     Record<string, string>
   >({});
+  const [editingAssetSymbol, setEditingAssetSymbol] = useState<string | null>(
+    null,
+  );
   const [refreshState, setRefreshState] =
     useState<RefreshState>(INITIAL_REFRESH_STATE);
   const requestIdRef = useRef(0);
@@ -131,6 +142,7 @@ export function MarketDataControls({
     activeAbortRef.current = null;
     setRefreshState(INITIAL_REFRESH_STATE);
     setMappingMessages({});
+    setEditingAssetSymbol(null);
   }, [ledgerEpoch]);
 
   useEffect(() => {
@@ -239,12 +251,12 @@ export function MarketDataControls({
   }, [activeTodayKey, applyLedgerMutation, client, clock, generateId]);
 
   useEffect(() => {
-    if (!isWritable || autoAttemptedRef.current) {
+    if (!showRefresh || !isWritable || autoAttemptedRef.current) {
       return;
     }
     autoAttemptedRef.current = true;
     void refresh();
-  }, [isWritable, refresh]);
+  }, [isWritable, refresh, showRefresh]);
 
   function cancelActiveRefresh() {
     requestIdRef.current += 1;
@@ -298,6 +310,9 @@ export function MarketDataControls({
         ),
       timeSnapshot,
     );
+    if (mutationResult === "applied") {
+      setEditingAssetSymbol(null);
+    }
     setMappingMessages((current) => ({
       ...current,
       [assetSymbol]:
@@ -326,6 +341,7 @@ export function MarketDataControls({
       timeSnapshot,
     );
     if (mutationResult === "applied") {
+      setEditingAssetSymbol(null);
       setMappingDrafts((current) => ({ ...current, [assetSymbol]: "" }));
     }
     setMappingMessages((current) => ({
@@ -347,6 +363,16 @@ export function MarketDataControls({
 
   return (
     <div className="grid gap-5">
+      {!isWritable ? (
+        <p
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          role="status"
+        >
+          暂不可修改：当前账本只读或文件操作尚未完成。
+        </p>
+      ) : null}
+      {showRefresh ? (
+      <>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium">估值价格模式</span>
         {(["auto", "manual"] as const).map((value) => (
@@ -375,8 +401,8 @@ export function MarketDataControls({
           type="button"
         >
           {refreshState.status === "loading"
-            ? "正在刷新 Binance 价格"
-            : "刷新 Binance 价格"}
+            ? "正在更新 Binance 行情"
+            : "立即更新 Binance 行情"}
         </button>
       </div>
 
@@ -390,16 +416,21 @@ export function MarketDataControls({
       >
         {refreshState.message}
       </p>
+      </>
+      ) : null}
 
       <div className="grid gap-2 text-sm text-slate-700">
+        {showRefresh ? (
         <p>
           USDT 账本按 USDT 显示；只有兼容读取的旧 USD 与 USDT 同时汇总时，才按 <strong>1 USDT ≈ 1 USD</strong> 近似展示，未接实时汇率。旧 USD 资产不会写入新的 Binance 价格事实。
         </p>
+        ) : null}
         <p>
           刷新只会把所配置的公开交易对 symbol 发送给 Binance；不会发送交易、数量、成本、密码或完整账本。
         </p>
       </div>
 
+      {showRefresh ? (
       <div className="grid gap-3">
         <h3 className="font-semibold">当前非零持仓实际价格</h3>
         {currentPositions.length === 0 ? (
@@ -429,7 +460,7 @@ export function MarketDataControls({
                         selected.actualSource === "binance"
                           ? "Binance"
                           : "手动"
-                      } · as-of ${selected.asOf}`
+                      } · 截至 ${selected.asOf}`
                     : "无合法价格"}
                   {failure ? ` · 本次刷新失败：${failure.message}` : ""}
                 </li>
@@ -438,11 +469,96 @@ export function MarketDataControls({
           </ul>
         )}
       </div>
+      ) : null}
 
-      <details>
+      {showMappings ? <details open={expandMappings}>
         <summary className="cursor-pointer font-semibold">配置 Binance Spot 交易对</summary>
-        <div className="mt-3 grid gap-3">
-          {ledgerData.assets.map((asset) => (
+        <div className="mt-3 min-w-0 overflow-x-auto">
+          <div className="grid min-w-0 gap-3 md:min-w-[720px]">
+          {compactMappings ? (
+            <div className="hidden grid-cols-[7rem_1fr_1fr_auto] gap-3 px-3 text-xs font-semibold text-[var(--ledger-muted)] md:grid">
+              <span>资产</span>
+              <span>当前交易对</span>
+              <span>验证 / 最近结果</span>
+              <span>操作</span>
+            </div>
+          ) : null}
+          {ledgerData.assets.map((asset) => {
+            const currentMapping = resolveAssetBinanceMappingForRuntime(asset);
+            return compactMappings ? (
+            <div
+              className="grid gap-3 rounded-md border border-slate-200 p-3 md:grid-cols-[7rem_1fr_1fr_auto] md:items-center"
+              key={asset.id}
+            >
+              <p className="font-semibold">{asset.symbol}</p>
+              <div>
+                <p>{currentMapping?.symbol ?? "未配置"}</p>
+                {editingAssetSymbol === asset.symbol ? (
+                  <input
+                    aria-label={`${asset.symbol} Binance 交易对`}
+                    className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
+                    disabled={!isWritable}
+                    onChange={(event) =>
+                      setMappingDrafts((current) => ({
+                        ...current,
+                        [asset.symbol]: event.target.value,
+                      }))
+                    }
+                    placeholder={`${asset.symbol}USDT`}
+                    value={mappingDrafts[asset.symbol] ?? ""}
+                  />
+                ) : null}
+              </div>
+              <div className="text-sm text-slate-600">
+                <p>
+                  {currentMapping
+                    ? "已配置；保存前已在线验证"
+                    : "尚未验证"}
+                </p>
+                {mappingMessages[asset.symbol] ? (
+                  <p aria-live="polite" className="mt-1">
+                    {mappingMessages[asset.symbol]}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                {editingAssetSymbol === asset.symbol ? (
+                  <>
+                    <button
+                      className="rounded-md border border-slate-300 px-3 py-2 font-medium disabled:opacity-50"
+                      disabled={!isWritable || activeAbortRef.current !== null}
+                      onClick={() => void saveMapping(asset.symbol)}
+                      type="button"
+                    >
+                      验证并保存
+                    </button>
+                    <button
+                      className="rounded-md border border-slate-200 px-3 py-2 font-medium"
+                      onClick={() => setEditingAssetSymbol(null)}
+                      type="button"
+                    >
+                      取消
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="rounded-md border border-slate-300 px-3 py-2 font-medium disabled:opacity-50"
+                    disabled={!isWritable}
+                    onClick={() => setEditingAssetSymbol(asset.symbol)}
+                    type="button"
+                  >
+                    编辑
+                  </button>
+                )}
+                <ConfirmDeleteButton
+                  ariaLabel={`删除 ${asset.symbol} Binance 映射`}
+                  disabled={!isWritable || currentMapping === null}
+                  label="删除映射"
+                  onConfirm={() => removeMapping(asset.symbol)}
+                />
+              </div>
+            </div>
+            ) : (
             <div
               className="grid gap-2 rounded-md border border-slate-200 p-3 md:grid-cols-[8rem_1fr_auto_auto]"
               key={asset.id}
@@ -489,9 +605,11 @@ export function MarketDataControls({
                 </p>
               ) : null}
             </div>
-          ))}
+            );
+          })}
+          </div>
         </div>
-      </details>
+      </details> : null}
     </div>
   );
 }

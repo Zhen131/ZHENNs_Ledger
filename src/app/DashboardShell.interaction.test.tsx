@@ -3,6 +3,7 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -288,6 +289,10 @@ async function renderDashboard(
 async function fillBuyTrade() {
   const user = userEvent.setup();
 
+  if (screen.queryByRole("button", { name: "保存交易" }) === null) {
+    await user.click(screen.getByRole("button", { name: "记账" }));
+  }
+
   await user.selectOptions(
     screen.getByLabelText("类型", { selector: "select" }),
     "buy",
@@ -298,8 +303,12 @@ async function fillBuyTrade() {
   );
   await user.type(screen.getByLabelText("数量"), "0.001");
   await user.type(screen.getByLabelText("成交均价"), "70000");
-  await user.type(screen.getByLabelText("成交金额（不含手续费）"), "70");
-  await user.type(screen.getByLabelText("日期"), "2026-07-14");
+  const totalValueInput = screen.getByLabelText("成交金额（不含手续费）");
+  await user.clear(totalValueInput);
+  await user.type(totalValueInput, "70");
+  const dateInput = screen.getByLabelText("日期");
+  await user.clear(dateInput);
+  await user.type(dateInput, "2026-07-14");
 
   return user;
 }
@@ -333,6 +342,45 @@ async function createTrade(input: {
   await user.click(screen.getByRole("button", { name: "保存交易" }));
   return user;
 }
+
+describe("DashboardShell persistent workspace navigation", () => {
+  it("switches all five pages without rehydrating and preserves mounted form input", async () => {
+    const repository = createMemoryRepository();
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "dashboard-navigation",
+    });
+    const user = userEvent.setup();
+    render(<DashboardShell session={session} />);
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          "正在读取本地账本，完成前不会写入任何数据。",
+        ),
+      ).toBeNull();
+    });
+
+    await user.click(screen.getByRole("button", { name: "记账" }));
+    await user.type(screen.getByLabelText("数量"), "0.25");
+    await user.type(screen.getByLabelText("当前价格"), "75000");
+    for (const page of ["交易", "导入与导出", "设置", "首页", "记账"]) {
+      await user.click(screen.getByRole("button", { name: page }));
+      expect(
+        screen.getByRole("heading", { level: 1, name: page }),
+      ).toBeTruthy();
+    }
+
+    expect(repository.load).toHaveBeenCalledOnce();
+    expect((screen.getByLabelText("数量") as HTMLInputElement).value).toBe(
+      "0.25",
+    );
+    expect(
+      (screen.getByLabelText("当前价格") as HTMLInputElement).value,
+    ).toBe("75000");
+  });
+});
 
 describe("DashboardShell immediate lock decision B", () => {
   it("does not begin locking on the first dirty click and uses the same final action only after explicit discard", async () => {
@@ -373,7 +421,7 @@ describe("DashboardShell immediate lock decision B", () => {
     });
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
     expect(
       screen.getByRole("region", {
@@ -391,7 +439,7 @@ describe("DashboardShell immediate lock decision B", () => {
     expect(onFinalLock).not.toHaveBeenCalled();
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
     await user.click(
       screen.getByRole("button", {
@@ -445,7 +493,7 @@ describe("DashboardShell immediate lock decision B", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
     await user.click(
       screen.getByRole("button", { name: "重新保存" }),
@@ -491,7 +539,7 @@ describe("DashboardShell immediate lock decision B", () => {
     });
 
     await userEvent.setup().click(
-      screen.getByRole("button", { name: "立即锁定" }),
+      screen.getByRole("button", { name: "锁定账本" }),
     );
 
     expect(onFinalLock).toHaveBeenCalledOnce();
@@ -513,18 +561,40 @@ describe("DashboardShell trade interactions", () => {
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
-    expect(screen.getByText("交易待保存")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "正在保存…" }),
+    ).toHaveProperty("disabled", true);
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(screen.getByText("正在保存到本地")).not.toBeNull();
     });
     expect(screen.queryByText("已保存到本地")).toBeNull();
 
-    saveDeferred.resolve();
-    await waitFor(() => {
-      expect(screen.getByText("已保存到本地")).not.toBeNull();
-      expect(screen.getByText("交易已认证保存")).not.toBeNull();
-    });
+    const feedbackTimeouts: Array<() => void> = [];
+    const nativeSetTimeout = globalThis.setTimeout.bind(globalThis);
+    const timeoutSpy = vi
+      .spyOn(globalThis, "setTimeout")
+      .mockImplementation((callback, delay, ...args) => {
+        if (delay === 4_000 && typeof callback === "function") {
+          feedbackTimeouts.push(() => callback(...args));
+          return 1 as unknown as ReturnType<typeof setTimeout>;
+        }
+        return nativeSetTimeout(callback, delay, ...args);
+      });
+
+    try {
+      saveDeferred.resolve();
+      await waitFor(() => {
+        expect(screen.getByText("已保存到本地")).not.toBeNull();
+        expect(screen.getByText("交易已认证保存")).not.toBeNull();
+      });
+      expect(feedbackTimeouts.length).toBeGreaterThan(0);
+
+      act(() => feedbackTimeouts.forEach((dismiss) => dismiss()));
+      expect(screen.queryByText("已保存到本地")).toBeNull();
+    } finally {
+      timeoutSpy.mockRestore();
+    }
   });
 
   it("lets the user retry the latest failed local save", async () => {
@@ -713,6 +783,7 @@ describe("DashboardShell trade interactions", () => {
       within(tradeSection).getByLabelText("成交金额（不含手续费）"),
       "6500",
     );
+    await user.clear(within(tradeSection).getByLabelText("日期"));
     await user.type(within(tradeSection).getByLabelText("日期"), "2026-07-14");
     await user.type(
       within(tradeSection).getByLabelText("平台（可选，精确匹配）"),
@@ -810,6 +881,7 @@ describe("DashboardShell trade interactions", () => {
     await user.type(screen.getByLabelText("数量"), "0.001");
     await user.type(screen.getByLabelText("成交均价"), "70000");
     await user.type(screen.getByLabelText("成交金额（不含手续费）"), "10");
+    await user.clear(screen.getByLabelText("日期"));
     await user.type(screen.getByLabelText("日期"), "2026-07-14");
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
@@ -893,12 +965,14 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await screen.findByText("交易已认证保存");
 
     await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.clear(screen.getByLabelText("价格日期"));
     await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
-    expect(screen.getByText("价格已加入账本")).not.toBeNull();
+    expect(await screen.findByText("价格已认证保存")).not.toBeNull();
 
     const positionSection = getSection("资产汇总");
     expect(within(positionSection).getByText("80000 USDT")).not.toBeNull();
@@ -972,6 +1046,7 @@ describe("DashboardShell trade interactions", () => {
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
     await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.clear(screen.getByLabelText("价格日期"));
     await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
@@ -1321,7 +1396,7 @@ describe("DashboardShell data management", () => {
       createBackupFile(createInitialLedgerData()),
     );
     expect(
-      await screen.findByText("B 历史导入预检报告"),
+      await screen.findByText("明文备份预检报告"),
     ).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "确认恢复备份" }),
@@ -1369,43 +1444,45 @@ describe("DashboardShell data management", () => {
     });
     render(<DashboardShell session={session} />);
     const user = userEvent.setup();
-    await screen.findByText(/当前 .lftl 文件是唯一正式完整账本/);
+    await user.click(screen.getByRole("button", { name: "设置" }));
+    await screen.findByRole("tab", { name: "行情与交易对" });
 
     await user.click(
-      await screen.findByRole("button", {
-        name: "清空当前 C 账本",
-      }),
+      screen.getByRole("tab", { name: "危险操作" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
     );
     expect(
       screen.getByText(
-        /这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C/,
+        /自定义资产、交易、价格和手续费规则都会清空/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/上一可用版/)).toBeTruthy();
+    expect(screen.getByText(/不会删除当前 .lftl 文件/)).toBeTruthy();
     await user.click(
       screen.getByRole("button", {
-        name: "确认清空当前 C 内容",
+        name: "确认清空账本内容",
       }),
     );
     expect(
       screen.getByText(
-        "请输入完整确认文本“清空当前C账本”",
+        "请输入完整确认文本“清空账本”",
       ),
     ).toBeTruthy();
     expect(authorizeReadyClear).not.toHaveBeenCalled();
 
     await user.type(
       screen.getByLabelText("输入清空确认文本"),
-      "清空当前C账本",
+      "清空账本",
     );
     await user.click(
       screen.getByRole("button", {
-        name: "确认清空当前 C 内容",
+        name: "确认清空账本内容",
       }),
     );
     await waitFor(() => {
       expect(
-        screen.getByText("当前 C 账本内容已清空"),
+        screen.getByText("当前账本内容已清空，.lftl 文件仍然存在"),
       ).toBeTruthy();
     });
     expect(authorizeReadyClear).toHaveBeenCalledWith(
@@ -1417,6 +1494,7 @@ describe("DashboardShell data management", () => {
     );
     expect(clearReadyLedger).toHaveBeenCalledOnce();
     expect(repository.clear).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "导入与导出" }));
     expect(
       screen.getByLabelText("选择账本备份文件"),
     ).toBeTruthy();
@@ -1651,7 +1729,7 @@ describe("DashboardShell data management", () => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(
         screen.getByText(
-          /取消时会尝试恢复并复读导入前的完整 C；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
+          /取消时会尝试恢复并复读导入前的完整内容；如果无法确认恢复，当前会话会停止后续写入并明确报错/,
         ),
       ).not.toBeNull();
     });

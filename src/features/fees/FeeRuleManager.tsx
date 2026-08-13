@@ -24,6 +24,7 @@ type FeeRuleManagerProps = Readonly<{
   persistedVersion: number;
   persistenceStatus: PersistenceStatus;
   onAction: (action: LedgerAction) => ApplyLedgerActionResult;
+  presentation?: "legacy" | "settings";
 }>;
 
 type FormState = {
@@ -42,6 +43,8 @@ const initialForm: FormState = {
   value: "",
 };
 
+const SUCCESS_FEEDBACK_MS = 4_000;
+
 export function FeeRuleManager({
   clock = systemLedgerClock,
   isWritable,
@@ -51,6 +54,7 @@ export function FeeRuleManager({
   persistedVersion,
   persistenceStatus,
   onAction,
+  presentation = "legacy",
 }: FeeRuleManagerProps) {
   const [form, setForm] = useState<FormState>(() => ({
     ...initialForm,
@@ -95,6 +99,15 @@ export function FeeRuleManager({
       setError("手续费规则仍在内存中，但尚未保存；请重试保存");
     }
   }, [pendingVersion, persistedVersion, persistenceStatus]);
+
+  useEffect(() => {
+    if (message !== "手续费规则已认证保存") return;
+    const timeout = setTimeout(
+      () => setMessage(""),
+      SUCCESS_FEEDBACK_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [message]);
 
   function apply(action: LedgerAction, pendingMessage: string) {
     setError("");
@@ -183,6 +196,14 @@ export function FeeRuleManager({
 
   return (
     <div className="grid gap-5">
+      {!isWritable ? (
+        <p
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          role="status"
+        >
+          暂不可修改：当前账本只读或文件操作尚未完成。
+        </p>
+      ) : null}
       {conflicts.length > 0 ? (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
           <p className="font-semibold">存在手续费规则冲突</p>
@@ -195,7 +216,29 @@ export function FeeRuleManager({
         </div>
       ) : null}
 
-      <form className="grid gap-3 md:grid-cols-5" onSubmit={submitNewRule}>
+      <div
+        className={
+          presentation === "settings"
+            ? "grid min-w-0 gap-5 min-[1100px]:grid-cols-[minmax(260px,.4fr)_minmax(0,.6fr)]"
+            : "contents"
+        }
+      >
+      <form
+        className={
+          presentation === "settings"
+            ? "order-2 grid content-start gap-3 rounded-lg border border-slate-200 p-4 md:grid-cols-2"
+            : "grid gap-3 md:grid-cols-5"
+        }
+        onSubmit={submitNewRule}
+      >
+        {presentation === "settings" ? (
+          <div className="md:col-span-2">
+            <h3 className="font-semibold">新增规则版本</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              历史规则不原地改写；调整费率时创建新版本并停用旧版。
+            </p>
+          </div>
+        ) : null}
         <label className="grid gap-1 text-sm font-medium">
           规则名
           <input
@@ -258,11 +301,20 @@ export function FeeRuleManager({
         </button>
       </form>
 
-      <div className="grid gap-3">
+      <div
+        className={
+          presentation === "settings"
+            ? "order-1 grid content-start gap-3"
+            : "grid gap-3"
+        }
+      >
+        {presentation === "settings" ? (
+          <h3 className="font-semibold">规则历史</h3>
+        ) : null}
         {ledgerData.feeRules.length === 0 ? (
           <p className="text-sm text-slate-500">暂无手续费规则。</p>
         ) : ledgerData.feeRules.map((rule) => (
-          <article className="rounded-md border border-slate-200 p-3 text-sm" key={rule.id}>
+          <article className="min-w-0 break-words rounded-md border border-slate-200 p-3 text-sm" key={rule.id}>
             <p className="font-medium">
               {rule.name} · {rule.platform} + {rule.assetSymbol} · {rule.status}
             </p>
@@ -310,10 +362,21 @@ export function FeeRuleManager({
           </article>
         ))}
       </div>
+      </div>
 
       <div aria-live="polite" className="min-h-5 text-sm">
         {error ? <p className="text-red-700">{error}</p> : null}
-        {!error && message ? <p className={pendingVersion ? "text-sky-800" : "text-emerald-700"}>{message}</p> : null}
+        {!error && message ? (
+          <p
+            className={
+              pendingVersion
+                ? "text-sky-800"
+                : "text-emerald-700 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
+            }
+          >
+            {message}
+          </p>
+        ) : null}
       </div>
     </div>
   );

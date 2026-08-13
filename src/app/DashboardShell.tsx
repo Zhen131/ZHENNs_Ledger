@@ -12,7 +12,13 @@ import {
   usePersistentLedger,
   type PersistentLedgerState,
 } from "./usePersistentLedger";
-import type { Trade, ValuationPriceMode } from "@/core/models";
+import { LedgerWorkspaceFrame } from "./LedgerWorkspaceFrame";
+import { HomeWorkspace } from "./HomeWorkspace";
+import { RecordWorkspace } from "./RecordWorkspace";
+import { TransactionsWorkspace } from "./TransactionsWorkspace";
+import { TransferWorkspace } from "./TransferWorkspace";
+import { SettingsWorkspace } from "./SettingsWorkspace";
+import { useLedgerWorkspaceSession } from "./useLedgerWorkspaceSession";
 import {
   INDEXED_DB_LEDGER_CAPABILITIES,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
@@ -26,9 +32,7 @@ import {
   buildHoldingAllocation,
   buildHoldingHistory,
   buildTradeHeatmap,
-  type ChartRange,
 } from "@/features/charts";
-import { calculateTradeCashImpact } from "@/core/calculations";
 import {
   buildLedgerPnlSummary,
   type SummaryMetric,
@@ -43,22 +47,63 @@ import {
   type LedgerClock,
 } from "@/core/shared";
 import { PriceForm } from "@/features/prices/ui";
-import { TradeForm } from "@/features/trades/ui";
+import { TradeForm, TradeTable } from "@/features/trades/ui";
 import { FeeRuleManager } from "@/features/fees/ui";
 import { BackupControls } from "@/features/backup/ui";
 import { ChartsOverview } from "@/features/charts/ui";
 import { MarketDataControls } from "@/features/market-data/ui";
 import {
   ConfirmDeleteButton,
+  type FileStatusTone,
   type ConfirmDeleteOutcome,
 } from "@/ui";
 
 const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
+const FILE_SAVED_FEEDBACK_MS = 4_000;
 
 type ClearConfirmationMode = "normal" | "recovery";
 
 function shortLedgerId(id: string): string {
   return id.length <= 12 ? id : `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+
+function getWorkspaceFileStatus({
+  hydrationStatus,
+  persistenceStatus,
+  hasError,
+  isDirty,
+  isReadOnly,
+  repositorySwitchBlocked,
+}: Readonly<{
+  hydrationStatus: "loading" | "ready" | "error";
+  persistenceStatus: "idle" | "saving" | "saved" | "error";
+  hasError: boolean;
+  isDirty: boolean;
+  isReadOnly: boolean;
+  repositorySwitchBlocked: boolean;
+}>): { label: string; tone: FileStatusTone } {
+  if (repositorySwitchBlocked) {
+    return { label: "切换已阻止", tone: "error" };
+  }
+  if (hydrationStatus === "loading") {
+    return { label: "正在读取账本", tone: "idle" };
+  }
+  if (hydrationStatus === "error" || hasError) {
+    return { label: "文件需要处理", tone: "error" };
+  }
+  if (isReadOnly) {
+    return { label: "只读账本", tone: "read-only" };
+  }
+  if (persistenceStatus === "saving") {
+    return { label: "正在保存到加密文件", tone: "saving" };
+  }
+  if (persistenceStatus === "saved") {
+    return { label: "已保存到加密文件", tone: "saved" };
+  }
+  if (isDirty) {
+    return { label: "有修改等待保存", tone: "warning" };
+  }
+  return { label: "加密文件已连接", tone: "idle" };
 }
 
 function Section({
@@ -105,118 +150,6 @@ function SummaryMetricCard({
         </ul>
       ) : null}
     </article>
-  );
-}
-
-export function TradeTable({
-  trades,
-  onDelete,
-  deleteDisabled = false,
-  todayKey,
-}: Readonly<{
-  trades: readonly Trade[];
-  onDelete?: (
-    tradeId: string,
-  ) => ConfirmDeleteOutcome | Promise<ConfirmDeleteOutcome>;
-  deleteDisabled?: boolean;
-  todayKey?: string;
-}>) {
-  const columnCount = onDelete ? 10 : 9;
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[960px] text-left text-sm">
-        <thead className="border-b border-slate-200 text-slate-500">
-          <tr>
-            <th className="py-2 font-medium">日期</th>
-            <th className="py-2 font-medium">类型</th>
-            <th className="py-2 font-medium">资产</th>
-            <th className="py-2 font-medium">数量</th>
-            <th className="py-2 font-medium">均价</th>
-            <th className="py-2 font-medium">成交金额（不含手续费）</th>
-            <th className="py-2 font-medium">实际手续费</th>
-            <th className="py-2 font-medium">平台 / 手续费来源</th>
-            <th className="py-2 font-medium">现金影响</th>
-            {onDelete ? <th className="py-2 font-medium">操作</th> : null}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {trades.length === 0 ? (
-            <tr>
-              <td
-                className="py-8 text-center text-slate-500"
-                colSpan={columnCount}
-              >
-                暂无交易。添加交易后，这里会自动显示。
-              </td>
-            </tr>
-          ) : (
-            trades.map((trade) => {
-              const cashImpact = calculateTradeCashImpact(trade);
-              return (
-              <tr key={trade.id}>
-                <td className="py-3 text-slate-600">
-                  {trade.occurredAt}
-                  {todayKey &&
-                  isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
-                    <span className="ml-2 font-medium text-red-700">
-                      无效未来事实
-                    </span>
-                  ) : null}
-                </td>
-                <td className="py-3 text-slate-600">
-                  {trade.type === "buy" ? "买入" : "卖出"}
-                </td>
-                <td className="py-3 font-medium">{trade.assetSymbol}</td>
-                <td className="py-3 text-slate-600">{trade.quantity}</td>
-                <td className="py-3 text-slate-600">{trade.price}</td>
-                <td className="py-3 text-slate-600">
-                  {trade.totalValue} {trade.currency}
-                </td>
-                <td className="py-3 text-slate-600">
-                  {trade.fee} {trade.feeCurrency}
-                </td>
-                <td className="py-3 text-slate-600">
-                  {trade.platform ?? "未填写"}
-                  <span className="block text-xs text-slate-500">
-                    {trade.feeRuleId ? `FeeRule ${trade.feeRuleId}` : "手填"}
-                  </span>
-                </td>
-                <td className="py-3 text-slate-600">
-                  {cashImpact.ok ? (
-                    <>
-                      {cashImpact.amount} {cashImpact.currency}
-                      <span className="block text-xs text-slate-500">
-                        {cashImpact.kind === "buy-outflow"
-                          ? "买入总支出"
-                          : "卖出净到账"}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-amber-800">
-                      不可可靠计算：{cashImpact.feeCurrency} 手续费未换算
-                    </span>
-                  )}
-                </td>
-                {onDelete ? (
-                  <td className="py-3">
-                    <ConfirmDeleteButton
-                      ariaLabel={`删除 ${
-                        trade.type === "buy" ? "买入" : "卖出"
-                      } ${trade.assetSymbol} ${trade.occurredAt}`}
-                      disabled={deleteDisabled}
-                      label="删除"
-                      onConfirm={() => onDelete(trade.id)}
-                    />
-                  </td>
-                ) : null}
-              </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
@@ -286,9 +219,17 @@ export function DashboardShell({
     capabilities,
     session,
   );
-  const [valuationPriceMode, setValuationPriceMode] =
-    useState<ValuationPriceMode>("auto");
-  const [chartRange, setChartRange] = useState<ChartRange>("30d");
+  const workspace = useLedgerWorkspaceSession({
+    ledgerEpoch,
+    defaultAssetSymbol: ledgerData.assets[0]?.symbol ?? "",
+    todayKey,
+  });
+  const {
+    valuationPriceMode,
+    setValuationPriceMode,
+    chartRange,
+    setChartRange,
+  } = workspace;
   const [selectedTradeDate, setSelectedTradeDate] = useState<string | null>(
     null,
   );
@@ -301,6 +242,7 @@ export function DashboardShell({
   const [clearSuccessMessage, setClearSuccessMessage] = useState("");
   const [showLockConfirmation, setShowLockConfirmation] =
     useState(false);
+  const [showSavedFeedback, setShowSavedFeedback] = useState(false);
   const mountedRef = useRef(true);
   const currentRepositoryRef = useRef(repository);
   currentRepositoryRef.current = repository;
@@ -312,6 +254,36 @@ export function DashboardShell({
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (persistenceStatus !== "saved") {
+      setShowSavedFeedback(false);
+      return;
+    }
+
+    setShowSavedFeedback(true);
+    const timeout = setTimeout(
+      () => setShowSavedFeedback(false),
+      FILE_SAVED_FEEDBACK_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [persistedVersion, persistenceStatus]);
+
+  useEffect(() => {
+    if (
+      showLockConfirmation &&
+      persistenceStatus === "saved" &&
+      !isDirty &&
+      !workspace.hasDrafts
+    ) {
+      setShowLockConfirmation(false);
+    }
+  }, [
+    isDirty,
+    persistenceStatus,
+    showLockConfirmation,
+    workspace.hasDrafts,
+  ]);
 
   useLayoutEffect(() => {
     if (session) {
@@ -502,19 +474,48 @@ export function DashboardShell({
     setClearConfirmationValue("");
     setClearSuccessMessage(
       storageKind === "ledger-file"
-        ? "当前 C 账本内容已清空"
+        ? "当前账本文件内容已清空"
         : "账本已清空",
     );
+  }
+
+  async function handleSettingsClear(
+    mode: "normal" | "recovery",
+  ): Promise<boolean> {
+    if (
+      (mode === "normal" && hydrationStatus !== "ready") ||
+      (mode === "recovery" && hydrationStatus !== "error")
+    ) {
+      return false;
+    }
+    const operationRepository = repository;
+    const result = await clearLedger(clearConfirmationText);
+    if (
+      !mountedRef.current ||
+      currentRepositoryRef.current !== operationRepository ||
+      !result.ok
+    ) {
+      return false;
+    }
+    setTradeRemovalError("");
+    setSelectedTradeDate(null);
+    return true;
   }
 
   function requestImmediateLock() {
     if (!session || !onFinalLock || lifecycleStatus !== "active") {
       return;
     }
-    if (isDirty) {
+    if (
+      isDirty ||
+      workspace.hasDrafts ||
+      persistenceStatus === "saving" ||
+      persistenceStatus === "error"
+    ) {
       setShowLockConfirmation(true);
       return;
     }
+    workspace.resetSessionUi();
     void onFinalLock(
       drainForSessionQuiesce,
       "immediate-lock",
@@ -526,6 +527,7 @@ export function DashboardShell({
       return;
     }
     setShowLockConfirmation(false);
+    workspace.resetSessionUi();
     void onFinalLock(
       drainForSessionQuiesce,
       "immediate-lock",
@@ -533,11 +535,17 @@ export function DashboardShell({
   }
 
   async function retrySaveBeforeLock() {
-    const saved = await retryPersistence();
-    if (saved && mountedRef.current) {
-      setShowLockConfirmation(false);
-    }
+    await retryPersistence();
   }
+
+  const fileStatus = getWorkspaceFileStatus({
+    hydrationStatus,
+    persistenceStatus,
+    hasError: persistenceError !== null,
+    isDirty,
+    isReadOnly,
+    repositorySwitchBlocked,
+  });
 
   if (lifecycleStatus === "quiescing") {
     return (
@@ -550,37 +558,30 @@ export function DashboardShell({
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <div className="mx-auto min-h-screen w-full max-w-7xl px-5 py-6 sm:px-8 lg:px-10">
-        <header className="mb-6 border-b border-slate-200 pb-6">
-          <p className="text-sm font-medium text-slate-500">
-            本地优先交易账本
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-            Local-First Trading Ledger
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            本地记录交易和真实价格事实，持仓、盈亏与图表由同一份账本实时推导。
-          </p>
-          {session?.storageKind === "ledger-file" && onFinalLock ? (
-            <button
-              className="mt-4 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
-              onClick={requestImmediateLock}
-              type="button"
-            >
-              立即锁定
-            </button>
-          ) : null}
-        </header>
-
-          {showLockConfirmation ? (
+    <LedgerWorkspaceFrame
+      currentPage={workspace.currentPage}
+      fileStatusLabel={fileStatus.label}
+      fileStatusTone={fileStatus.tone}
+      onLock={
+        session?.storageKind === "ledger-file" && onFinalLock
+          ? requestImmediateLock
+          : undefined
+      }
+      onNavigate={(page) => {
+        setSelectedTradeDate(null);
+        workspace.navigateToPage(page);
+      }}
+    >
+      {showLockConfirmation ? (
             <section
               aria-label="未保存修改锁定确认"
               className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900"
             >
               <p className="font-medium">还有内容没保存</p>
               <p className="mt-1 leading-6">
-                你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。
+                {workspace.hasDrafts
+                  ? "还有未提交的表单草稿。锁定会丢弃草稿；已经进入底层写入的操作仍会安全收尾，不会被强行打断。"
+                  : "你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。"}
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <button
@@ -664,10 +665,10 @@ export function DashboardShell({
               >
                 正在保存到本地
               </p>
-            ) : persistenceStatus === "saved" ? (
+            ) : persistenceStatus === "saved" && showSavedFeedback ? (
               <p
                 aria-live="polite"
-                className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
               >
                 已保存到本地
               </p>
@@ -780,12 +781,15 @@ export function DashboardShell({
             </div>
           ) : null}
 
+          {session === undefined ? (
           <div className="grid gap-5">
+            {session === undefined ? (
+            <>
             <Section title="图表总览与 Binance 行情">
               <MarketDataControls
                 applyLedgerMutation={applyLedgerMutation}
                 clock={clock}
-                isWritable={isWritable}
+                isWritable={session === undefined && isWritable}
                 ledgerData={ledgerData}
                 ledgerEpoch={ledgerEpoch}
                 mode={valuationPriceMode}
@@ -932,18 +936,24 @@ export function DashboardShell({
 
               <Section title="价格输入">
                 <fieldset
-                  className={isWritable ? "" : "opacity-60"}
-                  disabled={!isWritable}
+                  className={
+                    session === undefined && isWritable ? "" : "opacity-60"
+                  }
+                  disabled={session !== undefined || !isWritable}
                 >
                   <PriceForm
                     clock={clock}
                     ledgerData={ledgerData}
+                    ledgerEpoch={ledgerEpoch}
+                    mutationVersion={mutationVersion}
                     onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
                       applyLedgerAction({
                         type: "priceSnapshot/add",
                         priceSnapshot,
                       }, timeSnapshot)
                     }
+                    persistedVersion={persistedVersion}
+                    persistenceStatus={persistenceStatus}
                   />
                 </fieldset>
               </Section>
@@ -951,8 +961,10 @@ export function DashboardShell({
 
             <Section title="新增交易">
               <fieldset
-                className={isWritable ? "" : "opacity-60"}
-                disabled={!isWritable}
+                className={
+                  session === undefined && isWritable ? "" : "opacity-60"
+                }
+                disabled={session !== undefined || !isWritable}
               >
                 <TradeForm
                   clock={clock}
@@ -974,7 +986,7 @@ export function DashboardShell({
             <Section title="手续费规则">
               <FeeRuleManager
                 clock={clock}
-                isWritable={isWritable}
+                isWritable={session === undefined && isWritable}
                 ledgerData={ledgerData}
                 ledgerEpoch={ledgerEpoch}
                 mutationVersion={mutationVersion}
@@ -1000,7 +1012,7 @@ export function DashboardShell({
                 </p>
               ) : null}
               <TradeTable
-                deleteDisabled={!isWritable}
+                deleteDisabled={session !== undefined || !isWritable}
                 onDelete={
                   hydrationStatus === "ready" ? handleDeleteTrade : undefined
                 }
@@ -1008,6 +1020,9 @@ export function DashboardShell({
                 todayKey={todayKey}
               />
             </Section>
+
+            </>
+            ) : null}
 
             <Section title="数据管理">
               <div className="grid gap-4 text-sm text-slate-700">
@@ -1051,7 +1066,7 @@ export function DashboardShell({
                     type="button"
                   >
                     {storageKind === "ledger-file"
-                      ? "清空当前 C 账本"
+                      ? "清空当前账本文件"
                       : "清空本地账本"}
                   </button>
                 ) : null}
@@ -1073,7 +1088,7 @@ export function DashboardShell({
                     <p className="font-medium text-red-900">
                       {clearConfirmationMode === "normal"
                         ? storageKind === "ledger-file"
-                          ? "这只会清空当前 C 的账本内容，不删除 .lftl 文件，也不影响其他 C。文件仍会保留清空前的上一可用版，之后若当前代损坏，恢复可能回到清空前数据。"
+                          ? "这只会清空当前账本内容，不删除 .lftl 文件，也不影响其他账本文件。文件仍会保留清空前的上一可用版，之后若当前代损坏，恢复可能回到清空前数据。"
                           : "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。"
                         : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。"}
                     </p>
@@ -1108,7 +1123,7 @@ export function DashboardShell({
                         type="button"
                       >
                         {storageKind === "ledger-file"
-                          ? "确认清空当前 C 内容"
+                          ? "确认清空当前账本内容"
                           : "确认永久清空"}
                       </button>
                       <button
@@ -1134,7 +1149,173 @@ export function DashboardShell({
               </div>
             </Section>
           </div>
-      </div>
-    </main>
+          ) : null}
+      <HomeWorkspace
+        active={session !== undefined && workspace.currentPage === "home"}
+        allocation={allocation}
+        heatmap={heatmap}
+        history={history}
+        ledgerData={ledgerData}
+        onNavigateToPrice={() =>
+          workspace.navigate({ page: "record", focus: "price" })
+        }
+        onNavigateToTrade={() =>
+          workspace.navigate({ page: "record", focus: "trade" })
+        }
+        onNavigateToTransactions={(intent) => {
+          if (intent?.clearFilters) {
+            workspace.navigate({
+              page: "transactions",
+              clearFilters: true,
+            });
+          } else {
+            workspace.navigate({
+              page: "transactions",
+              ...(intent?.filterDate
+                ? { filterDate: intent.filterDate }
+                : {}),
+              ...(intent?.expandTradeId
+                ? { expandTradeId: intent.expandTradeId }
+                : {}),
+            });
+          }
+        }}
+        onRangeChange={setChartRange}
+        onValuationPriceModeChange={setValuationPriceMode}
+        pnlSummary={pnlSummary}
+        positions={positions}
+        range={chartRange}
+        valuationPriceMode={valuationPriceMode}
+      />
+      {session ? (
+      <RecordWorkspace
+        active={workspace.currentPage === "record"}
+        clock={clock}
+        focusIntent={
+          workspace.intent?.page === "record" ? workspace.intent.focus : null
+        }
+        isWritable={isWritable}
+        ledgerData={ledgerData}
+        ledgerEpoch={ledgerEpoch}
+        marketDataPanel={
+            <MarketDataControls
+              applyLedgerMutation={applyLedgerMutation}
+              clock={clock}
+              isWritable={isWritable}
+              ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mode={valuationPriceMode}
+              onModeChange={setValuationPriceMode}
+              showMappings={false}
+              todayKey={todayKey}
+            />
+        }
+        mutationVersion={mutationVersion}
+        onIntentConsumed={workspace.consumeIntent}
+        onPriceDraftChange={workspace.setPriceDraft}
+        onPriceReset={workspace.resetPriceDraft}
+        onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
+          applyLedgerAction(
+            { type: "priceSnapshot/add", priceSnapshot },
+            timeSnapshot,
+          )
+        }
+        onTradeCreated={(trade, timeSnapshot) =>
+          applyLedgerAction({ type: "trade/add", trade }, timeSnapshot)
+        }
+        onTradeDraftChange={workspace.setTradeDraft}
+        onTradeReset={workspace.resetTradeDraft}
+        persistedVersion={persistedVersion}
+        persistenceStatus={persistenceStatus}
+        priceDraft={workspace.priceDraft}
+        tradeDraft={workspace.tradeDraft}
+      />
+      ) : null}
+      {session ? (
+        <TransactionsWorkspace
+          active={workspace.currentPage === "transactions"}
+          intent={
+            workspace.intent?.page === "transactions"
+              ? workspace.intent
+              : null
+          }
+          isWritable={isWritable}
+          ledgerData={ledgerData}
+          ledgerEpoch={ledgerEpoch}
+          mutationVersion={mutationVersion}
+          onDeleteTrade={(tradeId) =>
+            applyLedgerAction({ type: "trade/delete", tradeId })
+          }
+          onIntentConsumed={workspace.consumeIntent}
+          persistedVersion={persistedVersion}
+          persistenceStatus={persistenceStatus}
+          todayKey={todayKey}
+        />
+      ) : null}
+      {session ? (
+        <TransferWorkspace
+          active={workspace.currentPage === "transfer"}
+          backupPanel={
+            <BackupControls
+              canImportBackup={capabilities.canImportBackup}
+              clock={clock}
+              hydrationStatus={hydrationStatus}
+              isDirty={isDirty}
+              isReadOnly={isReadOnly}
+              ledgerData={ledgerData}
+              onImport={replaceLedgerFromBackup}
+              persistenceOperation={persistenceOperation}
+              persistenceStatus={persistenceStatus}
+              presentation="transfer"
+              requiresHistoricalRawText={storageKind === "ledger-file"}
+              showPlaintextWarning={false}
+            />
+          }
+          storageKind={storageKind}
+        />
+      ) : null}
+      {session ? (
+        <SettingsWorkspace
+          active={workspace.currentPage === "settings"}
+          canClearHydrationError={capabilities.canClearHydrationError}
+          canClearReadyLedger={capabilities.canClearReadyLedger}
+          feePanel={
+            <FeeRuleManager
+              clock={clock}
+              isWritable={isWritable}
+              ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mutationVersion={mutationVersion}
+              onAction={applyLedgerAction}
+              persistedVersion={persistedVersion}
+              persistenceStatus={persistenceStatus}
+              presentation="settings"
+            />
+          }
+          hydrationStatus={hydrationStatus}
+          isReadOnly={isReadOnly}
+          ledgerEpoch={ledgerEpoch}
+          marketPanel={
+            <MarketDataControls
+              applyLedgerMutation={applyLedgerMutation}
+              clock={clock}
+              compactMappings
+              expandMappings
+              isWritable={isWritable}
+              ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mode={valuationPriceMode}
+              onModeChange={setValuationPriceMode}
+              showRefresh={false}
+              todayKey={todayKey}
+            />
+          }
+          onClear={handleSettingsClear}
+          persistenceOperation={persistenceOperation}
+          repositorySwitchBlocked={repositorySwitchBlocked}
+          storageKind={storageKind}
+        />
+      ) : null}
+    </LedgerWorkspaceFrame>
   );
 }
