@@ -73,4 +73,28 @@ describe("useLedgerWorkspaceSession", () => {
     expect(result.current.hasDrafts).toBe(false);
     expect(result.current.autoRefreshAttempted).toBe(true);
   });
+
+  it("keeps one-time date location distinct from persistent date filtering", () => {
+    const { result } = renderHook(() =>
+      useLedgerWorkspaceSession({
+        ledgerEpoch: 1,
+        defaultAssetSymbol: "BTC",
+        todayKey: "2026-08-13",
+      }),
+    );
+
+    act(() => {
+      result.current.navigate({
+        page: "transactions",
+        locateDate: "2026-08-10",
+      });
+    });
+    expect(result.current.intent).toEqual({
+      page: "transactions",
+      locateDate: "2026-08-10",
+    });
+
+    act(() => result.current.consumeIntent());
+    expect(result.current.intent).toBeNull();
+  });
 });

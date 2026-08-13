@@ -54,7 +54,7 @@ describe("home TradeHeatmapChart", () => {
       render(
         <TradeHeatmapChart
           heatmap={createHeatmap(todayKey)}
-          onSelectedTradeDateChange={vi.fn()}
+          onLocateDate={vi.fn()}
           onViewAll={vi.fn()}
           variant="home"
         />,
@@ -76,12 +76,12 @@ describe("home TradeHeatmapChart", () => {
   it("shows grouped activity on hover, shows empty days only on click, and preserves both navigation actions", () => {
     const activityDate = "2026-08-13";
     const emptyDate = "2026-08-12";
-    const onSelectedTradeDateChange = vi.fn();
+    const onLocateDate = vi.fn();
     const onViewAll = vi.fn();
     render(
       <TradeHeatmapChart
         heatmap={addActivity(createHeatmap(activityDate), activityDate)}
-        onSelectedTradeDateChange={onSelectedTradeDateChange}
+        onLocateDate={onLocateDate}
         onViewAll={onViewAll}
         variant="home"
       />,
@@ -111,7 +111,7 @@ describe("home TradeHeatmapChart", () => {
     fireEvent.click(emptyCell);
     expect(screen.getByRole("tooltip").textContent).toContain(emptyDate);
     expect(screen.getByRole("tooltip").textContent).toContain("当天无交易");
-    expect(onSelectedTradeDateChange).not.toHaveBeenCalled();
+    expect(onLocateDate).not.toHaveBeenCalled();
 
     fireEvent.pointerDown(screen.getByRole("heading", {
       name: "最近 365 天交易活动",
@@ -119,7 +119,7 @@ describe("home TradeHeatmapChart", () => {
     expect(screen.queryByRole("tooltip")).toBeNull();
 
     fireEvent.click(activityCell);
-    expect(onSelectedTradeDateChange).toHaveBeenCalledWith(activityDate);
+    expect(onLocateDate).toHaveBeenCalledWith(activityDate);
     expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "查看全部交易" }));
     expect(onViewAll).toHaveBeenCalledOnce();

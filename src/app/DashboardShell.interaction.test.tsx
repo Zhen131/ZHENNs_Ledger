@@ -132,6 +132,7 @@ vi.mock("echarts/core", () => ({
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 type Deferred<T> = {
@@ -379,6 +380,112 @@ describe("DashboardShell persistent workspace navigation", () => {
     expect(
       (screen.getByLabelText("当前价格") as HTMLInputElement).value,
     ).toBe("75000");
+  });
+
+  it("locates a home activity date in the complete transaction list without creating a filter", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      createSimpleTrade(
+        "home-locate-buy",
+        "buy",
+        "BTC",
+        "1",
+        "2026-07-14",
+      ),
+      createSimpleTrade(
+        "home-locate-sell",
+        "sell",
+        "BTC",
+        "0.5",
+        "2026-07-14",
+      ),
+      createSimpleTrade(
+        "home-locate-other",
+        "buy",
+        "ETH",
+        "1",
+        "2026-07-15",
+      ),
+    ];
+    const repository = createMemoryRepository(ledgerData);
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "dashboard-home-locate",
+    });
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollIntoView",
+    );
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        media: "(prefers-reduced-motion: reduce)",
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+
+    try {
+      render(<DashboardShell session={session} />);
+      await waitFor(() => {
+        expect(
+          screen.queryByText(
+            "正在读取本地账本，完成前不会写入任何数据。",
+          ),
+        ).toBeNull();
+      });
+      const user = userEvent.setup();
+
+      await user.click(
+        screen.getByRole("gridcell", {
+          name: "2026-07-14，共 2 笔，买入 1 笔，卖出 1 笔",
+        }),
+      );
+
+      expect(
+        screen.getByRole("heading", { level: 1, name: "交易" }),
+      ).toBeTruthy();
+      expect(screen.getByText("当前显示 3 笔")).toBeTruthy();
+      expect(
+        (screen.getByLabelText("准确日期") as HTMLInputElement).value,
+      ).toBe("");
+      expect(
+        document.querySelectorAll(
+          '[data-trade-date="2026-07-14"][data-locate-highlight="static"]',
+        ),
+      ).toHaveLength(2);
+      expect(
+        document.querySelector('[data-trade-id="home-locate-other"]'),
+      ).not.toBeNull();
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        behavior: "auto",
+        block: "center",
+      });
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "scrollIntoView",
+          originalScrollIntoView,
+        );
+      } else {
+        delete (HTMLElement.prototype as { scrollIntoView?: unknown })
+          .scrollIntoView;
+      }
+      vi.unstubAllGlobals();
+    }
   });
 });
 

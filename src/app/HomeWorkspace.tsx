@@ -48,11 +48,9 @@ export function HomeWorkspace({
   onValuationPriceModeChange: (mode: ValuationPriceMode) => void;
   onNavigateToTrade: () => void;
   onNavigateToPrice: () => void;
-  onNavigateToTransactions: (intent?: {
-    filterDate?: string;
-    expandTradeId?: string;
-    clearFilters?: true;
-  }) => void;
+  onNavigateToTransactions: (
+    intent: { locateDate: string } | { clearFilters: true },
+  ) => void;
 }>) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const holdingsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -221,8 +219,8 @@ export function HomeWorkspace({
         </SurfaceCard>
         <TradeHeatmapChart
           heatmap={heatmap}
-          onSelectedTradeDateChange={(date) => {
-            onNavigateToTransactions({ filterDate: date });
+          onLocateDate={(date) => {
+            onNavigateToTransactions({ locateDate: date });
           }}
           onViewAll={() =>
             onNavigateToTransactions({ clearFilters: true })

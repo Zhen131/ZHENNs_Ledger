@@ -110,7 +110,10 @@ export function LedgerWorkspaceFrame({
               tone={fileStatusTone}
             />
           </header>
-          <div className="min-w-0 flex-1 px-3 py-4 sm:px-5 sm:py-5 min-[1100px]:min-h-0 min-[1100px]:overflow-y-auto min-[1100px]:px-7">
+          <div
+            className="min-w-0 flex-1 px-3 py-4 sm:px-5 sm:py-5 min-[1100px]:min-h-0 min-[1100px]:overflow-y-auto min-[1100px]:px-7"
+            data-ledger-scroll-container
+          >
             {children}
           </div>
         </section>

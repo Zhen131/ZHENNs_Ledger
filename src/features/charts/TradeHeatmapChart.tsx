@@ -24,7 +24,7 @@ type OverviewTradeHeatmapProps = Readonly<{
 
 type HomeTradeHeatmapProps = Readonly<{
   heatmap: readonly TradeHeatmapDay[];
-  onSelectedTradeDateChange: (date: string) => void;
+  onLocateDate: (date: string) => void;
   onViewAll: () => void;
   variant: "home";
 }>;
@@ -115,7 +115,7 @@ function OverviewTradeHeatmap({
 
 function HomeTradeHeatmap({
   heatmap,
-  onSelectedTradeDateChange,
+  onLocateDate,
   onViewAll,
 }: HomeTradeHeatmapProps) {
   const cardRef = useRef<HTMLElement | null>(null);
@@ -223,7 +223,7 @@ function HomeTradeHeatmap({
                     return;
                   }
                   setTooltip(null);
-                  onSelectedTradeDateChange(day.date);
+                  onLocateDate(day.date);
                 }}
                 onFocus={() => {
                   if (day.total > 0) {

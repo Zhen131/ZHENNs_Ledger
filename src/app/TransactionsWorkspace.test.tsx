@@ -8,6 +8,11 @@ import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade } from "@/test-support";
 import { TransactionsWorkspace } from "./TransactionsWorkspace";
 
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "scrollIntoView",
+);
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-25T12:00:00Z"));
@@ -16,6 +21,17 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  if (originalScrollIntoView) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "scrollIntoView",
+      originalScrollIntoView,
+    );
+  } else {
+    delete (HTMLElement.prototype as { scrollIntoView?: unknown })
+      .scrollIntoView;
+  }
 });
 
 function createLedger(): LedgerData {
@@ -37,6 +53,18 @@ function renderWorkspace({
   persistedVersion = 0,
   persistenceStatus = "saved" as const,
   onDeleteTrade = vi.fn(() => "applied" as const),
+}: {
+  active?: boolean;
+  ledgerData?: LedgerData;
+  intent?: Parameters<typeof TransactionsWorkspace>[0]["intent"];
+  mutationVersion?: number;
+  persistedVersion?: number;
+  persistenceStatus?: Parameters<
+    typeof TransactionsWorkspace
+  >[0]["persistenceStatus"];
+  onDeleteTrade?: Parameters<
+    typeof TransactionsWorkspace
+  >[0]["onDeleteTrade"];
 } = {}) {
   return render(
     <TransactionsWorkspace
@@ -152,6 +180,107 @@ describe("TransactionsWorkspace filters and intent", () => {
     );
     expect(screen.getByText(/日期：全部/)).not.toBeNull();
     expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(5);
+  });
+
+  it("clears every filter, keeps the full list, and highlights every row on a located date", () => {
+    const ledgerData = createLedger();
+    const onIntentConsumed = vi.fn();
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: false,
+        media: "(prefers-reduced-motion: reduce)",
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+    const view = render(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={0}
+        onDeleteTrade={vi.fn(() => "applied" as const)}
+        onIntentConsumed={onIntentConsumed}
+        persistedVersion={0}
+        persistenceStatus="saved"
+        todayKey="2026-07-25"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("时间范围"), {
+      target: { value: "7d" },
+    });
+    fireEvent.change(screen.getByLabelText("资产筛选"), {
+      target: { value: "ETH" },
+    });
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(2);
+
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={{ page: "transactions", locateDate: "2026-07-25" }}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={0}
+        onDeleteTrade={vi.fn(() => "applied" as const)}
+        onIntentConsumed={onIntentConsumed}
+        persistedVersion={0}
+        persistenceStatus="saved"
+        todayKey="2026-07-25"
+      />,
+    );
+
+    expect(screen.getByText(/时间：全部｜日期：全部｜资产：全部｜类型：全部/)).not.toBeNull();
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(5);
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    act(() => document.dispatchEvent(new Event("scrollend")));
+    const locatedRows = document.querySelectorAll(
+      '[data-locate-highlight="flashing"]',
+    );
+    expect(locatedRows).toHaveLength(2);
+    expect(
+      Array.from(locatedRows).every(
+        (row) => row.getAttribute("data-trade-date") === "2026-07-25",
+      ),
+    ).toBe(true);
+
+    act(() => vi.advanceTimersByTime(800));
+    expect(document.querySelector("[data-locate-highlight]")).toBeNull();
+    expect(onIntentConsumed).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the full list and reports a visible message when a located date disappears", () => {
+    const ledgerData = createLedger();
+    renderWorkspace({
+      ledgerData,
+      intent: {
+        page: "transactions",
+        locateDate: "2026-07-21",
+      },
+    });
+
+    expect(
+      screen.getByText("该日期的交易已发生变化，已显示完整交易列表"),
+    ).not.toBeNull();
+    expect(within(screen.getByRole("table")).getAllByRole("row")).toHaveLength(5);
+    expect(screen.getByText(/日期：全部/)).not.toBeNull();
   });
 });
 

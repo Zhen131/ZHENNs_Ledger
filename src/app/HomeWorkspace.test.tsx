@@ -20,17 +20,17 @@ vi.mock("@/features/charts/ui", () => ({
   HoldingAllocationChart: () => <div>allocation-chart</div>,
   HoldingTrendChart: () => <div>trend-chart</div>,
   TradeHeatmapChart: ({
-    onSelectedTradeDateChange,
+    onLocateDate,
     onViewAll,
     variant,
   }: {
-    onSelectedTradeDateChange: (date: string) => void;
+    onLocateDate: (date: string) => void;
     onViewAll: () => void;
     variant: string;
   }) => (
     <div data-testid="heatmap-chart" data-variant={variant}>
       <button
-        onClick={() => onSelectedTradeDateChange("2026-08-10")}
+        onClick={() => onLocateDate("2026-08-10")}
         type="button"
       >
         heatmap-chart
@@ -149,7 +149,7 @@ describe("HomeWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: "heatmap-chart" }));
     expect(onNavigateToTransactions).toHaveBeenCalledWith({
-      filterDate: "2026-08-10",
+      locateDate: "2026-08-10",
     });
     await user.click(screen.getByRole("button", { name: "view-all-trades" }));
     expect(onNavigateToTransactions).toHaveBeenCalledWith({
