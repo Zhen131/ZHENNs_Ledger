@@ -16,9 +16,11 @@ export type LedgerWorkspaceIntent =
   | { page: "record"; focus: "trade" | "price" }
   | {
       page: "transactions";
-      filterDate?: string;
+      filterDate: string;
       expandTradeId?: string;
     }
+  | { page: "transactions"; locateDate: string }
+  | { page: "transactions"; expandTradeId: string }
   | { page: "transactions"; clearFilters: true }
   | { page: "home" | "transfer" | "settings" };
 

@@ -37,6 +37,11 @@ type PendingDelete =
       expectedMutationVersion: number;
     };
 
+type TradeLocationRequest = Readonly<{
+  date: string;
+  requestId: number;
+}>;
+
 const DELETE_DELAY_MS = 5_000;
 const SUCCESS_FEEDBACK_MS = 4_000;
 
@@ -76,12 +81,16 @@ export function TransactionsWorkspace({
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [locationRequest, setLocationRequest] =
+    useState<TradeLocationRequest | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingDeleteRef = useRef<PendingDelete | null>(null);
   const latestLedgerDataRef = useRef(ledgerData);
   const mutationVersionRef = useRef(mutationVersion);
   const onDeleteTradeRef = useRef(onDeleteTrade);
+  const locationRequestRef = useRef<TradeLocationRequest | null>(null);
+  const locationSequenceRef = useRef(0);
   latestLedgerDataRef.current = ledgerData;
   mutationVersionRef.current = mutationVersion;
   onDeleteTradeRef.current = onDeleteTrade;
@@ -107,13 +116,19 @@ export function TransactionsWorkspace({
     setTypeFilter("all");
   }, []);
 
+  const clearLocationRequest = useCallback(() => {
+    locationRequestRef.current = null;
+    setLocationRequest(null);
+  }, []);
+
   const resetPageState = useCallback(() => {
     resetFilters();
     setExpandedTradeId(null);
     setArmedTradeId(null);
     clearPendingDelete();
+    clearLocationRequest();
     setFeedback("");
-  }, [clearPendingDelete, resetFilters]);
+  }, [clearLocationRequest, clearPendingDelete, resetFilters]);
 
   const formatRemovalError = useCallback(
     (result: ReturnType<typeof validateTradeRemoval>) => {
@@ -192,6 +207,7 @@ export function TransactionsWorkspace({
     setExpandedTradeId(null);
     setArmedTradeId(null);
     clearPendingDelete();
+    clearLocationRequest();
     setFeedback("");
 
     if ("filterDate" in intent && intent.filterDate) {
@@ -200,14 +216,38 @@ export function TransactionsWorkspace({
     if ("expandTradeId" in intent && intent.expandTradeId) {
       setExpandedTradeId(intent.expandTradeId);
     }
+    if ("locateDate" in intent && intent.locateDate) {
+      const request = {
+        date: intent.locateDate,
+        requestId: locationSequenceRef.current + 1,
+      };
+      locationSequenceRef.current = request.requestId;
+      locationRequestRef.current = request;
+      setLocationRequest(request);
+    }
     onIntentConsumed();
   }, [
     active,
+    clearLocationRequest,
     clearPendingDelete,
     intent,
     onIntentConsumed,
     resetFilters,
   ]);
+
+  const handleLocateComplete = useCallback(
+    (requestId: number, result: "found" | "missing") => {
+      if (locationRequestRef.current?.requestId !== requestId) {
+        return;
+      }
+      locationRequestRef.current = null;
+      setLocationRequest(null);
+      if (result === "missing") {
+        setFeedback("该日期的交易已发生变化，已显示完整交易列表");
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!active) return;
@@ -472,6 +512,8 @@ export function TransactionsWorkspace({
           onCancelDelete={() => setArmedTradeId(null)}
           onConfirmDelete={confirmDelete}
           onExpandedTradeIdChange={setExpandedTradeId}
+          locateRequest={locationRequest}
+          onLocateComplete={handleLocateComplete}
           onUndoDelete={() => {
             clearPendingDelete();
             setFeedback("已撤回，账本没有变化");

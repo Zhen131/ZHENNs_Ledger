@@ -77,6 +77,13 @@ export type TradeHeatmapDay = {
   buys: number;
   sells: number;
   level: 0 | 1 | 2 | 3 | 4;
+  activityGroups: TradeHeatmapActivityGroup[];
+};
+
+export type TradeHeatmapActivityGroup = {
+  assetSymbol: string;
+  type: "buy" | "sell";
+  count: number;
 };
 
 export function buildHoldingAllocation(
@@ -268,7 +275,12 @@ export function buildTradeHeatmap(
   const startDate = addLedgerDays(todayKey, -364);
   const counts = new Map<
     string,
-    { total: number; buys: number; sells: number }
+    {
+      total: number;
+      buys: number;
+      sells: number;
+      activityGroups: Map<string, TradeHeatmapActivityGroup>;
+    }
   >();
   const partition = partitionLedgerFactsForToday(ledgerData, todayKey);
 
@@ -277,12 +289,28 @@ export function buildTradeHeatmap(
     if (date < startDate || date > todayKey) {
       continue;
     }
-    const current = counts.get(date) ?? { total: 0, buys: 0, sells: 0 };
+    const current = counts.get(date) ?? {
+      total: 0,
+      buys: 0,
+      sells: 0,
+      activityGroups: new Map<string, TradeHeatmapActivityGroup>(),
+    };
     current.total += 1;
     if (trade.type === "buy") {
       current.buys += 1;
     } else {
       current.sells += 1;
+    }
+    const activityKey = `${trade.assetSymbol}\u0000${trade.type}`;
+    const activityGroup = current.activityGroups.get(activityKey);
+    if (activityGroup) {
+      activityGroup.count += 1;
+    } else {
+      current.activityGroups.set(activityKey, {
+        assetSymbol: trade.assetSymbol,
+        type: trade.type,
+        count: 1,
+      });
     }
     counts.set(date, current);
   }
@@ -292,13 +320,36 @@ export function buildTradeHeatmap(
     ...Array.from(counts.values()).map((item) => item.total),
   );
   return enumerateLedgerDays(startDate, todayKey).map((date) => {
-    const count = counts.get(date) ?? { total: 0, buys: 0, sells: 0 };
+    const count = counts.get(date);
+    const total = count?.total ?? 0;
     return {
       date,
-      ...count,
-      level: getHeatLevel(count.total, maxCount),
+      total,
+      buys: count?.buys ?? 0,
+      sells: count?.sells ?? 0,
+      level: getHeatLevel(total, maxCount),
+      activityGroups: Array.from(count?.activityGroups.values() ?? []).sort(
+        compareHeatmapActivityGroups,
+      ),
     };
   });
+}
+
+function compareHeatmapActivityGroups(
+  left: TradeHeatmapActivityGroup,
+  right: TradeHeatmapActivityGroup,
+): number {
+  if (left.count !== right.count) {
+    return right.count - left.count;
+  }
+  const assetOrder = left.assetSymbol.localeCompare(right.assetSymbol);
+  if (assetOrder !== 0) {
+    return assetOrder;
+  }
+  if (left.type === right.type) {
+    return 0;
+  }
+  return left.type === "buy" ? -1 : 1;
 }
 
 function createHistoryPoint(

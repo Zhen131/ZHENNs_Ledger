@@ -20,6 +20,14 @@ type TooltipParams = {
   data?: unknown;
 };
 
+export const TRADE_HEATMAP_LEVEL_COLORS = [
+  "#eee9e2",
+  "#f6d9b5",
+  "#eab36f",
+  "#d9822b",
+  "#9c4f1a",
+] as const;
+
 export function toFiniteChartNumber(value: string): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -218,11 +226,11 @@ export function buildTradeHeatmapChartOption(
       left: "center",
       bottom: 0,
       pieces: [
-        { value: 0, label: "无交易", color: "#eee9e2" },
-        { value: 1, label: "低", color: "#f6d9b5" },
-        { value: 2, label: "较低", color: "#eab36f" },
-        { value: 3, label: "较高", color: "#d9822b" },
-        { value: 4, label: "最高", color: "#9c4f1a" },
+        { value: 0, label: "无交易", color: TRADE_HEATMAP_LEVEL_COLORS[0] },
+        { value: 1, label: "低", color: TRADE_HEATMAP_LEVEL_COLORS[1] },
+        { value: 2, label: "较低", color: TRADE_HEATMAP_LEVEL_COLORS[2] },
+        { value: 3, label: "较高", color: TRADE_HEATMAP_LEVEL_COLORS[3] },
+        { value: 4, label: "最高", color: TRADE_HEATMAP_LEVEL_COLORS[4] },
       ],
     },
     calendar: {

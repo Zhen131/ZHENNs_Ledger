@@ -1163,7 +1163,7 @@ export function DashboardShell({
           workspace.navigate({ page: "record", focus: "trade" })
         }
         onNavigateToTransactions={(intent) => {
-          if (intent?.clearFilters) {
+          if ("clearFilters" in intent) {
             workspace.navigate({
               page: "transactions",
               clearFilters: true,
@@ -1171,12 +1171,7 @@ export function DashboardShell({
           } else {
             workspace.navigate({
               page: "transactions",
-              ...(intent?.filterDate
-                ? { filterDate: intent.filterDate }
-                : {}),
-              ...(intent?.expandTradeId
-                ? { expandTradeId: intent.expandTradeId }
-                : {}),
+              locateDate: intent.locateDate,
             });
           }
         }}

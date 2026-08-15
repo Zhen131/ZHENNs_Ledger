@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import type { LedgerData, Position, Trade, ValuationPriceMode } from "@/core/models";
+import type { LedgerData, Position, ValuationPriceMode } from "@/core/models";
 import { isZero } from "@/core/shared";
 import type { LedgerPnlSummary, SummaryMetric } from "@/features/portfolio";
 import type {
@@ -48,11 +48,9 @@ export function HomeWorkspace({
   onValuationPriceModeChange: (mode: ValuationPriceMode) => void;
   onNavigateToTrade: () => void;
   onNavigateToPrice: () => void;
-  onNavigateToTransactions: (intent?: {
-    filterDate?: string;
-    expandTradeId?: string;
-    clearFilters?: true;
-  }) => void;
+  onNavigateToTransactions: (
+    intent: { locateDate: string } | { clearFilters: true },
+  ) => void;
 }>) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const holdingsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -73,7 +71,6 @@ export function HomeWorkspace({
 
   if (!active) return null;
 
-  const latestTrades = getLatestTrades(ledgerData.trades, 4);
   const hasNonZeroHoldings = positions.some(
     (position) => !isZero(position.quantity),
   );
@@ -212,7 +209,7 @@ export function HomeWorkspace({
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-3">
+      <div className="grid min-w-0 items-stretch gap-4 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <SurfaceCard className="min-w-0 p-4">
           <HoldingsOverview
             onShowAll={openDetails}
@@ -221,55 +218,15 @@ export function HomeWorkspace({
           />
         </SurfaceCard>
         <TradeHeatmapChart
-          compact
           heatmap={heatmap}
-          onSelectedTradeDateChange={(date) => {
-            if (date) onNavigateToTransactions({ filterDate: date });
+          onLocateDate={(date) => {
+            onNavigateToTransactions({ locateDate: date });
           }}
-          selectedTradeDate={null}
+          onViewAll={() =>
+            onNavigateToTransactions({ clearFilters: true })
+          }
+          variant="home"
         />
-        <SurfaceCard className="min-w-0 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold">最近交易</h3>
-            <button
-              className="text-sm font-semibold text-[var(--ledger-accent-strong)]"
-              onClick={() => onNavigateToTransactions({ clearFilters: true })}
-              type="button"
-            >
-              查看全部交易
-            </button>
-          </div>
-          {latestTrades.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--ledger-muted)]">
-              暂无交易。
-            </p>
-          ) : (
-            <ul className="mt-3 grid gap-2 text-sm min-[1100px]:mt-2 min-[1100px]:gap-1">
-              {latestTrades.map((trade) => (
-                <li key={trade.id}>
-                  <button
-                    className="flex min-w-0 w-full flex-col items-start justify-between gap-1 rounded-xl px-2 py-2 text-left hover:bg-[var(--ledger-surface-muted)] sm:flex-row sm:items-center sm:gap-3 min-[1100px]:py-1"
-                    onClick={() =>
-                      onNavigateToTransactions({ expandTradeId: trade.id })
-                    }
-                    type="button"
-                  >
-                    <span className="min-w-0 break-words">
-                      <strong>{trade.assetSymbol}</strong>
-                      <span className="ml-2 text-xs text-[var(--ledger-muted)]">
-                        {trade.type === "buy" ? "买入" : "卖出"} ·{" "}
-                        {trade.occurredAt}
-                      </span>
-                    </span>
-                    <span className="ledger-numeric max-w-full break-all">
-                      {trade.totalValue} {trade.currency}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </SurfaceCard>
       </div>
 
       <HoldingsDetails
@@ -311,22 +268,4 @@ function MetricCard({
       ) : null}
     </SurfaceCard>
   );
-}
-
-export function getLatestTrades(
-  trades: readonly Trade[],
-  limit: number,
-): Trade[] {
-  return trades
-    .map((trade, originalIndex) => ({ trade, originalIndex }))
-    .sort((left, right) => {
-      const dateOrder = right.trade.occurredAt.localeCompare(
-        left.trade.occurredAt,
-      );
-      return dateOrder === 0
-        ? left.originalIndex - right.originalIndex
-        : dateOrder;
-    })
-    .slice(0, limit)
-    .map(({ trade }) => trade);
 }
