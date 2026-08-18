@@ -1,6 +1,7 @@
 import type { DecimalString } from "@/core/models";
 
 export type BinanceMarketDataFailureCode =
+  | "BINANCE_INVALID_SYMBOL_INPUT"
   | "BINANCE_ABORTED"
   | "BINANCE_TIMEOUT"
   | "BINANCE_NETWORK_ERROR"

@@ -118,7 +118,6 @@ export function useLedgerWorkspaceSession({
   const [valuationPriceMode, setValuationPriceMode] =
     useState<ValuationPriceMode>("auto");
   const [chartRange, setChartRange] = useState<ChartRange>("30d");
-  const [autoRefreshAttempted, setAutoRefreshAttempted] = useState(false);
 
   const resetSessionUi = useCallback(() => {
     setCurrentPage("home");
@@ -127,7 +126,6 @@ export function useLedgerWorkspaceSession({
     setPriceDraft(createPriceDraft(defaultAssetSymbol, todayKey));
     setValuationPriceMode("auto");
     setChartRange("30d");
-    setAutoRefreshAttempted(false);
   }, [defaultAssetSymbol, todayKey]);
 
   const resetLedgerContentUi = useCallback(() => {
@@ -214,8 +212,6 @@ export function useLedgerWorkspaceSession({
     setValuationPriceMode,
     chartRange,
     setChartRange,
-    autoRefreshAttempted,
-    markAutoRefreshAttempted: () => setAutoRefreshAttempted(true),
     resetSessionUi,
   } as const;
 }

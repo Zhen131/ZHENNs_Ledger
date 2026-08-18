@@ -784,7 +784,11 @@ export function DashboardShell({
                 ledgerData={ledgerData}
                 ledgerEpoch={ledgerEpoch}
                 mode={valuationPriceMode}
+                mutationVersion={mutationVersion}
                 onModeChange={setValuationPriceMode}
+                persistedVersion={persistedVersion}
+                persistenceStatus={persistenceStatus}
+                sessionGeneration={ledgerEpoch}
                 todayKey={todayKey}
               />
             </Section>
@@ -1192,7 +1196,11 @@ export function DashboardShell({
               ledgerData={ledgerData}
               ledgerEpoch={ledgerEpoch}
               mode={valuationPriceMode}
+              mutationVersion={mutationVersion}
               onModeChange={setValuationPriceMode}
+              persistedVersion={persistedVersion}
+              persistenceStatus={persistenceStatus}
+              sessionGeneration={session.generation}
               showMappings={false}
               todayKey={todayKey}
             />
@@ -1322,7 +1330,11 @@ export function DashboardShell({
                   ledgerData={ledgerData}
                   ledgerEpoch={ledgerEpoch}
                   mode={valuationPriceMode}
+                  mutationVersion={mutationVersion}
                   onModeChange={setValuationPriceMode}
+                  persistedVersion={persistedVersion}
+                  persistenceStatus={persistenceStatus}
+                  sessionGeneration={session.generation}
                   showRefresh={false}
                   todayKey={todayKey}
                 />

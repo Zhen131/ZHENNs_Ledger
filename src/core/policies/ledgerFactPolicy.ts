@@ -1,6 +1,5 @@
 import type {
   Asset,
-  BinanceMarketMapping,
   CashEvent,
   LedgerData,
   PriceSnapshot,
@@ -31,29 +30,6 @@ export type LedgerFactPartition = {
   futureCashEvents: CashEvent[];
   futurePriceSnapshots: PriceSnapshot[];
   unsupportedCurrencyAssets: Asset[];
-};
-
-const DEFAULT_BINANCE_MAPPINGS: Readonly<
-  Record<string, BinanceMarketMapping>
-> = {
-  BTC: {
-    provider: "binance",
-    symbol: "BTCUSDT",
-    baseAsset: "BTC",
-    quoteAsset: "USDT",
-  },
-  ETH: {
-    provider: "binance",
-    symbol: "ETHUSDT",
-    baseAsset: "ETH",
-    quoteAsset: "USDT",
-  },
-  ADA: {
-    provider: "binance",
-    symbol: "ADAUSDT",
-    baseAsset: "ADA",
-    quoteAsset: "USDT",
-  },
 };
 
 export function isSupportedValuationCurrency(
@@ -109,16 +85,8 @@ export function partitionLedgerFactsForToday(
 
 export function resolveAssetBinanceMappingForRuntime(
   asset: Pick<Asset, "symbol" | "binanceMapping">,
-): BinanceMarketMapping | null {
-  if (asset.binanceMapping === null) {
-    return null;
-  }
-  if (asset.binanceMapping !== undefined) {
-    return { ...asset.binanceMapping };
-  }
-
-  const defaultMapping = DEFAULT_BINANCE_MAPPINGS[asset.symbol];
-  return defaultMapping ? { ...defaultMapping } : null;
+): Asset["binanceMapping"] {
+  return asset.binanceMapping ? { ...asset.binanceMapping } : null;
 }
 
 export function collectLedgerCompatibilityWarnings(

@@ -64,7 +64,7 @@ describe("ledger fact compatibility policy", () => {
     ]);
   });
 
-  it("resolves absent built-in mappings without changing persisted three-state facts", () => {
+  it("uses only explicit persisted mappings and never restores a fallback", () => {
     const ledgerData = createInitialLedgerData();
     const absentAsset = { ...ledgerData.assets[0] };
     delete (absentAsset as unknown as { binanceMapping?: unknown })
@@ -84,9 +84,7 @@ describe("ledger fact compatibility policy", () => {
       },
     };
 
-    expect(resolveAssetBinanceMappingForRuntime(ledgerData.assets[0])).toEqual(
-      expect.objectContaining({ symbol: "BTCUSDT" }),
-    );
+    expect(resolveAssetBinanceMappingForRuntime(ledgerData.assets[0])).toBeNull();
     expect(resolveAssetBinanceMappingForRuntime(ledgerData.assets[1])).toBeNull();
     expect(resolveAssetBinanceMappingForRuntime(ledgerData.assets[2])).toEqual({
       provider: "binance",

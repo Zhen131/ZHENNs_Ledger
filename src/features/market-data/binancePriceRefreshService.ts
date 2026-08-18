@@ -184,11 +184,24 @@ export function mergeBinancePriceRefresh(
     let canonical: PriceSnapshot | undefined =
       canonicalIndex === undefined ? undefined : priceSnapshots[canonicalIndex];
     if (!canonical) {
-      const existingIds = new Set(priceSnapshots.map((snapshot) => snapshot.id));
+      const existingIds = new Set(
+        [
+          ...ledgerData.assets,
+          ...ledgerData.trades,
+          ...ledgerData.cashEvents,
+          ...priceSnapshots,
+          ...ledgerData.feeRules,
+        ].map(({ id }) => id),
+      );
       let id: string | undefined;
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        const candidate = generateId();
-        if (!existingIds.has(candidate)) {
+        let candidate: string;
+        try {
+          candidate = generateId();
+        } catch {
+          break;
+        }
+        if (isTechnicalId(candidate) && !existingIds.has(candidate)) {
           id = candidate;
           break;
         }
@@ -248,6 +261,10 @@ export function mergeBinancePriceRefresh(
     appliedAssetSymbols,
     skippedAssetSymbols,
   };
+}
+
+function isTechnicalId(value: string): boolean {
+  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function chooseCanonicalBinanceSnapshot(

@@ -57,7 +57,6 @@ describe("useLedgerWorkspaceSession", () => {
         ...current,
         note: "session only",
       }));
-      result.current.markAutoRefreshAttempted();
     });
     expect(result.current.intent).toEqual({
       page: "transactions",
@@ -71,7 +70,6 @@ describe("useLedgerWorkspaceSession", () => {
     expect(result.current.currentPage).toBe("transactions");
     expect(result.current.tradeDraft.note).toBe("");
     expect(result.current.hasDrafts).toBe(false);
-    expect(result.current.autoRefreshAttempted).toBe(true);
   });
 
   it("keeps one-time date location distinct from persistent date filtering", () => {

@@ -77,6 +77,29 @@ describe("Binance market data client", () => {
     });
   });
 
+  it.each([
+    [{ symbols: [] }, "BINANCE_SYMBOL_MISSING"],
+    [
+      { symbols: [...exchangeInfo().symbols, ...exchangeInfo().symbols] },
+      "BINANCE_MALFORMED_RESPONSE",
+    ],
+    [{ symbols: [{ symbol: "BTCUSDT" }] }, "BINANCE_MALFORMED_RESPONSE"],
+    [
+      exchangeInfo({ symbol: "ETHUSDT" }),
+      "BINANCE_SYMBOL_MISSING",
+    ],
+  ])("rejects missing, duplicate, or malformed exchangeInfo", async (body, code) => {
+    const client = createBinanceMarketDataClient({
+      fetch: vi.fn(async () => jsonResponse(body)),
+    });
+    await expect(
+      client.validateSpotSymbol("BTC", "BTCUSDT"),
+    ).resolves.toEqual({
+      ok: false,
+      error: expect.objectContaining({ code }),
+    });
+  });
+
   it("parses a requested batch and reports missing, duplicate, zero and malformed prices", async () => {
     const client = createBinanceMarketDataClient({
       fetch: vi.fn(async () =>
@@ -115,6 +138,23 @@ describe("Binance market data client", () => {
       ]),
     );
   });
+
+  it.each(["-1", "NaN", "Infinity", " 1", "1e3"])(
+    "rejects the invalid ticker price %s",
+    async (price) => {
+      const client = createBinanceMarketDataClient({
+        fetch: vi.fn(async () =>
+          jsonResponse([{ symbol: "BTCUSDT", price }]),
+        ),
+      });
+      await expect(client.fetchLatestPrices(["BTCUSDT"])).resolves.toEqual({
+        prices: [],
+        failures: [
+          expect.objectContaining({ code: "BINANCE_INVALID_PRICE" }),
+        ],
+      });
+    },
+  );
 
   it.each([
     [418, "BINANCE_RATE_LIMITED"],

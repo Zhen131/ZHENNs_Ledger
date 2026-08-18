@@ -7,15 +7,20 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { BinanceMarketDataClient } from "@/platform/integrations";
-import type { BinanceTickerBatchResult } from "@/platform/integrations";
+import type { ApplyLedgerActionResult } from "@/app";
 import type { LedgerData } from "@/core/models";
+import type { LedgerClock, LedgerTimeSnapshot } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
+import type {
+  BinanceMarketDataClient,
+  BinanceSymbolValidationResult,
+  BinanceTickerBatchResult,
+} from "@/platform/integrations";
 import { createSimpleTrade } from "@/test-support";
-import type { LedgerClock } from "@/core/shared";
 import { MarketDataControls } from "./MarketDataControls";
 
 afterEach(cleanup);
@@ -23,6 +28,32 @@ afterEach(cleanup);
 const clock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00Z"),
 };
+
+type Harness = {
+  ledgerData: LedgerData;
+  applyLedgerMutation: ReturnType<typeof vi.fn<ApplyMutation>>;
+};
+
+type ApplyMutation = (
+  mutation: (current: LedgerData) => LedgerData,
+  timeSnapshot?: LedgerTimeSnapshot,
+) => ApplyLedgerActionResult;
+
+function createHarness(initial: LedgerData): Harness {
+  const harness: Harness = {
+    ledgerData: initial,
+    applyLedgerMutation: vi.fn<ApplyMutation>(),
+  };
+  harness.applyLedgerMutation.mockImplementation(
+    (mutation: (current: LedgerData) => LedgerData) => {
+      const next = mutation(harness.ledgerData);
+      if (next === harness.ledgerData) return "noop" as const;
+      harness.ledgerData = next;
+      return "applied" as const;
+    },
+  );
+  return harness;
+}
 
 function createClient(
   overrides: Partial<BinanceMarketDataClient> = {},
@@ -32,158 +63,485 @@ function createClient(
       ok: true as const,
       value: {
         symbol,
-        status: "TRADING" as const,
+        status: "TRADING",
         baseAsset: assetSymbol,
         quoteAsset: "USDT",
         isSpotTradingAllowed: true,
       },
     })),
-    fetchLatestPrices: vi.fn(async () => ({
-      prices: [{ symbol: "BTCUSDT", price: "70000" }],
+    fetchLatestPrices: vi.fn(async (symbols: readonly string[]) => ({
+      prices: symbols.map((symbol) => ({ symbol, price: "70000" })),
       failures: [],
     })),
     ...overrides,
   };
 }
 
-function createLedgerWithBtc(): LedgerData {
-  const ledgerData = createInitialLedgerData();
-  ledgerData.trades = [
-    createSimpleTrade("btc-buy", "buy", "BTC", "1", "2026-07-20"),
-  ];
-  return ledgerData;
+function addSol(
+  ledgerData: LedgerData,
+  mapped = false,
+): LedgerData {
+  return {
+    ...ledgerData,
+    assets: [
+      ...ledgerData.assets,
+      {
+        id: "asset-sol",
+        symbol: "SOL",
+        name: "SOL",
+        quoteCurrency: "USDT",
+        binanceMapping: mapped
+          ? {
+              provider: "binance",
+              symbol: "SOLUSDT",
+              baseAsset: "SOL",
+              quoteAsset: "USDT",
+            }
+          : null,
+        createdAt: "2026-07-25T00:00:00.000Z",
+        updatedAt: "2026-07-25T00:00:00.000Z",
+      },
+    ],
+  };
+}
+
+function withBtcHolding(ledgerData = createInitialLedgerData()): LedgerData {
+  return {
+    ...ledgerData,
+    trades: [
+      createSimpleTrade("btc-buy", "buy", "BTC", "1", "2026-07-20"),
+    ],
+  };
+}
+
+function controls(
+  harness: Harness,
+  client: BinanceMarketDataClient,
+  overrides: {
+    ledgerEpoch?: number;
+    sessionGeneration?: number;
+    mutationVersion?: number;
+    persistedVersion?: number;
+    persistenceStatus?: "idle" | "saving" | "saved" | "error";
+    isWritable?: boolean;
+    showRefresh?: boolean;
+    compactMappings?: boolean;
+  } = {},
+) {
+  return (
+    <MarketDataControls
+      applyLedgerMutation={harness.applyLedgerMutation}
+      client={client}
+      clock={clock}
+      compactMappings={overrides.compactMappings}
+      expandMappings
+      generateId={() => "api-price-id"}
+      isWritable={overrides.isWritable ?? true}
+      ledgerData={harness.ledgerData}
+      ledgerEpoch={overrides.ledgerEpoch ?? 1}
+      mode="auto"
+      mutationVersion={overrides.mutationVersion ?? 0}
+      onModeChange={vi.fn()}
+      persistedVersion={overrides.persistedVersion ?? 0}
+      persistenceStatus={overrides.persistenceStatus ?? "saved"}
+      sessionGeneration={overrides.sessionGeneration ?? 11}
+      showRefresh={overrides.showRefresh}
+      todayKey="2026-07-25"
+    />
+  );
+}
+
+function mappingRow(symbol: string): HTMLElement {
+  const input = screen.getByLabelText(`${symbol} Binance 交易对`);
+  const row = input.parentElement;
+  if (!row) throw new Error(`Missing ${symbol} mapping row`);
+  return row;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((accept) => {
+    resolve = accept;
+  });
+  return { promise, resolve };
+}
+
+function validSymbol(
+  assetSymbol: string,
+  symbol: string,
+): BinanceSymbolValidationResult {
+  return {
+    ok: true,
+    value: {
+      symbol,
+      status: "TRADING",
+      baseAsset: assetSymbol,
+      quoteAsset: "USDT",
+      isSpotTradingAllowed: true,
+    },
+  };
 }
 
 describe("MarketDataControls", () => {
-  it("renders expanded mapping settings without triggering a second automatic refresh", async () => {
+  it("never contacts Binance on mount, hydrate-like rerender, navigation remount, or epoch change", async () => {
     const client = createClient();
-    render(
-      <MarketDataControls
-        applyLedgerMutation={vi.fn(() => "applied" as const)}
-        client={client}
-        clock={clock}
-        compactMappings
-        expandMappings
-        isWritable
-        ledgerData={createLedgerWithBtc()}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-        showRefresh={false}
-      />,
-    );
+    const harness = createHarness(withBtcHolding());
+    const view = render(controls(harness, client));
 
     await act(async () => undefined);
-    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
-    expect(screen.queryByText("估值价格模式")).toBeNull();
-    const mappingSummary = screen.getByText("配置 Binance Spot 交易对");
-    expect(mappingSummary).not.toBeNull();
-    const mappingScroller = mappingSummary.parentElement?.querySelector("div");
-    expect(mappingScroller?.className).toContain("overflow-x-auto");
-    expect(mappingScroller?.firstElementChild?.className).toContain(
-      "md:min-w-[720px]",
-    );
-    expect(screen.getByText("BTC")).not.toBeNull();
-    expect(screen.queryByLabelText("BTC Binance 交易对")).toBeNull();
-    fireEvent.click(screen.getAllByRole("button", { name: "编辑" })[0]);
-    expect(screen.getByLabelText("BTC Binance 交易对")).not.toBeNull();
-    expect(screen.getByText(/不会发送交易、数量、成本、密码/)).not.toBeNull();
-  });
-
-  it("does not auto refresh or allow manual refresh while the ledger is not writable", async () => {
-    const client = createClient();
-    render(
-      <MarketDataControls
-        applyLedgerMutation={vi.fn(() => "rejected" as const)}
-        client={client}
-        clock={clock}
-        isWritable={false}
-        ledgerData={createLedgerWithBtc()}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-
+    view.rerender(controls(harness, client, { ledgerEpoch: 2 }));
     await act(async () => undefined);
+    view.unmount();
+    render(controls(harness, client, { ledgerEpoch: 2 }));
+    await act(async () => undefined);
+
     expect(client.validateSpotSymbol).not.toHaveBeenCalled();
     expect(client.fetchLatestPrices).not.toHaveBeenCalled();
-    expect(
-      screen.getByText("暂不可修改：当前账本只读或文件操作尚未完成。"),
-    ).not.toBeNull();
-    expect(
-      (screen.getByRole("button", {
-        name: "立即更新 Binance 行情",
-      }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
+    expect(screen.getByText("尚未主动刷新 Binance 行情。")).toBeTruthy();
   });
 
-  it("auto refreshes once per mount and applies all successes as one mutation", async () => {
-    let latestLedger = createLedgerWithBtc();
+  it("rejects invalid symbol input locally with zero network or mutation", async () => {
     const client = createClient();
-    const applyLedgerMutation = vi.fn(
-      (mutation: (current: LedgerData) => LedgerData) => {
-        const next = mutation(latestLedger);
-        if (next === latestLedger) {
-          return "noop" as const;
-        }
-        latestLedger = next;
-        return "applied" as const;
-      },
-    );
-    const view = render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        generateId={() => "api-btc"}
-        isWritable
-        ledgerData={latestLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
+    const harness = createHarness(addSol(createInitialLedgerData()));
+    render(controls(harness, client, { showRefresh: false }));
+    const row = mappingRow("SOL");
+
+    fireEvent.change(screen.getByLabelText("SOL Binance 交易对"), {
+      target: { value: "SOL-USDT" },
+    });
+    fireEvent.click(within(row).getByRole("button", { name: "验证并保存" }));
 
     await waitFor(() => {
-      expect(screen.getByText("已更新 1 项，失败 0 项。")).toBeTruthy();
+      expect(screen.getByText(/BINANCE_INVALID_SYMBOL_INPUT/)).toBeTruthy();
     });
-    expect(client.validateSpotSymbol).toHaveBeenCalledOnce();
-    expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
-    expect(applyLedgerMutation).toHaveBeenCalledOnce();
-    expect(latestLedger.priceSnapshots).toEqual([
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
+  });
+
+  it("persists an explicit SOL mapping before requesting and persisting its first price", async () => {
+    const client = createClient();
+    const harness = createHarness(addSol(createInitialLedgerData()));
+    const view = render(controls(harness, client, { showRefresh: false }));
+    const row = mappingRow("SOL");
+
+    fireEvent.change(screen.getByLabelText("SOL Binance 交易对"), {
+      target: { value: " sol " },
+    });
+    fireEvent.click(within(row).getByRole("button", { name: "验证并保存" }));
+
+    await waitFor(() => {
+      expect(harness.applyLedgerMutation).toHaveBeenCalledTimes(1);
+    });
+    expect(client.validateSpotSymbol).toHaveBeenCalledWith(
+      "SOL",
+      "SOLUSDT",
+      expect.any(AbortSignal),
+    );
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(harness.ledgerData.assets.at(-1)?.binanceMapping?.symbol).toBe(
+      "SOLUSDT",
+    );
+
+    view.rerender(
+      controls(harness, client, {
+        showRefresh: false,
+        mutationVersion: 1,
+        persistedVersion: 1,
+      }),
+    );
+    await waitFor(() => {
+      expect(client.fetchLatestPrices).toHaveBeenCalledWith(
+        ["SOLUSDT"],
+        expect.any(AbortSignal),
+      );
+      expect(harness.applyLedgerMutation).toHaveBeenCalledTimes(2);
+    });
+    expect(harness.ledgerData.priceSnapshots).toEqual([
       expect.objectContaining({
-        id: "api-btc",
-        source: "api",
+        assetSymbol: "SOL",
         price: "70000",
-        binanceProvenance: expect.objectContaining({
-          symbol: "BTCUSDT",
-        }),
+        source: "api",
       }),
     ]);
 
     view.rerender(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        generateId={() => "unused"}
-        isWritable
-        ledgerData={latestLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
+      controls(harness, client, {
+        showRefresh: false,
+        mutationVersion: 2,
+        persistedVersion: 2,
+      }),
     );
-    await act(async () => undefined);
-    expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(screen.getByText("映射与首次价格均已保存。")).toBeTruthy();
+    });
   });
 
-  it("keeps local facts usable and reports a failed refresh without clearing prices", async () => {
-    let latestLedger = createLedgerWithBtc();
-    latestLedger.priceSnapshots = [
+  it("keeps a persisted mapping and old prices when the first ticker request fails", async () => {
+    const client = createClient({
+      fetchLatestPrices: vi.fn(async () => ({
+        prices: [],
+        failures: [
+          {
+            code: "BINANCE_NETWORK_ERROR" as const,
+            symbol: "SOLUSDT",
+            message: "offline",
+          },
+        ],
+      })),
+    });
+    const initial = addSol(createInitialLedgerData());
+    initial.priceSnapshots = [
       {
-        id: "manual",
+        id: "old-sol-price",
+        assetSymbol: "SOL",
+        price: "100",
+        currency: "USDT",
+        recordedAt: "2026-07-24",
+        source: "manual",
+        createdAt: "2026-07-24T00:00:00Z",
+        updatedAt: "2026-07-24T00:00:00Z",
+      },
+    ];
+    const harness = createHarness(initial);
+    const view = render(controls(harness, client, { showRefresh: false }));
+    const row = mappingRow("SOL");
+
+    fireEvent.change(screen.getByLabelText("SOL Binance 交易对"), {
+      target: { value: "SOLUSDT" },
+    });
+    fireEvent.click(within(row).getByRole("button", { name: "验证并保存" }));
+    await waitFor(() => expect(harness.applyLedgerMutation).toHaveBeenCalledOnce());
+
+    view.rerender(
+      controls(harness, client, {
+        showRefresh: false,
+        mutationVersion: 1,
+        persistedVersion: 1,
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(/映射已保存；首次价格失败：BINANCE_NETWORK_ERROR/),
+      ).toBeTruthy();
+    });
+    expect(harness.ledgerData.assets.at(-1)?.binanceMapping?.symbol).toBe(
+      "SOLUSDT",
+    );
+    expect(harness.ledgerData.priceSnapshots.map(({ id }) => id)).toEqual([
+      "old-sol-price",
+    ]);
+    expect(harness.applyLedgerMutation).toHaveBeenCalledOnce();
+  });
+
+  it("aborts a repeated search and ignores its late signal-insensitive result", async () => {
+    const first = deferred<BinanceSymbolValidationResult>();
+    let firstSignal: AbortSignal | undefined;
+    const validateSpotSymbol = vi.fn(
+      (assetSymbol: string, symbol: string, signal?: AbortSignal) => {
+        if (validateSpotSymbol.mock.calls.length === 1) {
+          firstSignal = signal;
+          return first.promise;
+        }
+        return Promise.resolve(validSymbol(assetSymbol, symbol));
+      },
+    );
+    const client = createClient({ validateSpotSymbol });
+    const harness = createHarness(addSol(createInitialLedgerData()));
+    render(controls(harness, client, { showRefresh: false }));
+    const row = mappingRow("SOL");
+    const input = screen.getByLabelText("SOL Binance 交易对");
+
+    fireEvent.change(input, { target: { value: "SOLUSDC" } });
+    fireEvent.click(within(row).getByRole("button", { name: "验证并保存" }));
+    fireEvent.change(input, { target: { value: "SOLUSDT" } });
+    fireEvent.click(within(row).getByRole("button", { name: "验证并保存" }));
+
+    await waitFor(() => expect(harness.applyLedgerMutation).toHaveBeenCalledOnce());
+    expect(firstSignal?.aborted).toBe(true);
+    expect(harness.ledgerData.assets.at(-1)?.binanceMapping?.symbol).toBe(
+      "SOLUSDT",
+    );
+
+    await act(async () => {
+      first.resolve(validSymbol("SOL", "SOLUSDC"));
+      await first.promise;
+    });
+    expect(harness.applyLedgerMutation).toHaveBeenCalledOnce();
+    expect(harness.ledgerData.assets.at(-1)?.binanceMapping?.symbol).toBe(
+      "SOLUSDT",
+    );
+    expect(screen.getByText("交易对已验证；正在保存映射。")).toBeTruthy();
+  });
+
+  it("drops validation after a session generation change and aborts on unmount", async () => {
+    const first = deferred<BinanceSymbolValidationResult>();
+    let signal: AbortSignal | undefined;
+    const client = createClient({
+      validateSpotSymbol: vi.fn((_asset, _symbol, requestSignal) => {
+        signal = requestSignal;
+        return first.promise;
+      }),
+    });
+    const harness = createHarness(addSol(createInitialLedgerData()));
+    const view = render(controls(harness, client, { showRefresh: false }));
+    const row = mappingRow("SOL");
+
+    fireEvent.change(screen.getByLabelText("SOL Binance 交易对"), {
+      target: { value: "SOL" },
+    });
+    fireEvent.click(within(row).getByRole("button", { name: "验证并保存" }));
+    view.rerender(
+      controls(harness, client, {
+        showRefresh: false,
+        sessionGeneration: 12,
+      }),
+    );
+    expect(signal?.aborted).toBe(true);
+
+    await act(async () => {
+      first.resolve(validSymbol("SOL", "SOLUSDT"));
+      await first.promise;
+    });
+    expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
+    view.unmount();
+
+    const second = deferred<BinanceSymbolValidationResult>();
+    const secondClient = createClient({
+      validateSpotSymbol: vi.fn(() => second.promise),
+    });
+    const secondView = render(
+      controls(harness, secondClient, {
+        showRefresh: false,
+        sessionGeneration: 12,
+      }),
+    );
+    const secondRow = mappingRow("SOL");
+    fireEvent.change(screen.getByLabelText("SOL Binance 交易对"), {
+      target: { value: "SOL" },
+    });
+    fireEvent.click(
+      within(secondRow).getByRole("button", { name: "验证并保存" }),
+    );
+    secondView.unmount();
+    await act(async () => {
+      second.resolve(validSymbol("SOL", "SOLUSDT"));
+      await second.promise;
+    });
+    expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
+  });
+
+  it("drops an in-flight ticker after the mapping is deleted externally", async () => {
+    const ticker = deferred<BinanceTickerBatchResult>();
+    let tickerSignal: AbortSignal | undefined;
+    const client = createClient({
+      fetchLatestPrices: vi.fn((_symbols, signal) => {
+        tickerSignal = signal;
+        return ticker.promise;
+      }),
+    });
+    const harness = createHarness(createInitialLedgerData());
+    const view = render(controls(harness, client, { showRefresh: false }));
+    const btcRow = mappingRow("BTC");
+
+    fireEvent.click(within(btcRow).getByRole("button", { name: "刷新该资产" }));
+    await waitFor(() => expect(client.fetchLatestPrices).toHaveBeenCalledOnce());
+
+    harness.ledgerData = {
+      ...harness.ledgerData,
+      assets: harness.ledgerData.assets.map((asset) =>
+        asset.symbol === "BTC" ? { ...asset, binanceMapping: null } : asset,
+      ),
+    };
+    view.rerender(controls(harness, client, { showRefresh: false }));
+    expect(tickerSignal?.aborted).toBe(true);
+
+    await act(async () => {
+      ticker.resolve({
+        prices: [{ symbol: "BTCUSDT", price: "70000" }],
+        failures: [],
+      });
+      await ticker.promise;
+    });
+    expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
+    expect(harness.ledgerData.priceSnapshots).toEqual([]);
+  });
+
+  it("refreshes one explicitly selected mapped asset even without a position", async () => {
+    const client = createClient();
+    const harness = createHarness(addSol(createInitialLedgerData(), true));
+    const view = render(controls(harness, client));
+    const row = mappingRow("SOL");
+
+    expect(
+      (screen.getByRole("button", {
+        name: "刷新已映射非零持仓",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(within(row).getByRole("button", { name: "刷新该资产" }));
+
+    await waitFor(() => expect(harness.applyLedgerMutation).toHaveBeenCalledOnce());
+    expect(client.validateSpotSymbol).toHaveBeenCalledTimes(1);
+    expect(client.validateSpotSymbol).toHaveBeenCalledWith(
+      "SOL",
+      "SOLUSDT",
+      expect.any(AbortSignal),
+    );
+    expect(client.fetchLatestPrices).toHaveBeenCalledWith(
+      ["SOLUSDT"],
+      expect.any(AbortSignal),
+    );
+
+    view.rerender(
+      controls(harness, client, {
+        mutationVersion: 1,
+        persistedVersion: 1,
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("该资产行情已保存。")).toBeTruthy();
+    });
+  });
+
+  it("refreshes only mapped nonzero holdings after the explicit global click", async () => {
+    const client = createClient();
+    const harness = createHarness(withBtcHolding());
+    const view = render(controls(harness, client));
+
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "刷新已映射非零持仓" }),
+    );
+    await waitFor(() => expect(harness.applyLedgerMutation).toHaveBeenCalledOnce());
+
+    expect(client.validateSpotSymbol).toHaveBeenCalledTimes(1);
+    expect(client.validateSpotSymbol).toHaveBeenCalledWith(
+      "BTC",
+      "BTCUSDT",
+      expect.any(AbortSignal),
+    );
+    expect(client.fetchLatestPrices).toHaveBeenCalledWith(
+      ["BTCUSDT"],
+      expect.any(AbortSignal),
+    );
+
+    view.rerender(
+      controls(harness, client, {
+        mutationVersion: 1,
+        persistedVersion: 1,
+      }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("已保存 1 项，失败 0 项。")).toBeTruthy();
+    });
+  });
+
+  it("deletes only the mapping after explicit confirmation and preserves price facts", () => {
+    const initial = createInitialLedgerData();
+    initial.priceSnapshots = [
+      {
+        id: "btc-history",
         assetSymbol: "BTC",
         price: "68000",
         currency: "USDT",
@@ -193,420 +551,23 @@ describe("MarketDataControls", () => {
         updatedAt: "2026-07-24T00:00:00Z",
       },
     ];
-    const client = createClient({
-      validateSpotSymbol: vi.fn(async (_assetSymbol, symbol) => ({
-        ok: false as const,
-        error: {
-          code: "BINANCE_NETWORK_ERROR" as const,
-          symbol,
-          message: "offline",
-        },
-      })),
-    });
-    const applyLedgerMutation = vi.fn(
-      (mutation: (current: LedgerData) => LedgerData) => {
-        const next = mutation(latestLedger);
-        if (next === latestLedger) {
-          return "noop" as const;
-        }
-        latestLedger = next;
-        return "applied" as const;
-      },
-    );
-    render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={latestLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("已更新 0 项，失败 1 项。")).toBeTruthy();
-    });
-    expect(latestLedger.priceSnapshots).toHaveLength(1);
-    expect(latestLedger.priceSnapshots[0].id).toBe("manual");
-    expect(screen.getByText(/本次刷新失败：offline/)).toBeTruthy();
-  });
-
-  it("drops an old response after ledgerEpoch changes", async () => {
-    let resolveTicker!: (
-      value: Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>,
-    ) => void;
-    const tickerPromise = new Promise<
-      Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>
-    >((resolve) => {
-      resolveTicker = resolve;
-    });
-    const client = createClient({
-      fetchLatestPrices: vi.fn(() => tickerPromise),
-    });
-    const ledgerData = createLedgerWithBtc();
-    const applyLedgerMutation = vi.fn(() => "applied" as const);
-    const view = render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={ledgerData}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
-    });
-    view.rerender(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={createInitialLedgerData()}
-        ledgerEpoch={2}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-    await act(async () => {
-      resolveTicker({
-        prices: [{ symbol: "BTCUSDT", price: "70000" }],
-        failures: [],
-      });
-      await tickerPromise;
-    });
-    expect(applyLedgerMutation).not.toHaveBeenCalled();
-  });
-
-  it("drops an in-flight response after the mapping signature changes", async () => {
-    let resolveTicker!: (
-      value: Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>,
-    ) => void;
-    const tickerPromise = new Promise<
-      Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>
-    >((resolve) => {
-      resolveTicker = resolve;
-    });
-    const client = createClient({
-      fetchLatestPrices: vi.fn(() => tickerPromise),
-    });
-    const ledgerData = createLedgerWithBtc();
-    const applyLedgerMutation = vi.fn(() => "applied" as const);
-    const view = render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={ledgerData}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
-    });
-    const changedMappingLedger = structuredClone(ledgerData);
-    changedMappingLedger.assets[0].binanceMapping = null;
-    view.rerender(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={changedMappingLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-
-    await act(async () => {
-      resolveTicker({
-        prices: [{ symbol: "BTCUSDT", price: "70000" }],
-        failures: [],
-      });
-      await tickerPromise;
-    });
-    expect(applyLedgerMutation).not.toHaveBeenCalled();
-  });
-
-  it("aborts an in-flight response on unmount and never applies it", async () => {
-    let requestSignal: AbortSignal | undefined;
-    const tickerPromise = new Promise<
-      Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>
-    >(() => undefined);
-    const client = createClient({
-      fetchLatestPrices: vi.fn((_symbols, signal) => {
-        requestSignal = signal;
-        return tickerPromise;
-      }),
-    });
-    const applyLedgerMutation = vi.fn(() => "applied" as const);
-    const view = render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={createLedgerWithBtc()}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
-    });
-    view.unmount();
-
-    expect(requestSignal?.aborted).toBe(true);
-    expect(applyLedgerMutation).not.toHaveBeenCalled();
-  });
-
-  it("merges a response into the latest ledger without overwriting concurrent local facts", async () => {
-    let resolveTicker!: (
-      value: Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>,
-    ) => void;
-    const tickerPromise = new Promise<
-      Awaited<ReturnType<BinanceMarketDataClient["fetchLatestPrices"]>>
-    >((resolve) => {
-      resolveTicker = resolve;
-    });
-    const client = createClient({
-      fetchLatestPrices: vi.fn(() => tickerPromise),
-    });
-    let latestLedger = createLedgerWithBtc();
-    const applyLedgerMutation = vi.fn(
-      (mutation: (current: LedgerData) => LedgerData) => {
-        latestLedger = mutation(latestLedger);
-        return "applied" as const;
-      },
-    );
-    render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        generateId={() => "api-after-concurrent-write"}
-        isWritable
-        ledgerData={latestLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
-    });
-    latestLedger = {
-      ...latestLedger,
-      trades: [
-        ...latestLedger.trades,
-        createSimpleTrade(
-          "eth-concurrent-buy",
-          "buy",
-          "ETH",
-          "1",
-          "2026-07-25",
-        ),
-      ],
-      priceSnapshots: [
-        {
-          id: "manual-concurrent",
-          assetSymbol: "ETH",
-          price: "2500",
-          currency: "USDT",
-          recordedAt: "2026-07-25",
-          source: "manual",
-          createdAt: "2026-07-25T11:59:00Z",
-          updatedAt: "2026-07-25T11:59:00Z",
-        },
-      ],
-    };
-
-    await act(async () => {
-      resolveTicker({
-        prices: [{ symbol: "BTCUSDT", price: "70000" }],
-        failures: [],
-      });
-      await tickerPromise;
-    });
-
-    expect(latestLedger.trades.map((trade) => trade.id)).toContain(
-      "eth-concurrent-buy",
-    );
-    expect(
-      latestLedger.priceSnapshots.map((snapshot) => snapshot.id),
-    ).toEqual(
-      expect.arrayContaining([
-        "manual-concurrent",
-        "api-after-concurrent-write",
-      ]),
-    );
-  });
-
-  it("validates edited mappings online and keeps the mode session-only", async () => {
-    let latestLedger = createInitialLedgerData();
     const client = createClient();
-    const onModeChange = vi.fn();
-    const applyLedgerMutation = vi.fn(
-      (mutation: (current: LedgerData) => LedgerData) => {
-        latestLedger = mutation(latestLedger);
-        return "applied" as const;
-      },
-    );
-    render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={latestLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={onModeChange}
-      />,
-    );
-    await waitFor(() => {
-      expect(screen.getByText("当前没有需要刷新的非零持仓映射。")).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "手动价格" }));
-    expect(onModeChange).toHaveBeenCalledWith("manual");
-
-    const input = screen.getByLabelText("BTC");
-    fireEvent.change(input, { target: { value: " btcusdt " } });
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "验证并保存" })[0],
-    );
-    await waitFor(() => {
-      expect(
-        screen.getByText("交易对已验证并加入保存队列。"),
-      ).toBeTruthy();
-    });
-    expect(client.validateSpotSymbol).toHaveBeenLastCalledWith(
-      "BTC",
-      "BTCUSDT",
-      expect.any(AbortSignal),
-    );
-    expect(latestLedger.assets[0].binanceMapping?.symbol).toBe("BTCUSDT");
-    expect(screen.getByText(/不会发送交易、数量、成本、密码或完整账本/)).toBeTruthy();
-  });
-
-  it("shows a runtime fallback for an absent mapping and persists null only after explicit deletion", async () => {
-    let latestLedger = createInitialLedgerData();
-    delete (latestLedger.assets[0] as unknown as {
-      binanceMapping?: unknown;
-    }).binanceMapping;
-    const applyLedgerMutation = vi.fn(
-      (mutation: (current: LedgerData) => LedgerData) => {
-        const next = mutation(latestLedger);
-        if (next === latestLedger) {
-          return "noop" as const;
-        }
-        latestLedger = next;
-        return "applied" as const;
-      },
-    );
-    render(
-      <MarketDataControls
-        applyLedgerMutation={applyLedgerMutation}
-        client={createClient()}
-        clock={clock}
-        isWritable
-        ledgerData={latestLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-    await waitFor(() => {
-      expect(screen.getByText("当前没有需要刷新的非零持仓映射。")).toBeTruthy();
-    });
-
-    expect((screen.getByLabelText("BTC") as HTMLInputElement).value).toBe(
-      "BTCUSDT",
-    );
-    expect(Object.hasOwn(latestLedger.assets[0], "binanceMapping")).toBe(false);
-    const remove = screen.getByRole("button", {
+    const harness = createHarness(initial);
+    render(controls(harness, client, { showRefresh: false }));
+    const remove = within(mappingRow("BTC")).getByRole("button", {
       name: "删除 BTC Binance 映射",
     });
-    expect((remove as HTMLButtonElement).disabled).toBe(false);
 
     fireEvent.click(remove);
-    expect(applyLedgerMutation).not.toHaveBeenCalled();
-    expect(Object.hasOwn(latestLedger.assets[0], "binanceMapping")).toBe(false);
-
-    fireEvent.click(remove);
-    expect(applyLedgerMutation).toHaveBeenCalledOnce();
-    expect(Object.hasOwn(latestLedger.assets[0], "binanceMapping")).toBe(true);
-    expect(latestLedger.assets[0].binanceMapping).toBeNull();
-    expect((screen.getByLabelText("BTC") as HTMLInputElement).value).toBe("");
-  });
-
-  it("does not abort an active refresh or clear the mapping draft on first delete activation", async () => {
-    let latestLedger = createLedgerWithBtc();
-    let refreshSignal: AbortSignal | undefined;
-    const client = createClient({
-      fetchLatestPrices: vi.fn(
-        async (symbols, signal) =>
-          new Promise<BinanceTickerBatchResult>((resolve) => {
-            void symbols;
-            refreshSignal = signal;
-            void resolve;
-          }),
-      ),
-    });
-    const applyLedgerMutation = vi.fn();
-    render(
-      <MarketDataControls
-        applyLedgerMutation={(mutation, snapshot) => {
-          const previous = latestLedger;
-          const next = mutation(previous);
-          latestLedger = next;
-          applyLedgerMutation(mutation, snapshot);
-          return next === previous ? "noop" : "applied";
-        }}
-        client={client}
-        clock={clock}
-        isWritable
-        ledgerData={latestLedger}
-        ledgerEpoch={1}
-        mode="auto"
-        onModeChange={vi.fn()}
-      />,
-    );
-    await waitFor(() => {
-      expect(client.fetchLatestPrices).toHaveBeenCalledOnce();
-    });
-
-    const input = screen.getByLabelText("BTC") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "CUSTOM" } });
-    const remove = screen.getByRole("button", {
-      name: "删除 BTC Binance 映射",
-    });
+    expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
     fireEvent.click(remove);
 
-    expect(refreshSignal?.aborted).toBe(false);
-    expect(input.value).toBe("CUSTOM");
-    expect(applyLedgerMutation).not.toHaveBeenCalled();
-
-    fireEvent.click(remove);
-    expect(refreshSignal?.aborted).toBe(true);
-    expect(input.value).toBe("");
-    expect(latestLedger.assets[0].binanceMapping).toBeNull();
+    expect(harness.applyLedgerMutation).toHaveBeenCalledOnce();
+    expect(harness.ledgerData.assets[0].binanceMapping).toBeNull();
+    expect(harness.ledgerData.priceSnapshots.map(({ id }) => id)).toEqual([
+      "btc-history",
+    ]);
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
   });
 });

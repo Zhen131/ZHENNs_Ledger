@@ -68,7 +68,7 @@ function createClient(): BinanceMarketDataClient {
 }
 
 describe("Binance price refresh", () => {
-  it("uses an absent built-in mapping only at runtime without materializing it", async () => {
+  it("does not invent a Binance mapping when the asset has none", async () => {
     const ledgerData = createInitialLedgerData();
     delete (ledgerData.assets[0] as unknown as { binanceMapping?: unknown })
       .binanceMapping;
@@ -83,29 +83,10 @@ describe("Binance price refresh", () => {
       { client, clock },
     );
 
-    expect(result.successes).toEqual([
-      expect.objectContaining({
-        assetSymbol: "BTC",
-        mapping: expect.objectContaining({ symbol: "BTCUSDT" }),
-      }),
-    ]);
+    expect(result).toEqual({ successes: [], failures: [] });
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
     expect(Object.hasOwn(ledgerData.assets[0], "binanceMapping")).toBe(false);
-
-    const merged = mergeBinancePriceRefresh(
-      ledgerData,
-      result.successes,
-      () => "runtime-fallback-price",
-    );
-    expect(merged.appliedAssetSymbols).toEqual(["BTC"]);
-    expect(merged.ledgerData.priceSnapshots).toEqual([
-      expect.objectContaining({
-        id: "runtime-fallback-price",
-        currency: "USDT",
-      }),
-    ]);
-    expect(
-      Object.hasOwn(merged.ledgerData.assets[0], "binanceMapping"),
-    ).toBe(false);
   });
 
   it("treats explicit null as a durable runtime disable", async () => {
@@ -207,6 +188,48 @@ describe("Binance price refresh", () => {
     expect(third.ledgerData.priceSnapshots[2].id).toBe("api-next-day");
   });
 
+  it("retries price IDs against every fact collection and uses only the third unique ID", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      createSimpleTrade("trade-collision", "buy", "BTC", "1", "2026-07-20"),
+    ];
+    const candidates = [
+      ledgerData.assets[0].id,
+      ledgerData.trades[0].id,
+      "unique-api-price",
+    ];
+    const generateId = vi.fn(() => candidates.shift()!);
+
+    const merged = mergeBinancePriceRefresh(
+      ledgerData,
+      [success("70000")],
+      generateId,
+    );
+
+    expect(generateId).toHaveBeenCalledTimes(3);
+    expect(merged.appliedAssetSymbols).toEqual(["BTC"]);
+    expect(merged.ledgerData.priceSnapshots[0].id).toBe("unique-api-price");
+  });
+
+  it("fails closed after three invalid or colliding price IDs", () => {
+    const ledgerData = createInitialLedgerData();
+    const generateId = vi
+      .fn()
+      .mockReturnValueOnce("")
+      .mockReturnValueOnce(` ${ledgerData.assets[0].id}`)
+      .mockReturnValueOnce(ledgerData.assets[0].id);
+
+    const merged = mergeBinancePriceRefresh(
+      ledgerData,
+      [success("70000")],
+      generateId,
+    );
+
+    expect(merged.ledgerData).toBe(ledgerData);
+    expect(merged.appliedAssetSymbols).toEqual([]);
+    expect(merged.skippedAssetSymbols).toEqual(["BTC"]);
+  });
+
   it("repairs legacy daily duplicates using latest fetchedAt then array order", () => {
     const ledgerData = createInitialLedgerData();
     const base = mergeBinancePriceRefresh(
@@ -294,7 +317,15 @@ describe("Binance price refresh", () => {
       createSimpleTrade("legacy-btc", "buy", "BTC", "1", "2026-07-20"),
     ];
     ledgerData.priceSnapshots = [
-      createPriceSnapshot("legacy-price", "BTC", "65000", "2026-07-20"),
+      {
+        ...createPriceSnapshot(
+          "legacy-price",
+          "BTC",
+          "65000",
+          "2026-07-20",
+        ),
+        currency: "USD" as never,
+      },
     ];
     const client = createClient();
 

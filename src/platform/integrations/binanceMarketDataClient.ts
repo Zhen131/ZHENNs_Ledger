@@ -9,6 +9,7 @@ import type {
 export const BINANCE_MARKET_DATA_BASE_URL =
   "https://data-api.binance.vision";
 export const BINANCE_MARKET_DATA_TIMEOUT_MS = 8_000;
+const DECIMAL_STRING_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 export type BinanceMarketDataClient = {
   validateSpotSymbol(
@@ -191,7 +192,7 @@ export function createBinanceMarketDataClient(
 
         const price = candidates[0];
         try {
-          if (!isPositive(price)) {
+          if (!DECIMAL_STRING_PATTERN.test(price) || !isPositive(price)) {
             throw new Error("Price must be positive");
           }
           prices.push({ symbol, price });
