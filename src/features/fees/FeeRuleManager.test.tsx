@@ -4,12 +4,15 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { FeeRule } from "@/core/models";
+import type { FeeRule, LedgerData } from "@/core/models";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import { FeeRuleManager } from "./FeeRuleManager";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const clock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00Z"),
@@ -30,14 +33,24 @@ const rule: FeeRule = {
 
 function renderManager({
   feeRules = [] as FeeRule[],
+  sourceLedgerData,
   onAction = vi.fn<
     Parameters<typeof FeeRuleManager>[0]["onAction"]
   >(() => "applied" as const),
   mutationVersion = 0,
   persistedVersion = 0,
   persistenceStatus = "saved" as const,
+}: {
+  feeRules?: FeeRule[];
+  sourceLedgerData?: LedgerData;
+  onAction?: Parameters<typeof FeeRuleManager>[0]["onAction"];
+  mutationVersion?: number;
+  persistedVersion?: number;
+  persistenceStatus?: Parameters<
+    typeof FeeRuleManager
+  >[0]["persistenceStatus"];
 } = {}) {
-  const ledgerData = createInitialLedgerData();
+  const ledgerData = sourceLedgerData ?? createInitialLedgerData();
   ledgerData.feeRules = feeRules;
   return {
     ledgerData,
@@ -99,14 +112,16 @@ describe("FeeRuleManager", () => {
     );
 
     expect(onAction).toHaveBeenCalledOnce();
-    expect(onAction.mock.calls[0]?.[0]).toMatchObject({
-      type: "feeRule/replace",
-      feeRuleId: "rule-old",
-      replacement: {
-        rate: "0.002",
-        replacesFeeRuleId: "rule-old",
-      },
-    });
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "feeRule/replace",
+        feeRuleId: "rule-old",
+        replacement: expect.objectContaining({
+          rate: "0.002",
+          replacesFeeRuleId: "rule-old",
+        }),
+      }),
+    );
     expect(rule).toEqual(original);
   });
 
@@ -144,5 +159,60 @@ describe("FeeRuleManager", () => {
     await waitFor(() => {
       expect(screen.getByText("手续费规则已认证保存")).not.toBeNull();
     });
+  });
+
+  it("retries cross-collection and malformed IDs before creating a rule", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [
+      {
+        id: "cash-collision",
+        occurredAt: "2026-07-25",
+        timePrecision: "day",
+        type: "deposit",
+        currency: "USDT",
+        amount: "1",
+        createdAt: "2026-07-25T00:00:00Z",
+        updatedAt: "2026-07-25T00:00:00Z",
+      },
+    ];
+    const randomUUID = vi
+      .fn()
+      .mockReturnValueOnce("cash-collision")
+      .mockReturnValueOnce(" invalid-id ")
+      .mockReturnValueOnce("fee-new");
+    vi.stubGlobal("crypto", { randomUUID });
+    const onAction = vi.fn(() => "applied" as const);
+    renderManager({ sourceLedgerData: ledgerData, onAction });
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("规则名"), "Desk fixed");
+    await user.type(screen.getByLabelText("平台（精确匹配）"), "Desk");
+    await user.type(screen.getByLabelText("金额（USDT）"), "1");
+    await user.click(screen.getByRole("button", { name: "新增手续费规则" }));
+
+    expect(randomUUID).toHaveBeenCalledTimes(3);
+    expect(onAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "feeRule/add",
+        feeRule: expect.objectContaining({ id: "fee-new" }),
+      }),
+    );
+  });
+
+  it("fails closed after three fee-rule ID collisions", async () => {
+    vi.stubGlobal("crypto", {
+      randomUUID: vi.fn(() => "asset-btc"),
+    });
+    const onAction = vi.fn(() => "applied" as const);
+    renderManager({ onAction });
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("规则名"), "Desk fixed");
+    await user.type(screen.getByLabelText("平台（精确匹配）"), "Desk");
+    await user.type(screen.getByLabelText("金额（USDT）"), "1");
+    await user.click(screen.getByRole("button", { name: "新增手续费规则" }));
+
+    expect(screen.getByText(/连续三次未能生成全局唯一/)).not.toBeNull();
+    expect(onAction).not.toHaveBeenCalled();
   });
 });

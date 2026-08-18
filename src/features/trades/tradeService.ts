@@ -86,7 +86,7 @@ export function createValidatedTrade(
     };
   }
 
-  const existingTradeIds = new Set(
+  const existingIds = new Set(
     [
       ...ledgerData.assets,
       ...ledgerData.trades,
@@ -110,7 +110,7 @@ export function createValidatedTrade(
       return dependencyFailure("generateId");
     }
 
-    if (!existingTradeIds.has(candidateId)) {
+    if (isTechnicalId(candidateId) && !existingIds.has(candidateId)) {
       id = candidateId;
       break;
     }
@@ -157,6 +157,10 @@ export function createValidatedTrade(
       updatedAt: timestamp,
     },
   };
+}
+
+function isTechnicalId(value: string): boolean {
+  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function createStructuredTradeRawText(

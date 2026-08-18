@@ -291,7 +291,7 @@ describe("createValidatedTrade validation failures", () => {
 });
 
 describe("createValidatedTrade ID and dependency handling", () => {
-  it("treats IDs from cash facts as global collisions", () => {
+  it("treats cross-collection IDs and invalid candidates as collisions", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.cashEvents = [
       {
@@ -307,6 +307,7 @@ describe("createValidatedTrade ID and dependency handling", () => {
     ];
     const dependencies = createDependencies([
       "cross-collection-id",
+      " invalid-id ",
       "trade-new",
     ]);
 
@@ -316,7 +317,8 @@ describe("createValidatedTrade ID and dependency handling", () => {
     if (result.ok) {
       expect(result.trade.id).toBe("trade-new");
     }
-    expect(dependencies.generateId).toHaveBeenCalledTimes(2);
+    expect(dependencies.generateId).toHaveBeenCalledTimes(3);
+    expect(dependencies.now).toHaveBeenCalledTimes(1);
   });
 
   it("retries one collision and stops after the second ID succeeds", () => {

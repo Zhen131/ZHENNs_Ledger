@@ -132,9 +132,14 @@ export function FeeRuleManager({
       setError(validation);
       return;
     }
+    const id = createUniqueFeeRuleId(ledgerData);
+    if (!id) {
+      setError("连续三次未能生成全局唯一的手续费规则 ID");
+      return;
+    }
     const timestamp = captureLedgerTime(clock).now.toISOString();
     const common = {
-      id: globalThis.crypto.randomUUID(),
+      id,
       name: form.name,
       platform: form.platform,
       assetSymbol: form.assetSymbol,
@@ -156,9 +161,14 @@ export function FeeRuleManager({
       setError("新版本金额或费率必须是大于等于 0 的十进制数");
       return;
     }
+    const id = createUniqueFeeRuleId(ledgerData);
+    if (!id) {
+      setError("连续三次未能生成全局唯一的手续费规则 ID");
+      return;
+    }
     const timestamp = captureLedgerTime(clock).now.toISOString();
     const common = {
-      id: globalThis.crypto.randomUUID(),
+      id,
       name: rule.name,
       platform: rule.platform,
       assetSymbol: rule.assetSymbol,
@@ -380,6 +390,35 @@ export function FeeRuleManager({
       </div>
     </div>
   );
+}
+
+function createUniqueFeeRuleId(ledgerData: LedgerData): string | undefined {
+  const existingIds = new Set(
+    [
+      ...ledgerData.assets,
+      ...ledgerData.trades,
+      ...ledgerData.cashEvents,
+      ...ledgerData.priceSnapshots,
+      ...ledgerData.feeRules,
+    ].map(({ id }) => id),
+  );
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let candidate: string;
+    try {
+      candidate = globalThis.crypto.randomUUID();
+    } catch {
+      return undefined;
+    }
+    if (
+      candidate.length > 0 &&
+      candidate.length <= 128 &&
+      candidate.trim() === candidate &&
+      !existingIds.has(candidate)
+    ) {
+      return candidate;
+    }
+  }
+  return undefined;
 }
 
 function validateForm(form: FormState): string | null {
