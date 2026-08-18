@@ -66,6 +66,29 @@ describe("formatBackupImportReportMarkdown", () => {
       }
     }
   });
+
+  it("includes the selected source file and the full V3 collection summary", async () => {
+    const result = await preflightBackupJson(
+      readFixture("valid-300.backup.json"),
+      {
+        todayKey: TODAY,
+        selectionGeneration: 2,
+        sourceFileName: "fictional-v3.backup.json",
+      },
+    );
+    const report = formatBackupImportReportMarkdown(result);
+
+    expect(report).toContain("来源文件名：fictional-v3.backup.json");
+    expect(report).toContain("备份格式版本：3");
+    expect(report).toContain("账本 schema 版本：3");
+    expect(report).toContain("资产：3");
+    expect(report).toContain("交易：300");
+    expect(report).toContain("现金事件：0");
+    expect(report).toContain("价格快照：1");
+    expect(report).toContain("手续费规则：1");
+    expect(report).toContain("USDT 现金余额");
+    expect(report).toContain("缺 Binance mapping：无");
+  });
 });
 
 function preflight(serialized: string) {

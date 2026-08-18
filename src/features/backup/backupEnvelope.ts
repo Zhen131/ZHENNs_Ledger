@@ -57,6 +57,7 @@ export type BackupMetadata = {
 export function createBackupEnvelope(
   ledgerData: unknown,
   metadata: BackupMetadata,
+  todayKey: string = captureLedgerTime(systemLedgerClock).todayKey,
 ): BackupEnvelopeResult {
   const metadataErrors = validateMetadata(metadata);
   const ledgerResult = validateLedgerData(selectLedgerDataFacts(ledgerData));
@@ -67,6 +68,21 @@ export function createBackupEnvelope(
       errors: [
         ...metadataErrors,
         ...(!ledgerResult.ok ? ledgerResult.errors : []),
+      ],
+    };
+  }
+
+  const resourcePolicy = evaluateLedgerResourcePolicy(ledgerResult.value);
+  const importPolicy = validateLedgerImportPolicy(
+    ledgerResult.value,
+    todayKey,
+  );
+  if (!resourcePolicy.ok || !importPolicy.ok) {
+    return {
+      ok: false,
+      errors: [
+        ...(!resourcePolicy.ok ? resourcePolicy.errors : []),
+        ...(!importPolicy.ok ? importPolicy.errors : []),
       ],
     };
   }
@@ -138,6 +154,22 @@ export function validateBackupEnvelope(
   }
 
   const errors: BackupEnvelopeError[] = [];
+  const expectedKeys = [
+    "backupFormatVersion",
+    "appVersion",
+    "exportedAt",
+    "ledgerSchemaVersion",
+    "ledgerData",
+  ];
+  if (!hasExactKeys(input, expectedKeys)) {
+    errors.push(
+      createError(
+        "BACKUP_INVALID_ENVELOPE",
+        "backup",
+        "V3 backup must contain exactly the five canonical top-level keys in order",
+      ),
+    );
+  }
   if (input.backupFormatVersion !== BACKUP_FORMAT_VERSION) {
     errors.push(
       createError(
@@ -217,9 +249,18 @@ function validateMetadata(metadata: {
   exportedAt: unknown;
 }): BackupEnvelopeError[] {
   const errors: BackupEnvelopeError[] = [];
-  if (typeof metadata.appVersion !== "string" || metadata.appVersion.trim() === "") {
+  if (
+    typeof metadata.appVersion !== "string" ||
+    metadata.appVersion.length === 0 ||
+    metadata.appVersion.trim() !== metadata.appVersion ||
+    metadata.appVersion.length > 128
+  ) {
     errors.push(
-      createError("BACKUP_INVALID_APP_VERSION", "appVersion", "appVersion must be non-empty"),
+      createError(
+        "BACKUP_INVALID_APP_VERSION",
+        "appVersion",
+        "appVersion must be non-empty, have no surrounding whitespace, and be at most 128 characters",
+      ),
     );
   }
   if (
@@ -248,4 +289,15 @@ function createError(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expectedKeys: readonly string[],
+): boolean {
+  const actualKeys = Object.keys(value);
+  return (
+    actualKeys.length === expectedKeys.length &&
+    actualKeys.every((key, index) => key === expectedKeys[index])
+  );
 }

@@ -21,6 +21,7 @@ import {
 } from "@/test-support";
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
+import { validateLedgerData } from "@/core/validation";
 import { sampleUsdtTrades } from "@/test-support";
 import {
   claimLedgerSessionPersistencePort,
@@ -62,6 +63,14 @@ function createLedger(): LedgerData {
     ...createInitialLedgerData(),
     trades: structuredClone(sampleUsdtTrades),
   };
+}
+
+function canonicalLedger(ledgerData: LedgerData): LedgerData {
+  const result = validateLedgerData(ledgerData);
+  if (!result.ok) {
+    throw new Error("Test ledger must be valid");
+  }
+  return result.value;
 }
 
 function createDeferred<T>() {
@@ -136,9 +145,9 @@ describe("DefaultLedgerRepository", () => {
     await repository.save(ledgerData);
 
     expect(storage.envelope).toEqual(
-      createNoopStoredLedgerEnvelope(JSON.stringify(ledgerData)),
+      createNoopStoredLedgerEnvelope(JSON.stringify(canonicalLedger(ledgerData))),
     );
-    await expect(repository.load()).resolves.toEqual(ledgerData);
+    await expect(repository.load()).resolves.toEqual(canonicalLedger(ledgerData));
   });
 
   it("invokes encryption at the single repository boundary", async () => {
@@ -159,7 +168,7 @@ describe("DefaultLedgerRepository", () => {
     expect(encryption.encrypt).toHaveBeenCalledOnce();
     expect(encryption.decrypt).toHaveBeenCalledOnce();
     expect(encryption.encrypt).toHaveBeenCalledWith(
-      JSON.stringify(ledgerData),
+      JSON.stringify(canonicalLedger(ledgerData)),
     );
     expect(encryption.decrypt).toHaveBeenCalledWith(storage.envelope);
   });

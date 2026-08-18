@@ -90,7 +90,7 @@ describe("BackupEnvelopeV3", () => {
     ]);
   });
 
-  it("allows a complete rescue export to retain legacy future facts", () => {
+  it("rejects future facts before creating an export envelope", () => {
     const ledger = createInitialLedgerData();
     ledger.trades = [
       {
@@ -110,13 +110,16 @@ describe("BackupEnvelopeV3", () => {
       },
     ];
 
-    const result = createBackupEnvelope(ledger, metadata);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.ledgerData.trades).toEqual(ledger.trades);
-    expect(serializeBackupEnvelope(result.value)).toContain(
-      '"occurredAt": "2099-01-01"',
-    );
+    const result = createBackupEnvelope(ledger, metadata, "2026-07-23");
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: "LEDGER_IMPORT_FUTURE_FACT",
+          path: "trades[0].occurredAt",
+        }),
+      ],
+    });
   });
 
   it("rejects malformed JSON before it reaches the validator", () => {
@@ -151,6 +154,50 @@ describe("BackupEnvelopeV3", () => {
         ),
       ).toHaveLength(1);
     }
+  });
+
+  it("rejects non-canonical top-level keys, order, and app versions", () => {
+    const ledger = createInitialLedgerData();
+    const extraKey = validateBackupEnvelope({
+      backupFormatVersion: 3,
+      appVersion: metadata.appVersion,
+      exportedAt: metadata.exportedAt,
+      ledgerSchemaVersion: 3,
+      ledgerData: ledger,
+      unexpected: true,
+    });
+    const wrongOrder = validateBackupEnvelope({
+      appVersion: metadata.appVersion,
+      backupFormatVersion: 3,
+      exportedAt: metadata.exportedAt,
+      ledgerSchemaVersion: 3,
+      ledgerData: ledger,
+    });
+    const invalidAppVersion = validateBackupEnvelope({
+      backupFormatVersion: 3,
+      appVersion: ` ${"x".repeat(128)}`,
+      exportedAt: metadata.exportedAt,
+      ledgerSchemaVersion: 3,
+      ledgerData: ledger,
+    });
+
+    for (const result of [extraKey, wrongOrder]) {
+      expect(result).toEqual({
+        ok: false,
+        errors: expect.arrayContaining([
+          expect.objectContaining({
+            code: "BACKUP_INVALID_ENVELOPE",
+            path: "backup",
+          }),
+        ]),
+      });
+    }
+    expect(invalidAppVersion).toEqual({
+      ok: false,
+      errors: expect.arrayContaining([
+        expect.objectContaining({ code: "BACKUP_INVALID_APP_VERSION" }),
+      ]),
+    });
   });
 
   it("rejects a V1 backup without returning a V2 value", () => {

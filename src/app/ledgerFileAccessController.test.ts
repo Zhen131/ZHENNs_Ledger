@@ -980,6 +980,42 @@ describe("DefaultLedgerFileAccessController", () => {
     });
   });
 
+  it("rejects a V2 ledger schema before password, decryption, writes, or connection publication", async () => {
+    const handle = await createExistingLedgerHandle("retired-ledger-v2");
+    const file = JSON.parse(
+      new TextDecoder().decode(handle.bytes),
+    ) as LedgerFileV2;
+    handle.bytes = new TextEncoder().encode(
+      JSON.stringify({
+        ...file,
+        current: { ...file.current, ledgerSchemaVersion: 2 },
+      }),
+    );
+    const before = handle.bytes.slice();
+    const connection = createConnectionAdapter();
+    const { controller } = createController(
+      new MemoryFileHandle("unused.lftl"),
+      handle,
+      createTestCoordinator(),
+      () => "unused-recovery",
+      connection.adapter,
+    );
+
+    await expect(controller.selectExisting()).resolves.toEqual({
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA,
+    });
+    expect(handle.bytes).toEqual(before);
+    expect(handle.writes).toBe(0);
+    expect(connection.adapter.write).not.toHaveBeenCalled();
+    expect(connection.current()).toBeNull();
+    await expect(controller.unlockSelected(PASSPHRASE)).resolves.toEqual({
+      status: "error",
+      ok: false,
+      code: LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION,
+    });
+  });
+
   it("selects before asking for a password, keeps wrong-password attempts read-only, and unlocks the same file", async () => {
     const handle = new MemoryFileHandle("ledger.lftl");
     const setup = createController(handle);

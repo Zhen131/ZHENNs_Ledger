@@ -1,5 +1,7 @@
 import type { LedgerData } from "@/core/models";
+import { replayUsdtCash } from "@/core/calculations";
 import { validateLedgerImportPolicy } from "@/core/policies";
+import { absolute, isNegative } from "@/core/shared";
 import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
@@ -18,6 +20,7 @@ import {
   type BackupEnvelopeV3,
 } from "./backupEnvelope";
 import { createLedgerDataContentIdentity } from "@/platform/persistence/identity";
+import { listAssetsMissingBinanceMapping } from "@/features/market-data";
 
 export const BACKUP_PREFLIGHT_PAGE_DETAIL_LIMIT = 50;
 export const BACKUP_PREFLIGHT_REPORT_DETAIL_LIMIT = 1000;
@@ -74,12 +77,24 @@ export type BackupPreflightSkippedCheck = Readonly<{
 }>;
 
 export type BackupPreflightMetadata = Readonly<{
+  sourceFileName?: string;
+  backupFormatVersion?: number;
   appVersion?: string;
   exportedAt?: string;
+  ledgerSchemaVersion?: number;
   assetCount?: number;
   tradeCount?: number;
+  cashEventCount?: number;
   priceSnapshotCount?: number;
   feeRuleCount?: number;
+  cashBalance?: string;
+  cashDeficit?: string;
+  missingMappingSymbols?: readonly string[];
+}>;
+
+export type BackupPreflightWarning = Readonly<{
+  code: "BACKUP_NEGATIVE_CASH_BALANCE";
+  message: string;
 }>;
 
 export type BackupImportPreflightResult = Readonly<{
@@ -88,6 +103,8 @@ export type BackupImportPreflightResult = Readonly<{
   suspiciousGroupIdentity: string;
   hardErrorCount: number;
   suspiciousGroupCount: number;
+  warningCount: number;
+  warnings: readonly BackupPreflightWarning[];
   totalDetailCount: number;
   retainedDetailCount: number;
   truncated: boolean;
@@ -152,10 +169,10 @@ const importEvidenceRuntimes = new WeakMap<
 export type BackupImportPreflightOptions = Readonly<{
   todayKey: string;
   selectionGeneration: number;
+  sourceFileName?: string;
   /**
-   * Historical B -> C import requires every trade to preserve its source line.
-   * The option stays explicit so existing generic rescue-backup restoration can
-   * retain the optional Trade.rawText schema contract.
+   * Only the explicit historical-ingest path requires every trade to preserve
+   * a source line. Normal V3 backup restore keeps Trade.rawText optional.
    */
   requireHistoricalRawText?: boolean;
 }>;
@@ -187,12 +204,14 @@ export async function preflightBackupJson(
       contentIdentity,
       selectionGeneration: options.selectionGeneration,
       requireHistoricalRawText:
-        options.requireHistoricalRawText ?? true,
+        options.requireHistoricalRawText ?? false,
       hardErrors: bytePolicy.errors.map((error) =>
         normalizeEnvelopeError(error, undefined),
       ),
       suspiciousGroups: [],
       skippedChecks,
+      warnings: [],
+      metadata: collectMetadata(undefined, options.sourceFileName),
     });
   }
 
@@ -212,7 +231,7 @@ export async function preflightBackupJson(
       contentIdentity,
       selectionGeneration: options.selectionGeneration,
       requireHistoricalRawText:
-        options.requireHistoricalRawText ?? true,
+        options.requireHistoricalRawText ?? false,
       hardErrors: [
         {
           kind: "hard-error",
@@ -228,13 +247,46 @@ export async function preflightBackupJson(
       ],
       suspiciousGroups: [],
       skippedChecks,
+      warnings: [],
+      metadata: collectMetadata(undefined, options.sourceFileName),
     });
   }
 
-  const metadata = collectMetadata(parsed);
+  if (isRecord(parsed) && parsed.backupFormatVersion === 2) {
+    const versionResult = validateBackupEnvelope(parsed, options.todayKey);
+    const versionErrors = versionResult.ok
+      ? []
+      : versionResult.errors.map((error) =>
+          normalizeEnvelopeError(error, undefined),
+        );
+    skippedChecks.push(
+      skipped("ledger-structure", "V2 备份已在版本阶段停止。"),
+      skipped("resource-policy", "V2 备份已在版本阶段停止。"),
+      skipped("import-policy", "V2 备份已在版本阶段停止。"),
+      skipped("duplicate-grouping", "V2 备份已在版本阶段停止。"),
+    );
+    return finalizeResult({
+      contentIdentity,
+      selectionGeneration: options.selectionGeneration,
+      requireHistoricalRawText: false,
+      hardErrors: versionErrors,
+      suspiciousGroups: [],
+      warnings: [],
+      skippedChecks,
+      metadata: collectTopLevelMetadata(parsed, options.sourceFileName),
+    });
+  }
+
   const envelopeResult = validateBackupEnvelope(parsed, options.todayKey);
   const ledgerInput = getLedgerDataInput(parsed);
   const ledgerResult = validateLedgerData(ledgerInput);
+  const summaryLedger = ledgerResult.ok ? ledgerResult.value : undefined;
+  const metadata = collectMetadata(
+    parsed,
+    options.sourceFileName,
+    summaryLedger,
+  );
+  const warnings = collectWarnings(summaryLedger);
   const hardErrors: BackupPreflightHardError[] = !envelopeResult.ok
     ? envelopeResult.errors.map((error) =>
         normalizeEnvelopeError(error, parsed),
@@ -242,7 +294,7 @@ export async function preflightBackupJson(
     : [];
 
   const rawTextInvalidIndexes = new Set<number>();
-  if (options.requireHistoricalRawText ?? true) {
+  if (options.requireHistoricalRawText ?? false) {
     for (const error of collectHistoricalRawTextErrors(parsed)) {
       hardErrors.push(error);
       const index = getTradeIndex(error.path);
@@ -304,10 +356,11 @@ export async function preflightBackupJson(
     contentIdentity,
     selectionGeneration: options.selectionGeneration,
     requireHistoricalRawText:
-      options.requireHistoricalRawText ?? true,
+      options.requireHistoricalRawText ?? false,
     hardErrors: deduplicatedErrors,
     suspiciousGroups,
     skippedChecks,
+    warnings,
     metadata,
     parsed,
     candidate,
@@ -320,6 +373,7 @@ type FinalizeInput = Readonly<{
   requireHistoricalRawText: boolean;
   hardErrors: readonly BackupPreflightHardError[];
   suspiciousGroups: readonly SuspiciousBackupTradeGroup[];
+  warnings: readonly BackupPreflightWarning[];
   skippedChecks: readonly BackupPreflightSkippedCheck[];
   metadata?: BackupPreflightMetadata;
   parsed?: unknown;
@@ -369,6 +423,8 @@ async function finalizeResult(
     suspiciousGroupIdentity,
     hardErrorCount: sortedHardErrors.length,
     suspiciousGroupCount: suspiciousDetails.length,
+    warningCount: input.warnings.length,
+    warnings: [...input.warnings],
     totalDetailCount: allDetails.length,
     retainedDetailCount: retainedDetails.length,
     truncated:
@@ -575,6 +631,12 @@ function toChineseErrorMessage(error: BackupEnvelopeError): string {
   if (error.code.startsWith("LEDGER_DATA_")) {
     return `账本字段未通过结构校验：${error.message}`;
   }
+  if (
+    error.code === "BACKUP_UNSUPPORTED_FORMAT_VERSION" &&
+    error.message === "这是 V2 备份；V3 不提供迁移"
+  ) {
+    return error.message;
+  }
 
   const labels: Partial<Record<BackupEnvelopeError["code"], string>> = {
     BACKUP_BAD_JSON: "备份不是有效 JSON。",
@@ -689,33 +751,98 @@ function collectDuplicateTradeIdIndexes(parsed: unknown): ReadonlySet<number> {
   );
 }
 
-function collectMetadata(parsed: unknown): BackupPreflightMetadata | undefined {
-  if (!isRecord(parsed)) {
-    return undefined;
-  }
+function collectMetadata(
+  parsed: unknown,
+  sourceFileName?: string,
+  validatedLedgerData?: LedgerData,
+): BackupPreflightMetadata | undefined {
+  if (!isRecord(parsed) && sourceFileName === undefined) return undefined;
 
-  const ledgerData = getLedgerDataInput(parsed);
+  const ledgerInput = getLedgerDataInput(parsed);
   const metadata: BackupPreflightMetadata = {
+    ...(sourceFileName === undefined ? {} : { sourceFileName }),
+    ...(isRecord(parsed) && typeof parsed.backupFormatVersion === "number"
+      ? { backupFormatVersion: parsed.backupFormatVersion }
+      : {}),
+    ...(isRecord(parsed) && typeof parsed.appVersion === "string"
+      ? { appVersion: parsed.appVersion }
+      : {}),
+    ...(isRecord(parsed) && typeof parsed.exportedAt === "string"
+      ? { exportedAt: parsed.exportedAt }
+      : {}),
+    ...(isRecord(parsed) && typeof parsed.ledgerSchemaVersion === "number"
+      ? { ledgerSchemaVersion: parsed.ledgerSchemaVersion }
+      : {}),
+    ...(isRecord(ledgerInput) && Array.isArray(ledgerInput.assets)
+      ? { assetCount: ledgerInput.assets.length }
+      : {}),
+    ...(isRecord(ledgerInput) && Array.isArray(ledgerInput.trades)
+      ? { tradeCount: ledgerInput.trades.length }
+      : {}),
+    ...(isRecord(ledgerInput) && Array.isArray(ledgerInput.cashEvents)
+      ? { cashEventCount: ledgerInput.cashEvents.length }
+      : {}),
+    ...(isRecord(ledgerInput) && Array.isArray(ledgerInput.priceSnapshots)
+      ? { priceSnapshotCount: ledgerInput.priceSnapshots.length }
+      : {}),
+    ...(isRecord(ledgerInput) && Array.isArray(ledgerInput.feeRules)
+      ? { feeRuleCount: ledgerInput.feeRules.length }
+      : {}),
+    ...(validatedLedgerData === undefined
+      ? {}
+      : collectLedgerSummary(validatedLedgerData)),
+  };
+  return metadata;
+}
+
+function collectTopLevelMetadata(
+  parsed: Record<string, unknown>,
+  sourceFileName?: string,
+): BackupPreflightMetadata {
+  return {
+    ...(sourceFileName === undefined ? {} : { sourceFileName }),
+    ...(typeof parsed.backupFormatVersion === "number"
+      ? { backupFormatVersion: parsed.backupFormatVersion }
+      : {}),
     ...(typeof parsed.appVersion === "string"
       ? { appVersion: parsed.appVersion }
       : {}),
     ...(typeof parsed.exportedAt === "string"
       ? { exportedAt: parsed.exportedAt }
       : {}),
-    ...(isRecord(ledgerData) && Array.isArray(ledgerData.assets)
-      ? { assetCount: ledgerData.assets.length }
-      : {}),
-    ...(isRecord(ledgerData) && Array.isArray(ledgerData.trades)
-      ? { tradeCount: ledgerData.trades.length }
-      : {}),
-    ...(isRecord(ledgerData) && Array.isArray(ledgerData.priceSnapshots)
-      ? { priceSnapshotCount: ledgerData.priceSnapshots.length }
-      : {}),
-    ...(isRecord(ledgerData) && Array.isArray(ledgerData.feeRules)
-      ? { feeRuleCount: ledgerData.feeRules.length }
+    ...(typeof parsed.ledgerSchemaVersion === "number"
+      ? { ledgerSchemaVersion: parsed.ledgerSchemaVersion }
       : {}),
   };
-  return metadata;
+}
+
+function collectLedgerSummary(
+  ledgerData: LedgerData,
+): Pick<
+  BackupPreflightMetadata,
+  "cashBalance" | "cashDeficit" | "missingMappingSymbols"
+> {
+  const balance = replayUsdtCash(ledgerData).balance;
+  return {
+    cashBalance: balance,
+    cashDeficit: isNegative(balance) ? absolute(balance) : "0",
+    missingMappingSymbols: listAssetsMissingBinanceMapping(ledgerData),
+  };
+}
+
+function collectWarnings(
+  ledgerData: LedgerData | undefined,
+): BackupPreflightWarning[] {
+  if (!ledgerData) return [];
+  const balance = replayUsdtCash(ledgerData).balance;
+  return isNegative(balance)
+    ? [
+        {
+          code: "BACKUP_NEGATIVE_CASH_BALANCE",
+          message: `USDT 现金重放结果为 ${balance}；负余额合法，不会阻止导入。`,
+        },
+      ]
+    : [];
 }
 
 function createTradeSummary(
@@ -779,7 +906,6 @@ function deduplicateHardErrors(
       error.stage,
       error.code,
       error.path,
-      error.message,
       error.line,
       error.column,
     ].join("\u0000");

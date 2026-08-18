@@ -61,7 +61,6 @@ import {
 
 const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 const FILE_SAVED_FEEDBACK_MS = 4_000;
-const V3_BACKUP_IMPORT_ENABLED = false;
 
 type ClearConfirmationMode = "normal" | "recovery";
 
@@ -1028,19 +1027,21 @@ export function DashboardShell({
                 </p>
 
                 <BackupControls
+                  applyLedgerMutation={applyLedgerMutation}
                   canImportBackup={capabilities.canImportBackup}
-                  canPreflightBackup={V3_BACKUP_IMPORT_ENABLED}
                   clock={clock}
                   hydrationStatus={hydrationStatus}
                   isDirty={isDirty}
                   isReadOnly={isReadOnly}
+                  isWritable={isWritable}
                   ledgerData={ledgerData}
+                  ledgerEpoch={ledgerEpoch}
+                  mutationVersion={mutationVersion}
                   onImport={replaceLedgerFromBackup}
                   persistenceOperation={persistenceOperation}
                   persistenceStatus={persistenceStatus}
-                  requiresHistoricalRawText={
-                    storageKind === "ledger-file"
-                  }
+                  persistedVersion={persistedVersion}
+                  sessionGeneration={ledgerEpoch}
                 />
 
                 {(capabilities.canClearReadyLedger ||
@@ -1261,18 +1262,22 @@ export function DashboardShell({
           active={workspace.currentPage === "transfer"}
           backupPanel={
             <BackupControls
+              applyLedgerMutation={applyLedgerMutation}
               canImportBackup={capabilities.canImportBackup}
-              canPreflightBackup={V3_BACKUP_IMPORT_ENABLED}
               clock={clock}
               hydrationStatus={hydrationStatus}
               isDirty={isDirty}
               isReadOnly={isReadOnly}
+              isWritable={isWritable}
               ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mutationVersion={mutationVersion}
               onImport={replaceLedgerFromBackup}
               persistenceOperation={persistenceOperation}
               persistenceStatus={persistenceStatus}
+              persistedVersion={persistedVersion}
               presentation="transfer"
-              requiresHistoricalRawText={storageKind === "ledger-file"}
+              sessionGeneration={session.generation}
               showPlaintextWarning={false}
             />
           }

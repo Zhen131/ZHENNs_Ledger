@@ -8,7 +8,7 @@ export function createBackupFilename(exportedAt: string): string {
   }
 
   const [, year, month, day, hour, minute, second] = match;
-  return `local-first-trading-ledger-backup-v1-${year}${month}${day}-${hour}${minute}${second}Z.json`;
+  return `local-first-trading-ledger-backup-v3-${year}${month}${day}-${hour}${minute}${second}Z.json`;
 }
 
 export type BackupDownloadFailureCode =

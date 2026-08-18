@@ -31,6 +31,8 @@ import {
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
+import type { LedgerData } from "@/core/models";
+import type { BinanceMarketDataClient } from "@/platform/integrations";
 import { BackupControls } from "./BackupControls";
 
 afterEach(() => {
@@ -41,7 +43,7 @@ afterEach(() => {
 
 const FIXED_EXPORTED_AT = "2026-07-23T12:34:56.000Z";
 const FIXED_BACKUP_FILENAME =
-  "local-first-trading-ledger-backup-v1-20260723-123456Z.json";
+  "local-first-trading-ledger-backup-v3-20260723-123456Z.json";
 const fixedClock = {
   now: () => new Date(FIXED_EXPORTED_AT),
 };
@@ -85,6 +87,47 @@ function createBackupFile(name = "ledger.json") {
     value: vi.fn(async () => serializeBackupEnvelope(envelope.value)),
   });
   return file;
+}
+
+function createBackupFileFromLedger(ledgerData: LedgerData, name: string) {
+  const envelope = createBackupEnvelope(ledgerData, {
+    appVersion: "0.1.0",
+    exportedAt: FIXED_EXPORTED_AT,
+  });
+  if (!envelope.ok) throw new Error("Fixture must be valid");
+  const serialized = serializeBackupEnvelope(envelope.value);
+  const file = new File([serialized], name, { type: "application/json" });
+  Object.defineProperty(file, "text", {
+    configurable: true,
+    value: vi.fn(async () => serialized),
+  });
+  return file;
+}
+
+function createPostImportPairingLedger(): LedgerData {
+  const ledgerData = createInitialLedgerData();
+  const timestamp = "2026-07-20T08:00:00.000Z";
+  ledgerData.assets.push(
+    {
+      id: "asset-sol-post-import",
+      symbol: "SOL",
+      name: "Solana",
+      quoteCurrency: "USDT",
+      binanceMapping: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      id: "asset-knight-post-import",
+      symbol: "KNIGHT",
+      name: "Fictional Knight",
+      quoteCurrency: "USDT",
+      binanceMapping: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  );
+  return ledgerData;
 }
 
 function createPermanentFixtureFile(name: string) {
@@ -319,6 +362,7 @@ describe("BackupControls", () => {
       "schemaVersion",
       "assets",
       "trades",
+      "cashEvents",
       "priceSnapshots",
       "feeRules",
     ]);
@@ -351,7 +395,7 @@ describe("BackupControls", () => {
     expect(message).toContain("实际保存位置");
   });
 
-  it("creates one backup Blob when the serialized envelope is exactly 8 MiB", async () => {
+  it("rejects a resource-invalid read-only rescue before Blob creation", async () => {
     const createObjectURL = vi.fn(() => "blob:backup");
     vi.stubGlobal("URL", { createObjectURL, revokeObjectURL: vi.fn() });
     const blobConstructor = stubBlobConstructor();
@@ -365,8 +409,13 @@ describe("BackupControls", () => {
 
     await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
 
-    expect(blobConstructor).toHaveBeenCalledOnce();
-    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(blobConstructor).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "无法导出：当前账本未通过 V3 结构、资源或业务校验。",
+      ),
+    ).not.toBeNull();
   });
 
   it("does not construct a Blob when the serialized envelope exceeds 8 MiB by one byte", async () => {
@@ -387,7 +436,7 @@ describe("BackupControls", () => {
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(
       screen.getByText(
-        "无法导出：当前 v1 无法安全导出该超大账本；未创建备份文件。",
+        "无法导出：当前账本未通过 V3 结构、资源或业务校验。",
       ),
     ).not.toBeNull();
   });
@@ -465,6 +514,166 @@ describe("BackupControls", () => {
     });
   });
 
+  it("keeps import at zero network, then saves mapping before a separate first-price mutation after explicit pairing", async () => {
+    let currentLedger = createInitialLedgerData();
+    let ledgerEpoch = 0;
+    let mutationVersion = 0;
+    let persistedVersion = 0;
+    let persistenceStatus: ComponentProps<
+      typeof BackupControls
+    >["persistenceStatus"] = "saved";
+    const importedLedger = createPostImportPairingLedger();
+    const onImport = vi.fn<
+      ComponentProps<typeof BackupControls>["onImport"]
+    >(async (candidate) => {
+      currentLedger = structuredClone(candidate);
+      return { ok: true };
+    });
+    const client: BinanceMarketDataClient = {
+      validateSpotSymbol: vi.fn(async (assetSymbol, marketSymbol) =>
+        assetSymbol === "SOL"
+          ? {
+              ok: true as const,
+              value: {
+                symbol: marketSymbol,
+                status: "TRADING",
+                baseAsset: "SOL",
+                quoteAsset: "USDT",
+                isSpotTradingAllowed: true,
+              },
+            }
+          : {
+              ok: false as const,
+              error: {
+                code: "BINANCE_SYMBOL_MISSING" as const,
+                symbol: marketSymbol,
+                message: "fictional pair does not exist",
+              },
+            },
+      ),
+      fetchLatestPrices: vi.fn(async () => ({
+        prices: [{ symbol: "SOLUSDT", price: "150" }],
+        failures: [],
+      })),
+    };
+    const applyLedgerMutation = vi.fn<
+      NonNullable<
+        ComponentProps<typeof BackupControls>["applyLedgerMutation"]
+      >
+    >((mutation) => {
+      const next = mutation(currentLedger);
+      if (next === currentLedger) return "noop";
+      currentLedger = next;
+      mutationVersion += 1;
+      persistenceStatus = "saving";
+      return "applied";
+    });
+    const generateId = vi.fn(() => "price-sol-post-import");
+    const element = () => (
+      <BackupControls
+        applyLedgerMutation={applyLedgerMutation}
+        clock={fixedClock}
+        generateId={generateId}
+        hydrationStatus="ready"
+        isDirty={false}
+        isReadOnly={false}
+        isWritable
+        ledgerData={currentLedger}
+        ledgerEpoch={ledgerEpoch}
+        marketDataClient={client}
+        mutationVersion={mutationVersion}
+        onImport={onImport}
+        persistedVersion={persistedVersion}
+        persistenceOperation="idle"
+        persistenceStatus={persistenceStatus}
+        sessionGeneration={ledgerEpoch}
+      />
+    );
+    const view = render(element());
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createBackupFileFromLedger(
+        importedLedger,
+        "fictional-post-import-pairing.json",
+      ),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "确认恢复备份" }),
+    );
+    await screen.findByText("备份已恢复并保存到本地。");
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(applyLedgerMutation).not.toHaveBeenCalled();
+
+    ledgerEpoch = 1;
+    view.rerender(element());
+    await user.click(
+      screen.getByRole("button", {
+        name: "联网自动配对缺失资产",
+      }),
+    );
+    await waitFor(() => {
+      expect(client.validateSpotSymbol).toHaveBeenCalledTimes(2);
+      expect(applyLedgerMutation).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(/mapping，保存成功前不会请求价格/)).not.toBeNull();
+    });
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(client.validateSpotSymbol).toHaveBeenNthCalledWith(
+      1,
+      "KNIGHT",
+      "KNIGHTUSDT",
+      expect.any(AbortSignal),
+    );
+    expect(client.validateSpotSymbol).toHaveBeenNthCalledWith(
+      2,
+      "SOL",
+      "SOLUSDT",
+      expect.any(AbortSignal),
+    );
+    expect(
+      currentLedger.assets.find(({ symbol }) => symbol === "SOL")
+        ?.binanceMapping?.symbol,
+    ).toBe("SOLUSDT");
+    expect(
+      currentLedger.assets.find(({ symbol }) => symbol === "KNIGHT")
+        ?.binanceMapping,
+    ).toBeNull();
+
+    persistedVersion = mutationVersion;
+    persistenceStatus = "saved";
+    view.rerender(element());
+    await waitFor(() => {
+      expect(client.fetchLatestPrices).toHaveBeenCalledWith(
+        ["SOLUSDT"],
+        expect.any(AbortSignal),
+      );
+      expect(applyLedgerMutation).toHaveBeenCalledTimes(2);
+    });
+    expect(currentLedger.priceSnapshots).toEqual([
+      expect.objectContaining({
+        id: "price-sol-post-import",
+        assetSymbol: "SOL",
+        price: "150",
+        source: "api",
+      }),
+    ]);
+
+    persistedVersion = mutationVersion;
+    persistenceStatus = "saved";
+    view.rerender(element());
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /mapping 已保存 1 项，价格已保存 1 项，失败 1 项/,
+        ),
+      ).not.toBeNull();
+    });
+    expect(screen.getByText("BINANCE_SYMBOL_MISSING")).not.toBeNull();
+    expect(onImport).toHaveBeenCalledOnce();
+  });
+
   it("binds the exact preflight identities and a live cancellation signal to the import call", async () => {
     const { file, serialized } =
       createPermanentFixtureFile("valid-300.backup.json");
@@ -529,12 +738,53 @@ describe("BackupControls", () => {
       file,
     );
 
-    await screen.findByText(/trades\[146\]\.quantity/);
+    await screen.findAllByText(/trades\[146\]\.quantity/);
     expect(
       screen.queryByRole("button", { name: "确认恢复备份" }),
     ).toBeNull();
     expect(onImport).not.toHaveBeenCalled();
     expect(facts).toEqual(before);
+  });
+
+  it("rejects V2 B before import, file mutation, or Binance calls", async () => {
+    const parsed = JSON.parse(
+      readFileSync(
+        "test-fixtures/w11-b-import/valid-300.backup.json",
+        "utf8",
+      ),
+    );
+    parsed.backupFormatVersion = 2;
+    const client: BinanceMarketDataClient = {
+      validateSpotSymbol: vi.fn(),
+      fetchLatestPrices: vi.fn(),
+    };
+    const onImport = vi.fn(async () => ({ ok: true }));
+    const applyLedgerMutation = vi.fn(() => "applied" as const);
+    renderControls({
+      applyLedgerMutation,
+      canImportBackup: true,
+      isWritable: true,
+      marketDataClient: client,
+      onImport,
+    });
+    const user = userEvent.setup();
+
+    await user.upload(
+      screen.getByLabelText("选择账本备份文件"),
+      createPaddedBackupFile(
+        `${JSON.stringify(parsed, null, 2)}\n`,
+        "fictional-v2.backup.json",
+      ),
+    );
+
+    await screen.findAllByText(/这是 V2 备份；V3 不提供迁移/);
+    expect(
+      screen.queryByRole("button", { name: "确认恢复备份" }),
+    ).toBeNull();
+    expect(onImport).not.toHaveBeenCalled();
+    expect(applyLedgerMutation).not.toHaveBeenCalled();
+    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
   });
 
   it.each(["cancel", "unmount"] as const)(
@@ -934,7 +1184,7 @@ describe("BackupControls", () => {
       } else if (scenario === "bad-json") {
         await screen.findByText(/BACKUP_BAD_JSON/);
       } else if (scenario === "hard-error") {
-        await screen.findByText(/trades\[146\]\.quantity/);
+        await screen.findAllByText(/trades\[146\]\.quantity/);
       } else {
         await screen.findByText(/LEDGER_IMPORT_FUTURE_FACT/);
       }
@@ -962,8 +1212,7 @@ describe("BackupControls", () => {
     await user.upload(screen.getByLabelText("选择账本备份文件"), file);
 
     await waitFor(() => {
-      expect(screen.getByText(/trades\[0\]\.quantity/)).not.toBeNull();
-      expect(screen.getByText(/trades\[7\]\.rawText/)).not.toBeNull();
+      expect(screen.getAllByText(/trades\[0\]\.quantity/).length).toBeGreaterThan(0);
       expect(screen.getByText(/高度可疑/)).not.toBeNull();
       expect(screen.getByText(/一般可疑/)).not.toBeNull();
     });

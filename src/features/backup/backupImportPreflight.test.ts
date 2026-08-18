@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createInitialLedgerData } from "@/core/state";
 import { createValidatedTrade } from "@/features/trades";
@@ -122,6 +122,60 @@ describe("preflightBackupJson", () => {
     expect(inspectLedgerBackupImportEvidence(evidence)).toBeNull();
   });
 
+  it("reports source, five collection counts, missing mappings and negative cash as a warning", async () => {
+    const ledger = createInitialLedgerData();
+    ledger.assets[0] = {
+      ...ledger.assets[0],
+      binanceMapping: null,
+    };
+    ledger.cashEvents = [
+      {
+        id: "negative-cash-withdrawal",
+        occurredAt: "2026-07-20",
+        timePrecision: "day",
+        type: "withdrawal",
+        amount: "50",
+        currency: "USDT",
+        createdAt: "2026-07-20T08:00:00.000Z",
+        updatedAt: "2026-07-20T08:00:00.000Z",
+      },
+    ];
+    const envelope = createBackupEnvelope(ledger, {
+      appVersion: "0.1.0",
+      exportedAt: "2026-07-30T12:00:00.000Z",
+    }, TODAY);
+    expect(envelope.ok).toBe(true);
+    if (!envelope.ok) return;
+
+    const result = await preflightBackupJson(
+      serializeBackupEnvelope(envelope.value),
+      {
+        todayKey: TODAY,
+        selectionGeneration: 9,
+        sourceFileName: "fictional-negative-cash.backup.json",
+      },
+    );
+
+    expect(result.hardErrorCount).toBe(0);
+    expect(result.warningCount).toBe(1);
+    expect(result.warnings).toEqual([
+      expect.objectContaining({ code: "BACKUP_NEGATIVE_CASH_BALANCE" }),
+    ]);
+    expect(result.metadata).toMatchObject({
+      sourceFileName: "fictional-negative-cash.backup.json",
+      backupFormatVersion: 3,
+      ledgerSchemaVersion: 3,
+      assetCount: ledger.assets.length,
+      tradeCount: 0,
+      cashEventCount: 1,
+      priceSnapshotCount: 0,
+      feeRuleCount: 0,
+      cashBalance: "-50",
+      cashDeficit: "50",
+      missingMappingSymbols: [ledger.assets[0].symbol],
+    });
+  });
+
   it("binds suspicious confirmation to the exact signed preflight result", async () => {
     const serialized = readFixture(
       "suspicions-only.backup.json",
@@ -171,37 +225,84 @@ describe("preflightBackupJson", () => {
     expect(result.candidate).toBeUndefined();
   });
 
-  it("binds identity to exact absent, null, and explicit Binance mapping facts", async () => {
+  it("short-circuits a V2 B at the version stage without candidate, warnings, duplicate grouping, or network", async () => {
+    const parsed = JSON.parse(readFixture("suspicions-only.backup.json"));
+    parsed.backupFormatVersion = 2;
+    parsed.ledgerData.trades[0].quantity = "also-invalid";
+    const fetchSpy = vi.fn(async () => {
+      throw new Error("preflight must stay offline");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await preflightBackupJson(
+      `${JSON.stringify(parsed, null, 2)}\n`,
+      {
+        todayKey: TODAY,
+        selectionGeneration: 8,
+        sourceFileName: "fictional-v2.backup.json",
+      },
+    );
+
+    expect(result.hardErrorCount).toBe(1);
+    expect(result.suspiciousGroupCount).toBe(0);
+    expect(result.warningCount).toBe(0);
+    expect(result.candidate).toBeUndefined();
+    expect(result.candidateIdentity).toBeUndefined();
+    expect(createLedgerBackupImportEvidence(result)).toBeNull();
+    expect(result.retainedDetails).toEqual([
+      expect.objectContaining({
+        code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+        path: "backupFormatVersion",
+        message: "这是 V2 备份；V3 不提供迁移",
+      }),
+    ]);
+    expect(result.metadata).toEqual({
+      sourceFileName: "fictional-v2.backup.json",
+      backupFormatVersion: 2,
+      appVersion: parsed.appVersion,
+      exportedAt: parsed.exportedAt,
+      ledgerSchemaVersion: parsed.ledgerSchemaVersion,
+    });
+    expect(result.skippedChecks.map(({ check }) => check)).toEqual([
+      "ledger-structure",
+      "resource-policy",
+      "import-policy",
+      "duplicate-grouping",
+    ]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects absent Binance mapping and distinguishes null from explicit mapping identities", async () => {
     const parsed = JSON.parse(
       readFixture("valid-300.backup.json"),
     );
-    delete parsed.ledgerData.assets[0].binanceMapping;
-    const result = await preflight(
-      `${JSON.stringify(parsed, null, 2)}\n`,
+    const absent = structuredClone(parsed);
+    delete absent.ledgerData.assets[0].binanceMapping;
+    const absentResult = await preflight(
+      `${JSON.stringify(absent, null, 2)}\n`,
     );
 
+    expect(absentResult.hardErrorCount).toBeGreaterThan(0);
+    expect(absentResult.candidate).toBeUndefined();
+    expect(absentResult.retainedDetails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "assets[0].binanceMapping" }),
+      ]),
+    );
+
+    const result = await preflight(`${JSON.stringify(parsed, null, 2)}\n`);
     expect(result.hardErrorCount).toBe(0);
-    expect(
-      result.candidate
-        ? Object.hasOwn(result.candidate.assets[0], "binanceMapping")
-        : true,
-    ).toBe(false);
     if (!result.candidate || !result.candidateIdentity) return;
 
     const explicit = structuredClone(result.candidate);
-    explicit.assets[0].binanceMapping = {
-      provider: "binance",
-      symbol: "BTCUSDT",
-      baseAsset: "BTC",
-      quoteAsset: "USDT",
-    };
     const disabled = structuredClone(result.candidate);
     disabled.assets[0].binanceMapping = null;
 
     await expect(
       createLedgerDataContentIdentity(result.candidate),
     ).resolves.toBe(result.candidateIdentity);
-    await expect(createLedgerDataContentIdentity(explicit)).resolves.not.toBe(
+    await expect(createLedgerDataContentIdentity(explicit)).resolves.toBe(
       result.candidateIdentity,
     );
     await expect(createLedgerDataContentIdentity(disabled)).resolves.not.toBe(

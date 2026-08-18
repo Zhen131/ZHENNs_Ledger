@@ -827,7 +827,7 @@ describe("LedgerAccessGate", () => {
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
 
-  it("explains that retired or unknown .lftl versions require a new V2 ledger", async () => {
+  it("explains that retired or unknown .lftl container versions are not migrated", async () => {
     const user = userEvent.setup();
     const fileController = createFileController({
       selectExisting: vi.fn(async () => ({
@@ -847,9 +847,34 @@ describe("LedgerAccessGate", () => {
     );
 
     expect(
-      screen.getByText(/版本 2 不支持解锁或迁移/),
+      screen.getByText(/当前版本不支持解锁或迁移/),
     ).toBeTruthy();
-    expect(screen.getByText(/请新建版本 2 账本/)).toBeTruthy();
+    expect(screen.queryByLabelText("账本核心密码")).toBeNull();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+  });
+
+  it("explains that a V2 ledger payload is rejected before password or decryption", async () => {
+    const user = userEvent.setup();
+    const fileController = createFileController({
+      selectExisting: vi.fn(async () => ({
+        ok: false as const,
+        code: LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA,
+      })),
+    });
+    render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择账本" }),
+    );
+
+    expect(
+      screen.getByText(/该文件承载 V2 账本；当前 V3 不提供迁移/),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("账本核心密码")).toBeNull();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });

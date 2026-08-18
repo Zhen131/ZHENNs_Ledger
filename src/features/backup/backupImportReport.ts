@@ -19,6 +19,7 @@ export function formatBackupImportReportMarkdown(
     `- UTF-8 字节数：${result.contentIdentity.utf8ByteLength}`,
     `- 选择代次：${result.selectionGeneration}`,
     `- 硬错误总数：${result.hardErrorCount}`,
+    `- warning 总数：${result.warningCount}`,
     `- 可疑重复组总数：${result.suspiciousGroupCount}`,
     `- 详情总数：${result.totalDetailCount}`,
     `- 报告保留详情：${result.retainedDetailCount}`,
@@ -31,13 +32,29 @@ export function formatBackupImportReportMarkdown(
       "",
       "## 备份元数据",
       "",
+      `- 来源文件名：${textOrUnavailable(result.metadata.sourceFileName)}`,
+      `- 备份格式版本：${numberOrUnavailable(result.metadata.backupFormatVersion)}`,
       `- 应用版本：${textOrUnavailable(result.metadata.appVersion)}`,
       `- 导出时间：${textOrUnavailable(result.metadata.exportedAt)}`,
+      `- 账本 schema 版本：${numberOrUnavailable(result.metadata.ledgerSchemaVersion)}`,
       `- 资产：${numberOrUnavailable(result.metadata.assetCount)}`,
       `- 交易：${numberOrUnavailable(result.metadata.tradeCount)}`,
+      `- 现金事件：${numberOrUnavailable(result.metadata.cashEventCount)}`,
       `- 价格快照：${numberOrUnavailable(result.metadata.priceSnapshotCount)}`,
       `- 手续费规则：${numberOrUnavailable(result.metadata.feeRuleCount)}`,
+      `- USDT 现金余额：${textOrUnavailable(result.metadata.cashBalance)}`,
+      `- USDT 现金缺口：${textOrUnavailable(result.metadata.cashDeficit)}`,
+      `- 缺 Binance mapping：${formatMissingMappings(result.metadata.missingMappingSymbols)}`,
     );
+  }
+
+  if (result.warnings.length > 0) {
+    lines.push("", "## Warnings", "");
+    result.warnings.forEach((warning) => {
+      lines.push(
+        `- \`${inline(warning.code)}\`：${singleLine(warning.message)}`,
+      );
+    });
   }
 
   if (result.skippedChecks.length > 0) {
@@ -172,6 +189,13 @@ function textOrUnavailable(value: string | undefined): string {
 
 function numberOrUnavailable(value: number | undefined): string {
   return value === undefined ? "不可得" : String(value);
+}
+
+function formatMissingMappings(value: readonly string[] | undefined): string {
+  if (value === undefined) return "不可得";
+  return value.length === 0
+    ? "无"
+    : value.map((symbol) => `\`${inline(symbol)}\``).join("、");
 }
 
 function inline(value: string): string {

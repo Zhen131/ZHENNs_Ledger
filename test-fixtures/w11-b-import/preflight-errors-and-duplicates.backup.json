@@ -1,16 +1,16 @@
 {
-  "backupFormatVersion": 2,
+  "backupFormatVersion": 3,
   "appVersion": "0.1.0",
   "exportedAt": "2026-07-30T12:00:00Z",
-  "ledgerSchemaVersion": 2,
+  "ledgerSchemaVersion": 3,
   "ledgerData": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "assets": [
       {
         "id": "asset-btc",
         "symbol": "BTC",
         "name": "Bitcoin",
-        "quoteCurrency": "USD",
+        "quoteCurrency": "USDT",
         "binanceMapping": {
           "provider": "binance",
           "symbol": "BTCUSDT",
@@ -24,7 +24,7 @@
         "id": "asset-eth",
         "symbol": "ETH",
         "name": "Ethereum",
-        "quoteCurrency": "USD",
+        "quoteCurrency": "USDT",
         "binanceMapping": {
           "provider": "binance",
           "symbol": "ETHUSDT",
@@ -38,7 +38,7 @@
         "id": "asset-ada",
         "symbol": "ADA",
         "name": "Cardano",
-        "quoteCurrency": "USD",
+        "quoteCurrency": "USDT",
         "binanceMapping": {
           "provider": "binance",
           "symbol": "ADAUSDT",
@@ -59,9 +59,9 @@
         "quantity": "invalid",
         "price": "100",
         "totalValue": "100",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "rawText": "虚构 BTC 非法数量记录。",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
@@ -75,9 +75,9 @@
         "quantity": "1",
         "price": "10",
         "totalValue": "10",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "rawText": "虚构 ETH 高度可疑记录 A。",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
@@ -91,9 +91,9 @@
         "quantity": "1.0",
         "price": "10.0",
         "totalValue": "10.00",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "rawText": "虚构 ETH 高度可疑记录 B。",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
@@ -107,9 +107,9 @@
         "quantity": "2",
         "price": "20",
         "totalValue": "40",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "rawText": "虚构 BTC 一般可疑记录 A。",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
@@ -123,9 +123,9 @@
         "quantity": "2.0",
         "price": "20.0",
         "totalValue": "40.00",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0.2",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "rawText": "虚构 BTC 一般可疑记录 B。",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
@@ -139,9 +139,9 @@
         "quantity": "3",
         "price": "2",
         "totalValue": "6",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "rawText": "虚构 ADA 合法拆单 A。",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
@@ -155,9 +155,9 @@
         "quantity": "4",
         "price": "2",
         "totalValue": "8",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "rawText": "虚构 ADA 合法拆单 B。",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
@@ -171,19 +171,20 @@
         "quantity": "5",
         "price": "2",
         "totalValue": "10",
-        "currency": "USD",
+        "currency": "USDT",
         "fee": "0",
-        "feeCurrency": "USD",
+        "feeCurrency": "USDT",
         "createdAt": "2026-07-13T00:00:00Z",
         "updatedAt": "2026-07-13T00:00:00Z"
       }
     ],
+    "cashEvents": [],
     "priceSnapshots": [
       {
         "id": "fictional-price-btc",
         "assetSymbol": "BTC",
         "price": "70000",
-        "currency": "USD",
+        "currency": "USDT",
         "recordedAt": "2026-07-13",
         "source": "manual",
         "note": "虚构价格，仅用于 W11 B 导入测试。",

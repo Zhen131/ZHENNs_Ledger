@@ -26,7 +26,10 @@ import {
   type LedgerBackupImportEvidence,
 } from "./backupImportPreflight";
 import { formatBackupImportReportMarkdown } from "./backupImportReport";
-import type { PersistenceOperation } from "@/app";
+import type {
+  ApplyLedgerActionResult,
+  PersistenceOperation,
+} from "@/app";
 import type { LedgerData } from "@/core/models";
 import type { HydrationStatus } from "@/app";
 import {
@@ -40,6 +43,22 @@ import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
+import {
+  autoPairMissingBinanceMappings,
+  getBinanceMappingSignature,
+  listAssetsMissingBinanceMapping,
+  mergeAutoPairedBinanceMappings,
+  mergeBinancePriceRefresh,
+  type BinanceAutoPairFailure,
+  type BinanceAutoPairSuccess,
+  type BinanceRefreshSuccess,
+} from "@/features/market-data";
+import {
+  createBinanceMarketDataClient,
+  type BinanceMarketDataClient,
+} from "@/platform/integrations";
+
+const defaultMarketDataClient = createBinanceMarketDataClient();
 
 type ImportState =
   | "idle"
@@ -54,6 +73,45 @@ type ImportState =
   | "write-error";
 
 type CopyState = "idle" | "copying" | "copied" | "error";
+
+type PostImportPairingFailure = Readonly<{
+  assetSymbol: string;
+  code: string;
+  message: string;
+}>;
+
+type PostImportPairingState = Readonly<{
+  symbols: readonly string[];
+  status:
+    | "prompt"
+    | "validating"
+    | "saving-mappings"
+    | "fetching-prices"
+    | "saving-prices"
+    | "success"
+    | "partial"
+    | "error";
+  message: string;
+  failures: readonly PostImportPairingFailure[];
+}>;
+
+type PostImportPairingOperation = {
+  controller: AbortController;
+  ledgerEpoch: number;
+  sessionGeneration: number;
+  phase:
+    | "validating"
+    | "saving-mappings"
+    | "fetching-prices"
+    | "saving-prices";
+  expectedPersistedVersion: number | null;
+  expectedMappingSignature: string;
+  mappingSuccesses: BinanceAutoPairSuccess[];
+  mappingFailures: PostImportPairingFailure[];
+  appliedMappingSymbols: string[];
+  appliedPriceCount: number;
+  priceFailures: PostImportPairingFailure[];
+};
 
 type BackupControlsProps = {
   clock?: LedgerClock;
@@ -70,6 +128,17 @@ type BackupControlsProps = {
   canImportBackup?: boolean;
   canPreflightBackup?: boolean;
   requiresHistoricalRawText?: boolean;
+  ledgerEpoch?: number;
+  sessionGeneration?: number;
+  mutationVersion?: number;
+  persistedVersion?: number;
+  isWritable?: boolean;
+  applyLedgerMutation?: (
+    mutation: (current: LedgerData) => LedgerData,
+    timeSnapshot?: LedgerTimeSnapshot,
+  ) => ApplyLedgerActionResult;
+  marketDataClient?: BinanceMarketDataClient;
+  generateId?: () => string;
   preflight?: typeof preflightBackupJson;
   onImport: (
     candidate: LedgerData,
@@ -95,7 +164,15 @@ export function BackupControls({
   isDirty,
   canImportBackup = true,
   canPreflightBackup = true,
-  requiresHistoricalRawText = !canImportBackup,
+  requiresHistoricalRawText = false,
+  ledgerEpoch = 0,
+  sessionGeneration = ledgerEpoch,
+  mutationVersion = 0,
+  persistedVersion = 0,
+  isWritable = false,
+  applyLedgerMutation,
+  marketDataClient = defaultMarketDataClient,
+  generateId = () => globalThis.crypto.randomUUID(),
   preflight = preflightBackupJson,
   onImport,
   presentation = "legacy",
@@ -107,6 +184,8 @@ export function BackupControls({
   const [preflightResult, setPreflightResult] =
     useState<BackupImportPreflightResult | null>(null);
   const [copyState, setCopyState] = useState<CopyState>("idle");
+  const [postImportPairing, setPostImportPairing] =
+    useState<PostImportPairingState | null>(null);
   const selectedPreflightRef =
     useRef<BackupImportPreflightResult | null>(null);
   const suspicionConfirmationRef =
@@ -117,12 +196,33 @@ export function BackupControls({
     null,
   );
   const mountedRef = useRef(true);
+  const pairingOperationRef = useRef<PostImportPairingOperation | null>(null);
+  const pairingLatestRef = useRef({
+    ledgerData,
+    ledgerEpoch,
+    sessionGeneration,
+    mutationVersion,
+    persistedVersion,
+    persistenceStatus,
+    isWritable,
+  });
+  pairingLatestRef.current = {
+    ledgerData,
+    ledgerEpoch,
+    sessionGeneration,
+    mutationVersion,
+    persistedVersion,
+    persistenceStatus,
+    isWritable,
+  };
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       importAbortControllerRef.current?.abort();
+      pairingOperationRef.current?.controller.abort();
+      pairingOperationRef.current = null;
       selectionGenerationRef.current += 1;
       if (selectedPreflightRef.current) {
         revokeBackupImportPreflightReceipt(
@@ -133,6 +233,75 @@ export function BackupControls({
       suspicionConfirmationRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const operation = pairingOperationRef.current;
+    if (operation && !pairingOperationIsCurrent(operation)) {
+      operation.controller.abort();
+      pairingOperationRef.current = null;
+      if (mountedRef.current) {
+        setPostImportPairing((current) =>
+          current
+            ? {
+                ...current,
+                status: "error",
+                message:
+                  "账本或会话已变化，已取消导入后配对；已导入的账本不回滚。",
+              }
+            : current,
+        );
+      }
+    }
+  }, [isWritable, ledgerEpoch, sessionGeneration]);
+
+  useEffect(() => {
+    const operation = pairingOperationRef.current;
+    if (
+      !operation ||
+      operation.expectedPersistedVersion === null ||
+      !pairingOperationIsCurrent(operation)
+    ) {
+      return;
+    }
+
+    if (
+      persistenceStatus === "error" &&
+      mutationVersion >= operation.expectedPersistedVersion
+    ) {
+      finishPostImportPairing(
+        operation,
+        "error",
+        operation.phase === "saving-mappings"
+          ? "自动配对已进入页面，但 mapping 尚未保存到加密文件；未请求价格。"
+          : "mapping 已保存；价格已进入页面，但尚未保存到加密文件。",
+      );
+      return;
+    }
+
+    if (
+      persistenceStatus === "saved" &&
+      persistedVersion >= operation.expectedPersistedVersion
+    ) {
+      operation.expectedPersistedVersion = null;
+      if (operation.phase === "saving-mappings") {
+        operation.phase = "fetching-prices";
+        setPostImportPairing((current) =>
+          current
+            ? {
+                ...current,
+                status: "fetching-prices",
+                message: "mapping 已保存；正在请求首次 Binance 价格。",
+              }
+            : current,
+        );
+        void fetchPostImportPrices(operation);
+      } else if (operation.phase === "saving-prices") {
+        completePostImportPairing(operation);
+      }
+    }
+    // Mutable operation tokens deliberately advance only on persistence facts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mutationVersion, persistedVersion, persistenceStatus]);
 
   const showExport = hydrationStatus === "ready";
   const showPreflight =
@@ -154,6 +323,337 @@ export function BackupControls({
       preflightResult,
       suspicionConfirmationRef.current,
     );
+
+  function pairingOperationIsCurrent(
+    operation: PostImportPairingOperation,
+  ): boolean {
+    const latest = pairingLatestRef.current;
+    return (
+      mountedRef.current &&
+      pairingOperationRef.current === operation &&
+      latest.isWritable &&
+      latest.ledgerEpoch === operation.ledgerEpoch &&
+      latest.sessionGeneration === operation.sessionGeneration
+    );
+  }
+
+  function dismissPostImportPairing() {
+    pairingOperationRef.current?.controller.abort();
+    pairingOperationRef.current = null;
+    setPostImportPairing(null);
+  }
+
+  async function startPostImportPairing() {
+    const currentPrompt = postImportPairing;
+    const latest = pairingLatestRef.current;
+    if (
+      !currentPrompt ||
+      pairingOperationRef.current ||
+      !latest.isWritable ||
+      !applyLedgerMutation
+    ) {
+      return;
+    }
+    const currentMissing = new Set(
+      listAssetsMissingBinanceMapping(latest.ledgerData),
+    );
+    const frozenSymbols = currentPrompt.symbols.filter((symbol) =>
+      currentMissing.has(symbol),
+    );
+    if (frozenSymbols.length === 0) {
+      setPostImportPairing({
+        ...currentPrompt,
+        status: "success",
+        message: "导入后缺失的 mapping 已全部补齐。",
+        failures: [],
+      });
+      return;
+    }
+
+    const operation: PostImportPairingOperation = {
+      controller: new AbortController(),
+      ledgerEpoch: latest.ledgerEpoch,
+      sessionGeneration: latest.sessionGeneration,
+      phase: "validating",
+      expectedPersistedVersion: null,
+      expectedMappingSignature: getBinanceMappingSignature(latest.ledgerData),
+      mappingSuccesses: [],
+      mappingFailures: [],
+      appliedMappingSymbols: [],
+      appliedPriceCount: 0,
+      priceFailures: [],
+    };
+    pairingOperationRef.current = operation;
+    setPostImportPairing({
+      symbols: frozenSymbols,
+      status: "validating",
+      message: `正在按代码顺序验证 ${frozenSymbols.length} 个 Binance Spot 交易对。`,
+      failures: [],
+    });
+
+    let result;
+    try {
+      result = await autoPairMissingBinanceMappings(
+        marketDataClient,
+        frozenSymbols,
+        operation.controller.signal,
+      );
+    } catch {
+      if (pairingOperationIsCurrent(operation)) {
+        finishPostImportPairing(
+          operation,
+          "error",
+          "Binance mapping 验证失败；已导入的账本不回滚。",
+        );
+      }
+      return;
+    }
+    if (!pairingOperationIsCurrent(operation)) return;
+
+    operation.mappingFailures = result.failures.map(normalizePairingFailure);
+    if (result.successes.length === 0) {
+      finishPostImportPairing(
+        operation,
+        "error",
+        `未找到可保存的 mapping；${result.failures.length} 项失败，已导入的账本不回滚。`,
+      );
+      return;
+    }
+
+    const acceptedTime = captureLedgerTime(clock);
+    const expectedVersion = pairingLatestRef.current.mutationVersion + 1;
+    let appliedSymbols: string[] = [];
+    let expectedSignature = operation.expectedMappingSignature;
+    const mutationResult = applyLedgerMutation(
+      (current) => {
+        if (
+          getBinanceMappingSignature(current) !==
+          operation.expectedMappingSignature
+        ) {
+          return current;
+        }
+        const merged = mergeAutoPairedBinanceMappings(
+          current,
+          result.successes,
+          acceptedTime.now.toISOString(),
+        );
+        appliedSymbols = merged.appliedAssetSymbols;
+        expectedSignature = getBinanceMappingSignature(merged.ledgerData);
+        return merged.ledgerData;
+      },
+      acceptedTime,
+    );
+    if (!pairingOperationIsCurrent(operation)) return;
+
+    operation.appliedMappingSymbols = appliedSymbols;
+    operation.mappingSuccesses = result.successes.filter((success) =>
+      appliedSymbols.includes(success.assetSymbol),
+    );
+    operation.expectedMappingSignature = expectedSignature;
+    if (mutationResult === "applied" && appliedSymbols.length > 0) {
+      operation.phase = "saving-mappings";
+      operation.expectedPersistedVersion = expectedVersion;
+      setPostImportPairing({
+        symbols: frozenSymbols,
+        status: "saving-mappings",
+        message: `已验证 ${appliedSymbols.length} 项；正在先保存 mapping，保存成功前不会请求价格。`,
+        failures: operation.mappingFailures,
+      });
+      return;
+    }
+
+    operation.mappingFailures.push(
+      ...result.successes.map(({ assetSymbol }) => ({
+        assetSymbol,
+        code: "BINANCE_MAPPING_NOT_APPLIED",
+        message: "账本或 mapping 状态已变化，验证结果未写入",
+      })),
+    );
+
+    finishPostImportPairing(
+      operation,
+      operation.mappingFailures.length > 0 ? "partial" : "error",
+      "账本已变化或当前不可写，mapping 未保存；已导入的账本不回滚。",
+    );
+  }
+
+  async function fetchPostImportPrices(
+    operation: PostImportPairingOperation,
+  ) {
+    if (!pairingOperationIsCurrent(operation)) return;
+    const marketSymbolToAsset = new Map(
+      operation.mappingSuccesses.map((success) => [
+        success.mapping.symbol,
+        success.assetSymbol,
+      ]),
+    );
+    let tickerResult;
+    try {
+      tickerResult = await marketDataClient.fetchLatestPrices(
+        [...marketSymbolToAsset.keys()],
+        operation.controller.signal,
+      );
+    } catch {
+      if (pairingOperationIsCurrent(operation)) {
+        operation.priceFailures = operation.mappingSuccesses.map(
+          ({ assetSymbol }) => ({
+            assetSymbol,
+            code: "BINANCE_NETWORK_ERROR",
+            message: "Binance 价格请求失败",
+          }),
+        );
+        completePostImportPairing(operation);
+      }
+      return;
+    }
+    if (!pairingOperationIsCurrent(operation)) return;
+
+    const acceptedTime = captureLedgerTime(clock);
+    const successes: BinanceRefreshSuccess[] = [];
+    const failures: PostImportPairingFailure[] = tickerResult.failures.map(
+      (failure) => ({
+        assetSymbol:
+          marketSymbolToAsset.get(failure.symbol) ?? failure.symbol,
+        code: failure.code,
+        message: failure.message,
+      }),
+    );
+    const failedMarketSymbols = new Set(
+      tickerResult.failures.map((failure) => failure.symbol),
+    );
+    for (const mappingSuccess of operation.mappingSuccesses) {
+      if (failedMarketSymbols.has(mappingSuccess.mapping.symbol)) continue;
+      const ticker = tickerResult.prices.find(
+        (price) => price.symbol === mappingSuccess.mapping.symbol,
+      );
+      if (!ticker) {
+        failures.push({
+          assetSymbol: mappingSuccess.assetSymbol,
+          code: "BINANCE_SYMBOL_MISSING",
+          message: "Ticker 响应缺少已请求的 symbol",
+        });
+        continue;
+      }
+      successes.push({
+        assetSymbol: mappingSuccess.assetSymbol,
+        mapping: mappingSuccess.mapping,
+        price: ticker.price,
+        recordedAt: acceptedTime.todayKey,
+        fetchedAt: acceptedTime.now.toISOString(),
+      });
+    }
+    operation.priceFailures = failures;
+    if (successes.length === 0) {
+      completePostImportPairing(operation);
+      return;
+    }
+
+    const expectedVersion = pairingLatestRef.current.mutationVersion + 1;
+    let appliedCount = 0;
+    let skippedSymbols: string[] = [];
+    const mutationResult = applyLedgerMutation?.(
+      (current) => {
+        if (
+          getBinanceMappingSignature(current) !==
+          operation.expectedMappingSignature
+        ) {
+          return current;
+        }
+        const merged = mergeBinancePriceRefresh(
+          current,
+          successes,
+          generateId,
+        );
+        appliedCount = merged.appliedAssetSymbols.length;
+        skippedSymbols = merged.skippedAssetSymbols;
+        return merged.ledgerData;
+      },
+      acceptedTime,
+    );
+    if (!pairingOperationIsCurrent(operation)) return;
+    operation.appliedPriceCount = appliedCount;
+    operation.priceFailures.push(
+      ...skippedSymbols.map((assetSymbol) => ({
+        assetSymbol,
+        code: "BINANCE_PRICE_NOT_APPLIED",
+        message: "mapping 或全局 ID 状态已变化，价格未写入",
+      })),
+    );
+    if (mutationResult === "applied" && appliedCount > 0) {
+      operation.phase = "saving-prices";
+      operation.expectedPersistedVersion = expectedVersion;
+      setPostImportPairing((current) =>
+        current
+          ? {
+              ...current,
+              status: "saving-prices",
+              message: `mapping 已保存；已取得 ${appliedCount} 项价格，正在独立保存价格 mutation。`,
+              failures: [
+                ...operation.mappingFailures,
+                ...operation.priceFailures,
+              ],
+            }
+          : current,
+      );
+      return;
+    }
+    const failedPriceAssets = new Set(
+      operation.priceFailures.map(({ assetSymbol }) => assetSymbol),
+    );
+    operation.priceFailures.push(
+      ...successes
+        .filter(({ assetSymbol }) => !failedPriceAssets.has(assetSymbol))
+        .map(({ assetSymbol }) => ({
+          assetSymbol,
+          code: "BINANCE_PRICE_NOT_APPLIED",
+          message: "账本或 mapping 状态已变化，价格未写入",
+        })),
+    );
+    completePostImportPairing(operation);
+  }
+
+  function completePostImportPairing(
+    operation: PostImportPairingOperation,
+  ) {
+    if (!pairingOperationIsCurrent(operation)) return;
+    const failures = [
+      ...operation.mappingFailures,
+      ...operation.priceFailures,
+    ];
+    const successfulMutationCount =
+      operation.appliedMappingSymbols.length + operation.appliedPriceCount;
+    finishPostImportPairing(
+      operation,
+      failures.length === 0
+        ? "success"
+        : successfulMutationCount > 0
+          ? "partial"
+          : "error",
+      `导入后配对完成：mapping 已保存 ${operation.appliedMappingSymbols.length} 项，价格已保存 ${operation.appliedPriceCount} 项，失败 ${failures.length} 项。失败不会回滚已导入账本。`,
+    );
+  }
+
+  function finishPostImportPairing(
+    operation: PostImportPairingOperation,
+    status: "success" | "partial" | "error",
+    message: string,
+  ) {
+    if (!pairingOperationIsCurrent(operation)) return;
+    pairingOperationRef.current = null;
+    setPostImportPairing((current) =>
+      current
+        ? {
+            ...current,
+            status,
+            message,
+            failures: [
+              ...operation.mappingFailures,
+              ...operation.priceFailures,
+            ],
+          }
+        : current,
+    );
+  }
 
   function resetFileSelection() {
     importAbortControllerRef.current?.abort();
@@ -181,14 +681,15 @@ export function BackupControls({
   }
 
   function handleExport() {
-    const exportedAt = captureLedgerTime(clock).now.toISOString();
+    const exportTime = captureLedgerTime(clock);
+    const exportedAt = exportTime.now.toISOString();
     const envelopeResult = createBackupEnvelope(ledgerData, {
       appVersion: packageJson.version,
       exportedAt,
-    });
+    }, exportTime.todayKey);
 
     if (!envelopeResult.ok) {
-      setMessage("无法导出：当前账本未通过结构校验。");
+      setMessage("无法导出：当前账本未通过 V3 结构、资源或业务校验。");
       return;
     }
 
@@ -196,7 +697,7 @@ export function BackupControls({
     const bytePolicy = evaluateLedgerJsonResourcePolicy(serialized);
     if (!bytePolicy.ok) {
       setMessage(
-        "无法导出：当前 v1 无法安全导出该超大账本；未创建备份文件。",
+        "无法导出：当前 V3 无法安全导出该超大账本；未创建备份文件。",
       );
       return;
     }
@@ -227,6 +728,7 @@ export function BackupControls({
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    dismissPostImportPairing();
     importAbortControllerRef.current?.abort();
     importAbortControllerRef.current = null;
     if (selectedPreflightRef.current) {
@@ -284,8 +786,9 @@ export function BackupControls({
         result = await preflight(text, {
           todayKey: selectionTimeSnapshot.todayKey,
           selectionGeneration,
-          // C's new historical path is strict. Existing generic rescue restore
-          // keeps the optional rawText schema contract.
+          sourceFileName: file.name,
+          // Normal V3 restore keeps Trade.rawText optional; only an explicitly
+          // selected historical-ingest surface opts into strict source lines.
           requireHistoricalRawText: requiresHistoricalRawText,
         });
       } catch {
@@ -430,9 +933,23 @@ export function BackupControls({
       return;
     }
     if (importResult.ok) {
+      const missingMappingSymbols = listAssetsMissingBinanceMapping(
+        result.candidate,
+      );
       resetFileSelection();
       setImportState("success");
       setMessage("备份已恢复并保存到本地。");
+      setPostImportPairing(
+        missingMappingSymbols.length === 0
+          ? null
+          : {
+              symbols: missingMappingSymbols,
+              status: "prompt",
+              message:
+                "账本已完成验证并落盘。以下资产缺 Binance mapping；只有点击后才会联网。",
+              failures: [],
+            },
+      );
       return;
     }
 
@@ -688,7 +1205,81 @@ export function BackupControls({
         </div>
       ) : null}
       {message ? <p aria-live="polite">{message}</p> : null}
+      {postImportPairing ? (
+        <section
+          aria-label="导入后 Binance 配对"
+          className="grid gap-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"
+        >
+          <h3 className="font-semibold">导入后缺失的 Binance mapping</h3>
+          <p aria-live="polite">{postImportPairing.message}</p>
+          <p>
+            待配对：<strong>{postImportPairing.symbols.join("、")}</strong>
+          </p>
+          {postImportPairing.failures.length > 0 ? (
+            <ul className="grid gap-1 text-red-800">
+              {postImportPairing.failures.map((failure, index) => (
+                <li key={`${failure.assetSymbol}-${failure.code}-${index}`}>
+                  <strong>{failure.assetSymbol}</strong> ·{" "}
+                  <code>{failure.code}</code> · {failure.message}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="rounded-md bg-sky-900 px-3 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                isPostImportPairingBusy(postImportPairing.status) ||
+                !isWritable ||
+                !applyLedgerMutation
+              }
+              onClick={() => void startPostImportPairing()}
+              type="button"
+            >
+              {isPostImportPairingBusy(postImportPairing.status)
+                ? "正在执行导入后配对"
+                : postImportPairing.status === "prompt"
+                  ? "联网自动配对缺失资产"
+                  : "重试仍缺失的资产"}
+            </button>
+            <button
+              className="rounded-md border border-sky-300 bg-white px-3 py-2 font-medium text-sky-900"
+              disabled={isPostImportPairingBusy(postImportPairing.status)}
+              onClick={dismissPostImportPairing}
+              type="button"
+            >
+              稍后在设置中处理
+            </button>
+          </div>
+          {!isWritable || !applyLedgerMutation ? (
+            <p>
+              当前账本不可写，暂不能配对；已导入的账本保持不变。
+            </p>
+          ) : null}
+        </section>
+      ) : null}
     </div>
+  );
+}
+
+function normalizePairingFailure(
+  failure: BinanceAutoPairFailure,
+): PostImportPairingFailure {
+  return {
+    assetSymbol: failure.assetSymbol,
+    code: failure.code,
+    message: failure.message,
+  };
+}
+
+function isPostImportPairingBusy(
+  status: PostImportPairingState["status"],
+): boolean {
+  return (
+    status === "validating" ||
+    status === "saving-mappings" ||
+    status === "fetching-prices" ||
+    status === "saving-prices"
   );
 }
 
@@ -709,6 +1300,17 @@ function PreflightReportView({
       </p>
       <dl className="grid grid-cols-2 gap-2 text-sm text-slate-700">
         <div>
+          <dt className="text-slate-500">来源文件</dt>
+          <dd>{result.metadata?.sourceFileName ?? "不可得"}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">备份 / schema</dt>
+          <dd>
+            {result.metadata?.backupFormatVersion ?? "不可得"} /{" "}
+            {result.metadata?.ledgerSchemaVersion ?? "不可得"}
+          </dd>
+        </div>
+        <div>
           <dt className="text-slate-500">应用版本</dt>
           <dd>{result.metadata?.appVersion ?? "不可得"}</dd>
         </div>
@@ -725,12 +1327,24 @@ function PreflightReportView({
           <dd>{result.metadata?.tradeCount ?? "不可得"}</dd>
         </div>
         <div>
+          <dt className="text-slate-500">现金事件</dt>
+          <dd>{result.metadata?.cashEventCount ?? "不可得"}</dd>
+        </div>
+        <div>
           <dt className="text-slate-500">价格快照</dt>
           <dd>{result.metadata?.priceSnapshotCount ?? "不可得"}</dd>
         </div>
         <div>
           <dt className="text-slate-500">手续费规则</dt>
           <dd>{result.metadata?.feeRuleCount ?? "不可得"}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">USDT 现金余额</dt>
+          <dd>{result.metadata?.cashBalance ?? "不可得"}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">USDT 现金缺口</dt>
+          <dd>{result.metadata?.cashDeficit ?? "不可得"}</dd>
         </div>
         <div>
           <dt className="text-slate-500">硬错误</dt>
@@ -741,6 +1355,26 @@ function PreflightReportView({
           <dd>{result.suspiciousGroupCount}</dd>
         </div>
       </dl>
+      <p className="text-sm text-slate-700">
+        缺 Binance mapping：
+        {result.metadata?.missingMappingSymbols === undefined
+          ? "不可得"
+          : result.metadata.missingMappingSymbols.length === 0
+            ? "无"
+            : result.metadata.missingMappingSymbols.join("、")}
+      </p>
+      {result.warnings.length > 0 ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          <p>Warnings（不阻止导入）</p>
+          <ul>
+            {result.warnings.map((warning) => (
+              <li key={warning.code}>
+                <code>{warning.code}</code> · {warning.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <p className="break-all text-xs text-slate-600">
         备份 SHA-256：<code>{result.contentIdentity.sha256}</code>
       </p>

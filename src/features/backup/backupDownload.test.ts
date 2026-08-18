@@ -7,7 +7,7 @@ import { createBackupFilename, downloadBackupJson } from "./backupDownload";
 describe("backup download", () => {
   it("uses a stable UTC filename", () => {
     expect(createBackupFilename("2026-07-23T12:34:56.789Z")).toBe(
-      "local-first-trading-ledger-backup-v1-20260723-123456Z.json",
+      "local-first-trading-ledger-backup-v3-20260723-123456Z.json",
     );
   });
 
@@ -24,7 +24,7 @@ describe("backup download", () => {
 
     expect(result).toEqual({
       ok: true,
-      filename: "local-first-trading-ledger-backup-v1-20260723-123456Z.json",
+      filename: "local-first-trading-ledger-backup-v3-20260723-123456Z.json",
     });
     expect(createObjectUrl).toHaveBeenCalledWith(
       expect.objectContaining({ type: "application/json;charset=utf-8" }),

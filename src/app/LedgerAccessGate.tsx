@@ -1129,7 +1129,9 @@ function getFileAccessErrorMessage(
     case LEDGER_FILE_ACCESS_ERROR_CODES.NON_EMPTY_CREATE_TARGET:
       return "为防止覆盖已有文件，本次未创建；请选择新文件名，或使用“选择账本”打开已有文件。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION:
-      return "检测到旧版或未知 .lftl 格式。版本 2 不支持解锁或迁移；未写入所选文件。请新建版本 2 账本。";
+      return "检测到旧版或未知 .lftl 容器格式。当前版本不支持解锁或迁移；未写入所选文件。";
+    case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA:
+      return "该文件承载 V2 账本；当前 V3 不提供迁移。已在密码、KDF 和解密前停止，未写入所选文件。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:
       return "所选文件不是合法账本，或文件结构已经损坏；未写入任何内容。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED:

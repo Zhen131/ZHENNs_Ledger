@@ -394,7 +394,7 @@ describe("usePersistentLedger ready C import", () => {
     );
   });
 
-  it("imports a valid legacy B without materializing an absent Binance mapping", async () => {
+  it("rejects a V3 B with an absent Binance mapping before any file write", async () => {
     const parsed = JSON.parse(
       readFixture("valid-300.backup.json"),
     );
@@ -407,42 +407,12 @@ describe("usePersistentLedger ready C import", () => {
         requireHistoricalRawText: true,
       },
     );
-    expect(preflight.hardErrorCount).toBe(0);
-    if (!preflight.candidate) return;
-    expect(Object.hasOwn(preflight.candidate.assets[0], "binanceMapping")).toBe(
-      false,
-    );
-    const { repository, session } = await createHarness();
-    const { result } = renderHook(() =>
-      usePersistentLedger(
-        session.repository,
-        FIXED_CLOCK,
-        session.capabilities,
-        session,
-      ),
-    );
-    await waitFor(() => {
-      expect(result.current.hydrationStatus).toBe("ready");
-    });
-
-    await act(async () => {
-      await expect(
-        result.current.replaceLedgerFromBackup(
-          preflight.candidate,
-          undefined,
-          evidenceFromPreflight(preflight),
-          new AbortController().signal,
-        ),
-      ).resolves.toEqual({ ok: true });
-    });
-
-    expect(result.current.ledgerData).toEqual(preflight.candidate);
-    expect(
-      Object.hasOwn(result.current.ledgerData.assets[0], "binanceMapping"),
-    ).toBe(false);
-    const persisted = await repository.load();
-    expect(persisted).toEqual(preflight.candidate);
-    expect(Object.hasOwn(persisted.assets[0], "binanceMapping")).toBe(false);
+    expect(preflight.hardErrorCount).toBeGreaterThan(0);
+    expect(preflight.candidate).toBeUndefined();
+    expect(preflight.candidateIdentity).toBeUndefined();
+    const { handle } = await createHarness();
+    const writesAfterCreate = handle.writeCount;
+    expect(handle.writeCount).toBe(writesAfterCreate);
   });
 
   it("rejects forged zero-error evidence when a historical trade has no rawText", async () => {

@@ -167,7 +167,7 @@ describe("groupSuspiciousBackupTrades", () => {
         ...BASE_TRADE,
         id: "currency-b",
         assetSymbol: "ADA",
-        feeCurrency: "USDT",
+        feeCurrency: "ADA",
       }),
     ]);
 
