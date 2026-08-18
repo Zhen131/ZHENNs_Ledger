@@ -34,7 +34,9 @@ describe("Ledger resource policy", () => {
         id: `asset-${index}`,
         symbol: `A${index}`,
         name: "n".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.name),
-        quoteCurrency: "U".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.currency),
+        quoteCurrency: "U".repeat(
+          DEFAULT_LEDGER_RESOURCE_LIMITS.currency,
+        ) as never,
       }),
     );
 
@@ -116,9 +118,9 @@ describe("Ledger resource policy", () => {
         quantity: "1",
         price: "100",
         totalValue: "100",
-        currency: "USD",
+        currency: "USDT",
         fee: "0",
-        feeCurrency: "USD",
+        feeCurrency: "USDT",
         note: "n".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.note + 1),
         createdAt: "2026-07-21T00:00:00Z",
         updatedAt: "2026-07-21T00:00:00Z",

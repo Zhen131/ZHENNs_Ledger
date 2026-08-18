@@ -7,7 +7,7 @@ import {
 import { ledgerReducer } from "./ledgerReducer";
 import { createBuiltInAssets } from "@/core/catalog";
 import { createPriceSnapshot, createSimpleTrade } from "@/test-support";
-import type { FeeRule, FixedFeeRule } from "@/core/models";
+import type { CashEvent, FeeRule, FixedFeeRule } from "@/core/models";
 
 function createFeeRule(id = "fee-okx-btc-v1"): FixedFeeRule {
   return {
@@ -26,9 +26,10 @@ function createFeeRule(id = "fee-okx-btc-v1"): FixedFeeRule {
 
 test("creates an in-memory ledger with built-in assets", () => {
   expect(createInitialLedgerData()).toEqual({
-    schemaVersion: 2,
+    schemaVersion: 3,
     assets: createBuiltInAssets(),
     trades: [],
+    cashEvents: [],
     priceSnapshots: [],
     feeRules: [],
   });
@@ -44,6 +45,7 @@ test("creates independent array references for each initial ledger", () => {
     expect(asset).not.toBe(secondLedger.assets[index]);
   }
   expect(firstLedger.trades).not.toBe(secondLedger.trades);
+  expect(firstLedger.cashEvents).not.toBe(secondLedger.cashEvents);
   expect(firstLedger.priceSnapshots).not.toBe(secondLedger.priceSnapshots);
   expect(firstLedger.feeRules).not.toBe(secondLedger.feeRules);
 });
@@ -115,6 +117,33 @@ test("keeps the same ledger reference when deleting a missing trade id", () => {
   });
 
   expect(nextLedger).toBe(previousLedger);
+});
+
+test("adds and deletes only the selected cash fact", () => {
+  const cashEvent: CashEvent = {
+    id: "cash-deposit",
+    occurredAt: "2026-08-18",
+    timePrecision: "day",
+    type: "deposit",
+    currency: "USDT",
+    amount: "100",
+    createdAt: "2026-08-18T08:00:00.000Z",
+    updatedAt: "2026-08-18T08:00:00.000Z",
+  };
+  const initial = createInitialLedgerData();
+  const added = ledgerReducer(initial, {
+    type: "cashEvent/add",
+    cashEvent,
+  });
+  const deleted = ledgerReducer(added, {
+    type: "cashEvent/delete",
+    cashEventId: cashEvent.id,
+  });
+
+  expect(added.cashEvents).toEqual([cashEvent]);
+  expect(initial.cashEvents).toEqual([]);
+  expect(deleted.cashEvents).toEqual([]);
+  expect(deleted.trades).toBe(added.trades);
 });
 
 test("adds a price snapshot without mutating the previous ledger", () => {
@@ -207,6 +236,7 @@ test("resets user data and restores independent built-in assets", () => {
   expect(nextLedger.assets).not.toBe(previousLedger.assets);
   expect(nextLedger.assets[0]).not.toBe(previousLedger.assets[0]);
   expect(nextLedger.trades).not.toBe(previousLedger.trades);
+  expect(nextLedger.cashEvents).not.toBe(previousLedger.cashEvents);
   expect(nextLedger.priceSnapshots).not.toBe(previousLedger.priceSnapshots);
   expect(nextLedger.feeRules).not.toBe(previousLedger.feeRules);
 });

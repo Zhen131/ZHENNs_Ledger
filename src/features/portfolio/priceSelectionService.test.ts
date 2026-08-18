@@ -88,7 +88,7 @@ describe("priceSelectionService", () => {
     const future = apiPrice("future", "90000", "2026-07-26");
     const unsupported = {
       ...createPriceSnapshot("eur", "BTC", "1", "2026-07-25"),
-      currency: "EUR",
+      currency: "EUR" as never,
     };
     const legacyApi = {
       ...createPriceSnapshot("legacy", "BTC", "80000", "2026-07-25"),

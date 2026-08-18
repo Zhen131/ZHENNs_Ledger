@@ -25,10 +25,10 @@ export const sampleTradeDrafts: TradeDraft[] = [
     quantity: "0.24265306",
     price: "67121.7",
     totalValue: "11",
-    currency: "USD",
+    currency: "USDT",
     fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 67121.7 买入 BTC 0.24265306 个，价值 11 USD，26/04/02",
+    feeCurrency: "USDT",
+    rawText: "Fictional legacy sample with private values removed.",
   },
   {
     occurredAt: "2026-04-02",
@@ -38,10 +38,10 @@ export const sampleTradeDrafts: TradeDraft[] = [
     quantity: "0.400040",
     price: "2059.99",
     totalValue: "10",
-    currency: "USD",
+    currency: "USDT",
     fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 2059.99 买入 ETH 0.400040 个，价值 10 USD，26/04/02",
+    feeCurrency: "USDT",
+    rawText: "Fictional legacy sample with private values removed.",
   },
   {
     occurredAt: "2026-04-02",
@@ -51,10 +51,10 @@ export const sampleTradeDrafts: TradeDraft[] = [
     quantity: "41.58",
     price: "0.2405",
     totalValue: "10",
-    currency: "USD",
+    currency: "USDT",
     fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 0.2405 买入 ADA 41.58 个，价值 10 USD，26/04/02",
+    feeCurrency: "USDT",
+    rawText: "Fictional legacy sample with private values removed.",
   },
   {
     occurredAt: "2026-04-09",
@@ -64,10 +64,10 @@ export const sampleTradeDrafts: TradeDraft[] = [
     quantity: "126.6825",
     price: "0.2526",
     totalValue: "32",
-    currency: "USD",
+    currency: "USDT",
     fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 0.2526 买入 ADA 126.6825 个，价值 32 USD，26/04/09",
+    feeCurrency: "USDT",
+    rawText: "Fictional legacy sample with private values removed.",
   },
   {
     occurredAt: "2026-04-14",
@@ -77,10 +77,10 @@ export const sampleTradeDrafts: TradeDraft[] = [
     quantity: "82.9381",
     price: "0.2412",
     totalValue: "20",
-    currency: "USD",
+    currency: "USDT",
     fee: "0",
-    feeCurrency: "USD",
-    rawText: "以均价 0.2412 卖出 ADA 82.9381 个，价值 20 USD，26/04/14",
+    feeCurrency: "USDT",
+    rawText: "Fictional legacy sample with private values removed.",
   },
 ];
 
@@ -88,22 +88,15 @@ export const sampleTrades: Trade[] = sampleTradeDrafts.map((draft, index) =>
   createTradeFromDraft(draft, `trade-${String(index + 1).padStart(3, "0")}`),
 );
 
-export const sampleUsdtTrades: Trade[] = sampleTrades.map((trade) => ({
-  ...trade,
-  currency: "USDT",
-  feeCurrency:
-    trade.feeCurrency === trade.currency ? "USDT" : trade.feeCurrency,
-  ...(trade.rawText
-    ? { rawText: trade.rawText.replaceAll("USD", "USDT") }
-    : {}),
-}));
+export const sampleUsdtTrades: Trade[] = structuredClone(sampleTrades);
 
 export function createAsset(symbol: string, name: string): Asset {
   return {
     id: `asset-${symbol.toLowerCase()}`,
     symbol,
     name,
-    quoteCurrency: "USD",
+    quoteCurrency: "USDT",
+    binanceMapping: null,
     createdAt: FIXTURE_TIMESTAMP,
     updatedAt: FIXTURE_TIMESTAMP,
   };
@@ -114,8 +107,14 @@ export function createUsdtAsset(symbol: string, name: string): Asset {
 }
 
 export function createTradeFromDraft(draft: TradeDraft, id: string): Trade {
+  if (draft.currency !== "USDT") {
+    throw new Error("V3 trade fixtures must use USDT");
+  }
+  const currency: "USDT" = draft.currency;
+
   return {
     ...draft,
+    currency,
     id,
     fee: draft.fee ?? "0",
     feeCurrency: draft.feeCurrency ?? draft.currency,
@@ -140,9 +139,9 @@ export function createSimpleTrade(
       quantity,
       price: "1",
       totalValue: quantity,
-      currency: "USD",
+      currency: "USDT",
       fee: "0",
-      feeCurrency: "USD",
+      feeCurrency: "USDT",
     },
     id,
   );
@@ -167,7 +166,7 @@ export function createPriceSnapshot(
   assetSymbol: string,
   price: string,
   recordedAt: string,
-  currency = "USD",
+  currency: PriceSnapshot["currency"] = "USDT",
 ): PriceSnapshot {
   return {
     id,

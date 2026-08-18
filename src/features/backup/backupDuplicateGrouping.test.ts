@@ -15,9 +15,9 @@ const BASE_TRADE: Trade = {
   quantity: "1",
   price: "10",
   totalValue: "10",
-  currency: "USD",
+  currency: "USDT",
   fee: "0.1",
-  feeCurrency: "USD",
+  feeCurrency: "USDT",
   createdAt: "2026-07-20T00:00:00Z",
   updatedAt: "2026-07-20T00:00:00Z",
 };

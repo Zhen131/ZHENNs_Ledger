@@ -4,6 +4,7 @@ export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   fileBytes: 8 * 1024 * 1024,
   assets: 500,
   trades: 25_000,
+  cashEvents: 25_000,
   priceSnapshots: 5_000,
   feeRules: 500,
   id: 128,
@@ -53,6 +54,12 @@ export function evaluateLedgerResourcePolicy(
   checkCollection(errors, "trades", ledgerData.trades.length, limits.trades);
   checkCollection(
     errors,
+    "cashEvents",
+    ledgerData.cashEvents.length,
+    limits.cashEvents,
+  );
+  checkCollection(
+    errors,
     "priceSnapshots",
     ledgerData.priceSnapshots.length,
     limits.priceSnapshots,
@@ -100,10 +107,56 @@ export function evaluateLedgerResourcePolicy(
     checkString(errors, `${path}.assetSymbol`, trade.assetSymbol, limits.symbol);
     checkString(errors, `${path}.currency`, trade.currency, limits.currency);
     checkString(errors, `${path}.feeCurrency`, trade.feeCurrency, limits.currency);
+    checkString(errors, `${path}.quantity`, trade.quantity, limits.decimal);
+    checkString(errors, `${path}.price`, trade.price, limits.decimal);
+    checkString(errors, `${path}.totalValue`, trade.totalValue, limits.decimal);
+    checkString(errors, `${path}.fee`, trade.fee, limits.decimal);
+    checkOptionalString(
+      errors,
+      `${path}.quantitySortKey`,
+      trade.quantitySortKey,
+      limits.decimal,
+    );
+    checkOptionalString(
+      errors,
+      `${path}.totalValueSortKey`,
+      trade.totalValueSortKey,
+      limits.decimal,
+    );
     checkOptionalString(errors, `${path}.platform`, trade.platform, limits.platform);
     checkOptionalString(errors, `${path}.feeRuleId`, trade.feeRuleId, limits.id);
     checkOptionalString(errors, `${path}.note`, trade.note, limits.note);
     checkOptionalString(errors, `${path}.rawText`, trade.rawText, limits.rawText);
+  }
+
+  for (let index = 0; index < ledgerData.cashEvents.length; index += 1) {
+    const cashEvent = ledgerData.cashEvents[index];
+    const path = `cashEvents[${index}]`;
+    checkString(errors, `${path}.id`, cashEvent.id, limits.id);
+    checkString(errors, `${path}.currency`, cashEvent.currency, limits.currency);
+    checkOptionalString(errors, `${path}.note`, cashEvent.note, limits.note);
+    if (cashEvent.type === "balance-adjustment") {
+      checkString(
+        errors,
+        `${path}.balanceBefore`,
+        cashEvent.balanceBefore,
+        limits.decimal,
+      );
+      checkString(
+        errors,
+        `${path}.targetBalance`,
+        cashEvent.targetBalance,
+        limits.decimal,
+      );
+      checkString(
+        errors,
+        `${path}.adjustmentAmount`,
+        cashEvent.adjustmentAmount,
+        limits.decimal,
+      );
+    } else {
+      checkString(errors, `${path}.amount`, cashEvent.amount, limits.decimal);
+    }
   }
 
   for (
@@ -126,6 +179,7 @@ export function evaluateLedgerResourcePolicy(
       priceSnapshot.currency,
       limits.currency,
     );
+    checkString(errors, `${path}.price`, priceSnapshot.price, limits.decimal);
     checkOptionalString(errors, `${path}.note`, priceSnapshot.note, limits.note);
     if (priceSnapshot.binanceProvenance) {
       checkString(

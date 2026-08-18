@@ -1,4 +1,11 @@
-import type { FeeRule, LedgerData, PriceSnapshot, Trade } from "@/core/models";
+import type {
+  Asset,
+  CashEvent,
+  FeeRule,
+  LedgerData,
+  PriceSnapshot,
+  Trade,
+} from "@/core/models";
 import { createInitialLedgerData } from "./initialLedgerData";
 
 export type LedgerAction =
@@ -9,6 +16,26 @@ export type LedgerAction =
   | {
       type: "trade/delete";
       tradeId: string;
+    }
+  | {
+      type: "cashEvent/add";
+      cashEvent: CashEvent;
+    }
+  | {
+      type: "cashEvent/delete";
+      cashEventId: string;
+    }
+  | {
+      type: "asset/add";
+      asset: Asset;
+    }
+  | {
+      type: "asset/update";
+      asset: Asset;
+    }
+  | {
+      type: "asset/remove";
+      assetSymbol: string;
     }
   | {
       type: "priceSnapshot/add";
@@ -68,6 +95,45 @@ export function ledgerReducer(
         ...state,
         trades: nextTrades,
       };
+    }
+    case "cashEvent/add":
+      return {
+        ...state,
+        cashEvents: [...state.cashEvents, action.cashEvent],
+      };
+    case "cashEvent/delete": {
+      const nextCashEvents = state.cashEvents.filter(
+        (cashEvent) => cashEvent.id !== action.cashEventId,
+      );
+      return nextCashEvents.length === state.cashEvents.length
+        ? state
+        : { ...state, cashEvents: nextCashEvents };
+    }
+    case "asset/add":
+      return state.assets.some(
+        ({ id, symbol }) =>
+          id === action.asset.id || symbol === action.asset.symbol,
+      )
+        ? state
+        : { ...state, assets: [...state.assets, action.asset] };
+    case "asset/update": {
+      const index = state.assets.findIndex(
+        ({ id }) => id === action.asset.id,
+      );
+      if (index < 0) {
+        return state;
+      }
+      const nextAssets = state.assets.slice();
+      nextAssets[index] = action.asset;
+      return { ...state, assets: nextAssets };
+    }
+    case "asset/remove": {
+      const nextAssets = state.assets.filter(
+        ({ symbol }) => symbol !== action.assetSymbol,
+      );
+      return nextAssets.length === state.assets.length
+        ? state
+        : { ...state, assets: nextAssets };
     }
     case "priceSnapshot/add":
       return {
@@ -137,10 +203,14 @@ export function ledgerReducer(
       const nextPriceSnapshots = state.priceSnapshots.filter(
         (snapshot) => snapshot.recordedAt.slice(0, 10) <= action.todayKey,
       );
+      const nextCashEvents = state.cashEvents.filter(
+        (cashEvent) => cashEvent.occurredAt.slice(0, 10) <= action.todayKey,
+      );
 
       if (
         nextTrades.length === state.trades.length &&
-        nextPriceSnapshots.length === state.priceSnapshots.length
+        nextPriceSnapshots.length === state.priceSnapshots.length &&
+        nextCashEvents.length === state.cashEvents.length
       ) {
         return state;
       }
@@ -148,6 +218,7 @@ export function ledgerReducer(
       return {
         ...state,
         trades: nextTrades,
+        cashEvents: nextCashEvents,
         priceSnapshots: nextPriceSnapshots,
       };
     }

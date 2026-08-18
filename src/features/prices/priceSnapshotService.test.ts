@@ -69,10 +69,6 @@ describe("createValidatedPriceSnapshot", () => {
 
   it("rejects new prices for a legacy USD ledger", () => {
     const legacyLedger = createInitialLedgerData();
-    legacyLedger.assets = legacyLedger.assets.map((asset) => ({
-      ...asset,
-      quoteCurrency: "USD",
-    }));
     const dependencies = createDependencies(["unused"]);
     const result = createValidatedPriceSnapshot(
       { ...validDraft, currency: "USD" },

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { LedgerData, TradeDraft } from "@/core/models";
+import type { LedgerData, Trade, TradeDraft } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";
 import {
@@ -122,12 +122,8 @@ describe("createValidatedTrade success", () => {
     );
   });
 
-  it("rejects new USD trades without making legacy USD ledgers unreadable", () => {
+  it("rejects USD trades under the V3 contract", () => {
     const legacyLedger = createInitialLedgerData();
-    legacyLedger.assets = legacyLedger.assets.map((asset) => ({
-      ...asset,
-      quoteCurrency: "USD",
-    }));
     const result = createValidatedTrade(
       { ...validBuy, currency: "USD" },
       legacyLedger,
@@ -238,7 +234,7 @@ describe("createValidatedTrade validation failures", () => {
         trades: [
           {
             ...createUsdtTrade("buy-btc", "buy", "BTC", "1"),
-            currency: "CNY",
+            currency: "CNY" as never,
           },
         ],
       }),
@@ -542,7 +538,7 @@ function createUsdtTrade(
   assetSymbol: string,
   quantity: string,
   occurredAt = "2026-04-01",
-) {
+): Trade {
   return {
     ...createSimpleTrade(id, type, assetSymbol, quantity, occurredAt),
     currency: "USDT",

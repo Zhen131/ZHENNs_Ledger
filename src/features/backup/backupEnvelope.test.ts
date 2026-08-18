@@ -14,7 +14,7 @@ const metadata = {
   exportedAt: "2026-07-23T12:34:56.789Z",
 };
 
-describe("BackupEnvelopeV2", () => {
+describe("BackupEnvelopeV3", () => {
   it("creates a detached, versioned backup envelope", () => {
     const ledger = createInitialLedgerData();
     const result = createBackupEnvelope(ledger, metadata);
@@ -25,7 +25,7 @@ describe("BackupEnvelopeV2", () => {
         backupFormatVersion: BACKUP_FORMAT_VERSION,
         appVersion: "0.1.0",
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 2,
+        ledgerSchemaVersion: 3,
         ledgerData: ledger,
       },
     });
@@ -84,6 +84,7 @@ describe("BackupEnvelopeV2", () => {
       "schemaVersion",
       "assets",
       "trades",
+      "cashEvents",
       "priceSnapshots",
       "feeRules",
     ]);
@@ -128,7 +129,7 @@ describe("BackupEnvelopeV2", () => {
   it("rejects invalid metadata and mismatched schema versions", () => {
     const ledger = createInitialLedgerData();
     const result = validateBackupEnvelope({
-      backupFormatVersion: 2,
+      backupFormatVersion: 3,
       appVersion: "",
       exportedAt: "2026-07-23",
       ledgerSchemaVersion: 1,
@@ -183,10 +184,10 @@ describe("BackupEnvelopeV2", () => {
 
     expect(
       validateBackupEnvelope({
-        backupFormatVersion: 2,
+        backupFormatVersion: 3,
         appVersion: metadata.appVersion,
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 2,
+        ledgerSchemaVersion: 3,
         ledgerData: ledger,
       }),
     ).toEqual({

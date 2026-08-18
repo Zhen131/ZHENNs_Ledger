@@ -1,6 +1,7 @@
 import type {
   Asset,
   BinanceMarketMapping,
+  CashEvent,
   LedgerData,
   PriceSnapshot,
   Trade,
@@ -10,7 +11,7 @@ import {
   isLedgerFactInFuture,
 } from "@/core/shared";
 
-export const SUPPORTED_VALUATION_CURRENCIES = ["USD", "USDT"] as const;
+export const SUPPORTED_VALUATION_CURRENCIES = ["USDT"] as const;
 
 export type LedgerCompatibilityWarning = {
   code:
@@ -24,8 +25,10 @@ export type LedgerCompatibilityWarning = {
 
 export type LedgerFactPartition = {
   activeTrades: Trade[];
+  activeCashEvents: CashEvent[];
   activePriceSnapshots: PriceSnapshot[];
   futureTrades: Trade[];
+  futureCashEvents: CashEvent[];
   futurePriceSnapshots: PriceSnapshot[];
   unsupportedCurrencyAssets: Asset[];
 };
@@ -56,7 +59,7 @@ const DEFAULT_BINANCE_MAPPINGS: Readonly<
 export function isSupportedValuationCurrency(
   currency: string,
 ): currency is (typeof SUPPORTED_VALUATION_CURRENCIES)[number] {
-  return currency === "USD" || currency === "USDT";
+  return currency === "USDT";
 }
 
 export function partitionLedgerFactsForToday(
@@ -65,6 +68,8 @@ export function partitionLedgerFactsForToday(
 ): LedgerFactPartition {
   const activeTrades: Trade[] = [];
   const futureTrades: Trade[] = [];
+  const activeCashEvents: CashEvent[] = [];
+  const futureCashEvents: CashEvent[] = [];
   const activePriceSnapshots: PriceSnapshot[] = [];
   const futurePriceSnapshots: PriceSnapshot[] = [];
 
@@ -82,10 +87,19 @@ export function partitionLedgerFactsForToday(
     ).push(snapshot);
   }
 
+  for (const cashEvent of ledgerData.cashEvents) {
+    (isLedgerFactInFuture(cashEvent.occurredAt, todayKey)
+      ? futureCashEvents
+      : activeCashEvents
+    ).push(cashEvent);
+  }
+
   return {
     activeTrades,
+    activeCashEvents,
     activePriceSnapshots,
     futureTrades,
+    futureCashEvents,
     futurePriceSnapshots,
     unsupportedCurrencyAssets: ledgerData.assets.filter(
       (asset) => !isSupportedValuationCurrency(asset.quoteCurrency),
@@ -129,6 +143,17 @@ export function collectLedgerCompatibilityWarnings(
         code: "LEDGER_FUTURE_FACT",
         path: `trades[${index}].occurredAt`,
         message: "未来交易已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+      });
+    }
+  });
+
+  ledgerData.cashEvents.forEach((cashEvent, index) => {
+    if (isLedgerFactInFuture(cashEvent.occurredAt, todayKey)) {
+      warnings.push({
+        code: "LEDGER_FUTURE_FACT",
+        path: `cashEvents[${index}].occurredAt`,
+        message:
+          "未来现金事件已隔离，必须删除、替换账本或清空后才能恢复普通写入",
       });
     }
   });

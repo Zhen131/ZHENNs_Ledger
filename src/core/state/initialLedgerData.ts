@@ -3,9 +3,10 @@ import { createBuiltInAssets } from "@/core/catalog";
 
 export function createInitialLedgerData(): LedgerData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     assets: createBuiltInAssets(),
     trades: [],
+    cashEvents: [],
     priceSnapshots: [],
     feeRules: [],
   };

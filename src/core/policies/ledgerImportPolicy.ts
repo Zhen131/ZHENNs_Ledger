@@ -27,7 +27,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: "当前仅支持 USD/USDT 估值",
+        message: "V3 只支持 USDT 估值",
       });
     }
   });
@@ -44,7 +44,17 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `trades[${index}].currency`,
-        message: "当前仅支持 USD/USDT 估值",
+        message: "V3 只支持 USDT 估值",
+      });
+    }
+  });
+
+  ledgerData.cashEvents.forEach((cashEvent, index) => {
+    if (isLedgerFactInFuture(cashEvent.occurredAt, todayKey)) {
+      errors.push({
+        code: "LEDGER_IMPORT_FUTURE_FACT",
+        path: `cashEvents[${index}].occurredAt`,
+        message: `现金事件日期 ${getLedgerDateKey(cashEvent.occurredAt)} 晚于今天 ${todayKey}`,
       });
     }
   });
@@ -62,7 +72,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `priceSnapshots[${index}].currency`,
-        message: "当前仅支持 USD/USDT 估值",
+        message: "V3 只支持 USDT 估值",
       });
     }
 

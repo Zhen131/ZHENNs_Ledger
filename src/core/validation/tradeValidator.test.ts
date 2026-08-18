@@ -306,7 +306,7 @@ test("rejects a candidate currency that differs from an existing same-asset trad
   const priorTrade = {
     ...createSimpleTrade("buy-btc", "buy", "BTC", "1"),
     currency: "CNY",
-  };
+  } as unknown as Trade;
 
   expectError(
     validateTradeDraft(validDraft, {
@@ -322,7 +322,7 @@ test("ignores another asset that uses a different currency", () => {
   const otherAssetTrade = {
     ...createSimpleTrade("buy-ada", "buy", "ADA", "10"),
     currency: "CNY",
-  };
+  } as unknown as Trade;
 
   expect(
     validateTradeDraft(validDraft, {
@@ -475,7 +475,7 @@ test("rejects blank or surrounding-whitespace platform and fee rule facts", () =
   }
 });
 
-test("keeps legacy USD and foreign-fee facts readable without the new-write policy", () => {
+test("keeps a foreign-fee fact readable when fee matching is not requested", () => {
   const result = validateTradeDraft(
     { ...validDraft, fee: "1", feeCurrency: "CNY" },
     context,
@@ -483,21 +483,20 @@ test("keeps legacy USD and foreign-fee facts readable without the new-write poli
 
   expect(result.ok).toBe(true);
   if (result.ok) {
-    expect(result.value.currency).toBe("USD");
+    expect(result.value.currency).toBe("USDT");
     expect(result.value.feeCurrency).toBe("CNY");
   }
 });
 
-test("enforces USDT and matching non-zero fees only for strict new writes", () => {
+test("enforces USDT for all V3 writes and matching non-zero fees when requested", () => {
   expectError(
-    validateTradeDraft(validDraft, strictContext),
+    validateTradeDraft({ ...validDraft, currency: "USD" }, strictContext),
     TRADE_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
     "currency",
   );
 
   const usdtDraft = {
     ...validDraft,
-    currency: "USDT",
     fee: "1",
     feeCurrency: "CNY",
   };

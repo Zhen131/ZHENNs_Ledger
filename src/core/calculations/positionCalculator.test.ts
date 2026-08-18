@@ -117,7 +117,7 @@ test("uses the latest matching-currency snapshot and ignores newer mismatches", 
       "BTC",
       "500000",
       "2026-06-26T10:00:00Z",
-      "CNY",
+      "CNY" as never,
     ),
   ]);
 

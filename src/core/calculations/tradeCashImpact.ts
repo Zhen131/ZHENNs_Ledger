@@ -45,3 +45,19 @@ export function calculateTradeCashImpact(
     kind: trade.type === "buy" ? "buy-outflow" : "sell-proceeds",
   };
 }
+
+export function calculateTradeUsdtCashDelta(
+  trade: Pick<
+    TradeCashImpactInput,
+    "type" | "totalValue" | "fee" | "feeCurrency"
+  >,
+): DecimalString {
+  const feeAffectsUsdt = !isZero(trade.fee) && trade.feeCurrency === "USDT";
+  const amount = feeAffectsUsdt
+    ? trade.type === "buy"
+      ? add(trade.totalValue, trade.fee)
+      : subtract(trade.totalValue, trade.fee)
+    : trade.totalValue;
+
+  return trade.type === "buy" ? subtract("0", amount) : amount;
+}

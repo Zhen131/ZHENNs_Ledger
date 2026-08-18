@@ -68,6 +68,7 @@ type BackupControlsProps = {
    * available to a ready C session while this value is false.
    */
   canImportBackup?: boolean;
+  canPreflightBackup?: boolean;
   requiresHistoricalRawText?: boolean;
   preflight?: typeof preflightBackupJson;
   onImport: (
@@ -93,6 +94,7 @@ export function BackupControls({
   isReadOnly,
   isDirty,
   canImportBackup = true,
+  canPreflightBackup = true,
   requiresHistoricalRawText = !canImportBackup,
   preflight = preflightBackupJson,
   onImport,
@@ -134,8 +136,9 @@ export function BackupControls({
 
   const showExport = hydrationStatus === "ready";
   const showPreflight =
-    (hydrationStatus === "ready" && !isReadOnly) ||
-    hydrationStatus === "error";
+    canPreflightBackup &&
+    ((hydrationStatus === "ready" && !isReadOnly) ||
+      hydrationStatus === "error");
   const canExport = showExport && persistenceOperation === "idle";
   const canSelect =
     showPreflight &&

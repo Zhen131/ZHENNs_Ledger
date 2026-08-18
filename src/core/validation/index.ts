@@ -6,6 +6,7 @@ export {
 export {
   collectValidLedgerTradeProjections,
   LEDGER_DATA_VALIDATION_ERROR_CODES,
+  selectLedgerDataFacts,
   validateLedgerData,
 } from "./ledgerDataValidator";
 export * from "./priceSnapshotValidator";

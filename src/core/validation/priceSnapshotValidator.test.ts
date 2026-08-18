@@ -41,19 +41,10 @@ describe("validatePriceSnapshotDraft", () => {
     ).toBe(true);
   });
 
-  it("keeps legacy USD validation separate from strict USDT creation", () => {
-    const legacyAssets = assets.map((asset) => ({
-      ...asset,
-      quoteCurrency: "USD",
-    }));
+  it("rejects non-USDT prices in every V3 validation mode", () => {
     const legacyDraft = { ...validDraft, currency: "USD" };
 
-    expect(validatePriceSnapshotDraft(legacyDraft, legacyAssets).ok).toBe(true);
-    const strictResult = validatePriceSnapshotDraft(
-      legacyDraft,
-      legacyAssets,
-      { requiredCurrency: "USDT" },
-    );
+    const strictResult = validatePriceSnapshotDraft(legacyDraft, assets);
     expect(strictResult.ok).toBe(false);
     if (!strictResult.ok) {
       expect(strictResult.errors).toEqual(

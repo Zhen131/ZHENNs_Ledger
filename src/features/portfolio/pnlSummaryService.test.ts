@@ -136,7 +136,7 @@ describe("PnL summary", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.assets[1] = {
       ...ledgerData.assets[1],
-      quoteCurrency: "USD",
+      quoteCurrency: "USD" as never,
     };
     ledgerData.trades = [
       trade({
@@ -157,7 +157,7 @@ describe("PnL summary", () => {
         price: "20",
         totalValue: "20",
         fee: "0",
-        currency: "USD",
+        currency: "USD" as never,
         feeCurrency: "USD",
       }),
     ];

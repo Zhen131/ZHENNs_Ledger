@@ -12,9 +12,10 @@ function createLedgerData(
   overrides: Partial<LedgerData> = {},
 ): LedgerData {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     assets: createBuiltInAssets(),
     trades: [],
+    cashEvents: [],
     priceSnapshots: [],
     feeRules: [],
     ...overrides,
@@ -58,10 +59,6 @@ describe("getPositionsFromLedger", () => {
           ),
         ],
       });
-    ledgerData.assets = ledgerData.assets.map((asset) => ({
-      ...asset,
-      quoteCurrency: "USD",
-    }));
     const positions = getPositionsFromLedger(ledgerData);
 
     const btc = positions.find(

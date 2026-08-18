@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { bytesToBase64Url } from "@/platform/encryption";
 import {
-  LEDGER_FILE_V2_CONSTANTS,
-  createCanonicalLedgerPayloadV2,
+  LEDGER_FILE_OUTER_V2_CONSTANTS,
+  SUPPORTED_LEDGER_SCHEMA_VERSION,
+  createCanonicalLedgerPayloadV3,
   createLedgerFileCryptoV2,
   createLedgerFileGenerationAadV2,
   evaluateLedgerFilePayloadByteLength,
-  type EncryptedLedgerGenerationV2,
+  type EncryptedLedgerGenerationV3,
   type LedgerFileV2,
-  validateDecryptedLedgerPayloadV2,
+  validateDecryptedLedgerPayloadV3,
   validateLedgerFileV2,
 } from "./ledgerFileContract";
 import { createInitialLedgerData } from "@/core/state";
@@ -18,11 +19,11 @@ function createGeneration(
   revisionId: string,
   parentRevisionId: string | null,
   ivByte: number,
-): EncryptedLedgerGenerationV2 {
+): EncryptedLedgerGenerationV3 {
   return {
     revisionId,
     parentRevisionId,
-    ledgerSchemaVersion: 2,
+    ledgerSchemaVersion: 3,
     ivBase64Url: bytesToBase64Url(new Uint8Array(12).fill(ivByte)),
     ciphertextBase64Url: bytesToBase64Url(new Uint8Array(16).fill(9)),
   };
@@ -145,7 +146,7 @@ describe("LedgerFileV2 contract", () => {
       generation: {
         revisionId: "revision-b",
         parentRevisionId: "revision-a",
-        ledgerSchemaVersion: 2,
+        ledgerSchemaVersion: 3,
         ivBase64Url: file.current.ivBase64Url,
       },
     });
@@ -153,13 +154,13 @@ describe("LedgerFileV2 contract", () => {
     expect(aad).not.toContain("ciphertextBase64Url");
   });
 
-  it("canonicalizes only savedAt and the four LedgerData fact collections", () => {
+  it("canonicalizes only savedAt and the five LedgerData fact collections", () => {
     const ledger = {
       ...createInitialLedgerData(),
       positions: [{ assetSymbol: "BTC" }],
       chartData: { fake: true },
     };
-    const result = createCanonicalLedgerPayloadV2(
+    const result = createCanonicalLedgerPayloadV3(
       ledger,
       "2026-07-28T10:00:00.000Z",
     );
@@ -180,18 +181,18 @@ describe("LedgerFileV2 contract", () => {
       ledgerData: createInitialLedgerData(),
     };
 
-    expect(validateDecryptedLedgerPayloadV2(payload).ok).toBe(true);
+    expect(validateDecryptedLedgerPayloadV3(payload).ok).toBe(true);
     expect(
-      validateDecryptedLedgerPayloadV2({ ...payload, uiState: {} }),
+      validateDecryptedLedgerPayloadV3({ ...payload, uiState: {} }),
     ).toMatchObject({ ok: false });
     expect(
-      validateDecryptedLedgerPayloadV2({
+      validateDecryptedLedgerPayloadV3({
         ...payload,
         ledgerData: { ...payload.ledgerData, kline: [] },
       }),
     ).toMatchObject({ ok: false });
     expect(
-      createCanonicalLedgerPayloadV2(
+      createCanonicalLedgerPayloadV3(
         payload.ledgerData,
         "2026-07-28",
       ),
@@ -201,9 +202,9 @@ describe("LedgerFileV2 contract", () => {
   it("keeps the file and IndexedDB version systems independent", async () => {
     const { LEDGER_CRYPTO_CONSTANTS } = await import("@/platform/legacy");
 
-    expect(LEDGER_FILE_V2_CONSTANTS.fileFormatVersion).toBe(2);
+    expect(LEDGER_FILE_OUTER_V2_CONSTANTS.fileFormatVersion).toBe(2);
     expect(LEDGER_CRYPTO_CONSTANTS.formatVersion).toBe(2);
-    expect(LEDGER_FILE_V2_CONSTANTS.ledgerSchemaVersion).toBe(2);
+    expect(SUPPORTED_LEDGER_SCHEMA_VERSION).toBe(3);
     expect(LEDGER_CRYPTO_CONSTANTS.ledgerSchemaVersion).toBe(1);
     expect(validateLedgerFileV2(createFile()).ok).toBe(true);
   });

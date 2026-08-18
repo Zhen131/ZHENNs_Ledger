@@ -67,7 +67,8 @@ describe("ledger fact compatibility policy", () => {
   it("resolves absent built-in mappings without changing persisted three-state facts", () => {
     const ledgerData = createInitialLedgerData();
     const absentAsset = { ...ledgerData.assets[0] };
-    delete absentAsset.binanceMapping;
+    delete (absentAsset as unknown as { binanceMapping?: unknown })
+      .binanceMapping;
     ledgerData.assets[0] = absentAsset;
     ledgerData.assets[1] = {
       ...ledgerData.assets[1],
@@ -128,19 +129,19 @@ describe("strict import policy", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.assets[0] = {
       ...ledgerData.assets[0],
-      quoteCurrency: "EUR",
+      quoteCurrency: "EUR" as never,
     };
     ledgerData.trades = [
       {
         ...createSimpleTrade("future", "buy", "BTC", "1", "2026-07-26"),
-        currency: "EUR",
+        currency: "EUR" as never,
         feeCurrency: "BNB",
       },
     ];
     ledgerData.priceSnapshots = [
       {
         ...createPriceSnapshot("future-price", "BTC", "70000", "2026-07-26"),
-        currency: "EUR",
+        currency: "EUR" as never,
       },
     ];
 
@@ -207,17 +208,17 @@ describe("strict import policy", () => {
 
     const backup = validateBackupEnvelope(
       {
-        backupFormatVersion: 2,
+        backupFormatVersion: 3,
         appVersion: "0.1.0",
         exportedAt: "2026-07-25T12:00:00Z",
-        ledgerSchemaVersion: 2,
+        ledgerSchemaVersion: 3,
         ledgerData,
       },
       TODAY,
     );
     expect(backup.ok).toBe(true);
     if (backup.ok) {
-      expect(backup.value.ledgerData.schemaVersion).toBe(2);
+      expect(backup.value.ledgerData.schemaVersion).toBe(3);
       expect(
         backup.value.ledgerData.priceSnapshots[0].binanceProvenance?.symbol,
       ).toBe("BTCUSDT");

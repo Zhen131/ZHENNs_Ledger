@@ -252,63 +252,6 @@ describe("DashboardShell golden UI acceptance", () => {
     expect(within(trades).getByText("3 USDT")).not.toBeNull();
   });
 
-  it("reads an old USD ledger while disabling all new fact entry points", async () => {
-    const ledgerData = createInitialLedgerData();
-    ledgerData.assets = ledgerData.assets.map((asset) => ({
-      ...asset,
-      quoteCurrency: "USD",
-    }));
-    ledgerData.trades = [
-      {
-        id: "old-usd-buy",
-        occurredAt: "2026-07-20",
-        timePrecision: "day",
-        type: "buy",
-        assetSymbol: "BTC",
-        quantity: "1",
-        price: "10",
-        totalValue: "10",
-        currency: "USD",
-        fee: "0",
-        feeCurrency: "USD",
-        createdAt: "2026-07-20T00:00:00Z",
-        updatedAt: "2026-07-20T00:00:00Z",
-      },
-    ];
-    ledgerData.priceSnapshots = [
-      {
-        id: "old-usd-price",
-        assetSymbol: "BTC",
-        price: "12",
-        currency: "USD",
-        recordedAt: "2026-07-25",
-        source: "manual",
-        createdAt: "2026-07-25T00:00:00Z",
-        updatedAt: "2026-07-25T00:00:00Z",
-      },
-    ];
-
-    render(<DashboardShell repository={createMemoryRepository(ledgerData)} />);
-    await waitFor(() => {
-      expect(screen.getByText("旧 USD 账本兼容读取")).not.toBeNull();
-    });
-
-    expect(within(getSection("交易列表")).getAllByText("10 USD")).not.toHaveLength(0);
-    expectPositionDecimal("BTC", 3, "10");
-    expectPositionDecimal("BTC", 6, "12");
-    expectPositionDecimal("BTC", 7, "2");
-    for (const buttonName of [
-      "保存交易",
-      "保存价格",
-      "立即更新 Binance 行情",
-    ]) {
-      expect(
-        (screen.getByRole("button", { name: buttonName }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(true);
-    }
-  });
-
   it("withholds fee-sensitive UI values for an old foreign-fee fact without hiding market value or heatmap counts", async () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.trades = [

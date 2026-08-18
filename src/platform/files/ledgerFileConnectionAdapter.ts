@@ -1,5 +1,5 @@
 import type { LedgerFileHandle } from "./ledgerFileHandleAdapter";
-import { LEDGER_FILE_V2_CONSTANTS } from "./ledgerFileContract";
+import { LEDGER_FILE_OUTER_V2_CONSTANTS } from "./ledgerFileContract";
 
 export const LEDGER_FILE_CONNECTION_DEFAULTS = {
   databaseName: "local-first-trading-ledger-file-connections",
@@ -204,7 +204,7 @@ export function validateLedgerFileConnectionRecord(
     value.expectedFileId.length === 0 ||
     value.expectedFileId.trim().length === 0 ||
     value.expectedFileId.length >
-      LEDGER_FILE_V2_CONSTANTS.maximumTechnicalIdLength
+      LEDGER_FILE_OUTER_V2_CONSTANTS.maximumTechnicalIdLength
   ) {
     throw new LedgerFileConnectionRecordError(
       "Ledger file connection expectedFileId is invalid",

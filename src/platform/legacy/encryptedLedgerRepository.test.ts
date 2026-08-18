@@ -6,6 +6,7 @@ import {
   bytesToBase64Url,
 } from "@/platform/encryption";
 import type { StoredLedgerEnvelopeV2 } from "./cryptoEnvelope";
+import type { LedgerData } from "@/core/models";
 import { WebCryptoEncryptionService } from "./webCryptoEncryptionService";
 import { createInitialLedgerData } from "@/core/state";
 import { sampleUsdtTrades } from "@/test-support";
@@ -27,7 +28,7 @@ class MemoryStorageAdapter implements StorageAdapter {
   });
 }
 
-function createLedger() {
+function createLedger(): LedgerData {
   return {
     ...createInitialLedgerData(),
     trades: structuredClone(sampleUsdtTrades),

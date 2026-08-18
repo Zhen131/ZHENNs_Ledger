@@ -68,8 +68,9 @@ export type TradeValidationError = {
 /**
  * 校验成功后 fee 一定存在；表单或导入数据未提供 fee 时标准化为 "0"。
  */
-export type ValidatedTradeDraft = Omit<TradeDraft, "fee"> & {
+export type ValidatedTradeDraft = Omit<TradeDraft, "fee" | "currency"> & {
   fee: DecimalString;
+  currency: "USDT";
 };
 
 /**
@@ -170,16 +171,12 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     );
   }
 
-  if (
-    context.requiredCurrency !== undefined &&
-    currency !== undefined &&
-    currency !== context.requiredCurrency
-  ) {
+  if (currency !== undefined && currency !== "USDT") {
     errors.push(
       createError(
         TRADE_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
         "currency",
-        `New trade facts must use ${context.requiredCurrency}`,
+        "New trade facts must use USDT",
       ),
     );
   }
@@ -225,7 +222,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
       createError(
         TRADE_VALIDATION_ERROR_CODES.UNSUPPORTED_VALUATION_CURRENCY,
         "currency",
-        "Only USD/USDT valuation is supported",
+        "V3 supports USDT valuation only",
       ),
     );
   }
@@ -236,7 +233,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     type !== undefined &&
     assetSymbol !== undefined &&
     quantity !== undefined &&
-    currency !== undefined
+    currency === "USDT"
   ) {
     validateHoldingsTimeline(
       {
@@ -260,7 +257,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     quantity === undefined ||
     price === undefined ||
     totalValue === undefined ||
-    currency === undefined ||
+    currency !== "USDT" ||
     fee === undefined
   ) {
     return { ok: false, errors };

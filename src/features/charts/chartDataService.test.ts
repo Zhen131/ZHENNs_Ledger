@@ -118,13 +118,13 @@ describe("holding allocation", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.assets[2] = {
       ...ledgerData.assets[2],
-      quoteCurrency: "EUR",
+      quoteCurrency: "EUR" as never,
     };
     ledgerData.trades = [
       buy("btc", "BTC", "1", "100", "2026-07-20"),
       {
         ...buy("ada", "ADA", "1", "10", "2026-07-20"),
-        currency: "EUR",
+        currency: "EUR" as never,
       },
     ];
 

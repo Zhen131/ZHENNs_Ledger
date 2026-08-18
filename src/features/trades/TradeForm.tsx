@@ -280,7 +280,6 @@ export function TradeForm({
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
     ledgerData.assets[0];
   const currency = selectedAsset?.quoteCurrency ?? "";
-  const isLegacyUsdAsset = currency === "USD";
   const cashImpactPreview = getCashImpactPreview(form, currency);
   const feeRuleMatch = matchFeeRules(
     {
@@ -695,14 +694,9 @@ export function TradeForm({
             </p>
           </div>
         ) : null}
-        {isLegacyUsdAsset ? (
-          <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            旧 USD 资产只兼容读取，不能新增交易；请新建 USDT 账本后继续录入。
-          </p>
-        ) : null}
         <button
           className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={isLegacyUsdAsset || pendingMutationVersion !== null}
+          disabled={pendingMutationVersion !== null}
           type="submit"
         >
           {pendingMutationVersion === null ? "保存交易" : "正在保存…"}

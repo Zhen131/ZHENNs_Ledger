@@ -70,7 +70,8 @@ function createClient(): BinanceMarketDataClient {
 describe("Binance price refresh", () => {
   it("uses an absent built-in mapping only at runtime without materializing it", async () => {
     const ledgerData = createInitialLedgerData();
-    delete ledgerData.assets[0].binanceMapping;
+    delete (ledgerData.assets[0] as unknown as { binanceMapping?: unknown })
+      .binanceMapping;
     ledgerData.trades = [
       createSimpleTrade("btc", "buy", "BTC", "1", "2026-07-20"),
     ];
@@ -285,9 +286,10 @@ describe("Binance price refresh", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.assets = ledgerData.assets.map((asset) => ({
       ...asset,
-      quoteCurrency: "USD",
+      quoteCurrency: "USD" as never,
     }));
-    delete ledgerData.assets[0].binanceMapping;
+    delete (ledgerData.assets[0] as unknown as { binanceMapping?: unknown })
+      .binanceMapping;
     ledgerData.trades = [
       createSimpleTrade("legacy-btc", "buy", "BTC", "1", "2026-07-20"),
     ];

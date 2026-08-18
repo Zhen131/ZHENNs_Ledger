@@ -46,10 +46,17 @@ export type PriceSnapshotValidationError = {
   message: string;
 };
 
+export type ValidatedPriceSnapshotDraft = Omit<
+  PriceSnapshotDraft,
+  "currency"
+> & {
+  currency: "USDT";
+};
+
 export type PriceSnapshotValidationResult =
   | {
       ok: true;
-      value: PriceSnapshotDraft;
+      value: ValidatedPriceSnapshotDraft;
     }
   | {
       ok: false;
@@ -131,21 +138,17 @@ export function validatePriceSnapshotDraft(
       createError(
         PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.UNSUPPORTED_VALUATION_CURRENCY,
         "currency",
-        "Only USD/USDT valuation is supported",
+        "V3 supports USDT valuation only",
       ),
     );
   }
 
-  if (
-    options.requiredCurrency !== undefined &&
-    currency !== undefined &&
-    currency !== options.requiredCurrency
-  ) {
+  if (currency !== undefined && currency !== "USDT") {
     errors.push(
       createError(
         PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,
         "currency",
-        `New price facts must use ${options.requiredCurrency}`,
+        "New price facts must use USDT",
       ),
     );
   }
@@ -168,7 +171,7 @@ export function validatePriceSnapshotDraft(
     errors.length > 0 ||
     assetSymbol === undefined ||
     price === undefined ||
-    currency === undefined ||
+    currency !== "USDT" ||
     recordedAt === undefined ||
     source === undefined
   ) {

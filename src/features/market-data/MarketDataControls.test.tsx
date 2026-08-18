@@ -186,7 +186,7 @@ describe("MarketDataControls", () => {
         id: "manual",
         assetSymbol: "BTC",
         price: "68000",
-        currency: "USD",
+        currency: "USDT",
         recordedAt: "2026-07-24",
         source: "manual",
         createdAt: "2026-07-24T00:00:00Z",
@@ -428,7 +428,7 @@ describe("MarketDataControls", () => {
           id: "manual-concurrent",
           assetSymbol: "ETH",
           price: "2500",
-          currency: "USD",
+          currency: "USDT",
           recordedAt: "2026-07-25",
           source: "manual",
           createdAt: "2026-07-25T11:59:00Z",
@@ -508,7 +508,9 @@ describe("MarketDataControls", () => {
 
   it("shows a runtime fallback for an absent mapping and persists null only after explicit deletion", async () => {
     let latestLedger = createInitialLedgerData();
-    delete latestLedger.assets[0].binanceMapping;
+    delete (latestLedger.assets[0] as unknown as {
+      binanceMapping?: unknown;
+    }).binanceMapping;
     const applyLedgerMutation = vi.fn(
       (mutation: (current: LedgerData) => LedgerData) => {
         const next = mutation(latestLedger);

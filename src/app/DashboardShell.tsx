@@ -60,6 +60,7 @@ import {
 
 const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 const FILE_SAVED_FEEDBACK_MS = 4_000;
+const V3_BACKUP_IMPORT_ENABLED = false;
 
 type ClearConfirmationMode = "normal" | "recovery";
 
@@ -323,9 +324,6 @@ export function DashboardShell({
     todayKey,
     mode: valuationPriceMode,
   });
-  const hasLegacyUsdAssets = ledgerData.assets.some(
-    (asset) => asset.quoteCurrency === "USD",
-  );
   const allocation = buildHoldingAllocation(ledgerData, {
     todayKey,
     mode: valuationPriceMode,
@@ -706,14 +704,6 @@ export function DashboardShell({
               </ul>
             </div>
           ) : null}
-          {hydrationStatus === "ready" && hasLegacyUsdAssets ? (
-            <div className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
-              <p className="font-semibold">旧 USD 账本兼容读取</p>
-              <p>
-                旧交易和价格仍可查看；USD 资产不接受新的交易、手动价格或 Binance 价格事实。请在新的 USDT 账本中继续录入。
-              </p>
-            </div>
-          ) : null}
           {isFutureFactCorrectionMode ? (
             <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
               <p className="font-semibold">未来事实纠正模式</p>
@@ -1034,6 +1024,7 @@ export function DashboardShell({
 
                 <BackupControls
                   canImportBackup={capabilities.canImportBackup}
+                  canPreflightBackup={V3_BACKUP_IMPORT_ENABLED}
                   clock={clock}
                   hydrationStatus={hydrationStatus}
                   isDirty={isDirty}
@@ -1253,6 +1244,7 @@ export function DashboardShell({
           backupPanel={
             <BackupControls
               canImportBackup={capabilities.canImportBackup}
+              canPreflightBackup={V3_BACKUP_IMPORT_ENABLED}
               clock={clock}
               hydrationStatus={hydrationStatus}
               isDirty={isDirty}

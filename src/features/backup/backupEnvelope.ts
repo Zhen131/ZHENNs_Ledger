@@ -13,16 +13,17 @@ import {
   isValidISODateOrDateTime,
   type LedgerDataValidationError,
   type LedgerResourcePolicyError,
+  selectLedgerDataFacts,
   validateLedgerData,
 } from "@/core/validation";
 
-export const BACKUP_FORMAT_VERSION = 2;
+export const BACKUP_FORMAT_VERSION = 3 as const;
 
-export type BackupEnvelopeV2 = {
-  backupFormatVersion: 2;
+export type BackupEnvelopeV3 = {
+  backupFormatVersion: 3;
   appVersion: string;
   exportedAt: string;
-  ledgerSchemaVersion: 2;
+  ledgerSchemaVersion: 3;
   ledgerData: LedgerData;
 };
 
@@ -45,7 +46,7 @@ export type BackupEnvelopeError =
   | LedgerImportPolicyError;
 
 export type BackupEnvelopeResult =
-  | { ok: true; value: BackupEnvelopeV2 }
+  | { ok: true; value: BackupEnvelopeV3 }
   | { ok: false; errors: BackupEnvelopeError[] };
 
 export type BackupMetadata = {
@@ -58,7 +59,7 @@ export function createBackupEnvelope(
   metadata: BackupMetadata,
 ): BackupEnvelopeResult {
   const metadataErrors = validateMetadata(metadata);
-  const ledgerResult = validateLedgerData(ledgerData);
+  const ledgerResult = validateLedgerData(selectLedgerDataFacts(ledgerData));
 
   if (!ledgerResult.ok || metadataErrors.length > 0) {
     return {
@@ -82,7 +83,7 @@ export function createBackupEnvelope(
   };
 }
 
-export function serializeBackupEnvelope(envelope: BackupEnvelopeV2): string {
+export function serializeBackupEnvelope(envelope: BackupEnvelopeV3): string {
   return `${JSON.stringify(envelope, null, 2)}\n`;
 }
 
@@ -123,6 +124,19 @@ export function validateBackupEnvelope(
     };
   }
 
+  if (input.backupFormatVersion === 2) {
+    return {
+      ok: false,
+      errors: [
+        createError(
+          "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+          "backupFormatVersion",
+          "这是 V2 备份；V3 不提供迁移",
+        ),
+      ],
+    };
+  }
+
   const errors: BackupEnvelopeError[] = [];
   if (input.backupFormatVersion !== BACKUP_FORMAT_VERSION) {
     errors.push(
@@ -140,7 +154,7 @@ export function validateBackupEnvelope(
   });
   errors.push(...metadataErrors);
 
-  const hasSupportedLedgerSchemaVersion = input.ledgerSchemaVersion === 2;
+  const hasSupportedLedgerSchemaVersion = input.ledgerSchemaVersion === 3;
   if (!hasSupportedLedgerSchemaVersion) {
     errors.push(
       createError(
@@ -192,7 +206,7 @@ export function validateBackupEnvelope(
       backupFormatVersion: BACKUP_FORMAT_VERSION,
       appVersion: input.appVersion as string,
       exportedAt: input.exportedAt as string,
-      ledgerSchemaVersion: 2,
+      ledgerSchemaVersion: 3,
       ledgerData: ledgerResult.value,
     },
   };

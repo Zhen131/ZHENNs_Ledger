@@ -14,11 +14,6 @@ import {
 
 function createCompleteLedger(): LedgerData {
   const initialLedger = createInitialLedgerData();
-  initialLedger.assets = initialLedger.assets.map((asset) => ({
-    ...asset,
-    quoteCurrency: "USD",
-  }));
-
   return {
     ...initialLedger,
     trades: structuredClone(sampleTrades),
@@ -78,12 +73,12 @@ describe("validateLedgerData", () => {
     expect(validateLedgerData(createInitialLedgerData()).ok).toBe(true);
   });
 
-  it("preserves a legacy USD trade with a non-zero foreign fee", () => {
+  it("preserves a non-zero fee paid in another local asset", () => {
     const input = createCompleteLedger();
     input.trades[0] = {
       ...input.trades[0],
       fee: "1",
-      feeCurrency: "CNY",
+      feeCurrency: "ETH",
     };
 
     const result = validateLedgerData(input);
@@ -106,7 +101,7 @@ describe("validateLedgerData", () => {
       "schemaVersion",
     );
     expectError(
-      { ...createInitialLedgerData(), schemaVersion: 3 },
+      { ...createInitialLedgerData(), schemaVersion: 2 },
       LEDGER_DATA_VALIDATION_ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION,
       "schemaVersion",
     );
@@ -125,7 +120,7 @@ describe("validateLedgerData", () => {
       ...createInitialLedgerData().assets[0],
       id: createInitialLedgerData().assets[1].id,
       symbol: createInitialLedgerData().assets[1].symbol,
-      binanceMapping: undefined,
+      binanceMapping: null,
     };
     const input = createCompleteLedger();
     input.assets.push(duplicateAsset);
@@ -407,6 +402,104 @@ describe("validateLedgerData", () => {
     expect(() => validateLedgerData(input)).not.toThrow();
   });
 
+  it("accepts canonical cash flows and a zero-delta balance adjustment", () => {
+    const input = createInitialLedgerData();
+    input.cashEvents = [
+      cashFlow("deposit", "9999999999999999999999999999999999999999", "cash-40"),
+      cashFlow("withdrawal", "0.000000000000000001", "cash-18"),
+      {
+        id: "cash-adjustment",
+        occurredAt: "2026-08-18",
+        timePrecision: "day",
+        type: "balance-adjustment",
+        currency: "USDT",
+        balanceBefore: "-1",
+        targetBalance: "-1",
+        adjustmentAmount: "0",
+        createdAt: "2026-08-18T08:00:00.000Z",
+        updatedAt: "2026-08-18T08:00:00.000Z",
+      },
+    ];
+
+    expect(validateLedgerData(input)).toEqual({ ok: true, value: input });
+  });
+
+  it.each(["0", "-1", "01", "1e3", "+1", "-0"])(
+    "rejects non-positive or non-canonical flow amount %s",
+    (amount) => {
+      const input = createInitialLedgerData();
+      input.cashEvents = [cashFlow("deposit", amount, "cash-invalid")];
+
+      expectError(
+        input,
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        "cashEvents[0].amount",
+      );
+    },
+  );
+
+  it("rejects inconsistent adjustment arithmetic and union-only extra fields", () => {
+    const input = createInitialLedgerData();
+    input.cashEvents = [
+      {
+        id: "cash-invalid-adjustment",
+        occurredAt: "2026-08-18",
+        timePrecision: "day",
+        type: "balance-adjustment",
+        currency: "USDT",
+        amount: "1",
+        balanceBefore: "10",
+        targetBalance: "8",
+        adjustmentAmount: "-1",
+        createdAt: "2026-08-18T08:00:00.000Z",
+        updatedAt: "2026-08-18T08:00:00.000Z",
+      } as never,
+    ];
+
+    expectError(
+      input,
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      "cashEvents[0].amount",
+    );
+    expectError(
+      input,
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      "cashEvents[0].adjustmentAmount",
+    );
+  });
+
+  it("enforces global IDs and exact V3 root and asset shapes", () => {
+    const duplicate = createCompleteLedger();
+    duplicate.cashEvents = [
+      cashFlow("deposit", "1", duplicate.trades[0].id),
+    ];
+    expectError(
+      duplicate,
+      LEDGER_DATA_VALIDATION_ERROR_CODES.DUPLICATE_IDENTIFIER,
+      "cashEvents[0].id",
+    );
+
+    expectError(
+      { ...createInitialLedgerData(), currentCashBalance: "0" },
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      "ledgerData.currentCashBalance",
+    );
+
+    const missingMapping = createInitialLedgerData();
+    const assetWithoutMapping = {
+      ...missingMapping.assets[0],
+    } as Record<string, unknown>;
+    delete assetWithoutMapping.binanceMapping;
+    expectError(
+      {
+        ...missingMapping,
+        assets: [assetWithoutMapping, ...missingMapping.assets.slice(1)],
+      },
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      "assets[0].binanceMapping",
+    );
+  });
+
   it("exposes only independently valid trades with their original indexes for read-only preflight", () => {
     const input = createCompleteLedger();
     input.trades = [
@@ -449,4 +542,21 @@ function deepFreeze<T>(value: T): T {
   }
 
   return value;
+}
+
+function cashFlow(
+  type: "deposit" | "withdrawal" | "external-expense",
+  amount: string,
+  id: string,
+) {
+  return {
+    id,
+    occurredAt: "2026-08-18",
+    timePrecision: "day" as const,
+    type,
+    currency: "USDT" as const,
+    amount,
+    createdAt: "2026-08-18T08:00:00.000Z",
+    updatedAt: "2026-08-18T08:00:00.000Z",
+  };
 }

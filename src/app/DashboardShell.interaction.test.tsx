@@ -1695,7 +1695,7 @@ describe("DashboardShell data management", () => {
     const unsupportedLedger = createInitialLedgerData();
     unsupportedLedger.assets[0] = {
       ...unsupportedLedger.assets[0],
-      quoteCurrency: "EUR",
+      quoteCurrency: "EUR" as never,
     };
 
     const futureEnvelope = createBackupEnvelope(futureLedger, {

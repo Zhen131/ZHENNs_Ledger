@@ -29,9 +29,9 @@ export type Asset = {
   id: string;
   symbol: string;
   name: string;
-  quoteCurrency: CurrencyCode;
+  quoteCurrency: "USDT";
   decimals?: number;
-  binanceMapping?: BinanceMarketMapping | null;
+  binanceMapping: BinanceMarketMapping | null;
   createdAt: ISODateTimeString;
   updatedAt: ISODateTimeString;
 };
@@ -48,7 +48,7 @@ export type Trade = {
   /** Executed quantity times average price, excluding fees. */
   totalValue: DecimalString;
   totalValueSortKey?: DecimalString;
-  currency: CurrencyCode;
+  currency: "USDT";
   fee: DecimalString;
   feeCurrency: CurrencyCode;
   platform?: string;
@@ -81,7 +81,7 @@ export type PriceSnapshot = {
   id: string;
   assetSymbol: string;
   price: DecimalString;
-  currency: CurrencyCode;
+  currency: "USDT";
   recordedAt: ISODateString | ISODateTimeString;
   source: PriceSource;
   binanceProvenance?: BinancePriceProvenance;
@@ -126,6 +126,36 @@ export type PercentageFeeRule = FeeRuleBase & {
 
 export type FeeRule = FixedFeeRule | PercentageFeeRule;
 
+export type CashEventType =
+  | "deposit"
+  | "withdrawal"
+  | "external-expense"
+  | "balance-adjustment";
+
+export type CashEventBase = {
+  id: string;
+  occurredAt: ISODateString | ISODateTimeString;
+  timePrecision: TimePrecision;
+  currency: "USDT";
+  note?: string;
+  createdAt: ISODateTimeString;
+  updatedAt: ISODateTimeString;
+};
+
+export type CashFlowEvent = CashEventBase & {
+  type: "deposit" | "withdrawal" | "external-expense";
+  amount: DecimalString;
+};
+
+export type CashBalanceAdjustmentEvent = CashEventBase & {
+  type: "balance-adjustment";
+  balanceBefore: DecimalString;
+  targetBalance: DecimalString;
+  adjustmentAmount: DecimalString;
+};
+
+export type CashEvent = CashFlowEvent | CashBalanceAdjustmentEvent;
+
 export type FeeAccountingIssue = {
   code: "UNSUPPORTED_FEE_CURRENCY";
   tradeId: string;
@@ -150,9 +180,10 @@ export type Position = {
 };
 
 export type LedgerData = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   assets: Asset[];
   trades: Trade[];
+  cashEvents: CashEvent[];
   priceSnapshots: PriceSnapshot[];
   feeRules: FeeRule[];
 };

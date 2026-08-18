@@ -50,7 +50,7 @@ describe("new ledger fact policy", () => {
     const ledgerData: LedgerData = createInitialLedgerData();
     ledgerData.assets[0] = {
       ...ledgerData.assets[0],
-      quoteCurrency: "EUR",
+      quoteCurrency: "EUR" as never,
     };
 
     const result = createValidatedTrade(

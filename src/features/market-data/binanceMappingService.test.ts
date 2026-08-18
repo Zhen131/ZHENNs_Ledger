@@ -16,7 +16,8 @@ const BTC_MAPPING = {
 
 function createLedgerWithAbsentBtcMapping() {
   const ledgerData = createInitialLedgerData();
-  delete ledgerData.assets[0].binanceMapping;
+  delete (ledgerData.assets[0] as unknown as { binanceMapping?: unknown })
+    .binanceMapping;
   return ledgerData;
 }
 
