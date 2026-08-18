@@ -76,17 +76,20 @@ const initialDraft: TradeWorkspaceDraft = {
   totalValueMode: "auto",
   occurredAt: "2026-07-25",
   fee: "0",
+  feeCurrency: "USDT",
   platform: "",
   note: "",
   noteExpanded: false,
 };
 
 function ControlledTradeForm({
+  ledgerData = createLedger(),
   mutationVersion = 0,
   persistedVersion = 0,
   persistenceStatus = "saved",
   onTradeCreated = vi.fn(() => "applied" as const),
 }: Readonly<{
+  ledgerData?: LedgerData;
   mutationVersion?: number;
   persistedVersion?: number;
   persistenceStatus?: PersistenceStatus;
@@ -99,7 +102,7 @@ function ControlledTradeForm({
       <TradeForm
         clock={clock}
         draft={draft}
-        ledgerData={createLedger()}
+        ledgerData={ledgerData}
         ledgerEpoch={1}
         mutationVersion={mutationVersion}
         onDraftChange={setDraft}
@@ -252,4 +255,115 @@ describe("TradeForm", () => {
       note: "",
     });
   });
+
+  it("shows and persists a local-asset fee without deducting it from USDT cash", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [cashDeposit("fee-cover", "100")];
+    const onTradeCreated = vi.fn(() => "applied" as const);
+    render(
+      <ControlledTradeForm
+        ledgerData={ledgerData}
+        onTradeCreated={onTradeCreated}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("数量"), "1");
+    await user.type(screen.getByLabelText("成交均价"), "10");
+    await user.clear(screen.getByLabelText("实际手续费"));
+    await user.type(screen.getByLabelText("实际手续费"), "0.1");
+    await user.selectOptions(screen.getByLabelText("手续费币种"), "BTC");
+
+    expect(screen.getByText("本次现金变化：-10 USDT")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(onTradeCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fee: "0.1",
+        feeCurrency: "BTC",
+        totalValue: "10",
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("keeps a negative trade at zero mutation until keyboard-safe confirmation", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [cashDeposit("small-cover", "5")];
+    const onTradeCreated = vi.fn(() => "applied" as const);
+    render(
+      <ControlledTradeForm
+        ledgerData={ledgerData}
+        onTradeCreated={onTradeCreated}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("数量"), "1");
+    await user.type(screen.getByLabelText("成交均价"), "10");
+    const trigger = screen.getByRole("button", { name: "保存交易" });
+    await user.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: "确认交易后的负现金" });
+    expect(dialog.textContent).toContain("保存后余额-5 USDT");
+    expect(onTradeCreated).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "确认并保存" }),
+    );
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(onTradeCreated).not.toHaveBeenCalled();
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "确认并保存" }));
+    expect(onTradeCreated).toHaveBeenCalledOnce();
+  });
+
+  it("invalidates a negative-trade confirmation when the ledger version changes", async () => {
+    const ledgerData = createInitialLedgerData();
+    const onTradeCreated = vi.fn(() => "applied" as const);
+    const view = render(
+      <ControlledTradeForm
+        ledgerData={ledgerData}
+        mutationVersion={0}
+        onTradeCreated={onTradeCreated}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("数量"), "1");
+    await user.type(screen.getByLabelText("成交均价"), "10");
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+    expect(screen.getByRole("dialog")).not.toBeNull();
+
+    view.rerender(
+      <ControlledTradeForm
+        ledgerData={ledgerData}
+        mutationVersion={1}
+        onTradeCreated={onTradeCreated}
+        persistenceStatus="saving"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "确认并保存" }));
+
+    expect(onTradeCreated).not.toHaveBeenCalled();
+    expect(screen.getByText(/旧确认已失效/)).not.toBeNull();
+  });
 });
+
+function cashDeposit(
+  id: string,
+  amount: string,
+): LedgerData["cashEvents"][number] {
+  return {
+    id,
+    occurredAt: "2026-07-20",
+    timePrecision: "day",
+    type: "deposit",
+    currency: "USDT",
+    amount,
+    createdAt: "2026-07-20T12:00:00.000Z",
+    updatedAt: "2026-07-20T12:00:00.000Z",
+  };
+}

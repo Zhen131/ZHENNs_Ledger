@@ -8,7 +8,7 @@ import type {
   TradeWorkspaceDraft,
 } from "@/app";
 import type { LedgerData, Trade, TradeDraft } from "@/core/models";
-import { calculateTradeCashImpact } from "@/core/calculations";
+import { calculateTradeUsdtCashDelta, replayUsdtCash } from "@/core/calculations";
 import {
   matchFeeRules,
   type FeeRuleCandidate,
@@ -20,13 +20,32 @@ import type {
 } from "@/core/validation";
 import {
   captureLedgerTime,
+  absolute,
+  add,
+  isNegative,
   multiply,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
+import {
+  NegativeCashConfirmationDialog,
+} from "@/features/cash/ui";
+import {
+  projectLedgerCashMutation,
+  type CashMutationProjection,
+} from "@/features/cash";
 
 const SUCCESS_FEEDBACK_MS = 4_000;
+
+type PendingTradeRisk = Readonly<{
+  trade: Trade;
+  projection: CashMutationProjection;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  persistedVersion: number;
+  timeSnapshot: LedgerTimeSnapshot;
+}>;
 
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
@@ -81,6 +100,7 @@ function createInitialFormState(
     totalValueMode: "auto",
     occurredAt: todayKey,
     fee: "0",
+    feeCurrency: "USDT",
     platform: "",
     note: "",
     noteExpanded: false,
@@ -111,7 +131,7 @@ function formatValidationError(error: TradeValidationError): string {
     case "CURRENCY_MISMATCH":
       return "计价货币与资产或已有交易不一致";
     case "FEE_CURRENCY_MISMATCH":
-      return "非零实际手续费必须使用交易计价货币";
+      return "非零实际手续费必须使用 USDT 或账本中已有的本地资产";
     case "NEW_FACT_REQUIRES_USDT":
       return "旧 USD 账本只兼容读取；请新建 USDT 账本后再录入";
     case "FUTURE_FACT":
@@ -173,12 +193,14 @@ export function TradeForm({
   const [successMessage, setSuccessMessage] = useState("");
   const [selectedFeeRuleId, setSelectedFeeRuleId] = useState("");
   const [sourceChangedMessage, setSourceChangedMessage] = useState("");
+  const [pendingRisk, setPendingRisk] = useState<PendingTradeRisk | null>(null);
   const [pendingMutationVersion, setPendingMutationVersion] = useState<
     number | null
   >(null);
   const pendingResetRef = useRef<
     Pick<TradeWorkspaceDraft, "assetSymbol" | "platform"> | undefined
   >(undefined);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
 
   function commitForm(next: TradeFormState) {
     if (draft && onDraftChange) {
@@ -210,6 +232,7 @@ export function TradeForm({
     setSuccessMessage("");
     setSelectedFeeRuleId("");
     setSourceChangedMessage("");
+    setPendingRisk(null);
     pendingResetRef.current = undefined;
     if (!draft) {
       setLocalForm(
@@ -280,7 +303,14 @@ export function TradeForm({
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
     ledgerData.assets[0];
   const currency = selectedAsset?.quoteCurrency ?? "";
-  const cashImpactPreview = getCashImpactPreview(form, currency);
+  const feeCurrency = form.feeCurrency || "USDT";
+  const cashImpactPreview = getCashImpactPreview(
+    form,
+    feeCurrency,
+    replayUsdtCash(ledgerData, {
+      asOf: captureLedgerTime(clock).todayKey,
+    }).balance,
+  );
   const feeRuleMatch = matchFeeRules(
     {
       ...(form.platform === "" ? {} : { platform: form.platform }),
@@ -337,15 +367,42 @@ export function TradeForm({
     }
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
     setSuccessMessage("");
+    setPendingRisk(null);
   }
 
   function adoptCandidate(candidate: FeeRuleCandidate) {
     if (pendingMutationVersion !== null) return;
-    commitForm({ ...form, fee: candidate.fee });
+    commitForm({ ...form, fee: candidate.fee, feeCurrency: "USDT" });
     setSelectedFeeRuleId(candidate.rule.id);
     setSourceChangedMessage("");
     setErrors((current) => ({ ...current, fee: undefined, form: undefined }));
     setSuccessMessage("");
+  }
+
+  function applyTrade(
+    trade: Trade,
+    timeSnapshot: LedgerTimeSnapshot,
+  ) {
+    const mutationResult = onTradeCreated(trade, timeSnapshot);
+
+    if (mutationResult !== "applied") {
+      setErrors({
+        form:
+          mutationResult === "rejected"
+            ? "账本当前不可写，请稍后重试"
+            : "账本未发生变化，请检查输入",
+      });
+      setSuccessMessage("");
+      return;
+    }
+
+    pendingResetRef.current = {
+      assetSymbol: form.assetSymbol,
+      platform: form.platform,
+    };
+    setErrors({});
+    setPendingMutationVersion(mutationVersion + 1);
+    setSuccessMessage("正在保存…");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -364,7 +421,7 @@ export function TradeForm({
         totalValue: form.totalValue,
         currency,
         fee: form.fee,
-        feeCurrency: currency,
+        feeCurrency,
         ...(form.platform === "" ? {} : { platform: form.platform }),
         ...(selectedCandidate === undefined
           ? {}
@@ -395,26 +452,61 @@ export function TradeForm({
       return;
     }
 
-    const mutationResult = onTradeCreated(result.trade, timeSnapshot);
-
-    if (mutationResult !== "applied") {
-      setErrors({
-        form:
-          mutationResult === "rejected"
-            ? "账本当前不可写，请稍后重试"
-            : "账本未发生变化，请检查输入",
+    const nextLedger = {
+      ...ledgerData,
+      trades: [...ledgerData.trades, result.trade],
+    };
+    const projection = projectLedgerCashMutation(
+      ledgerData,
+      nextLedger,
+      timeSnapshot.todayKey,
+    );
+    if (projection.requiresNegativeBalanceConfirmation) {
+      setPendingRisk({
+        trade: result.trade,
+        projection,
+        ledgerEpoch,
+        mutationVersion,
+        persistedVersion,
+        timeSnapshot,
       });
-      setSuccessMessage("");
       return;
     }
 
-    pendingResetRef.current = {
-      assetSymbol: form.assetSymbol,
-      platform: form.platform,
+    applyTrade(result.trade, timeSnapshot);
+  }
+
+  function confirmNegativeBalance() {
+    const pending = pendingRisk;
+    if (!pending) return;
+    if (
+      pending.ledgerEpoch !== ledgerEpoch ||
+      pending.mutationVersion !== mutationVersion ||
+      pending.persistedVersion !== persistedVersion
+    ) {
+      setPendingRisk(null);
+      setErrors({ form: "账本版本已变化，旧确认已失效；请重新提交" });
+      return;
+    }
+    const nextLedger = {
+      ...ledgerData,
+      trades: [...ledgerData.trades, pending.trade],
     };
-    setErrors({});
-    setPendingMutationVersion(mutationVersion + 1);
-    setSuccessMessage("正在保存…");
+    const latest = projectLedgerCashMutation(
+      ledgerData,
+      nextLedger,
+      pending.timeSnapshot.todayKey,
+    );
+    if (
+      !latest.requiresNegativeBalanceConfirmation ||
+      latest.nextBalance !== pending.projection.nextBalance
+    ) {
+      setPendingRisk(null);
+      setErrors({ form: "现金结果已变化，旧确认已失效；请重新提交" });
+      return;
+    }
+    setPendingRisk(null);
+    applyTrade(pending.trade, pending.timeSnapshot);
   }
 
   return (
@@ -583,6 +675,22 @@ export function TradeForm({
         ) : null}
       </label>
 
+      <label className="grid gap-2 text-sm font-medium">
+        手续费币种
+        <select
+          className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
+          onChange={(event) => updateField("feeCurrency", event.target.value)}
+          value={feeCurrency}
+        >
+          <option value="USDT">USDT</option>
+          {ledgerData.assets.map((asset) => (
+            <option key={asset.id} value={asset.symbol}>
+              {asset.symbol}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm md:col-span-2">
         <p className="font-medium">手续费来源</p>
         {feeRuleMatch.status === "missing-platform" ? (
@@ -680,13 +788,10 @@ export function TradeForm({
         {cashImpactPreview ? (
           <div className="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
             <p>成交金额（不含手续费）：{form.totalValue} {currency}</p>
-            <p>实际手续费：{form.fee} {currency}</p>
-            <p>
-              {cashImpactPreview.kind === "buy-outflow"
-                ? "买入总支出"
-                : "卖出净到账"}
-              ：{cashImpactPreview.amount} {cashImpactPreview.currency}
-            </p>
+            <p>实际手续费：{form.fee} {feeCurrency}</p>
+            <p>当前现金：{cashImpactPreview.currentBalance} USDT</p>
+            <p>本次现金变化：{cashImpactPreview.delta} USDT</p>
+            <p>保存后现金：{cashImpactPreview.nextBalance} USDT</p>
             <p>
               来源：{selectedCandidate
                 ? `${selectedCandidate.rule.name} · ${selectedCandidate.rule.id}`
@@ -697,6 +802,7 @@ export function TradeForm({
         <button
           className="rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
           disabled={pendingMutationVersion !== null}
+          ref={submitButtonRef}
           type="submit"
         >
           {pendingMutationVersion === null ? "保存交易" : "正在保存…"}
@@ -718,6 +824,15 @@ export function TradeForm({
         </div>
       </div>
       </div>
+      {pendingRisk ? (
+        <NegativeCashConfirmationDialog
+          onCancel={() => setPendingRisk(null)}
+          onConfirm={confirmNegativeBalance}
+          projection={pendingRisk.projection}
+          title="确认交易后的负现金"
+          triggerRef={submitButtonRef}
+        />
+      ) : null}
     </form>
   );
 }
@@ -733,20 +848,27 @@ function calculateAutomaticTotal(quantity: string, price: string): string {
 
 function getCashImpactPreview(
   form: TradeFormState,
-  currency: string,
+  feeCurrency: string,
+  currentBalance: string,
 ) {
-  if (!form.totalValue || !form.fee || !currency) {
+  if (!form.totalValue || !form.fee || !feeCurrency) {
     return undefined;
   }
   try {
-    const result = calculateTradeCashImpact({
+    const delta = calculateTradeUsdtCashDelta({
       type: form.type,
       totalValue: form.totalValue,
-      currency,
       fee: form.fee,
-      feeCurrency: currency,
+      feeCurrency,
     });
-    return result.ok ? result : undefined;
+    const nextBalance = add(currentBalance, delta);
+    const negative = isNegative(nextBalance);
+    return {
+      currentBalance,
+      delta,
+      nextBalance,
+      deficit: negative ? absolute(nextBalance) : "0",
+    };
   } catch {
     return undefined;
   }

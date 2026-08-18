@@ -186,13 +186,16 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     fee !== undefined &&
     !isZero(fee) &&
     currency !== undefined &&
-    (feeCurrency ?? currency) !== currency
+    (feeCurrency ?? currency) !== currency &&
+    !context.assets.some(
+      (asset) => asset.symbol === (feeCurrency ?? currency),
+    )
   ) {
     errors.push(
       createError(
         TRADE_VALIDATION_ERROR_CODES.FEE_CURRENCY_MISMATCH,
         "feeCurrency",
-        "A non-zero fee must use the trade currency",
+        "A non-zero fee must use USDT or an existing local asset",
       ),
     );
   }

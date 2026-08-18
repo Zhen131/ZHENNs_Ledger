@@ -89,6 +89,20 @@ describe("createValidatedTrade success", () => {
     }
   });
 
+  it("preserves a non-zero fee denominated in an existing local asset", () => {
+    const result = createValidatedTrade(
+      { ...validBuy, fee: "0.0001", feeCurrency: "BTC" },
+      createInitialLedgerData(),
+      createDependencies(["trade-new"]),
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.trade.fee).toBe("0.0001");
+      expect(result.trade.feeCurrency).toBe("BTC");
+    }
+  });
+
   it("normalizes every new zero-fee fact to the USDT trade currency", () => {
     const result = createValidatedTrade(
       { ...validBuy, fee: "0", feeCurrency: "CNY" },
@@ -277,6 +291,34 @@ describe("createValidatedTrade validation failures", () => {
 });
 
 describe("createValidatedTrade ID and dependency handling", () => {
+  it("treats IDs from cash facts as global collisions", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [
+      {
+        id: "cross-collection-id",
+        occurredAt: "2026-07-01",
+        timePrecision: "day",
+        type: "deposit",
+        currency: "USDT",
+        amount: "1",
+        createdAt: TIMESTAMP,
+        updatedAt: TIMESTAMP,
+      },
+    ];
+    const dependencies = createDependencies([
+      "cross-collection-id",
+      "trade-new",
+    ]);
+
+    const result = createValidatedTrade(validBuy, ledgerData, dependencies);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.trade.id).toBe("trade-new");
+    }
+    expect(dependencies.generateId).toHaveBeenCalledTimes(2);
+  });
+
   it("retries one collision and stops after the second ID succeeds", () => {
     const ledgerData = createLedgerData({
       trades: [createUsdtTrade("existing-id", "buy", "BTC", "1")],

@@ -10,6 +10,7 @@ import {
 } from "@/core/validation";
 import {
   captureLedgerTime,
+  isZero,
   systemLedgerClock,
 } from "@/core/shared";
 
@@ -86,7 +87,13 @@ export function createValidatedTrade(
   }
 
   const existingTradeIds = new Set(
-    ledgerData.trades.map((trade) => trade.id),
+    [
+      ...ledgerData.assets,
+      ...ledgerData.trades,
+      ...ledgerData.cashEvents,
+      ...ledgerData.priceSnapshots,
+      ...ledgerData.feeRules,
+    ].map(({ id }) => id),
   );
   let id: string | undefined;
 
@@ -130,7 +137,9 @@ export function createValidatedTrade(
 
   const persistedDraft = {
     ...validationResult.value,
-    feeCurrency: validationResult.value.currency,
+    feeCurrency: isZero(validationResult.value.fee)
+      ? "USDT"
+      : (validationResult.value.feeCurrency ?? "USDT"),
   };
   const rawText =
     persistedDraft.rawText === undefined ||

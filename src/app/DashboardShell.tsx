@@ -1206,6 +1206,15 @@ export function DashboardShell({
             timeSnapshot,
           )
         }
+        onCashEventCreated={(cashEvent, timeSnapshot) =>
+          applyLedgerAction({ type: "cashEvent/add", cashEvent }, timeSnapshot)
+        }
+        onCashEventDeleted={(cashEventId, timeSnapshot) =>
+          applyLedgerAction(
+            { type: "cashEvent/delete", cashEventId },
+            timeSnapshot,
+          )
+        }
         onTradeCreated={(trade, timeSnapshot) =>
           applyLedgerAction({ type: "trade/add", trade }, timeSnapshot)
         }

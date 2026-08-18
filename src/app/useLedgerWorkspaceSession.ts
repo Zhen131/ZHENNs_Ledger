@@ -33,6 +33,7 @@ export type TradeWorkspaceDraft = {
   totalValueMode: "auto" | "manual";
   occurredAt: string;
   fee: string;
+  feeCurrency: string;
   platform: string;
   note: string;
   noteExpanded: boolean;
@@ -58,6 +59,7 @@ function createTradeDraft(
     totalValueMode: "auto",
     occurredAt: todayKey,
     fee: "0",
+    feeCurrency: "USDT",
     platform: "",
     note: "",
     noteExpanded: false,
@@ -84,6 +86,7 @@ function tradeDraftHasUserInput(draft: TradeWorkspaceDraft): boolean {
     draft.totalValue !== "" ||
     draft.totalValueMode !== "auto" ||
     draft.fee !== "0" ||
+    draft.feeCurrency !== "USDT" ||
     draft.platform !== "" ||
     draft.note !== "" ||
     draft.noteExpanded

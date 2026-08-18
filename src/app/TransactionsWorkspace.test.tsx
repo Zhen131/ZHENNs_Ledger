@@ -45,6 +45,27 @@ function createLedger(): LedgerData {
   return ledgerData;
 }
 
+function createNegativeDeletionLedger(): LedgerData {
+  const ledgerData = createInitialLedgerData();
+  ledgerData.cashEvents = [
+    {
+      id: "cash-buffer",
+      occurredAt: "2026-07-19",
+      timePrecision: "day",
+      type: "deposit",
+      currency: "USDT",
+      amount: "0.5",
+      createdAt: "2026-07-19T12:00:00.000Z",
+      updatedAt: "2026-07-19T12:00:00.000Z",
+    },
+  ];
+  ledgerData.trades = [
+    createUsdtSimpleTrade("cash-buy", "buy", "BTC", "1", "2026-07-20"),
+    createUsdtSimpleTrade("cash-sell", "sell", "BTC", "1", "2026-07-21"),
+  ];
+  return ledgerData;
+}
+
 function renderWorkspace({
   active = true,
   ledgerData = createLedger(),
@@ -382,6 +403,18 @@ describe("TransactionsWorkspace delayed deletion", () => {
 
   it("cancels the previous countdown before arming a second trade", () => {
     const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [
+      {
+        id: "cash-cover",
+        occurredAt: "2026-07-19",
+        timePrecision: "day",
+        type: "deposit",
+        currency: "USDT",
+        amount: "10",
+        createdAt: "2026-07-19T12:00:00.000Z",
+        updatedAt: "2026-07-19T12:00:00.000Z",
+      },
+    ];
     ledgerData.trades = [
       createUsdtSimpleTrade("safe-btc", "buy", "BTC", "1", "2026-07-20"),
       createUsdtSimpleTrade("safe-eth", "buy", "ETH", "1", "2026-07-21"),
@@ -524,5 +557,60 @@ describe("TransactionsWorkspace delayed deletion", () => {
     expect(screen.getByText("交易已删除")).not.toBeNull();
     act(() => vi.advanceTimersByTime(1));
     expect(screen.queryByText("交易已删除")).toBeNull();
+  });
+
+  it("requires a second confirmation when deleting a trade would make cash negative", () => {
+    const ledgerData = createNegativeDeletionLedger();
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    renderWorkspace({ ledgerData, onDeleteTrade });
+    const buttonName = "删除 卖出 BTC 2026-07-21";
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    act(() => vi.advanceTimersByTime(5_000));
+
+    const dialog = screen.getByRole("dialog", {
+      name: "确认删除交易后的负现金",
+    });
+    expect(dialog.textContent).toContain("当前余额0.5 USDT");
+    expect(dialog.textContent).toContain("本次变化-1 USDT");
+    expect(dialog.textContent).toContain("保存后余额-0.5 USDT");
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "确认并删除" }));
+    expect(onDeleteTrade).toHaveBeenCalledOnce();
+    expect(onDeleteTrade).toHaveBeenCalledWith("cash-sell");
+  });
+
+  it("invalidates the negative-cash deletion confirmation after a version change", () => {
+    const ledgerData = createNegativeDeletionLedger();
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    const view = renderWorkspace({ ledgerData, onDeleteTrade });
+    const buttonName = "删除 卖出 BTC 2026-07-21";
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.getByRole("dialog")).not.toBeNull();
+
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={1}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={0}
+        persistenceStatus="saving"
+        todayKey="2026-07-25"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认并删除" }));
+
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+    expect(screen.getByText(/旧确认已失效/)).not.toBeNull();
   });
 });

@@ -14,6 +14,8 @@ import {
   compareLedgerFactOrder,
   getLedgerDateKey,
 } from "@/core/shared";
+import { projectLedgerCashMutation } from "@/features/cash";
+import { NegativeCashConfirmationDialog } from "@/features/cash/ui";
 import { validateTradeRemoval } from "@/features/trades";
 import { TradeTable } from "@/features/trades/ui";
 import { SurfaceCard } from "@/ui";
@@ -36,6 +38,15 @@ type PendingDelete =
       phase: "persisting";
       expectedMutationVersion: number;
     };
+
+type PendingNegativeDelete = Readonly<{
+  tradeId: string;
+  projection: ReturnType<typeof projectLedgerCashMutation>;
+  expectedLedgerEpoch: number;
+  expectedMutationVersion: number;
+  expectedPersistedVersion: number;
+  expectedTodayKey: string;
+}>;
 
 type TradeLocationRequest = Readonly<{
   date: string;
@@ -79,6 +90,8 @@ export function TransactionsWorkspace({
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
   const [armedTradeId, setArmedTradeId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [pendingNegativeDelete, setPendingNegativeDelete] =
+    useState<PendingNegativeDelete | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [locationRequest, setLocationRequest] =
@@ -87,12 +100,21 @@ export function TransactionsWorkspace({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingDeleteRef = useRef<PendingDelete | null>(null);
   const latestLedgerDataRef = useRef(ledgerData);
+  const ledgerEpochRef = useRef(ledgerEpoch);
   const mutationVersionRef = useRef(mutationVersion);
+  const persistedVersionRef = useRef(persistedVersion);
+  const todayKeyRef = useRef(todayKey);
+  const isWritableRef = useRef(isWritable);
   const onDeleteTradeRef = useRef(onDeleteTrade);
+  const negativeDeleteTriggerRef = useRef<HTMLElement | null>(null);
   const locationRequestRef = useRef<TradeLocationRequest | null>(null);
   const locationSequenceRef = useRef(0);
   latestLedgerDataRef.current = ledgerData;
+  ledgerEpochRef.current = ledgerEpoch;
   mutationVersionRef.current = mutationVersion;
+  persistedVersionRef.current = persistedVersion;
+  todayKeyRef.current = todayKey;
+  isWritableRef.current = isWritable;
   onDeleteTradeRef.current = onDeleteTrade;
 
   const clearTimers = useCallback(() => {
@@ -126,6 +148,7 @@ export function TransactionsWorkspace({
     setExpandedTradeId(null);
     setArmedTradeId(null);
     clearPendingDelete();
+    setPendingNegativeDelete(null);
     clearLocationRequest();
     setFeedback("");
   }, [clearLocationRequest, clearPendingDelete, resetFilters]);
@@ -141,6 +164,47 @@ export function TransactionsWorkspace({
   );
 
   const finalizeDeleteRef = useRef<(tradeId: string) => void>(() => undefined);
+
+  function applyReviewedDelete(tradeId: string) {
+    const expectedMutationVersion = mutationVersionRef.current + 1;
+    const outcome = onDeleteTradeRef.current(tradeId);
+    if (outcome !== "applied") {
+      pendingDeleteRef.current = null;
+      setPendingDelete(null);
+      setPendingNegativeDelete(null);
+      setRemainingMs(0);
+      setFeedback(
+        outcome === "rejected"
+          ? "账本当前不可写，删除未执行"
+          : "交易未发生变化，请刷新后重试",
+      );
+      return;
+    }
+
+    const persisting: PendingDelete = {
+      tradeId,
+      phase: "persisting",
+      expectedMutationVersion,
+    };
+    pendingDeleteRef.current = persisting;
+    setPendingDelete(persisting);
+    setPendingNegativeDelete(null);
+    setRemainingMs(0);
+    setFeedback("删除正在保存…");
+  }
+
+  function projectTradeRemoval(tradeId: string) {
+    const currentLedger = latestLedgerDataRef.current;
+    return projectLedgerCashMutation(
+      currentLedger,
+      {
+        ...currentLedger,
+        trades: currentLedger.trades.filter((trade) => trade.id !== tradeId),
+      },
+      todayKeyRef.current,
+    );
+  }
+
   finalizeDeleteRef.current = (tradeId) => {
     const current = pendingDeleteRef.current;
     if (
@@ -163,29 +227,24 @@ export function TransactionsWorkspace({
       return;
     }
 
-    const expectedMutationVersion = mutationVersionRef.current + 1;
-    const outcome = onDeleteTradeRef.current(tradeId);
-    if (outcome !== "applied") {
+    const projection = projectTradeRemoval(tradeId);
+    if (projection.requiresNegativeBalanceConfirmation) {
       pendingDeleteRef.current = null;
       setPendingDelete(null);
       setRemainingMs(0);
-      setFeedback(
-        outcome === "rejected"
-          ? "账本当前不可写，删除未执行"
-          : "交易未发生变化，请刷新后重试",
-      );
+      setPendingNegativeDelete({
+        tradeId,
+        projection,
+        expectedLedgerEpoch: ledgerEpochRef.current,
+        expectedMutationVersion: mutationVersionRef.current,
+        expectedPersistedVersion: persistedVersionRef.current,
+        expectedTodayKey: todayKeyRef.current,
+      });
+      setFeedback("删除这笔交易会使 USDT 现金为负，需要再次确认");
       return;
     }
 
-    const persisting: PendingDelete = {
-      tradeId,
-      phase: "persisting",
-      expectedMutationVersion,
-    };
-    pendingDeleteRef.current = persisting;
-    setPendingDelete(persisting);
-    setRemainingMs(0);
-    setFeedback("删除正在保存…");
+    applyReviewedDelete(tradeId);
   };
 
   useEffect(() => {
@@ -255,6 +314,7 @@ export function TransactionsWorkspace({
       if (document.hidden) {
         setArmedTradeId(null);
         clearPendingDelete();
+        setPendingNegativeDelete(null);
         setFeedback("删除倒计时已取消");
       }
     };
@@ -300,7 +360,13 @@ export function TransactionsWorkspace({
   }, [feedback]);
 
   function armDelete(tradeId: string) {
-    if (!isWritable || pendingDelete?.phase === "persisting") return;
+    if (
+      !isWritable ||
+      pendingDelete?.phase === "persisting" ||
+      pendingNegativeDelete
+    ) {
+      return;
+    }
     clearPendingDelete();
     setExpandedTradeId(null);
     setArmedTradeId(tradeId);
@@ -315,6 +381,11 @@ export function TransactionsWorkspace({
       setFeedback(formatRemovalError(firstReview));
       return;
     }
+
+    negativeDeleteTriggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
 
     const deadline = Date.now() + DELETE_DELAY_MS;
     const countdown: PendingDelete = {
@@ -334,6 +405,47 @@ export function TransactionsWorkspace({
       () => finalizeDeleteRef.current(tradeId),
       DELETE_DELAY_MS,
     );
+  }
+
+  function confirmNegativeDelete() {
+    const pending = pendingNegativeDelete;
+    if (!pending) return;
+    if (
+      !isWritableRef.current ||
+      ledgerEpochRef.current !== pending.expectedLedgerEpoch ||
+      mutationVersionRef.current !== pending.expectedMutationVersion ||
+      persistedVersionRef.current !== pending.expectedPersistedVersion ||
+      todayKeyRef.current !== pending.expectedTodayKey
+    ) {
+      setPendingNegativeDelete(null);
+      setFeedback("旧确认已失效：账本或保存状态已变化，请重新删除");
+      return;
+    }
+
+    const finalReview = validateTradeRemoval(
+      pending.tradeId,
+      latestLedgerDataRef.current,
+    );
+    if (!finalReview.ok) {
+      setPendingNegativeDelete(null);
+      setFeedback(formatRemovalError(finalReview));
+      return;
+    }
+
+    const projection = projectTradeRemoval(pending.tradeId);
+    if (
+      !projection.requiresNegativeBalanceConfirmation ||
+      projection.currentBalance !== pending.projection.currentBalance ||
+      projection.delta !== pending.projection.delta ||
+      projection.nextBalance !== pending.projection.nextBalance ||
+      projection.deficit !== pending.projection.deficit
+    ) {
+      setPendingNegativeDelete(null);
+      setFeedback("旧确认已失效：现金影响已变化，请重新删除");
+      return;
+    }
+
+    applyReviewedDelete(pending.tradeId);
   }
 
   const filteredTrades = useMemo(() => {
@@ -523,6 +635,20 @@ export function TransactionsWorkspace({
           variant="workspace"
         />
       </SurfaceCard>
+
+      {pendingNegativeDelete ? (
+        <NegativeCashConfirmationDialog
+          confirmLabel="确认并删除"
+          onCancel={() => {
+            setPendingNegativeDelete(null);
+            setFeedback("已取消，账本没有变化");
+          }}
+          onConfirm={confirmNegativeDelete}
+          projection={pendingNegativeDelete.projection}
+          title="确认删除交易后的负现金"
+          triggerRef={negativeDeleteTriggerRef}
+        />
+      ) : null}
     </section>
   );
 }
