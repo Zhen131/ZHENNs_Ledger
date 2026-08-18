@@ -148,7 +148,7 @@ export function SettingsWorkspace({
       >
         {(
           [
-            ["market", "行情与交易对"],
+            ["market", "本地资产与行情"],
             ["fees", "手续费规则"],
             ["danger", "危险操作"],
           ] as const

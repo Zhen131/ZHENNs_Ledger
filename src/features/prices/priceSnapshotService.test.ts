@@ -115,6 +115,25 @@ describe("createValidatedPriceSnapshot", () => {
     expect(dependencies.generateId).toHaveBeenCalledTimes(2);
   });
 
+  it("treats IDs from other collections and invalid candidates as collisions", () => {
+    const dependencies = createDependencies([
+      "asset-btc",
+      " invalid-id ",
+      "price-new",
+    ]);
+
+    const result = createValidatedPriceSnapshot(
+      validDraft,
+      createInitialLedgerData(),
+      dependencies,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.priceSnapshot.id).toBe("price-new");
+    expect(dependencies.generateId).toHaveBeenCalledTimes(3);
+    expect(dependencies.now).toHaveBeenCalledTimes(1);
+  });
+
   it("returns a stable service error after three ID collisions", () => {
     const ledgerData = {
       ...createInitialLedgerData(),

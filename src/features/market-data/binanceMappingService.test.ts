@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createInitialLedgerData } from "@/core/state";
+import { createUsdtSimpleTrade } from "@/test-support";
 import {
   getBinanceMappingSignature,
   setAssetBinanceMapping,
@@ -82,5 +83,55 @@ describe("Binance mapping persistence operations", () => {
     expect(getBinanceMappingSignature(disabled)).not.toBe(
       getBinanceMappingSignature(absent),
     );
+  });
+
+  it("deletes only the mapping while preserving every asset dependency", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      createUsdtSimpleTrade("btc-trade", "buy", "BTC", "1", "2026-08-10"),
+    ];
+    ledgerData.priceSnapshots = [
+      {
+        id: "btc-price",
+        assetSymbol: "BTC",
+        price: "100000",
+        currency: "USDT",
+        recordedAt: "2026-08-10",
+        source: "manual",
+        createdAt: UPDATED_AT,
+        updatedAt: UPDATED_AT,
+      },
+    ];
+    ledgerData.feeRules = [
+      {
+        id: "btc-fee",
+        name: "BTC fee",
+        platform: "Binance",
+        assetSymbol: "BTC",
+        status: "active",
+        type: "percentage",
+        rate: "0.001",
+        currency: "USDT",
+        createdAt: UPDATED_AT,
+        updatedAt: UPDATED_AT,
+      },
+    ];
+
+    const updated = setAssetBinanceMapping(
+      ledgerData,
+      "BTC",
+      null,
+      UPDATED_AT,
+    );
+
+    expect(updated.assets[0]).toMatchObject({
+      symbol: "BTC",
+      binanceMapping: null,
+      updatedAt: UPDATED_AT,
+    });
+    expect(updated.trades).toBe(ledgerData.trades);
+    expect(updated.priceSnapshots).toBe(ledgerData.priceSnapshots);
+    expect(updated.feeRules).toBe(ledgerData.feeRules);
+    expect(updated.assets).toHaveLength(ledgerData.assets.length);
   });
 });

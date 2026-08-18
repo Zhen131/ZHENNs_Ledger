@@ -52,6 +52,7 @@ import { FeeRuleManager } from "@/features/fees/ui";
 import { BackupControls } from "@/features/backup/ui";
 import { ChartsOverview } from "@/features/charts/ui";
 import { MarketDataControls } from "@/features/market-data/ui";
+import { LocalAssetManager } from "@/features/assets/ui";
 import {
   ConfirmDeleteButton,
   type FileStatusTone,
@@ -1292,19 +1293,41 @@ export function DashboardShell({
           isReadOnly={isReadOnly}
           ledgerEpoch={ledgerEpoch}
           marketPanel={
-            <MarketDataControls
-              applyLedgerMutation={applyLedgerMutation}
-              clock={clock}
-              compactMappings
-              expandMappings
-              isWritable={isWritable}
-              ledgerData={ledgerData}
-              ledgerEpoch={ledgerEpoch}
-              mode={valuationPriceMode}
-              onModeChange={setValuationPriceMode}
-              showRefresh={false}
-              todayKey={todayKey}
-            />
+            <div className="grid gap-6">
+              <LocalAssetManager
+                clock={clock}
+                isWritable={isWritable}
+                ledgerData={ledgerData}
+                ledgerEpoch={ledgerEpoch}
+                mutationVersion={mutationVersion}
+                onAssetCreated={(asset, timeSnapshot) =>
+                  applyLedgerAction({ type: "asset/add", asset }, timeSnapshot)
+                }
+                onAssetDeleted={(assetSymbol, timeSnapshot) =>
+                  applyLedgerAction(
+                    { type: "asset/remove", assetSymbol },
+                    timeSnapshot,
+                  )
+                }
+                persistedVersion={persistedVersion}
+                persistenceStatus={persistenceStatus}
+              />
+              <div className="border-t border-[var(--ledger-border)] pt-5">
+                <MarketDataControls
+                  applyLedgerMutation={applyLedgerMutation}
+                  clock={clock}
+                  compactMappings
+                  expandMappings
+                  isWritable={isWritable}
+                  ledgerData={ledgerData}
+                  ledgerEpoch={ledgerEpoch}
+                  mode={valuationPriceMode}
+                  onModeChange={setValuationPriceMode}
+                  showRefresh={false}
+                  todayKey={todayKey}
+                />
+              </div>
+            </div>
           }
           onClear={handleSettingsClear}
           persistenceOperation={persistenceOperation}

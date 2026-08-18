@@ -1552,7 +1552,7 @@ describe("DashboardShell data management", () => {
     render(<DashboardShell session={session} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "设置" }));
-    await screen.findByRole("tab", { name: "行情与交易对" });
+    await screen.findByRole("tab", { name: "本地资产与行情" });
 
     await user.click(
       screen.getByRole("tab", { name: "危险操作" }),

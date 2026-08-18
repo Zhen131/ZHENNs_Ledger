@@ -83,7 +83,13 @@ export function createValidatedPriceSnapshot(
   }
 
   const existingIds = new Set(
-    ledgerData.priceSnapshots.map((snapshot) => snapshot.id),
+    [
+      ...ledgerData.assets,
+      ...ledgerData.trades,
+      ...ledgerData.cashEvents,
+      ...ledgerData.priceSnapshots,
+      ...ledgerData.feeRules,
+    ].map(({ id }) => id),
   );
   let id: string | undefined;
 
@@ -100,7 +106,7 @@ export function createValidatedPriceSnapshot(
       return dependencyFailure("generateId");
     }
 
-    if (!existingIds.has(candidateId)) {
+    if (isTechnicalId(candidateId) && !existingIds.has(candidateId)) {
       id = candidateId;
       break;
     }
@@ -134,6 +140,10 @@ export function createValidatedPriceSnapshot(
       updatedAt: timestamp,
     },
   };
+}
+
+function isTechnicalId(value: string): boolean {
+  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function dependencyFailure(
