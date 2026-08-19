@@ -30,6 +30,9 @@ export type BinanceAutoPairResult = {
   failures: BinanceAutoPairFailure[];
 };
 
+export const BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE =
+  "当前无法验证该 Binance 交易对。该交易对可能不存在，也可能是 Binance 的错误响应无法被浏览器读取，或当前网络／服务暂时不可用。本地资产、历史交易和手动价格均未改变，可以继续使用手动价格或稍后重试。";
+
 export function normalizeBinanceSymbolCandidate(
   localSymbol: string,
   input: string,

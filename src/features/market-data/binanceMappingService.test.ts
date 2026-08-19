@@ -133,9 +133,9 @@ describe("Binance mapping persistence operations", () => {
           ? {
               ok: false as const,
               error: {
-                code: "BINANCE_SYMBOL_MISSING" as const,
+                code: "BINANCE_VALIDATION_UNAVAILABLE" as const,
                 symbol,
-                message: "missing",
+                message: "validation unavailable",
               },
             }
           : {
@@ -170,7 +170,7 @@ describe("Binance mapping persistence operations", () => {
     expect(result.failures).toEqual([
       expect.objectContaining({
         assetSymbol: "KNIGHT",
-        code: "BINANCE_SYMBOL_MISSING",
+        code: "BINANCE_VALIDATION_UNAVAILABLE",
       }),
     ]);
     expect(client.validateSpotSymbol).toHaveBeenCalledTimes(2);

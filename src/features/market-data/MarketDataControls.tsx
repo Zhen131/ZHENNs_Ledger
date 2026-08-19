@@ -33,6 +33,7 @@ import {
   type ConfirmDeleteOutcome,
 } from "@/ui";
 import {
+  BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
   getBinanceMappingSignature,
   setAssetBinanceMapping,
   validateBinanceMapping,
@@ -1155,6 +1156,8 @@ function formatBinanceFailure(failure: BinanceMarketDataFailure): string {
     BINANCE_INVALID_SYMBOL_INPUT: "输入只能是 1～64 位 ASCII 字母或数字",
     BINANCE_ABORTED: "请求已取消",
     BINANCE_TIMEOUT: "请求超时",
+    BINANCE_VALIDATION_UNAVAILABLE:
+      BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
     BINANCE_NETWORK_ERROR: "网络不可用",
     BINANCE_HTTP_ERROR: `Binance HTTP 错误${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
     BINANCE_RATE_LIMITED: `Binance 限流${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,

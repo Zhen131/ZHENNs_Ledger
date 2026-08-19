@@ -43,6 +43,7 @@ export function createBinanceMarketDataClient(
         `${baseUrl}/api/v3/exchangeInfo?symbol=${encodeURIComponent(marketSymbol)}`,
         marketSymbol,
         timeoutMs,
+        "symbol-validation",
         signal,
       );
       if (!response.ok) {
@@ -130,6 +131,7 @@ export function createBinanceMarketDataClient(
         `${baseUrl}/api/v3/ticker/price?symbols=${query}`,
         requestedSymbols.join(","),
         timeoutMs,
+        "ticker",
         signal,
       );
       if (!response.ok) {
@@ -216,11 +218,14 @@ type JsonRequestResult =
   | { ok: true; value: unknown }
   | { ok: false; error: BinanceMarketDataFailure };
 
+type JsonRequestContext = "symbol-validation" | "ticker";
+
 async function requestJson(
   fetchImpl: typeof globalThis.fetch,
   url: string,
   symbol: string,
   timeoutMs: number,
+  context: JsonRequestContext,
   externalSignal?: AbortSignal,
 ): Promise<JsonRequestResult> {
   const controller = new AbortController();
@@ -274,13 +279,17 @@ async function requestJson(
           ? "BINANCE_TIMEOUT"
           : externalSignal?.aborted
             ? "BINANCE_ABORTED"
-            : "BINANCE_NETWORK_ERROR",
+            : context === "symbol-validation"
+              ? "BINANCE_VALIDATION_UNAVAILABLE"
+              : "BINANCE_NETWORK_ERROR",
         symbol,
         timedOut
           ? `Binance request timed out after ${timeoutMs} ms`
           : externalSignal?.aborted
             ? "Binance request was cancelled"
-            : "Binance request failed before a response arrived",
+            : context === "symbol-validation"
+              ? "Binance symbol validation failed before a readable response arrived"
+              : "Binance request failed before a response arrived",
       ),
     };
   } finally {

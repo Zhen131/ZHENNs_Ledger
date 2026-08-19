@@ -13,7 +13,10 @@ import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import { PriceForm } from "./PriceForm";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const clock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00Z"),
@@ -27,11 +30,13 @@ const initialDraft: PriceWorkspaceDraft = {
 };
 
 function ControlledPriceForm({
+  ledgerData = createInitialLedgerData(),
   mutationVersion = 0,
   persistedVersion = 0,
   persistenceStatus = "saved",
   onPriceSnapshotCreated = vi.fn(() => "applied" as const),
 }: Readonly<{
+  ledgerData?: ReturnType<typeof createInitialLedgerData>;
   mutationVersion?: number;
   persistedVersion?: number;
   persistenceStatus?: PersistenceStatus;
@@ -46,7 +51,7 @@ function ControlledPriceForm({
       <PriceForm
         clock={clock}
         draft={draft}
-        ledgerData={createInitialLedgerData()}
+        ledgerData={ledgerData}
         ledgerEpoch={1}
         mutationVersion={mutationVersion}
         onDraftChange={setDraft}
@@ -77,6 +82,37 @@ describe("PriceForm", () => {
       "USDT",
     );
     expect(screen.queryByLabelText("计价货币")).toBeNull();
+  });
+
+  it("saves a manual price for a mapping-null asset with zero fetch", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assets[0].binanceMapping = null;
+    const fetchMock = vi.fn(() => {
+      throw new Error("manual price entry must not fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const onPriceSnapshotCreated = vi.fn(() => "applied" as const);
+    render(
+      <ControlledPriceForm
+        ledgerData={ledgerData}
+        onPriceSnapshotCreated={onPriceSnapshotCreated}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("当前价格"), "80000");
+    await user.click(screen.getByRole("button", { name: "保存价格" }));
+
+    expect(onPriceSnapshotCreated).toHaveBeenCalledOnce();
+    expect(onPriceSnapshotCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetSymbol: "BTC",
+        price: "80000",
+        source: "manual",
+      }),
+      expect.any(Object),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("retains a failed pending fact and remembers its date only after authenticated persistence", async () => {

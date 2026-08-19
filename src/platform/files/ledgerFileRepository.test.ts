@@ -585,6 +585,81 @@ async function createTwoGenerationLedgerFile(): Promise<{
 }
 
 describe("LedgerFileRepository", () => {
+  it("round-trips a mapping-null fictional asset with multi-day manual prices through C", async () => {
+    const handle = new AtomicLedgerHandle("manual-prices.lftl");
+    const ledger = createInitialLedgerData();
+    ledger.assets.push({
+      id: "asset-knight-c-roundtrip",
+      symbol: "KNIGHT",
+      name: "KNIGHT",
+      quoteCurrency: "USDT",
+      binanceMapping: null,
+      createdAt: "2026-08-10T08:00:00.000Z",
+      updatedAt: "2026-08-10T08:00:00.000Z",
+    });
+    ledger.trades.push({
+      id: "trade-knight-c-roundtrip",
+      occurredAt: "2026-08-10",
+      timePrecision: "day",
+      type: "buy",
+      assetSymbol: "KNIGHT",
+      quantity: "2",
+      price: "5",
+      totalValue: "10",
+      currency: "USDT",
+      fee: "0",
+      feeCurrency: "USDT",
+      createdAt: "2026-08-10T08:01:00.000Z",
+      updatedAt: "2026-08-10T08:01:00.000Z",
+    });
+    ledger.priceSnapshots.push(
+      {
+        id: "price-knight-c-day-1",
+        assetSymbol: "KNIGHT",
+        price: "10",
+        currency: "USDT",
+        recordedAt: "2026-08-11",
+        source: "manual",
+        createdAt: "2026-08-11T08:00:00.000Z",
+        updatedAt: "2026-08-11T08:00:00.000Z",
+      },
+      {
+        id: "price-knight-c-day-2",
+        assetSymbol: "KNIGHT",
+        price: "20",
+        currency: "USDT",
+        recordedAt: "2026-08-12",
+        source: "manual",
+        createdAt: "2026-08-12T08:00:00.000Z",
+        updatedAt: "2026-08-12T08:00:00.000Z",
+      },
+    );
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      ledger,
+      {
+        generateId: createIdGenerator([
+          "file-manual-prices",
+          "revision-manual-prices",
+        ]),
+        now: createClock(["2026-08-19T13:00:00.000Z"]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+
+    const loaded = await repository.load();
+    expect(
+      loaded.assets.find(({ symbol }) => symbol === "KNIGHT")?.binanceMapping,
+    ).toBeNull();
+    expect(
+      loaded.priceSnapshots.filter(
+        ({ assetSymbol }) => assetSymbol === "KNIGHT",
+      ),
+    ).toEqual(ledger.priceSnapshots);
+  });
+
   it(
     "creates 300 then saves 301 and 302 as two adjacent independently decryptable full generations",
     async () => {

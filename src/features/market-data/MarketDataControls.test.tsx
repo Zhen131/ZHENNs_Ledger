@@ -220,6 +220,60 @@ describe("MarketDataControls", () => {
     expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
   });
 
+  it("reports unreadable symbol validation honestly without changing local facts or requesting ticker", async () => {
+    const validateSpotSymbol = vi.fn(async () => ({
+      ok: false as const,
+      error: {
+        code: "BINANCE_VALIDATION_UNAVAILABLE" as const,
+        symbol: "SOLUSDT",
+        message: "Symbol validation failed before a readable response arrived",
+      },
+    }));
+    const client = createClient({ validateSpotSymbol });
+    const initial = addSol(createInitialLedgerData());
+    initial.trades = [
+      createSimpleTrade("sol-local-trade", "buy", "SOL", "2", "2026-07-20"),
+    ];
+    initial.priceSnapshots = [
+      {
+        id: "sol-manual-price",
+        assetSymbol: "SOL",
+        price: "125",
+        currency: "USDT",
+        recordedAt: "2026-07-24",
+        source: "manual",
+        createdAt: "2026-07-24T00:00:00Z",
+        updatedAt: "2026-07-24T00:00:00Z",
+      },
+    ];
+    const before = structuredClone(initial);
+    const harness = createHarness(initial);
+    render(controls(harness, client, { showRefresh: false }));
+    const row = mappingRow("SOL");
+
+    fireEvent.change(screen.getByLabelText("SOL Binance 交易对"), {
+      target: { value: "SOL" },
+    });
+    fireEvent.click(within(row).getByRole("button", { name: "验证并保存" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /BINANCE_VALIDATION_UNAVAILABLE · 当前无法验证该 Binance 交易对。该交易对可能不存在，也可能是 Binance 的错误响应无法被浏览器读取，或当前网络／服务暂时不可用。本地资产、历史交易和手动价格均未改变，可以继续使用手动价格或稍后重试。/,
+        ),
+      ).toBeTruthy();
+    });
+    expect(validateSpotSymbol).toHaveBeenCalledOnce();
+    expect(validateSpotSymbol).toHaveBeenCalledWith(
+      "SOL",
+      "SOLUSDT",
+      expect.any(AbortSignal),
+    );
+    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    expect(harness.applyLedgerMutation).not.toHaveBeenCalled();
+    expect(harness.ledgerData).toEqual(before);
+  });
+
   it("persists an explicit SOL mapping before requesting and persisting its first price", async () => {
     const client = createClient();
     const harness = createHarness(addSol(createInitialLedgerData()));

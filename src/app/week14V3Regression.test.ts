@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildLedgerActivityItems,
@@ -19,9 +19,15 @@ import {
   buildLedgerProjection,
 } from "@/features/portfolio";
 import {
+  createUsdtPriceSnapshot,
+  createUsdtSimpleTrade,
   createWeek14V3Scenario,
   WEEK14_V3_TODAY,
 } from "@/test-support";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const valuationOptions = {
   todayKey: WEEK14_V3_TODAY,
@@ -159,5 +165,85 @@ describe("Week 14 V3 cross-module regression", () => {
       ok: true,
       value: envelope.value,
     });
+  });
+
+  it("keeps a mapping-null fictional holding on multi-day manual as-of prices with zero fetch through B round-trip", () => {
+    const fetchMock = vi.fn(() => {
+      throw new Error("manual valuation must not fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const ledger = createWeek14V3Scenario();
+    ledger.trades.push(
+      createUsdtSimpleTrade(
+        "trade-stage8-knight-buy",
+        "buy",
+        "KNIGHT",
+        "2",
+        "2026-08-14",
+      ),
+    );
+    ledger.priceSnapshots.push(
+      createUsdtPriceSnapshot(
+        "price-stage8-knight-day-1",
+        "KNIGHT",
+        "10",
+        "2026-08-15",
+      ),
+      createUsdtPriceSnapshot(
+        "price-stage8-knight-day-2",
+        "KNIGHT",
+        "20",
+        "2026-08-18",
+      ),
+    );
+
+    const history = buildHoldingHistory(ledger, {
+      ...valuationOptions,
+      range: "all",
+    });
+    expect(
+      ledger.assets.find(({ symbol }) => symbol === "KNIGHT")?.binanceMapping,
+    ).toBeNull();
+    expect(history.find(({ date }) => date === "2026-08-15")).toEqual(
+      expect.objectContaining({
+        assetMarketValue: "620",
+        priceAsOfByAsset: expect.objectContaining({ KNIGHT: "2026-08-15" }),
+      }),
+    );
+    expect(history.find(({ date }) => date === "2026-08-18")).toEqual(
+      expect.objectContaining({
+        assetMarketValue: "640",
+        priceAsOfByAsset: expect.objectContaining({ KNIGHT: "2026-08-18" }),
+      }),
+    );
+
+    const envelope = createBackupEnvelope(
+      ledger,
+      {
+        appVersion: "0.1.0-stage8-manual-price-test",
+        exportedAt: "2026-08-19T13:00:00.000Z",
+      },
+      WEEK14_V3_TODAY,
+    );
+    expect(envelope.ok).toBe(true);
+    if (!envelope.ok) return;
+    const parsed = parseBackupJson(
+      serializeBackupEnvelope(envelope.value),
+      WEEK14_V3_TODAY,
+    );
+    expect(parsed).toEqual({ ok: true, value: envelope.value });
+    if (parsed.ok) {
+      expect(
+        parsed.value.ledgerData.priceSnapshots.filter(
+          ({ assetSymbol }) => assetSymbol === "KNIGHT",
+        ),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ recordedAt: "2026-08-15", price: "10" }),
+          expect.objectContaining({ recordedAt: "2026-08-18", price: "20" }),
+        ]),
+      );
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

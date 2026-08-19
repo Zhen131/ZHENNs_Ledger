@@ -44,6 +44,7 @@ import {
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
 import {
+  BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
   autoPairMissingBinanceMappings,
   getBinanceMappingSignature,
   listAssetsMissingBinanceMapping,
@@ -1268,7 +1269,10 @@ function normalizePairingFailure(
   return {
     assetSymbol: failure.assetSymbol,
     code: failure.code,
-    message: failure.message,
+    message:
+      failure.code === "BINANCE_VALIDATION_UNAVAILABLE"
+        ? BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE
+        : failure.message,
   };
 }
 

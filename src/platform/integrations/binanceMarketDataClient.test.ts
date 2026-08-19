@@ -171,6 +171,52 @@ describe("Binance market data client", () => {
     );
   });
 
+  it.each([
+    [418, "BINANCE_RATE_LIMITED"],
+    [429, "BINANCE_RATE_LIMITED"],
+    [500, "BINANCE_HTTP_ERROR"],
+  ])("keeps readable validation HTTP %i precise", async (status, code) => {
+    const fetchMock = vi.fn(async () => jsonResponse({}, status));
+    const client = createBinanceMarketDataClient({ fetch: fetchMock });
+
+    await expect(
+      client.validateSpotSymbol("KNIGHT", "KNIGHTUSDT"),
+    ).resolves.toEqual({
+      ok: false,
+      error: expect.objectContaining({ code, httpStatus: status }),
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("separates an unreadable symbol-validation response from a ticker network failure without retrying", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    const client = createBinanceMarketDataClient({ fetch: fetchMock });
+
+    await expect(
+      client.validateSpotSymbol("KNIGHT", "KNIGHTUSDT"),
+    ).resolves.toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: "BINANCE_VALIDATION_UNAVAILABLE",
+        symbol: "KNIGHTUSDT",
+      }),
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    await expect(client.fetchLatestPrices(["KNIGHTUSDT"])).resolves.toEqual({
+      prices: [],
+      failures: [
+        expect.objectContaining({
+          code: "BINANCE_NETWORK_ERROR",
+          symbol: "KNIGHTUSDT",
+        }),
+      ],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("times out once after eight seconds without retrying", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(
@@ -195,6 +241,51 @@ describe("Binance market data client", () => {
       ],
     });
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("keeps validation timeout and external abort distinct from an unreadable response", async () => {
+    vi.useFakeTimers();
+    const timeoutFetch = vi.fn(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    const timeoutClient = createBinanceMarketDataClient({ fetch: timeoutFetch });
+    const timedRequest = timeoutClient.validateSpotSymbol(
+      "KNIGHT",
+      "KNIGHTUSDT",
+    );
+    await vi.advanceTimersByTimeAsync(BINANCE_MARKET_DATA_TIMEOUT_MS);
+    await expect(timedRequest).resolves.toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: "BINANCE_TIMEOUT" }),
+    });
+    expect(timeoutFetch).toHaveBeenCalledOnce();
+
+    const abortController = new AbortController();
+    const abortFetch = vi.fn(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
+    const abortClient = createBinanceMarketDataClient({ fetch: abortFetch });
+    const abortedRequest = abortClient.validateSpotSymbol(
+      "KNIGHT",
+      "KNIGHTUSDT",
+      abortController.signal,
+    );
+    abortController.abort();
+    await expect(abortedRequest).resolves.toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: "BINANCE_ABORTED" }),
+    });
+    expect(abortFetch).toHaveBeenCalledOnce();
   });
 
   it("reports abort, network and malformed JSON without throwing", async () => {

@@ -545,9 +545,9 @@ describe("BackupControls", () => {
           : {
               ok: false as const,
               error: {
-                code: "BINANCE_SYMBOL_MISSING" as const,
+                code: "BINANCE_VALIDATION_UNAVAILABLE" as const,
                 symbol: marketSymbol,
-                message: "fictional pair does not exist",
+                message: "Symbol validation failed before a readable response arrived",
               },
             },
       ),
@@ -670,7 +670,17 @@ describe("BackupControls", () => {
         ),
       ).not.toBeNull();
     });
-    expect(screen.getByText("BINANCE_SYMBOL_MISSING")).not.toBeNull();
+    expect(screen.getByText("BINANCE_VALIDATION_UNAVAILABLE")).not.toBeNull();
+    expect(
+      screen.getByText((_, element) =>
+        Boolean(
+          element?.tagName === "LI" &&
+            element.textContent?.includes(
+              "当前无法验证该 Binance 交易对。该交易对可能不存在，也可能是 Binance 的错误响应无法被浏览器读取，或当前网络／服务暂时不可用。本地资产、历史交易和手动价格均未改变，可以继续使用手动价格或稍后重试。",
+            ),
+        ),
+      ),
+    ).not.toBeNull();
     expect(onImport).toHaveBeenCalledOnce();
   });
 
