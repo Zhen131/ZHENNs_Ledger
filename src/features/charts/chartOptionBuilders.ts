@@ -11,7 +11,7 @@ type PieDatum = {
   value: number;
   marketValue: string;
   ratio: string;
-  source: "manual" | "binance";
+  source: "manual" | "binance" | "cash";
   asOf: string;
 };
 
@@ -58,7 +58,12 @@ export function buildAllocationChartOption(
         if (!datum) {
           return "";
         }
-        const source = datum.source === "binance" ? "Binance" : "手动价格";
+        const source =
+          datum.source === "cash"
+            ? "USDT 现金重放"
+            : datum.source === "binance"
+              ? "Binance"
+              : "手动价格";
         const ratio = toFiniteChartNumber(datum.ratio) * 100;
         return [
           `<strong>${datum.name}</strong>`,
@@ -74,7 +79,7 @@ export function buildAllocationChartOption(
     },
     series: [
       {
-        name: `当前 ${valuationLabel} 持仓分配`,
+        name: `当前 ${valuationLabel} 资产分配`,
         type: "pie",
         radius: ["42%", "70%"],
         center: ["50%", "43%"],
@@ -112,12 +117,13 @@ export function buildHoldingHistoryChartOption(
               ? `手续费币种问题：${point.unreliableFeeAssets.join("、")}`
               : `${point.totalCostBasis} ${point.valuation.label}`
           }`,
-          `持仓总市值：${marketValue}`,
+          `总资产：${marketValue}`,
+          `USDT 现金：${point.cashBalance} ${point.valuation.label}`,
         ].join("<br/>");
       },
     },
     legend: {
-      data: ["持仓总市值", "剩余含费成本"],
+      data: ["总资产", "剩余含费成本"],
       top: 0,
     },
     grid: {
@@ -138,7 +144,7 @@ export function buildHoldingHistoryChartOption(
     },
     series: [
       {
-        name: "持仓总市值",
+        name: "总资产",
         type: "line",
         step: "end",
         smooth: false,

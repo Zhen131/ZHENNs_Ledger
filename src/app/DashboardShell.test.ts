@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Position, Trade } from "@/core/models";
 import type { LedgerRepository } from "@/platform/persistence";
-import { getPositionsFromLedger } from "@/features/portfolio";
+import {
+  buildLedgerProjection,
+  type LedgerProjection,
+} from "@/features/portfolio";
 import { createInitialLedgerData } from "@/core/state";
 import { ledgerReducer } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
@@ -13,11 +16,10 @@ import { DashboardShell } from "./DashboardShell";
 
 vi.mock("@/features/portfolio", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/portfolio")>()),
-  getPositionsFromLedger: vi.fn(),
-  getValuedPositionsFromLedger: vi.fn(() => []),
+  buildLedgerProjection: vi.fn(),
 }));
 
-const getPositionsFromLedgerMock = vi.mocked(getPositionsFromLedger);
+const buildLedgerProjectionMock = vi.mocked(buildLedgerProjection);
 const staticRepository: LedgerRepository = {
   load: async () => null,
   save: async () => undefined,
@@ -47,6 +49,23 @@ const unpricedPosition: Position = {
   realizedPnl: "0",
   currency: "USD",
 };
+
+function projection(positions: readonly Position[] = []): LedgerProjection {
+  return {
+    cash: { currency: "USDT", balance: "0", deficit: "0", effects: [] },
+    positions,
+    valuation: {
+      currency: "USDT",
+      pricedAssetMarketValue: "0",
+      totalAssetValue: "0",
+      complete: true,
+      missingPriceAssets: [],
+      excludedCurrencyAssets: [],
+      selectedPricesByAsset: {},
+    },
+    issues: [],
+  };
+}
 
 const buyTrade = Object.freeze({
   id: "trade-buy-sentinel",
@@ -105,8 +124,7 @@ describe("TradeTable", () => {
       `${buyTrade.totalValue} ${buyTrade.currency}`,
     );
     expect(html).toContain(`${buyTrade.fee} ${buyTrade.feeCurrency}`);
-    expect(html).toContain("778.011999 XCU-BUY");
-    expect(html).toContain("买入总支出");
+    expect(html).toContain("不可可靠计算：XCU-BUY 手续费未换算");
     expect(html).not.toContain(
       "暂无交易。添加交易后，这里会自动显示。",
     );
@@ -154,14 +172,14 @@ describe("TradeTable", () => {
 
 describe("DashboardShell ledger views", () => {
   beforeEach(() => {
-    getPositionsFromLedgerMock.mockReset();
+    buildLedgerProjectionMock.mockReset();
+    buildLedgerProjectionMock.mockReturnValue(projection());
   });
 
   it("renders positions derived from the current ledger", () => {
-    getPositionsFromLedgerMock.mockReturnValue([
-      pricedPosition,
-      unpricedPosition,
-    ]);
+    buildLedgerProjectionMock.mockReturnValue(
+      projection([pricedPosition, unpricedPosition]),
+    );
 
     const html = renderToStaticMarkup(
       createElement(DashboardShell, {
@@ -170,9 +188,9 @@ describe("DashboardShell ledger views", () => {
       }),
     );
 
-    expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
+    expect(buildLedgerProjectionMock).toHaveBeenCalledWith(
       createInitialLedgerData(),
-      { mode: "auto", todayKey: "2026-07-25" },
+      { asOf: "2026-07-25", mode: "auto" },
     );
     expect(html).toContain("SOL");
     expect(html).toContain("2.3456789");
@@ -193,7 +211,7 @@ describe("DashboardShell ledger views", () => {
   });
 
   it("renders an eight-column empty state when the ledger has no positions", () => {
-    getPositionsFromLedgerMock.mockReturnValue([]);
+    buildLedgerProjectionMock.mockReturnValue(projection());
 
     const html = renderToStaticMarkup(
       createElement(DashboardShell, {
@@ -208,7 +226,7 @@ describe("DashboardShell ledger views", () => {
   });
 
   it("renders the initial trade empty state from the current ledger", () => {
-    getPositionsFromLedgerMock.mockReturnValue([]);
+    buildLedgerProjectionMock.mockReturnValue(projection());
 
     const html = renderToStaticMarkup(
       createElement(DashboardShell, {
@@ -217,9 +235,9 @@ describe("DashboardShell ledger views", () => {
       }),
     );
 
-    expect(getPositionsFromLedgerMock).toHaveBeenCalledWith(
+    expect(buildLedgerProjectionMock).toHaveBeenCalledWith(
       createInitialLedgerData(),
-      { mode: "auto", todayKey: "2026-07-25" },
+      { asOf: "2026-07-25", mode: "auto" },
     );
     expect(html).toContain(
       "暂无交易。添加交易后，这里会自动显示。",
@@ -227,7 +245,7 @@ describe("DashboardShell ledger views", () => {
   });
 
   it("contains wide tables without forcing page-level horizontal overflow", () => {
-    getPositionsFromLedgerMock.mockReturnValue([pricedPosition]);
+    buildLedgerProjectionMock.mockReturnValue(projection([pricedPosition]));
 
     const html = renderToStaticMarkup(
       createElement(DashboardShell, {
@@ -247,7 +265,7 @@ describe("DashboardShell ledger views", () => {
   });
 
   it("removes fake navigation and renders the three truthful chart summaries", () => {
-    getPositionsFromLedgerMock.mockReturnValue([]);
+    buildLedgerProjectionMock.mockReturnValue(projection());
 
     const html = renderToStaticMarkup(
       createElement(DashboardShell, {
@@ -260,8 +278,8 @@ describe("DashboardShell ledger views", () => {
     expect(html).not.toContain(">Today<");
     expect(html).not.toContain(">This Month<");
     expect(html).not.toContain("未来这里显示资产净值曲线和 K 线");
-    expect(html).toContain("当前 USDT 持仓分配");
-    expect(html).toContain("持仓总市值 / 剩余含费成本");
+    expect(html).toContain("当前 USDT 资产分配");
+    expect(html).toContain("总资产 / 剩余含费成本");
     expect(html).toContain("最近 365 天交易活跃");
   });
 });

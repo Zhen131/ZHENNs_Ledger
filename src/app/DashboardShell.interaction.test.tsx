@@ -294,6 +294,12 @@ async function fillBuyTrade() {
     await user.click(screen.getByRole("button", { name: "记账" }));
   }
 
+  const recordTarget = screen.queryByLabelText("记账对象", {
+    selector: "select",
+  });
+  if (recordTarget) {
+    await user.selectOptions(recordTarget, "trade:BTC");
+  }
   await user.selectOptions(
     screen.getByLabelText("类型", { selector: "select" }),
     "buy",
@@ -312,6 +318,19 @@ async function fillBuyTrade() {
   await user.type(dateInput, "2026-07-14");
 
   return user;
+}
+
+async function confirmNegativeCashIfNeeded(
+  user: ReturnType<typeof userEvent.setup>,
+) {
+  const dialog = screen.queryByRole("dialog", {
+    name: "确认交易后的负现金",
+  });
+  if (dialog) {
+    await user.click(
+      within(dialog).getByRole("button", { name: "确认并保存" }),
+    );
+  }
 }
 
 async function createTrade(input: {
@@ -341,6 +360,7 @@ async function createTrade(input: {
   }
 
   await user.click(screen.getByRole("button", { name: "保存交易" }));
+  await confirmNegativeCashIfNeeded(user);
   return user;
 }
 
@@ -364,6 +384,10 @@ describe("DashboardShell persistent workspace navigation", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "记账" }));
+    await user.selectOptions(
+      screen.getByLabelText("记账对象", { selector: "select" }),
+      "trade:BTC",
+    );
     await user.type(screen.getByLabelText("数量"), "0.25");
     await user.type(screen.getByLabelText("当前价格"), "75000");
     for (const page of ["交易", "导入与导出", "设置", "首页", "记账"]) {
@@ -523,6 +547,7 @@ describe("DashboardShell immediate lock decision B", () => {
     await user.click(
       screen.getByRole("button", { name: "保存交易" }),
     );
+    await confirmNegativeCashIfNeeded(user);
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledOnce();
     });
@@ -595,6 +620,7 @@ describe("DashboardShell immediate lock decision B", () => {
     await user.click(
       screen.getByRole("button", { name: "保存交易" }),
     );
+    await confirmNegativeCashIfNeeded(user);
     await screen.findByText(
       "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
     );
@@ -667,6 +693,7 @@ describe("DashboardShell trade interactions", () => {
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
 
     expect(
       screen.getByRole("button", { name: "正在保存…" }),
@@ -714,6 +741,7 @@ describe("DashboardShell trade interactions", () => {
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
     await waitFor(() => {
       expect(
         screen.getByText(
@@ -751,6 +779,7 @@ describe("DashboardShell trade interactions", () => {
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "重试保存" })).not.toBeNull();
     });
@@ -785,6 +814,7 @@ describe("DashboardShell trade interactions", () => {
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
 
     await waitFor(() => {
       expect(screen.getByText("交易已认证保存")).not.toBeNull();
@@ -917,6 +947,7 @@ describe("DashboardShell trade interactions", () => {
     await user.click(
       within(tradeSection).getByRole("button", { name: "保存交易" }),
     );
+    await confirmNegativeCashIfNeeded(user);
     await waitFor(() => {
       expect(within(tradeSection).getByText("交易已认证保存")).not.toBeNull();
     });
@@ -991,6 +1022,7 @@ describe("DashboardShell trade interactions", () => {
     await user.clear(screen.getByLabelText("日期"));
     await user.type(screen.getByLabelText("日期"), "2026-07-14");
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
 
     expect(
       screen.getByText("成交金额与数量 × 成交均价不一致"),
@@ -1048,6 +1080,7 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
 
     const tradeSection = getSection("交易列表");
     const safeDelete = within(tradeSection).getByRole("button", {
@@ -1072,6 +1105,7 @@ describe("DashboardShell trade interactions", () => {
     await renderDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
     await screen.findByText("交易已认证保存");
 
     await user.type(screen.getByLabelText("当前价格"), "80000");
@@ -1152,6 +1186,7 @@ describe("DashboardShell trade interactions", () => {
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
+    await confirmNegativeCashIfNeeded(user);
     await user.type(screen.getByLabelText("当前价格"), "80000");
     await user.clear(screen.getByLabelText("价格日期"));
     await user.type(screen.getByLabelText("价格日期"), "2026-07-16");
@@ -1639,7 +1674,12 @@ describe("DashboardShell data management", () => {
       expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
       expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
       expect(getSection("交易列表")).not.toBeNull();
-      expect(screen.getByText(/已估值 1 项，总市值 80000 USDT/)).not.toBeNull();
+      expect(
+        screen.getByText(/几何分配 1 项；净总资产 79999 USDT/),
+      ).not.toBeNull();
+      expect(
+        screen.getByText("现金缺口 1 USDT；负现金不绘制为正扇区。"),
+      ).not.toBeNull();
     });
     expect(
       screen.getByRole("button", { name: "手动价格" }).getAttribute(
@@ -1698,17 +1738,20 @@ describe("DashboardShell data management", () => {
       quoteCurrency: "EUR" as never,
     };
 
-    const futureEnvelope = createBackupEnvelope(futureLedger, {
+    const validEnvelope = createBackupEnvelope(createInitialLedgerData(), {
       appVersion: "0.1.0",
       exportedAt: "2026-07-23T12:34:56Z",
     });
-    const unsupportedEnvelope = createBackupEnvelope(unsupportedLedger, {
-      appVersion: "0.1.0",
-      exportedAt: "2026-07-23T12:34:56Z",
-    });
-    expect(futureEnvelope.ok).toBe(true);
-    expect(unsupportedEnvelope.ok).toBe(true);
-    if (!futureEnvelope.ok || !unsupportedEnvelope.ok) return;
+    expect(validEnvelope.ok).toBe(true);
+    if (!validEnvelope.ok) return;
+    const futureEnvelope = {
+      ...validEnvelope.value,
+      ledgerData: futureLedger,
+    };
+    const unsupportedEnvelope = {
+      ...validEnvelope.value,
+      ledgerData: unsupportedLedger,
+    };
 
     await user.upload(
       screen.getByLabelText("选择账本备份文件"),
@@ -1722,7 +1765,7 @@ describe("DashboardShell data management", () => {
     await user.upload(
       screen.getByLabelText("选择账本备份文件"),
       createRawBackupFile(
-        serializeBackupEnvelope(futureEnvelope.value),
+        serializeBackupEnvelope(futureEnvelope),
         "future.json",
       ),
     );
@@ -1734,15 +1777,17 @@ describe("DashboardShell data management", () => {
     await user.upload(
       screen.getByLabelText("选择账本备份文件"),
       createRawBackupFile(
-        serializeBackupEnvelope(unsupportedEnvelope.value),
+        serializeBackupEnvelope(unsupportedEnvelope),
         "unsupported.json",
       ),
     );
     await waitFor(() => {
       expect(
-        screen.getByText(/LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY/),
+        screen.getByText(/LEDGER_DATA_INVALID_ENTITY/),
       ).not.toBeNull();
-      expect(screen.getByText(/当前仅支持 USD\/USDT 估值/)).not.toBeNull();
+      expect(
+        screen.getByText(/assets\[0\]\.quoteCurrency must be USDT/),
+      ).not.toBeNull();
     });
 
     expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();

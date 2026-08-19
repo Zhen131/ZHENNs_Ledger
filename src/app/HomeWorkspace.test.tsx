@@ -64,6 +64,9 @@ const allocation: HoldingAllocation = {
       asOf: "2026-08-13",
     },
   ],
+  assetMarketValue: "15",
+  cashBalance: "0",
+  cashDeficit: "0",
   totalMarketValue: "15",
   missingPriceAssets: [],
   excludedCurrencyAssets: [],
@@ -95,6 +98,7 @@ function renderHome(overrides: Partial<Parameters<typeof HomeWorkspace>[0]> = {}
     active: true,
     ledgerData,
     positions: [position],
+    cashBalance: "0",
     pnlSummary: summary,
     allocation,
     history,
@@ -115,7 +119,7 @@ describe("HomeWorkspace", () => {
   it("shows four factual metrics and removes the duplicate recent-trade card", () => {
     renderHome();
     for (const label of [
-      "当前总市值",
+      "当前总资产",
       "剩余持仓成本",
       "未实现盈亏",
       "已实现盈亏",
@@ -169,14 +173,15 @@ describe("HomeWorkspace", () => {
       allocation: {
         ...allocation,
         slices: [],
-        totalMarketValue: undefined,
+        assetMarketValue: "0",
+        totalMarketValue: "0",
       },
       onNavigateToTrade,
     });
     const user = userEvent.setup();
 
     expect(screen.getByText("还没有交易记录")).toBeTruthy();
-    expect(screen.getByText("0 USDT")).toBeTruthy();
+    expect(screen.getAllByText("0 USDT").length).toBeGreaterThanOrEqual(1);
     await user.click(screen.getByRole("button", { name: "记录第一笔交易" }));
     expect(onNavigateToTrade).toHaveBeenCalledOnce();
   });

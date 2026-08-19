@@ -47,11 +47,11 @@ export function HoldingTrendChart({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-[var(--ledger-ink)]">
-            持仓总市值 / 剩余含费成本
+            总资产 / 剩余含费成本
           </h3>
           {!compact ? (
             <p className="mt-1 text-xs leading-5 text-[var(--ledger-muted)]">
-              日级阶梯线；不含现金，不代表账户净值。成本已计入实际买入手续费，卖出按净到账确认已实现盈亏。
+              日级阶梯线；总资产逐日重放当时的 USDT 现金与可得行情。成本线仍只来自交易。
             </p>
           ) : null}
         </div>
@@ -80,7 +80,7 @@ export function HoldingTrendChart({
         ) : null}
       </div>
       <EChart
-        ariaLabel="持仓总市值与剩余含费成本阶梯线图"
+        ariaLabel="总资产与剩余含费成本阶梯线图"
         className={compact ? "mt-2 h-48 w-full" : "mt-3 h-80 w-full"}
         option={option}
       />

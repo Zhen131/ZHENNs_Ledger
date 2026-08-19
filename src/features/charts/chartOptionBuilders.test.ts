@@ -55,6 +55,9 @@ describe("chart option builders", () => {
         date: "2026-07-24",
         totalCostBasis: "10",
         totalMarketValue: "12",
+        assetMarketValue: "12",
+        cashBalance: "0",
+        cashDeficit: "0",
         missingPriceAssets: [],
         excludedCurrencyAssets: [],
         unreliableFeeAssets: [],
@@ -64,6 +67,9 @@ describe("chart option builders", () => {
       {
         date: "2026-07-25",
         totalCostBasis: "15",
+        assetMarketValue: "0",
+        cashBalance: "0",
+        cashDeficit: "0",
         missingPriceAssets: ["ETH"],
         excludedCurrencyAssets: [],
         unreliableFeeAssets: [],
@@ -77,7 +83,7 @@ describe("chart option builders", () => {
 
     expect(series).toHaveLength(2);
     expect(series[0]).toMatchObject({
-      name: "持仓总市值",
+      name: "总资产",
       type: "line",
       step: "end",
       smooth: false,
@@ -104,6 +110,9 @@ describe("chart option builders", () => {
       {
         date: "2026-07-25",
         totalMarketValue: "100",
+        assetMarketValue: "100",
+        cashBalance: "0",
+        cashDeficit: "0",
         missingPriceAssets: [],
         excludedCurrencyAssets: [],
         unreliableFeeAssets: ["BTC"],

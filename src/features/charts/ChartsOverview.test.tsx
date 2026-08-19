@@ -41,6 +41,9 @@ const allocation: HoldingAllocation = {
       asOf: "2026-07-25",
     },
   ],
+  assetMarketValue: "100",
+  cashBalance: "0",
+  cashDeficit: "0",
   totalMarketValue: "100",
   missingPriceAssets: ["ETH"],
   excludedCurrencyAssets: [],
@@ -51,6 +54,9 @@ const history: HoldingHistoryPoint[] = [
     date: "2026-07-25",
     totalCostBasis: "80",
     totalMarketValue: "100",
+    assetMarketValue: "100",
+    cashBalance: "0",
+    cashDeficit: "0",
     missingPriceAssets: [],
     excludedCurrencyAssets: [],
     unreliableFeeAssets: [],
@@ -94,12 +100,12 @@ describe("ChartsOverview", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "当前 USDT 持仓分配饼图",
+        name: "当前 USDT 资产分配饼图",
       }),
     ).not.toBeNull();
     expect(
       screen.getByRole("button", {
-        name: "持仓总市值与剩余含费成本阶梯线图",
+        name: "总资产与剩余含费成本阶梯线图",
       }),
     ).not.toBeNull();
     expect(
@@ -117,6 +123,32 @@ describe("ChartsOverview", () => {
     for (const label of ["1日", "7日", "30日", "365日", "全部"]) {
       expect(screen.getByRole("button", { name: label })).not.toBeNull();
     }
+  });
+
+  it("labels a negative cash deficit without drawing a cash slice", () => {
+    render(
+      <ChartsOverview
+        allocation={{
+          ...allocation,
+          cashBalance: "-25",
+          cashDeficit: "25",
+          totalMarketValue: "75",
+        }}
+        heatmap={heatmap}
+        history={history}
+        onRangeChange={vi.fn()}
+        onSelectedTradeDateChange={vi.fn()}
+        range="30d"
+        selectedTradeDate={null}
+      />,
+    );
+
+    expect(
+      screen.getByText("现金缺口 25 USDT；负现金不绘制为正扇区。"),
+    ).not.toBeNull();
+    expect(allocation.slices.map((slice) => slice.assetSymbol)).not.toContain(
+      "现金 USDT",
+    );
   });
 
   it("toggles the heatmap date and exposes a clear action", () => {

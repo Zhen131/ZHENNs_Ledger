@@ -34,10 +34,10 @@ import {
   buildTradeHeatmap,
 } from "@/features/charts";
 import {
+  buildLedgerProjection,
   buildLedgerPnlSummary,
   type SummaryMetric,
 } from "@/features/portfolio";
-import { getPositionsFromLedger } from "@/features/portfolio";
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
 import { validateTradeRemoval } from "@/features/trades";
 import {
@@ -316,10 +316,11 @@ export function DashboardShell({
     !repositorySwitchBlocked &&
     !isReadOnly &&
     isFutureFactCorrectionMode;
-  const positions = getPositionsFromLedger(ledgerData, {
-    todayKey,
+  const projection = buildLedgerProjection(ledgerData, {
+    asOf: todayKey,
     mode: valuationPriceMode,
   });
+  const positions = projection.positions;
   const pnlSummary = buildLedgerPnlSummary(ledgerData, {
     todayKey,
     mode: valuationPriceMode,
@@ -327,6 +328,7 @@ export function DashboardShell({
   const allocation = buildHoldingAllocation(ledgerData, {
     todayKey,
     mode: valuationPriceMode,
+    projection,
   });
   const history = buildHoldingHistory(ledgerData, {
     todayKey,
@@ -1150,6 +1152,7 @@ export function DashboardShell({
       <HomeWorkspace
         active={session !== undefined && workspace.currentPage === "home"}
         allocation={allocation}
+        cashBalance={projection.cash.balance}
         heatmap={heatmap}
         history={history}
         ledgerData={ledgerData}
@@ -1250,6 +1253,9 @@ export function DashboardShell({
           mutationVersion={mutationVersion}
           onDeleteTrade={(tradeId) =>
             applyLedgerAction({ type: "trade/delete", tradeId })
+          }
+          onDeleteCashEvent={(cashEventId) =>
+            applyLedgerAction({ type: "cashEvent/delete", cashEventId })
           }
           onIntentConsumed={workspace.consumeIntent}
           persistedVersion={persistedVersion}

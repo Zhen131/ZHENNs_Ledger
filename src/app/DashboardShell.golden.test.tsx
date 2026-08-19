@@ -128,6 +128,12 @@ async function fillTradeForm(input: {
 }) {
   const user = userEvent.setup();
 
+  const recordTarget = screen.queryByLabelText("记账对象", {
+    selector: "select",
+  });
+  if (recordTarget) {
+    await user.selectOptions(recordTarget, `trade:${input.assetSymbol}`);
+  }
   await user.selectOptions(
     screen.getByLabelText("类型", { selector: "select" }),
     input.type,
@@ -156,6 +162,16 @@ async function fillTradeForm(input: {
   }
 
   await user.click(screen.getByRole("button", { name: "保存交易" }));
+  const negativeCashDialog = screen.queryByRole("dialog", {
+    name: "确认交易后的负现金",
+  });
+  if (negativeCashDialog) {
+    await user.click(
+      within(negativeCashDialog).getByRole("button", {
+        name: "确认并保存",
+      }),
+    );
+  }
 }
 
 async function enterGoldenTrades() {
@@ -205,7 +221,7 @@ describe("DashboardShell golden UI acceptance", () => {
       totalValue: "6500",
       occurredAt: "2026-07-20",
       fee: "5",
-      expectedCashImpact: "买入总支出：6505 USDT",
+      expectedCashImpact: "本次现金变化：-6505 USDT",
     });
     await waitFor(() => {
       expect(screen.getByText("交易已认证保存")).not.toBeNull();
@@ -218,7 +234,7 @@ describe("DashboardShell golden UI acceptance", () => {
       totalValue: "2800",
       occurredAt: "2026-07-21",
       fee: "3",
-      expectedCashImpact: "卖出净到账：2797 USDT",
+      expectedCashImpact: "本次现金变化：2797 USDT",
     });
     await waitFor(() => {
       expect(screen.getByText("交易已认证保存")).not.toBeNull();
@@ -345,7 +361,10 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("BTC", 5, "70000");
     expectPositionDecimal("BTC", 6, "11.4716");
     expectPositionDecimal("BTC", 7, "0.4716");
-    expect(screen.getByText(/已估值 1 项，总市值 11.4716 USDT/)).not.toBeNull();
+    expect(screen.getByText(/几何分配 1 项；净总资产 -31.5284 USDT/)).not.toBeNull();
+    expect(
+      screen.getByText("现金缺口 43 USDT；负现金不绘制为正扇区。"),
+    ).not.toBeNull();
     expect(screen.getByText("未估值资产：ADA、ETH。")).not.toBeNull();
     expect(screen.getByText(/共 365 个自然日、5 笔交易/)).not.toBeNull();
 

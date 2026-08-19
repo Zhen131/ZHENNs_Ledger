@@ -8,10 +8,12 @@ import { LedgerIcon } from "@/ui";
 export function HoldingsDetails({
   open,
   positions,
+  cashBalance,
   onClose,
 }: Readonly<{
   open: boolean;
   positions: readonly Position[];
+  cashBalance: string;
   onClose: () => void;
 }>) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -57,45 +59,90 @@ export function HoldingsDetails({
             <LedgerIcon className="h-5 w-5" name="close" />
           </button>
         </header>
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="border-b border-[var(--ledger-border)] text-[var(--ledger-muted)]">
-              <tr>
-                <th className="py-2">资产</th>
-                <th className="py-2">持仓数量</th>
-                <th className="py-2">含费平均成本</th>
-                <th className="py-2">剩余含费成本</th>
-                <th className="py-2">已实现净盈亏</th>
-                <th className="py-2">当前价格</th>
-                <th className="py-2">当前市值</th>
-                <th className="py-2">未实现净盈亏</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--ledger-border)]">
-              {positions.length === 0 ? (
-                <tr>
-                  <td className="py-8 text-center text-[var(--ledger-muted)]" colSpan={8}>
-                    暂无持仓。添加交易后，这里会自动汇总。
-                  </td>
-                </tr>
-              ) : (
-                positions.map((position) => (
-                  <tr key={`${position.assetSymbol}-${position.currency}`}>
-                    <td className="py-3 font-semibold">{position.assetSymbol}</td>
-                    <td className="ledger-numeric py-3">{position.quantity}</td>
-                    <td className="ledger-numeric py-3">{metric(position.averageCost, position.currency, position.feeAccountingIssues !== undefined)}</td>
-                    <td className="ledger-numeric py-3">{metric(position.costBasis, position.currency, position.feeAccountingIssues !== undefined)}</td>
-                    <td className="ledger-numeric py-3">{metric(position.realizedPnl, position.currency, position.feeAccountingIssues !== undefined)}</td>
-                    <td className="ledger-numeric py-3">{position.latestPrice === undefined ? "未输入价格" : `${position.latestPrice} ${position.currency}`}</td>
-                    <td className="ledger-numeric py-3">{position.marketValue === undefined ? "--" : `${position.marketValue} ${position.currency}`}</td>
-                    <td className="ledger-numeric py-3">{position.feeAccountingIssues ? "不可可靠计算" : position.unrealizedPnl === undefined ? "缺少合法价格" : `${position.unrealizedPnl} ${position.currency}`}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="mt-5" role="table" aria-label="完整持仓与现金明细">
+          <div
+            className="hidden grid-cols-8 gap-3 border-b border-[var(--ledger-border)] py-2 text-sm text-[var(--ledger-muted)] lg:grid"
+            role="row"
+          >
+            {[
+              "资产",
+              "持仓数量",
+              "含费平均成本",
+              "剩余含费成本",
+              "已实现净盈亏",
+              "当前价格",
+              "当前市值",
+              "未实现净盈亏",
+            ].map((label) => (
+              <span key={label} role="columnheader">{label}</span>
+            ))}
+          </div>
+          <div className="divide-y divide-[var(--ledger-border)]" role="rowgroup">
+            <HoldingDetailRow
+              values={[
+                "现金 USDT",
+                `${cashBalance} USDT`,
+                "—",
+                "—",
+                "—",
+                "1 USDT",
+                `${cashBalance} USDT`,
+                "—",
+              ]}
+            />
+            {positions.map((position) => (
+              <HoldingDetailRow
+                key={`${position.assetSymbol}-${position.currency}`}
+                values={[
+                  position.assetSymbol,
+                  position.quantity,
+                  metric(position.averageCost, position.currency, position.feeAccountingIssues !== undefined),
+                  metric(position.costBasis, position.currency, position.feeAccountingIssues !== undefined),
+                  metric(position.realizedPnl, position.currency, position.feeAccountingIssues !== undefined),
+                  position.latestPrice === undefined ? "未输入价格" : `${position.latestPrice} ${position.currency}`,
+                  position.marketValue === undefined ? "—" : `${position.marketValue} ${position.currency}`,
+                  position.feeAccountingIssues ? "不可可靠计算" : position.unrealizedPnl === undefined ? "缺少合法价格" : `${position.unrealizedPnl} ${position.currency}`,
+                ]}
+              />
+            ))}
+          </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+const holdingLabels = [
+  "资产",
+  "持仓数量",
+  "含费平均成本",
+  "剩余含费成本",
+  "已实现净盈亏",
+  "当前价格",
+  "当前市值",
+  "未实现净盈亏",
+] as const;
+
+function HoldingDetailRow({ values }: Readonly<{ values: readonly string[] }>) {
+  return (
+    <div
+      className="grid min-w-0 gap-2 py-4 text-sm lg:grid-cols-8 lg:gap-3"
+      role="row"
+    >
+      {values.map((value, index) => (
+        <div
+          className="grid min-w-0 grid-cols-[minmax(7rem,.7fr)_minmax(0,1fr)] gap-2 lg:block"
+          key={holdingLabels[index]}
+          role="cell"
+        >
+          <span className="text-[var(--ledger-muted)] lg:hidden">
+            {holdingLabels[index]}
+          </span>
+          <span className={`min-w-0 break-words ${index === 0 ? "font-semibold" : "ledger-numeric"}`}>
+            {value}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

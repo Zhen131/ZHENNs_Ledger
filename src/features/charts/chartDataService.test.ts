@@ -67,6 +67,55 @@ function manualPrice(
 }
 
 describe("holding allocation", () => {
+  it("draws positive cash as a slice and never draws a negative-cash pseudo asset", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [
+      {
+        id: "deposit",
+        occurredAt: "2026-07-19",
+        timePrecision: "day",
+        type: "deposit",
+        currency: "USDT",
+        amount: "1000",
+        createdAt: "2026-07-19T00:00:00Z",
+        updatedAt: "2026-07-19T00:00:00Z",
+      },
+    ];
+    ledgerData.trades = [
+      buy("btc", "BTC", "1", "900", "2026-07-20"),
+    ];
+    ledgerData.priceSnapshots = [
+      manualPrice("btc-price", "BTC", "900", TODAY),
+    ];
+
+    const positive = buildHoldingAllocation(ledgerData, {
+      todayKey: TODAY,
+      mode: "auto",
+    });
+    expect(positive.totalMarketValue).toBe("1000");
+    expect(positive.slices).toEqual([
+      expect.objectContaining({ assetSymbol: "BTC", ratio: "0.9" }),
+      expect.objectContaining({
+        assetSymbol: "现金 USDT",
+        marketValue: "100",
+        ratio: "0.1",
+        source: "cash",
+      }),
+    ]);
+
+    ledgerData.cashEvents = [];
+    const negative = buildHoldingAllocation(ledgerData, {
+      todayKey: TODAY,
+      mode: "auto",
+    });
+    expect(negative.totalMarketValue).toBe("0");
+    expect(negative.cashDeficit).toBe("900");
+    expect(
+      negative.slices.some((slice) => slice.assetSymbol === "现金 USDT"),
+    ).toBe(false);
+    expect(negative.slices[0]?.ratio).toBe("1");
+  });
+
   it("uses the shared selector, excludes zero holdings, and reports partial missing prices", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.trades = [
@@ -84,7 +133,9 @@ describe("holding allocation", () => {
       todayKey: TODAY,
       mode: "auto",
     });
-    expect(allocation.totalMarketValue).toBe("200");
+    expect(allocation.totalMarketValue).toBe("-100");
+    expect(allocation.cashBalance).toBe("-300");
+    expect(allocation.cashDeficit).toBe("300");
     expect(allocation.valuation.label).toBe("USDT");
     expect(allocation.missingPriceAssets).toEqual(["ADA"]);
     expect(allocation.slices).toEqual([
@@ -135,6 +186,10 @@ describe("holding allocation", () => {
       }),
     ).toEqual({
       slices: [],
+      assetMarketValue: "0",
+      cashBalance: "-110",
+      cashDeficit: "110",
+      totalMarketValue: "-110",
       missingPriceAssets: ["BTC"],
       excludedCurrencyAssets: ["ADA"],
       valuation: { label: "USDT", usesApproximation: false },
@@ -174,6 +229,66 @@ describe("holding history", () => {
     expect(points.at(-1)?.date).toBe(TODAY);
   });
 
+  it("adds cash dates to all-range history and replays each date without backfilling today's cash", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [
+      {
+        id: "deposit",
+        occurredAt: "2026-07-20",
+        timePrecision: "day",
+        type: "deposit",
+        currency: "USDT",
+        amount: "100",
+        createdAt: "2026-07-20T00:00:00Z",
+        updatedAt: "2026-07-20T00:00:00Z",
+      },
+      {
+        id: "expense",
+        occurredAt: "2026-07-22",
+        timePrecision: "day",
+        type: "external-expense",
+        currency: "USDT",
+        amount: "10",
+        createdAt: "2026-07-22T00:00:00Z",
+        updatedAt: "2026-07-22T00:00:00Z",
+      },
+    ];
+    ledgerData.trades = [
+      buy("btc", "BTC", "1", "60", "2026-07-21"),
+    ];
+    ledgerData.priceSnapshots = [
+      manualPrice("btc-price", "BTC", "60", "2026-07-21"),
+    ];
+
+    const points = buildHoldingHistory(ledgerData, {
+      todayKey: TODAY,
+      mode: "auto",
+      range: "all",
+    });
+    expect(points[0]).toEqual(
+      expect.objectContaining({
+        date: "2026-07-20",
+        cashBalance: "100",
+        totalMarketValue: "100",
+      }),
+    );
+    expect(points[1]).toEqual(
+      expect.objectContaining({
+        date: "2026-07-21",
+        cashBalance: "40",
+        assetMarketValue: "60",
+        totalMarketValue: "100",
+      }),
+    );
+    expect(points[2]).toEqual(
+      expect.objectContaining({
+        date: "2026-07-22",
+        cashBalance: "30",
+        totalMarketValue: "90",
+      }),
+    );
+  });
+
   it("replays pre-range facts once and carries the last real price forward", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.trades = [
@@ -205,14 +320,16 @@ describe("holding history", () => {
       expect.objectContaining({
         date: "2026-07-19",
         totalCostBasis: "100",
-        totalMarketValue: "120",
+        totalMarketValue: "20",
+        cashBalance: "-100",
       }),
     );
     expect(points[3]).toEqual(
       expect.objectContaining({
         date: "2026-07-22",
         totalCostBasis: "50",
-        totalMarketValue: "60",
+        totalMarketValue: "40",
+        cashBalance: "-20",
       }),
     );
     expect(points.at(-1)?.priceAsOfByAsset.BTC).toBe("2026-07-18");
@@ -257,7 +374,7 @@ describe("holding history", () => {
       points.find((point) => point.date === "2026-07-24")
         ?.totalMarketValue,
     ).toBeUndefined();
-    expect(points.at(-1)?.totalMarketValue).toBe("120");
+    expect(points.at(-1)?.totalMarketValue).toBe("20");
     expect(points.at(-1)?.totalCostBasis).toBe("100");
   });
 
@@ -286,11 +403,11 @@ describe("holding history", () => {
       mode: "auto",
       range: "all",
     });
-    expect(all[0].totalMarketValue).toBe("120");
+    expect(all[0].totalMarketValue).toBe("20");
     expect(all.at(-1)).toEqual(
       expect.objectContaining({
         totalCostBasis: "0",
-        totalMarketValue: "0",
+        totalMarketValue: "10",
       }),
     );
 
@@ -304,7 +421,7 @@ describe("holding history", () => {
       expect.objectContaining({
         displayBoundary: "start",
         totalCostBasis: "0",
-        totalMarketValue: "0",
+        totalMarketValue: "10",
       }),
     );
     expect(oneDay[1]).toEqual(
@@ -352,7 +469,7 @@ describe("holding history", () => {
       range: "all",
     }).at(-1)!;
     expect(point.totalCostBasis).toBeUndefined();
-    expect(point.totalMarketValue).toBe("120");
+    expect(point.totalMarketValue).toBe("20");
     expect(point.unreliableFeeAssets).toEqual(["BTC"]);
     expect(buildTradeHeatmap(ledgerData, TODAY).at(-6)?.total).toBe(1);
   });

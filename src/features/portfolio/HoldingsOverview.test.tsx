@@ -53,6 +53,7 @@ describe("holdings workspace views", () => {
     const onShowAll = vi.fn();
     render(
       <HoldingsOverview
+        cashBalance="0"
         onShowAll={onShowAll}
         positions={[position("BTC", "9"), position("ADA")]}
       />,
@@ -68,6 +69,7 @@ describe("holdings workspace views", () => {
     const onClose = vi.fn();
     const { rerender } = render(
       <HoldingsDetails
+        cashBalance="0"
         onClose={onClose}
         open
         positions={[position("BTC", "9")]}
@@ -79,6 +81,7 @@ describe("holdings workspace views", () => {
 
     rerender(
       <HoldingsDetails
+        cashBalance="0"
         onClose={onClose}
         open
         positions={[position("BTC", "9")]}
@@ -93,7 +96,7 @@ describe("holdings workspace views", () => {
   it("closes details when the backdrop is pressed", () => {
     const onClose = vi.fn();
     const view = render(
-      <HoldingsDetails onClose={onClose} open positions={[]} />,
+      <HoldingsDetails cashBalance="0" onClose={onClose} open positions={[]} />,
     );
 
     const backdrop = view.container.firstElementChild;

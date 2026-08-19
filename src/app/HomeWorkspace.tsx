@@ -23,6 +23,7 @@ export function HomeWorkspace({
   active,
   ledgerData,
   positions,
+  cashBalance,
   pnlSummary,
   allocation,
   history,
@@ -38,6 +39,7 @@ export function HomeWorkspace({
   active: boolean;
   ledgerData: LedgerData;
   positions: readonly Position[];
+  cashBalance: string;
   pnlSummary: LedgerPnlSummary;
   allocation: HoldingAllocation;
   history: readonly HoldingHistoryPoint[];
@@ -101,10 +103,8 @@ export function HomeWorkspace({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-4">
         <MetricCard
-          label="当前总市值"
-          metric={
-            hasNonZeroHoldings ? allocation.totalMarketValue : "0"
-          }
+          label="当前总资产"
+          metric={allocation.totalMarketValue}
           missing={allocation.missingPriceAssets}
           valuationLabel={allocation.valuation.label}
         />
@@ -131,7 +131,7 @@ export function HomeWorkspace({
             <div>
               <h2 className="font-semibold">资产趋势</h2>
               <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-                只展示账本真实事实推导的总市值与剩余含费成本。
+                总资产逐日重放现金与可得行情；成本线仍只读取交易。
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -212,6 +212,7 @@ export function HomeWorkspace({
       <div className="grid min-w-0 items-stretch gap-4 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <SurfaceCard className="min-w-0 p-4">
           <HoldingsOverview
+            cashBalance={cashBalance}
             onShowAll={openDetails}
             positions={positions}
             triggerRef={holdingsTriggerRef}
@@ -230,6 +231,7 @@ export function HomeWorkspace({
       </div>
 
       <HoldingsDetails
+        cashBalance={cashBalance}
         onClose={closeDetails}
         open={detailsOpen}
         positions={positions}

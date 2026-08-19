@@ -1,14 +1,6 @@
-import {
-  applyTradeToReplay,
-  createPositionReplayState,
-  getReplayPositions,
-  sortTradesForReplay,
-} from "@/core/calculations";
 import type {
-  Asset,
   DecimalString,
   LedgerData,
-  PriceSnapshot,
   ValuationPriceMode,
 } from "@/core/models";
 import {
@@ -19,25 +11,19 @@ import {
   add,
   divide,
   isGreaterThan,
+  isNegative,
   isZero,
-  multiply,
   toDecimalString,
 } from "@/core/shared";
 import {
   addLedgerDays,
-  compareLedgerFactOrder,
   enumerateLedgerDays,
   getLedgerDateKey,
 } from "@/core/shared";
 import {
-  considerPriceSnapshot,
-  createPriceSelectionAccumulator,
-  getSelectedPrice,
-  type PriceSelectionAccumulator,
-} from "@/features/portfolio";
-import { getValuedPositionsFromLedger } from "@/features/portfolio";
-import {
+  buildLedgerProjection,
   createValuationDisplay,
+  type LedgerProjection,
   type ValuationDisplay,
 } from "@/features/portfolio";
 
@@ -45,13 +31,16 @@ export type HoldingAllocationSlice = {
   assetSymbol: string;
   marketValue: DecimalString;
   ratio: DecimalString;
-  source: "manual" | "binance";
+  source: "manual" | "binance" | "cash";
   asOf: string;
 };
 
 export type HoldingAllocation = {
   slices: HoldingAllocationSlice[];
-  totalMarketValue?: DecimalString;
+  assetMarketValue: DecimalString;
+  cashBalance: DecimalString;
+  cashDeficit: DecimalString;
+  totalMarketValue: DecimalString;
   missingPriceAssets: string[];
   excludedCurrencyAssets: string[];
   valuation: ValuationDisplay;
@@ -63,6 +52,9 @@ export type HoldingHistoryPoint = {
   date: string;
   totalCostBasis?: DecimalString;
   totalMarketValue?: DecimalString;
+  assetMarketValue: DecimalString;
+  cashBalance: DecimalString;
+  cashDeficit: DecimalString;
   missingPriceAssets: string[];
   excludedCurrencyAssets: string[];
   unreliableFeeAssets: string[];
@@ -88,84 +80,79 @@ export type TradeHeatmapActivityGroup = {
 
 export function buildHoldingAllocation(
   ledgerData: LedgerData,
-  options: { todayKey: string; mode: ValuationPriceMode },
+  options: {
+    todayKey: string;
+    mode: ValuationPriceMode;
+    projection?: LedgerProjection;
+  },
 ): HoldingAllocation {
-  const valuedPositions = getValuedPositionsFromLedger(ledgerData, options);
-  const assetsBySymbol = new Map(
-    ledgerData.assets.map((asset) => [asset.symbol, asset]),
-  );
-  const missingPriceAssets: string[] = [];
-  const excludedCurrencyAssets: string[] = [];
+  const projection =
+    options.projection ??
+    buildLedgerProjection(ledgerData, {
+      asOf: options.todayKey,
+      mode: options.mode,
+    });
   const valued: Array<{
     assetSymbol: string;
     marketValue: DecimalString;
-    source: "manual" | "binance";
+    source: "manual" | "binance" | "cash";
     asOf: string;
   }> = [];
-  const valuationCurrencies: string[] = [];
-
-  for (const item of valuedPositions) {
-    if (isZero(item.position.quantity)) {
-      continue;
-    }
-    const asset = assetsBySymbol.get(item.position.assetSymbol);
-    if (!asset || !isSupportedValuationCurrency(asset.quoteCurrency)) {
-      excludedCurrencyAssets.push(item.position.assetSymbol);
-      continue;
-    }
-    valuationCurrencies.push(item.position.currency);
-    if (!item.selectedPrice || item.position.marketValue === undefined) {
-      missingPriceAssets.push(item.position.assetSymbol);
-      continue;
-    }
+  for (const position of projection.positions) {
+    if (isZero(position.quantity) || position.marketValue === undefined) continue;
+    const selected =
+      projection.valuation.selectedPricesByAsset[position.assetSymbol];
+    if (!selected) continue;
     valued.push({
-      assetSymbol: item.position.assetSymbol,
-      marketValue: item.position.marketValue,
-      source: item.selectedPrice.actualSource,
-      asOf: item.selectedPrice.asOf,
+      assetSymbol: position.assetSymbol,
+      marketValue: position.marketValue,
+      source: selected.source,
+      asOf: selected.asOf,
     });
   }
 
-  if (valued.length === 0) {
-    return {
-      slices: [],
-      missingPriceAssets: missingPriceAssets.sort(),
-      excludedCurrencyAssets: excludedCurrencyAssets.sort(),
-      valuation: createValuationDisplay(
-        valuationCurrencies,
-        getDefaultValuationCurrency(ledgerData),
-      ),
-    };
+  const cashBalance = projection.cash.balance;
+  const geometryTotal = isNegative(cashBalance)
+    ? projection.valuation.pricedAssetMarketValue
+    : add(projection.valuation.pricedAssetMarketValue, cashBalance);
+  if (!isNegative(cashBalance) && !isZero(cashBalance)) {
+    valued.push({
+      assetSymbol: "现金 USDT",
+      marketValue: cashBalance,
+      source: "cash",
+      asOf: options.todayKey,
+    });
   }
 
-  const totalMarketValue = valued.reduce(
-    (total, item) => add(total, item.marketValue),
-    "0",
-  );
-  const slices = valued
-    .map((item) => ({
-      ...item,
-      ratio: toDecimalString(
-        divide(item.marketValue, totalMarketValue),
-      ),
-    }))
-    .sort((left, right) => {
-      if (isGreaterThan(left.marketValue, right.marketValue)) {
-        return -1;
-      }
-      if (isGreaterThan(right.marketValue, left.marketValue)) {
-        return 1;
-      }
-      return left.assetSymbol.localeCompare(right.assetSymbol);
-    });
+  const slices = isZero(geometryTotal)
+    ? []
+    : valued
+        .map((item) => ({
+          ...item,
+          ratio: toDecimalString(divide(item.marketValue, geometryTotal)),
+        }))
+        .sort((left, right) => {
+          if (isGreaterThan(left.marketValue, right.marketValue)) {
+            return -1;
+          }
+          if (isGreaterThan(right.marketValue, left.marketValue)) {
+            return 1;
+          }
+          return left.assetSymbol.localeCompare(right.assetSymbol);
+        });
 
   return {
     slices,
-    totalMarketValue,
-    missingPriceAssets: missingPriceAssets.sort(),
-    excludedCurrencyAssets: excludedCurrencyAssets.sort(),
+    assetMarketValue: projection.valuation.pricedAssetMarketValue,
+    cashBalance,
+    cashDeficit: projection.cash.deficit,
+    totalMarketValue: projection.valuation.totalAssetValue,
+    missingPriceAssets: [...projection.valuation.missingPriceAssets],
+    excludedCurrencyAssets: [
+      ...projection.valuation.excludedCurrencyAssets,
+    ],
     valuation: createValuationDisplay(
-      valuationCurrencies,
+      ["USDT"],
       getDefaultValuationCurrency(ledgerData),
     ),
   };
@@ -179,73 +166,26 @@ export function buildHoldingHistory(
     range: ChartRange;
   },
 ): HoldingHistoryPoint[] {
-  const partition = partitionLedgerFactsForToday(
-    ledgerData,
-    options.todayKey,
-  );
-  const sortedTrades = sortTradesForReplay(partition.activeTrades);
-  const sortedPrices = sortPriceSnapshotsForReplay(
-    ledgerData.priceSnapshots,
-    options.todayKey,
-  );
   const startDate = getHistoryStartDate(
-    sortedTrades,
+    [
+      ...ledgerData.trades.map((trade) => trade.occurredAt),
+      ...ledgerData.cashEvents.map((cashEvent) => cashEvent.occurredAt),
+    ],
     options.todayKey,
     options.range,
   );
   const dates = enumerateLedgerDays(startDate, options.todayKey);
-  const replayState = createPositionReplayState();
-  const assetsBySymbol = new Map(
-    ledgerData.assets.map((asset) => [asset.symbol, asset]),
-  );
   const defaultValuationCurrency = getDefaultValuationCurrency(ledgerData);
-  const priceAccumulators = new Map<string, PriceSelectionAccumulator>();
-  for (const asset of ledgerData.assets) {
-    priceAccumulators.set(
-      asset.symbol,
-      createPriceSelectionAccumulator(asset, options.mode),
-    );
-  }
-
-  let tradeIndex = 0;
-  let priceIndex = 0;
-  const points: HoldingHistoryPoint[] = [];
-  for (const date of dates) {
-    while (
-      tradeIndex < sortedTrades.length &&
-      getLedgerDateKey(sortedTrades[tradeIndex].occurredAt) <= date
-    ) {
-      applyTradeToReplay(replayState, sortedTrades[tradeIndex]);
-      tradeIndex += 1;
-    }
-    while (
-      priceIndex < sortedPrices.length &&
-      getLedgerDateKey(sortedPrices[priceIndex].snapshot.recordedAt) <= date
-    ) {
-      const entry = sortedPrices[priceIndex];
-      const accumulator = priceAccumulators.get(
-        entry.snapshot.assetSymbol,
-      );
-      if (accumulator) {
-        considerPriceSnapshot(
-          accumulator,
-          entry.snapshot,
-          entry.originalIndex,
-        );
-      }
-      priceIndex += 1;
-    }
-
-    points.push(
-      createHistoryPoint(
-        date,
-        getReplayPositions(replayState),
-        assetsBySymbol,
-        priceAccumulators,
-        defaultValuationCurrency,
-      ),
-    );
-  }
+  const points = dates.map((date) =>
+    createHistoryPoint(
+      date,
+      buildLedgerProjection(ledgerData, {
+        asOf: date,
+        mode: options.mode,
+      }),
+      defaultValuationCurrency,
+    ),
+  );
 
   if (options.range !== "1d") {
     return points;
@@ -354,9 +294,7 @@ function compareHeatmapActivityGroups(
 
 function createHistoryPoint(
   date: string,
-  positions: ReturnType<typeof getReplayPositions>,
-  assetsBySymbol: ReadonlyMap<string, Asset>,
-  priceAccumulators: ReadonlyMap<string, PriceSelectionAccumulator>,
+  projection: LedgerProjection,
   defaultValuationCurrency: "USD" | "USDT",
 ): HoldingHistoryPoint {
   let totalCostBasis: DecimalString = "0";
@@ -367,9 +305,8 @@ function createHistoryPoint(
   const priceAsOfByAsset: Record<string, string> = {};
   const valuationCurrencies: string[] = [];
 
-  for (const position of positions) {
-    const asset = assetsBySymbol.get(position.assetSymbol);
-    if (!asset || !isSupportedValuationCurrency(asset.quoteCurrency)) {
+  for (const position of projection.positions) {
+    if (!isSupportedValuationCurrency(position.currency)) {
       excludedCurrencyAssets.push(position.assetSymbol);
       continue;
     }
@@ -386,26 +323,27 @@ function createHistoryPoint(
     if (feeAccountingReliable) {
       totalCostBasis = add(totalCostBasis, position.costBasis);
     }
-    const accumulator = priceAccumulators.get(position.assetSymbol);
-    const selected = accumulator
-      ? getSelectedPrice(accumulator)
-      : undefined;
-    if (!selected) {
+    const selected =
+      projection.valuation.selectedPricesByAsset[position.assetSymbol];
+    if (!selected || position.marketValue === undefined) {
       missingPriceAssets.push(position.assetSymbol);
       continue;
     }
 
-    totalMarketValue = add(
-      totalMarketValue,
-      multiply(position.quantity, selected.snapshot.price),
-    );
+    totalMarketValue = add(totalMarketValue, position.marketValue);
     priceAsOfByAsset[position.assetSymbol] = selected.asOf;
   }
 
+  const cashBalance = projection.cash.balance;
   return {
     date,
     ...(unreliableFeeAssets.length === 0 ? { totalCostBasis } : {}),
-    ...(missingPriceAssets.length === 0 ? { totalMarketValue } : {}),
+    ...(missingPriceAssets.length === 0
+      ? { totalMarketValue: add(totalMarketValue, cashBalance) }
+      : {}),
+    assetMarketValue: totalMarketValue,
+    cashBalance,
+    cashDeficit: projection.cash.deficit,
     missingPriceAssets: missingPriceAssets.sort(),
     excludedCurrencyAssets: excludedCurrencyAssets.sort(),
     unreliableFeeAssets: unreliableFeeAssets.sort(),
@@ -425,6 +363,9 @@ function createEmptyHistoryPoint(
     date,
     totalCostBasis: "0",
     totalMarketValue: "0",
+    assetMarketValue: "0",
+    cashBalance: "0",
+    cashDeficit: "0",
     missingPriceAssets: [],
     excludedCurrencyAssets: [],
     unreliableFeeAssets: [],
@@ -442,36 +383,19 @@ function getDefaultValuationCurrency(
 }
 
 function getHistoryStartDate(
-  sortedTrades: readonly { occurredAt: string }[],
+  occurredAtValues: readonly string[],
   todayKey: string,
   range: ChartRange,
 ): string {
   if (range === "all") {
-    return sortedTrades.length > 0
-      ? getLedgerDateKey(sortedTrades[0].occurredAt)
+    return occurredAtValues.length > 0
+      ? occurredAtValues
+          .map(getLedgerDateKey)
+          .sort((left, right) => left.localeCompare(right))[0]
       : todayKey;
   }
   const days = range === "1d" ? 1 : Number.parseInt(range, 10);
   return addLedgerDays(todayKey, -(days - 1));
-}
-
-function sortPriceSnapshotsForReplay(
-  snapshots: readonly PriceSnapshot[],
-  todayKey: string,
-): Array<{ snapshot: PriceSnapshot; originalIndex: number }> {
-  return snapshots
-    .map((snapshot, originalIndex) => ({ snapshot, originalIndex }))
-    .filter(
-      (entry) => getLedgerDateKey(entry.snapshot.recordedAt) <= todayKey,
-    )
-    .sort((left, right) =>
-      compareLedgerFactOrder(
-        left.snapshot.recordedAt,
-        right.snapshot.recordedAt,
-        left.originalIndex,
-        right.originalIndex,
-      ),
-    );
 }
 
 function getHeatLevel(
