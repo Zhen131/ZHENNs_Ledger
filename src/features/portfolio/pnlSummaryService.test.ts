@@ -132,7 +132,7 @@ describe("PnL summary", () => {
     ]);
   });
 
-  it("labels a cross-asset USD and USDT aggregation as approximate", () => {
+  it("does not aggregate an injected unsupported currency as if it were USDT", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.assets[1] = {
       ...ledgerData.assets[1],
@@ -167,7 +167,10 @@ describe("PnL summary", () => {
       mode: "auto",
     });
 
-    expect(summary.buyOutflow.value).toBe("30");
+    expect(summary.buyOutflow.value).toBeUndefined();
+    expect(summary.buyOutflow.missingReasons).toEqual([
+      "eth-usd 使用不支持的计价币种 USD",
+    ]);
     expect(summary.valuation).toEqual({
       label: "USD/USDT 近似等值",
       usesApproximation: true,

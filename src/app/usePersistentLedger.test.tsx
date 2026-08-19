@@ -180,6 +180,7 @@ function createCompleteBackupLedger(): LedgerData {
       ...trade,
       note: index === 0 ? "golden backup note" : trade.note,
       rawText: trade.rawText ?? `golden backup ${index}`,
+      platform: index === 0 ? feeRule.platform : trade.platform,
       feeRuleId: index === 0 ? feeRule.id : undefined,
     })),
     priceSnapshots: [

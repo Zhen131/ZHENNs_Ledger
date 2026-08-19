@@ -21,7 +21,7 @@ test("calculates positions, average cost, and realized PnL from buy and sell tra
   expect(btc.costBasis).toBe("11");
   assertDecimalClose(btc.averageCost, "67122.28459848669");
   expect(btc.realizedPnl).toBe("0");
-  expect(btc.currency).toBe("USD");
+  expect(btc.currency).toBe("USDT");
   expect(btc.latestPrice).toBeUndefined();
   expect(btc.marketValue).toBeUndefined();
   expect(btc.unrealizedPnl).toBeUndefined();
@@ -31,14 +31,14 @@ test("calculates positions, average cost, and realized PnL from buy and sell tra
   expect(eth.costBasis).toBe("10");
   assertDecimalClose(eth.averageCost, "2060.1565718994643");
   expect(eth.realizedPnl).toBe("0");
-  expect(eth.currency).toBe("USD");
+  expect(eth.currency).toBe("USDT");
 
   const ada = positionFor(positions, "ADA");
   expect(ada.quantity).toBe("85.3244");
   assertDecimalClose(ada.costBasis, "21.297822152886115445");
   assertDecimalClose(ada.averageCost, "0.24960998439937597504");
   assertDecimalClose(ada.realizedPnl, "-0.702177847113884555");
-  expect(ada.currency).toBe("USD");
+  expect(ada.currency).toBe("USDT");
 });
 
 test("calculates market value and unrealized PnL from a price snapshot", () => {
