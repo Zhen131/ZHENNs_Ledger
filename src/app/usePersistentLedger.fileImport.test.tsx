@@ -328,6 +328,57 @@ describe("usePersistentLedger ready C import", () => {
     20_000,
   );
 
+  it(
+    "imports a normal V3 backup without requiring historical Trade.rawText",
+    async () => {
+      const parsed = JSON.parse(
+        readFixture("valid-300.backup.json"),
+      );
+      delete parsed.ledgerData.trades[0].rawText;
+      const preflight = await preflightBackupJson(
+        `${JSON.stringify(parsed, null, 2)}\n`,
+        {
+          todayKey: "2026-07-31",
+          selectionGeneration: 2,
+          requireHistoricalRawText: false,
+        },
+      );
+      expect(preflight.hardErrorCount).toBe(0);
+      expect(preflight.candidate?.trades[0].rawText).toBeUndefined();
+      if (!preflight.candidate) return;
+
+      const { repository, session } = await createHarness();
+      const { result } = renderHook(() =>
+        usePersistentLedger(
+          session.repository,
+          FIXED_CLOCK,
+          session.capabilities,
+          session,
+        ),
+      );
+      await waitFor(() => {
+        expect(result.current.hydrationStatus).toBe("ready");
+      });
+
+      await act(async () => {
+        await expect(
+          result.current.replaceLedgerFromBackup(
+            preflight.candidate,
+            undefined,
+            evidenceFromPreflight(preflight),
+            new AbortController().signal,
+          ),
+        ).resolves.toEqual({ ok: true });
+      });
+
+      expect(result.current.ledgerData.trades[0].rawText).toBeUndefined();
+      await expect(repository.load()).resolves.toEqual(
+        preflight.candidate,
+      );
+    },
+    20_000,
+  );
+
   it("keeps the 147th-trade hard-error fixture outside the ready-import driver with zero C writes", async () => {
     const serialized = readFixture(
       "invalid-trade-147.backup.json",
@@ -375,6 +426,7 @@ describe("usePersistentLedger ready C import", () => {
             suspiciousGroupIdentity:
               preflight.suspiciousGroupIdentity,
             confirmedSuspiciousGroupIdentity: null,
+            requireHistoricalRawText: true,
           },
           new AbortController().signal,
         ),
@@ -447,12 +499,64 @@ describe("usePersistentLedger ready C import", () => {
             suspiciousGroupCount: 0,
             suspiciousGroupIdentity: "forged-groups",
             confirmedSuspiciousGroupIdentity: null,
+            requireHistoricalRawText: true,
           },
           new AbortController().signal,
         ),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_IMPORT_INVALID_BACKUP",
+      });
+    });
+
+    expect(handle.writeCount).toBe(writesBeforeImport);
+    expect(result.current.ledgerData).toEqual(
+      createInitialLedgerData(),
+    );
+    await expect(repository.load()).resolves.toEqual(
+      createInitialLedgerData(),
+    );
+  });
+
+  it("rejects forged normal-restore evidence even though Trade.rawText is optional", async () => {
+    const parsed = JSON.parse(
+      readFixture("valid-300.backup.json"),
+    );
+    delete parsed.ledgerData.trades[0].rawText;
+    const { handle, repository, session } = await createHarness();
+    const { result } = renderHook(() =>
+      usePersistentLedger(
+        session.repository,
+        FIXED_CLOCK,
+        session.capabilities,
+        session,
+      ),
+    );
+    await waitFor(() => {
+      expect(result.current.hydrationStatus).toBe("ready");
+    });
+    const writesBeforeImport = handle.writeCount;
+
+    await act(async () => {
+      await expect(
+        result.current.replaceLedgerFromBackup(
+          parsed.ledgerData,
+          undefined,
+          {
+            contentIdentity: "forged-content",
+            candidateIdentity: "forged-candidate",
+            selectionGeneration: 1,
+            hardErrorCount: 0,
+            suspiciousGroupCount: 0,
+            suspiciousGroupIdentity: "forged-groups",
+            confirmedSuspiciousGroupIdentity: null,
+            requireHistoricalRawText: false,
+          },
+          new AbortController().signal,
+        ),
+      ).resolves.toEqual({
+        ok: false,
+        code: "LEDGER_IMPORT_NOT_ALLOWED",
       });
     });
 

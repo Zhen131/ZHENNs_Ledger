@@ -124,6 +124,7 @@ export type LedgerBackupImportEvidence = Readonly<{
   suspiciousGroupCount: number;
   suspiciousGroupIdentity: string;
   confirmedSuspiciousGroupIdentity: string | null;
+  requireHistoricalRawText: boolean;
 }>;
 
 declare const backupSuspicionConfirmationBrand: unique symbol;
@@ -533,6 +534,8 @@ export function createLedgerBackupImportEvidence(
       attestation.suspiciousGroupCount === 0
         ? null
         : attestation.suspiciousGroupIdentity,
+    requireHistoricalRawText:
+      attestation.requireHistoricalRawText,
   });
   importEvidenceRuntimes.set(evidence, {
     preflight,
@@ -574,7 +577,9 @@ export function inspectLedgerBackupImportEvidence(
     evidence.confirmedSuspiciousGroupIdentity !==
       (attestation.suspiciousGroupCount === 0
         ? null
-        : attestation.suspiciousGroupIdentity)
+        : attestation.suspiciousGroupIdentity) ||
+    evidence.requireHistoricalRawText !==
+      attestation.requireHistoricalRawText
   ) {
     return null;
   }

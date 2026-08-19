@@ -125,6 +125,7 @@ export type ReadyLedgerImportAuthorization = Readonly<{
   candidateIdentity: string;
   selectionGeneration: number;
   suspiciousGroupIdentity: string;
+  requireHistoricalRawText: boolean;
   [readyLedgerImportAuthorizationBrand]: true;
 }>;
 
@@ -221,6 +222,7 @@ export function createReadyLedgerImportAuthorizationForDriver(
     candidateIdentity: context.candidateIdentity,
     selectionGeneration: context.selectionGeneration,
     suspiciousGroupIdentity: context.suspiciousGroupIdentity,
+    requireHistoricalRawText: context.requireHistoricalRawText,
     [readyLedgerImportAuthorizationBrand]: true as const,
   });
 }
@@ -783,7 +785,9 @@ export function isReadyLedgerImportAuthorizationContextForDriver(
       context.selectionGeneration ===
         contextRuntime.evidence.selectionGeneration &&
       context.suspiciousGroupIdentity ===
-        contextRuntime.evidence.suspiciousGroupIdentity,
+        contextRuntime.evidence.suspiciousGroupIdentity &&
+      context.requireHistoricalRawText ===
+        contextRuntime.evidence.requireHistoricalRawText,
   );
 }
 
@@ -824,7 +828,9 @@ export function claimReadyLedgerImportExecutionContextForDriver(
     authorization.selectionGeneration !==
       authorizationRuntime.evidence.selectionGeneration ||
     authorization.suspiciousGroupIdentity !==
-      authorizationRuntime.evidence.suspiciousGroupIdentity
+      authorizationRuntime.evidence.suspiciousGroupIdentity ||
+    authorization.requireHistoricalRawText !==
+      authorizationRuntime.evidence.requireHistoricalRawText
   ) {
     return false;
   }
@@ -1167,7 +1173,6 @@ function isValidReadyImportEvidence(
     inspectLedgerBackupImportEvidence(evidence);
   if (
     !attestation ||
-    !attestation.requireHistoricalRawText ||
     evidence.hardErrorCount !== 0 ||
     !Number.isSafeInteger(evidence.selectionGeneration) ||
     evidence.selectionGeneration < 1 ||
@@ -1178,7 +1183,9 @@ function isValidReadyImportEvidence(
     evidence.contentIdentity.length === 0 ||
     evidence.candidateIdentity !== candidateIdentity ||
     candidateIdentity.length === 0 ||
-    evidence.suspiciousGroupIdentity.length === 0
+    evidence.suspiciousGroupIdentity.length === 0 ||
+    evidence.requireHistoricalRawText !==
+      attestation.requireHistoricalRawText
   ) {
     return false;
   }

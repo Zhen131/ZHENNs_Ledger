@@ -1358,6 +1358,7 @@ export function usePersistentLedger(
       }
       if (
         isReadyLedgerFileImport &&
+        evidence?.requireHistoricalRawText === true &&
         ledgerResult.value.trades.some(
           (trade) =>
             typeof trade.rawText !== "string" ||

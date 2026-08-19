@@ -110,6 +110,7 @@ async function createImportEvidence(
       suspiciousGroupCount: 0,
       suspiciousGroupIdentity: preflight.suspiciousGroupIdentity,
       confirmedSuspiciousGroupIdentity: null,
+      requireHistoricalRawText: true,
     } satisfies LedgerBackupImportEvidence);
   return Object.keys(overrides).length === 0
     ? evidence

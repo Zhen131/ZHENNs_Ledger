@@ -726,6 +726,7 @@ describe("BackupControls", () => {
       suspiciousGroupCount: 0,
       suspiciousGroupIdentity: expected.suspiciousGroupIdentity,
       confirmedSuspiciousGroupIdentity: null,
+      requireHistoricalRawText: true,
     });
     expect(signal).toBeInstanceOf(AbortSignal);
     expect(signal?.aborted).toBe(false);

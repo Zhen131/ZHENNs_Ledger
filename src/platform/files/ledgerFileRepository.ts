@@ -697,7 +697,9 @@ export class LedgerFileRepository
         existing.candidateIdentity === context.candidateIdentity &&
         existing.selectionGeneration === context.selectionGeneration &&
         existing.suspiciousGroupIdentity ===
-          context.suspiciousGroupIdentity
+          context.suspiciousGroupIdentity &&
+        existing.requireHistoricalRawText ===
+          context.requireHistoricalRawText
       ) {
         return existing;
       }
@@ -837,6 +839,7 @@ export class LedgerFileRepository
       );
     }
     if (
+      authorization.requireHistoricalRawText &&
       comparison.value.value.ledgerData.trades.some(
         (trade) =>
           typeof trade.rawText !== "string" ||
