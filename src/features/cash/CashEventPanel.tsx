@@ -14,11 +14,11 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
+import { createValidatedCashEvent } from "./cashEventService";
 import {
-  createValidatedCashEvent,
   projectLedgerCashMutation,
   type CashMutationProjection,
-} from "@/features/cash";
+} from "./cashProjection";
 import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog";
 
 type PendingRisk = Readonly<{
