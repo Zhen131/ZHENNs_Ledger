@@ -205,6 +205,9 @@ export function ActivityTable({
                     onKeyDown={(event) => {
                       if (
                         isPending ||
+                        (event.target as HTMLElement).closest(
+                          "button, a, input, select",
+                        ) ||
                         (event.key !== "Enter" && event.key !== " ")
                       ) {
                         return;
