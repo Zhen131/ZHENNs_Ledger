@@ -13,11 +13,20 @@
 
 ## 当前状态
 
-截至 2026-08-15，源码 `main` 已包含 Week 12 含费 P&L、V2 `.lftl`、FeeRule，以及 Week 13 源码目录重构、第一轮 UI 重构和首页交易活动区打磨。第一轮 UI 已通过 PR #8 进入 `main@baae5ab`；首页打磨的两笔实现提交随后以合并提交 `76213d4` 进入并推送到 `origin/main`，本地功能分支已删除，远端从未创建同名分支。
+截至 2026-08-20，源码 `main` 仍位于 `0d0cb55`，包含 Week 12 含费 P&L、V2 文件合同、FeeRule，以及 Week 13 源码与 UI 重构。Week 14 V3 候选保留在本地功能分支 `zhennn/w14-v3-cash-assets-market-data`，实现边界为 `578f4a5`，相对 `main` 领先 15 个提交，无 upstream，尚未合并或推送。
 
-合并后重新运行 73 个测试文件／797 项测试、typecheck、lint、production build 和 `git diff --check`，全部通过。以上表示开发实现已经进入长期产品主线，不表示 Week 13 UI 已通过独立验收。
+V3 候选的开发执行已通过 56 个定向测试文件／726 项测试、全量 84 个测试文件／911 项测试、全部质量门和真实 Chrome CH-01～CH-14。独立复审随后发现 `IMPORT_RECOVERY_BLOCKED` 没有自动撤销会话、锁定页面并释放密钥持有者，按文件安全合同判定为 `P0 / FAIL`。修复并取得新的独立 `PASS` 前，不合入 `main`，不生成或导入真实 V3 B。
 
-当前技术基线：Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5`、`eslint-config-next` `15.5.22`，正式新写数据使用 `LedgerData.schemaVersion = 2`。
+当前候选技术基线：Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5`、`eslint-config-next` `15.5.22`；候选使用 `LedgerData.schemaVersion = 3` 和 `BackupEnvelopeV3`，源码 `main` 仍使用 V2 合同。
+
+## Week 14 V3 现金、资产与行情候选
+
+- 全账本增加一个 USDT 现金池；买入自动扣减，卖出自动增加，并支持入金、出金、外部支出和余额校准。
+- 负现金允许保存，但必须显示缺口并二次确认；现金进入总资产、分配、持仓和趋势，不进入 P&L 与交易热力图。
+- 本地资产与 Binance mapping 解耦；资产可离线新增、记账和保存多日手动价格，没有 Binance 交易对也不删除本地事实。
+- Binance 只在用户明确点击时验证或刷新；浏览器无法读取错误响应时返回 `BINANCE_VALIDATION_UNAVAILABLE`，不猜测、不重试、不请求 ticker。
+- 明文备份升级为 `BackupEnvelopeV3`；合法 V3 B 可零网络预检并整本导入，invalid-cash V3 与旧 V2 B/C 明确拒绝。
+- 当前唯一阻断项是独立复审发现的会话级 fail-closed 缺口；Repository 已禁写，但严重恢复失败后仍依赖用户手动锁定。
 
 ## Week 13 UI 重构与首页交易活动区打磨
 
@@ -46,6 +55,8 @@
 ## 已实现能力
 
 - 交易买卖录入、运行期校验、确定性业务排序、全时间线超卖保护和安全删除。
+- 单一 USDT 现金池、四类现金事实、交易现金自动流转、负现金二次确认和统一流水。
+- 离线本地资产生命周期、可选 Binance mapping、多日手动价格和用户显式行情刷新。
 - 可选交易平台事实，以及 fixed USDT / percentage FeeRule；多个精确匹配时 fail closed，历史交易只读取用户最终确认的实际手续费。
 - 手续费规则新增、版本替换和停用，不原地改写历史经济事实。
 - 定投数量、含费平均成本与剩余成本、净已实现盈亏、最新价格、市值和净未实现盈亏。
@@ -56,15 +67,15 @@
 - 表单、账本、备份、日期、引用、DecimalString、唯一性和完整交易时间线的运行期校验。
 - PBKDF2-SHA-256 600,000 次迭代和不可导出的 AES-256-GCM 会话密钥。
 - 密码与 `CryptoKey` 只存在当前会话；刷新或关闭后必须重新解锁。
-- 用户选择的 `.lftl V2` 文件、current / previous 双代、revision lineage、close 后复读、重连与权限 fail closed。
+- 用户选择的 V3 账本 `.lftl` 文件、current / previous 双代、revision lineage、close 后复读、重连与权限 fail closed。
 - Web Locks、真实文件身份、页面 lease、短时写锁和写前 revision 复读，降低浏览器多标签冲突风险。
-- 明文 `BackupEnvelopeV2` 导出、零写预检、SHA-256 内容身份和校验后的整本恢复。
+- 明文 `BackupEnvelopeV3` 导出、零写预检、SHA-256 内容身份和校验后的整本恢复。
 - dirty / pending / retry / 离开警告、repository generation 和过期异步结果保护。
 - 文件字节数、实体数量和关键字符串长度的 `ResourcePolicy` 限制。
 
 ## 数据与安全边界
 
-- `Trade`、`PriceSnapshot`、资产、FeeRule 和 Binance mapping 是事实；`Position[]`、图表切片、估值模式和选中日期是派生或会话状态，不写入账本文件或备份。
+- `Trade`、`CashEvent`、`PriceSnapshot`、资产、FeeRule 和 Binance mapping 是事实；`Position[]`、现金余额、图表切片、估值模式和选中日期是派生或会话状态，不写入账本文件或备份。
 - 缺失的 Binance mapping 在保存和导出中继续缺失；运行期 fallback 不改写 `LedgerData`。显式 `null` 和显式 mapping 对象保持不同语义。
 - `Trade.totalValue` 不含手续费。会计币种内的买入手续费增加成本，卖出手续费减少净收入和已实现盈亏。
 - FeeRule 只按精确 `platform + assetSymbol` 匹配，不折叠大小写、不猜别名、不在冲突时选择第一条，也不因规则变化重算历史交易。
@@ -82,12 +93,12 @@
 
 ## 文件版本边界
 
-正式新写路径只接受 `.lftl V2`、LedgerData V2 和 BackupEnvelopeV2。
+当前 V3 候选只接受 `LedgerData.schemaVersion = 3` 和 `BackupEnvelopeV3`。C 文件继续使用既有加密外壳 `fileFormatVersion = 2`，但内部 generation 必须声明 `ledgerSchemaVersion = 3`。
 
 ```text
-V1 .lftl / BackupEnvelopeV1 / 旧完整 IndexedDB 账本
--> 识别旧格式
--> 显示需要 V2 的明确提示
+V2 B / 承载 V2 账本的旧 C / 更早格式
+-> 识别旧版本
+-> 显示需要 V3 的明确提示
 -> 不读取密码、不解密、不迁移、不写回、不发布连接、不自动删除
 ```
 
@@ -132,6 +143,7 @@ git diff --check
 - Week 12 含费 P&L 已由 `01R1D` 独立 PASS；V2 与 FeeRule 已完成开发并进入 `main`，但独立 `02C` 延期，未生成 `02D`。
 - Week 13 源码目录重构已进入 `main`，`01D` 是 R1 开发执行 PASS，尚无合并后独立复审。
 - Week 13 UI 与首页交易活动区打磨均已进入并推送源码 `main`，开发执行 PASS；尚未进行独立验收。
+- Week 14 V3 候选的 01C 为开发执行 `PASS`；独立 01D 因 `W14-01D-P0-01` 判定 `FAIL`，因此候选尚未合入 `main`，真实 V3 B 继续禁止。
 - 仅会计币种内实际手续费进入成本和盈亏；阶梯费率、最低手续费、交易所专属舍入和异币换算尚未实现。
 - 持仓调整类交易和原方案中的交易标记叠加层尚未实现。
 - Binance 只提供最新公开价格；历史 Kline / OHLC、轮询和 WebSocket 尚未实现。
@@ -149,5 +161,6 @@ git diff --check
 - Week 13 源码目录重构 R1：`beef4c897f29b55d4d111c97c765d439cf4f1fe3`
 - Week 13 第一轮 UI 主线合入：`baae5ab094068870e7390cb98dabd95357e00c79`
 - Week 13 首页交易活动区打磨合入：`76213d46d34945375773d808d6122459e6e46ee7`
+- Week 14 V3 实现候选：`578f4a5af6551b321eb6677c555dd459fa2b168e`
 
 分支、远端与发布状态以 Git 实时结果为准；本 README 不把主线发布扩大为独立验收通过。
