@@ -95,10 +95,18 @@ export type PersistentLedgerState = {
   isFutureFactCorrectionMode: boolean;
   todayKey: string;
   lifecycleStatus: "active" | "quiescing";
+  sessionFatalSignal: LedgerSessionFatalSignal | null;
   drainForSessionQuiesce: (
     request: SessionQuiesceRequest,
   ) => Promise<SessionQuiesceToken>;
 };
+
+export type LedgerSessionFatalSignal = Readonly<{
+  code: "IMPORT_RECOVERY_BLOCKED";
+  occurrence: number;
+  sessionId: string;
+  sessionGeneration: number;
+}>;
 
 export type PersistenceOperation = "idle" | "clearing" | "importing";
 export type PersistenceStatus = "idle" | "saving" | "saved" | "error";
@@ -192,6 +200,8 @@ export function usePersistentLedger(
   const [ledgerEpoch, setLedgerEpoch] = useState(0);
   const [lifecycleStatus, setLifecycleStatus] =
     useState<"active" | "quiescing">("active");
+  const [sessionFatalSignal, setSessionFatalSignal] =
+    useState<LedgerSessionFatalSignal | null>(null);
   const [, requestClockRefresh] = useReducer((version: number) => version + 1, 0);
   const [repositorySwitchRequestVersion, requestRepositorySwitchRender] =
     useState(0);
@@ -268,6 +278,8 @@ export function usePersistentLedger(
   } | null>(null);
   const readOnlyRef = useRef(false);
   const acceptingOperationsRef = useRef(true);
+  const sessionFatalSignalRef = useRef<LedgerSessionFatalSignal | null>(null);
+  const fatalOccurrenceRef = useRef(0);
 
   useLayoutEffect(() => {
     const activeTarget = activePersistenceTargetRef.current;
@@ -662,6 +674,8 @@ export function usePersistentLedger(
     generationRef.current = generation;
     acceptingOperationsRef.current = true;
     setLifecycleStatus("active");
+    sessionFatalSignalRef.current = null;
+    setSessionFatalSignal(null);
     hydratedRepositoryRef.current = null;
     hydrationErrorRepositoryRef.current = null;
     pendingHydrationRef.current = null;
@@ -1283,6 +1297,52 @@ export function usePersistentLedger(
     trackSessionAcceptedWork,
   ]);
 
+  const stopForImportRecoveryFatal = useCallback(
+    (message: string): void => {
+      const fatalSession = activePersistenceTargetRef.current.session;
+      if (!fatalSession || fatalSession.storageKind !== "ledger-file") {
+        return;
+      }
+      const existingSignal = sessionFatalSignalRef.current;
+      if (existingSignal?.sessionId === fatalSession.sessionId) {
+        return;
+      }
+
+      acceptingOperationsRef.current = false;
+      readOnlyRef.current = true;
+      importAbortControllerRef.current?.abort(
+        "Ledger import recovery was blocked",
+      );
+      generationRef.current += 1;
+      latestScheduledSnapshotRef.current = null;
+      failedSnapshotRef.current = null;
+      retryAttemptRef.current = null;
+      pendingHydrationRef.current = null;
+      hydratedRepositoryRef.current = null;
+      const currentVersionState = persistenceVersionStateRef.current;
+      publishPersistenceVersionState({
+        ...currentVersionState,
+        persistenceStatus: "error",
+      });
+      fatalOccurrenceRef.current += 1;
+      const signal = Object.freeze({
+        code: "IMPORT_RECOVERY_BLOCKED" as const,
+        occurrence: fatalOccurrenceRef.current,
+        sessionId: fatalSession.sessionId,
+        sessionGeneration: fatalSession.generation,
+      });
+      sessionFatalSignalRef.current = signal;
+
+      if (mountedRef.current) {
+        setIsReadOnly(true);
+        setPersistenceError(message);
+        setLifecycleStatus("quiescing");
+        setSessionFatalSignal(signal);
+      }
+    },
+    [publishPersistenceVersionState],
+  );
+
   const replaceLedgerFromBackup = useCallback(
     (
       candidate: unknown,
@@ -1492,14 +1552,9 @@ export function usePersistentLedger(
               error.code ===
                 LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_RECOVERY_BLOCKED
             ) {
-              acceptingOperationsRef.current = false;
-              readOnlyRef.current = true;
-              if (mountedRef.current) {
-                setIsReadOnly(true);
-                setPersistenceError(
-                  "导入后的账本文件无法确认，也无法证明已恢复原文件；当前会话已停止全部写入，请立即锁定并保留该文件用于恢复。",
-                );
-              }
+              stopForImportRecoveryFatal(
+                "导入后的账本文件无法确认，也无法证明已恢复原文件；系统正在自动关闭当前会话。请保留该文件用于恢复。",
+              );
               return {
                 ok: false,
                 code: "LEDGER_IMPORT_RECOVERY_BLOCKED",
@@ -1578,14 +1633,9 @@ export function usePersistentLedger(
         if (
           JSON.stringify(verifiedLedger) !== serializedCandidate
         ) {
-          acceptingOperationsRef.current = false;
-          readOnlyRef.current = true;
-          if (mountedRef.current) {
-            setIsReadOnly(true);
-            setPersistenceError(
-              "导入写回后的账本与预检候选不一致；当前会话已停止全部写入，请立即锁定并重新打开账本文件。",
-            );
-          }
+          stopForImportRecoveryFatal(
+            "导入写回后的账本与预检候选不一致；系统正在自动关闭当前会话。请保留该文件并重新选择后验证。",
+          );
           return {
             ok: false,
             code: "LEDGER_IMPORT_RECOVERY_BLOCKED",
@@ -1644,6 +1694,7 @@ export function usePersistentLedger(
       clock,
       hydrationStatus,
       publishPersistenceVersionState,
+      stopForImportRecoveryFatal,
       trackSessionAcceptedWork,
     ],
   );
@@ -1748,6 +1799,7 @@ export function usePersistentLedger(
     isFutureFactCorrectionMode,
     todayKey,
     lifecycleStatus,
+    sessionFatalSignal,
     drainForSessionQuiesce,
   };
 }

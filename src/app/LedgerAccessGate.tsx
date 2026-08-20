@@ -29,7 +29,10 @@ import {
   type SessionQuiesceReason,
 } from "@/platform/persistence";
 import { validatePassphrase } from "@/platform/encryption";
-import type { PersistentLedgerState } from "./usePersistentLedger";
+import type {
+  LedgerSessionFatalSignal,
+  PersistentLedgerState,
+} from "./usePersistentLedger";
 import { DashboardShell } from "./DashboardShell";
 
 type AccessState =
@@ -37,8 +40,9 @@ type AccessState =
   | { status: "setup-required" }
   | { status: "unlock-required"; notice?: string }
   | { status: "unlocked"; session: LedgerSession }
-  | { status: "locking" }
-  | { status: "lock-error" }
+  | { status: "locking"; fatal: boolean }
+  | { status: "lock-error"; fatal: boolean }
+  | { status: "fatal-closed" }
   | { status: "error"; code: LedgerAccessErrorCode };
 
 type AccessPath =
@@ -52,6 +56,7 @@ type AccessPath =
 
 type PendingSessionCompletion = {
   session: LedgerSession;
+  fatal: boolean;
   retry: () => Promise<void>;
   completion: Promise<void>;
 };
@@ -97,6 +102,7 @@ export function LedgerAccessGate({
       session: LedgerSession;
       drain: PersistentLedgerState["drainForSessionQuiesce"];
       reason: SessionQuiesceReason;
+      fatal?: boolean;
     }) => Promise<void>
   >(() => Promise.resolve());
 
@@ -119,7 +125,10 @@ export function LedgerAccessGate({
           mountedRef.current &&
           operationGenerationRef.current === operation
         ) {
-          setAccessState({ status: "lock-error" });
+          setAccessState({
+            status: "lock-error",
+            fatal: interruptedCompletion.fatal,
+          });
         }
         return;
       }
@@ -137,6 +146,11 @@ export function LedgerAccessGate({
       }
       activeSessionRef.current = null;
       retryReleaseRef.current = null;
+      if (interruptedCompletion.fatal) {
+        setAccessPath("choice");
+        setAccessState({ status: "fatal-closed" });
+        return;
+      }
     }
 
     const reconnect =
@@ -512,7 +526,7 @@ export function LedgerAccessGate({
     setRecoveryId(null);
     setFormError("");
 
-    setAccessState({ status: "locking" });
+    setAccessState({ status: "locking", fatal: false });
     return startSessionLifecycle({
       session,
       drain,
@@ -520,14 +534,49 @@ export function LedgerAccessGate({
     });
   }
 
+  function finishFatalSessionLifecycle(
+    drain: PersistentLedgerState["drainForSessionQuiesce"],
+    signal: LedgerSessionFatalSignal,
+  ): Promise<void> {
+    const session = activeSessionRef.current;
+    if (
+      !session ||
+      signal.code !== "IMPORT_RECOVERY_BLOCKED" ||
+      signal.sessionId !== session.sessionId ||
+      signal.sessionGeneration !== session.generation
+    ) {
+      return Promise.resolve();
+    }
+    const existing = finalLockRef.current;
+    if (existing?.session === session) {
+      return existing.promise;
+    }
+
+    invalidateOperations();
+    setPassphrase("");
+    setConfirmation("");
+    setRecoveryId(null);
+    setReconnectError(null);
+    setFormError("");
+    setAccessState({ status: "locking", fatal: true });
+    return startSessionLifecycle({
+      session,
+      drain,
+      reason: "immediate-lock",
+      fatal: true,
+    });
+  }
+
   function startSessionLifecycle({
     session,
     drain,
     reason,
+    fatal = false,
   }: {
     session: LedgerSession;
     drain: PersistentLedgerState["drainForSessionQuiesce"];
     reason: SessionQuiesceReason;
+    fatal?: boolean;
   }): Promise<void> {
     const existing = finalLockRef.current;
     if (existing?.session === session) {
@@ -540,7 +589,7 @@ export function LedgerAccessGate({
       tokenPromise = drain(request);
     } catch {
       if (mountedRef.current) {
-        setAccessState({ status: "lock-error" });
+        setAccessState({ status: "lock-error", fatal });
       }
       return Promise.resolve();
     }
@@ -550,11 +599,15 @@ export function LedgerAccessGate({
       await (reason === "immediate-lock"
         ? session.lockAfterQuiesce(token)
         : session.releaseAfterQuiesce(token));
+      if (fatal) {
+        await fileAccessController.forgetRememberedConnection();
+      }
     };
     retryReleaseRef.current = retry;
     const rawCompletion = retry();
     const pending: PendingSessionCompletion = {
       session,
+      fatal,
       retry,
       completion: rawCompletion,
     };
@@ -574,13 +627,18 @@ export function LedgerAccessGate({
           sessionDrainRef.current = null;
           retryReleaseRef.current = null;
           if (mountedRef.current) {
-            void initialize();
+            if (fatal) {
+              setAccessPath("choice");
+              setAccessState({ status: "fatal-closed" });
+            } else {
+              void initialize();
+            }
           }
         }
       })
       .catch(() => {
         if (mountedRef.current) {
-          setAccessState({ status: "lock-error" });
+          setAccessState({ status: "lock-error", fatal });
         }
       })
       .finally(() => {
@@ -596,10 +654,12 @@ export function LedgerAccessGate({
   async function retryFailedSessionRelease() {
     const release = retryReleaseRef.current;
     const session = activeSessionRef.current;
+    const fatal =
+      accessState.status === "lock-error" && accessState.fatal;
     if (!release || !session) {
       return;
     }
-    setAccessState({ status: "locking" });
+    setAccessState({ status: "locking", fatal });
     try {
       await release();
       const pending =
@@ -612,12 +672,17 @@ export function LedgerAccessGate({
         sessionDrainRef.current = null;
         retryReleaseRef.current = null;
         if (mountedRef.current) {
-          void initialize();
+          if (fatal) {
+            setAccessPath("choice");
+            setAccessState({ status: "fatal-closed" });
+          } else {
+            void initialize();
+          }
         }
       }
     } catch {
       if (mountedRef.current) {
-        setAccessState({ status: "lock-error" });
+        setAccessState({ status: "lock-error", fatal });
       }
     }
   }
@@ -626,6 +691,7 @@ export function LedgerAccessGate({
     return (
       <DashboardShell
         onFinalLock={finishSessionLifecycle}
+        onSessionFatal={finishFatalSessionLifecycle}
         onSessionDrainReady={registerSessionDrain}
         session={accessState.session}
       />
@@ -635,11 +701,17 @@ export function LedgerAccessGate({
   if (accessState.status === "locking") {
     return (
       <AccessPanel
-        description="已停止接收新操作，正在等待已经接受的保存或清空安全收尾。"
-        title="正在安全锁定"
+        description={
+          accessState.fatal
+            ? "导入后的文件状态无法确认。已停止全部新操作，正在等待已接受工作结束并撤销当前会话。"
+            : "已停止接收新操作，正在等待已经接受的保存或清空安全收尾。"
+        }
+        title={accessState.fatal ? "正在安全关闭账本" : "正在安全锁定"}
       >
         <p aria-live="polite" className="text-sm text-[var(--ledger-muted)]">
-          完成后会释放当前文件并回到密码入口，请稍候…
+          {accessState.fatal
+            ? "完成后会释放文件并进入恢复阻断关闭页；不会自动修复、覆盖或重连。"
+            : "完成后会释放当前文件并回到密码入口，请稍候…"}
         </p>
       </AccessPanel>
     );
@@ -648,16 +720,48 @@ export function LedgerAccessGate({
   if (accessState.status === "lock-error") {
     return (
       <AccessPanel
-        description="账本会话已经关闭且不能继续读取或写入，但浏览器尚未确认文件占用已释放。"
-        title="安全释放尚未完成"
+        description={
+          accessState.fatal
+            ? "旧 Repository 已撤销，Dashboard 不会恢复；但文件释放或连接清理尚未全部确认。"
+            : "账本会话已经关闭且不能继续读取或写入，但浏览器尚未确认文件占用已释放。"
+        }
+        title={
+          accessState.fatal
+            ? "恢复阻断后的安全关闭尚未完成"
+            : "安全释放尚未完成"
+        }
       >
         <button
           className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
           onClick={() => void retryFailedSessionRelease()}
           type="button"
         >
-          重试安全释放
+          {accessState.fatal ? "重试安全关闭" : "重试安全释放"}
         </button>
+      </AccessPanel>
+    );
+  }
+
+  if (accessState.status === "fatal-closed") {
+    return (
+      <AccessPanel
+        description="导入后的磁盘结果无法确认。系统已经停止操作、撤销当前会话、释放文件并清除旧连接；没有自动修复、覆盖或继续写入。请保留原文件用于恢复。"
+        title="账本已因恢复阻断自动关闭"
+      >
+        <button
+          className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
+          onClick={() => {
+            setAccessState({ status: "setup-required" });
+            setAccessPath("choice");
+            void selectFileToOpen();
+          }}
+          type="button"
+        >
+          重新选择账本
+        </button>
+        <p className="mt-3 text-sm leading-6 text-[var(--ledger-muted)]">
+          重新进入必须经过系统文件选择器、密码认证和完整文件校验；旧会话不会恢复。
+        </p>
       </AccessPanel>
     );
   }

@@ -10,6 +10,7 @@ import {
 
 import {
   usePersistentLedger,
+  type LedgerSessionFatalSignal,
   type PersistentLedgerState,
 } from "./usePersistentLedger";
 import { LedgerWorkspaceFrame } from "./LedgerWorkspaceFrame";
@@ -161,6 +162,7 @@ export function DashboardShell({
   storageKind: providedStorageKind = "indexeddb",
   session,
   onFinalLock,
+  onSessionFatal,
   onSessionDrainReady,
 }: Readonly<{
   repository?: LedgerRepository;
@@ -171,6 +173,10 @@ export function DashboardShell({
   onFinalLock?: (
     drain: PersistentLedgerState["drainForSessionQuiesce"],
     reason: SessionQuiesceReason,
+  ) => Promise<void>;
+  onSessionFatal?: (
+    drain: PersistentLedgerState["drainForSessionQuiesce"],
+    signal: LedgerSessionFatalSignal,
   ) => Promise<void>;
   onSessionDrainReady?: (
     session: LedgerSession,
@@ -213,6 +219,7 @@ export function DashboardShell({
     ledgerEpoch,
     todayKey,
     lifecycleStatus,
+    sessionFatalSignal,
     drainForSessionQuiesce,
   } = usePersistentLedger(
     repository,
@@ -245,6 +252,7 @@ export function DashboardShell({
     useState(false);
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
   const mountedRef = useRef(true);
+  const deliveredFatalSignalRef = useRef<LedgerSessionFatalSignal | null>(null);
   const currentRepositoryRef = useRef(repository);
   currentRepositoryRef.current = repository;
 
@@ -291,6 +299,29 @@ export function DashboardShell({
       onSessionDrainReady?.(session, drainForSessionQuiesce);
     }
   }, [drainForSessionQuiesce, onSessionDrainReady, session]);
+
+  useEffect(() => {
+    if (
+      !session ||
+      !sessionFatalSignal ||
+      !onSessionFatal ||
+      sessionFatalSignal.sessionId !== session.sessionId ||
+      sessionFatalSignal.sessionGeneration !== session.generation ||
+      deliveredFatalSignalRef.current === sessionFatalSignal
+    ) {
+      return;
+    }
+    deliveredFatalSignalRef.current = sessionFatalSignal;
+    void onSessionFatal(
+      drainForSessionQuiesce,
+      sessionFatalSignal,
+    );
+  }, [
+    drainForSessionQuiesce,
+    onSessionFatal,
+    session,
+    sessionFatalSignal,
+  ]);
 
   useEffect(() => {
     setClearConfirmationMode(null);
@@ -546,6 +577,24 @@ export function DashboardShell({
     isReadOnly,
     repositorySwitchBlocked,
   });
+
+  if (
+    session &&
+    sessionFatalSignal?.sessionId === session.sessionId
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-950">
+        <section className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
+          <h1 className="text-xl font-semibold text-slate-950">
+            正在自动关闭账本
+          </h1>
+          <p aria-live="assertive" className="mt-3 text-sm leading-6 text-slate-700">
+            导入后的文件状态无法确认。系统已停止新操作，正在撤销当前会话并释放文件；不会自动修复、覆盖或继续写入。
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   if (lifecycleStatus === "quiescing") {
     return (

@@ -63,6 +63,8 @@ class ImportLedgerHandle implements LedgerFileHandle {
   writeCount = 0;
   closeCount = 0;
   failNextRead = false;
+  failNextWrite = false;
+  mutateAfterClose: ((serialized: string) => string) | null = null;
   private closeGate:
     | {
         started: Deferred<void>;
@@ -103,6 +105,10 @@ class ImportLedgerHandle implements LedgerFileHandle {
     return {
       write: async (serialized) => {
         this.writeCount += 1;
+        if (this.failNextWrite) {
+          this.failNextWrite = false;
+          throw new Error("write failed");
+        }
         const encoded = new TextEncoder().encode(serialized);
         pending = new Uint8Array(new ArrayBuffer(encoded.byteLength));
         pending.set(encoded);
@@ -116,7 +122,12 @@ class ImportLedgerHandle implements LedgerFileHandle {
           await gate.release.promise;
         }
         if (pending) {
-          this.bytes = pending;
+          const serialized = new TextDecoder().decode(pending);
+          const committed = this.mutateAfterClose?.(serialized) ?? serialized;
+          this.mutateAfterClose = null;
+          const encoded = new TextEncoder().encode(committed);
+          this.bytes = new Uint8Array(new ArrayBuffer(encoded.byteLength));
+          this.bytes.set(encoded);
         }
         if (this.readAfterCloseGate) {
           this.readAfterCloseGate.armed = true;
@@ -375,6 +386,95 @@ describe("usePersistentLedger ready C import", () => {
       await expect(repository.load()).resolves.toEqual(
         preflight.candidate,
       );
+    },
+    20_000,
+  );
+
+  it(
+    "publishes one current-session fatal signal and permanently stops the Hook when import recovery is blocked",
+    async () => {
+      const preflight = await readPreflight(
+        "valid-300.backup.json",
+      );
+      if (!preflight.candidate) return;
+      const candidateBeforeImport = JSON.stringify(preflight.candidate);
+      const { handle, repository, session } = await createHarness();
+      const { result, rerender } = renderHook(() =>
+        usePersistentLedger(
+          session.repository,
+          FIXED_CLOCK,
+          session.capabilities,
+          session,
+        ),
+      );
+      await waitFor(() => {
+        expect(result.current.hydrationStatus).toBe("ready");
+      });
+      const writesBeforeImport = handle.writeCount;
+      handle.mutateAfterClose = (serialized) => {
+        handle.failNextRead = true;
+        handle.failNextWrite = true;
+        return serialized;
+      };
+
+      await act(async () => {
+        await expect(
+          result.current.replaceLedgerFromBackup(
+            preflight.candidate,
+            undefined,
+            evidenceFromPreflight(preflight),
+            new AbortController().signal,
+          ),
+        ).resolves.toEqual({
+          ok: false,
+          code: "LEDGER_IMPORT_RECOVERY_BLOCKED",
+        });
+      });
+
+      expect(result.current.sessionFatalSignal).toMatchObject({
+        code: "IMPORT_RECOVERY_BLOCKED",
+        occurrence: 1,
+        sessionId: session.sessionId,
+        sessionGeneration: 0,
+      });
+      const fatalSignal = result.current.sessionFatalSignal;
+      expect(result.current.lifecycleStatus).toBe("quiescing");
+      expect(result.current.persistenceStatus).toBe("error");
+      expect(result.current.ledgerData).toEqual(createInitialLedgerData());
+      expect(result.current.mutationVersion).toBe(0);
+      expect(result.current.persistedVersion).toBe(0);
+      expect(JSON.stringify(preflight.candidate)).toBe(candidateBeforeImport);
+      const writesAfterBlocked = handle.writeCount;
+      expect(writesAfterBlocked).toBe(writesBeforeImport + 2);
+
+      expect(
+        result.current.applyLedgerMutation((ledger) => ({
+          ...ledger,
+          updatedAt: "2026-07-31T12:01:00.000Z",
+        })),
+      ).toBe("rejected");
+      await expect(result.current.clearLedger()).resolves.toEqual({
+        ok: false,
+        code: "LEDGER_REPOSITORY_CLEAR_FAILED",
+      });
+      await expect(
+        result.current.replaceLedgerFromBackup(
+          preflight.candidate,
+          undefined,
+          evidenceFromPreflight(preflight),
+        ),
+      ).resolves.toEqual({
+        ok: false,
+        code: "LEDGER_IMPORT_NOT_ALLOWED",
+      });
+      await expect(result.current.retryPersistence()).resolves.toBe(false);
+      expect(handle.writeCount).toBe(writesAfterBlocked);
+
+      rerender();
+      expect(result.current.sessionFatalSignal).toBe(fatalSignal);
+      await expect(repository.load()).rejects.toMatchObject({
+        code: "LEDGER_FILE_IMPORT_RECOVERY_BLOCKED",
+      });
     },
     20_000,
   );

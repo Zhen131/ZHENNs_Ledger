@@ -39,6 +39,10 @@ import {
 import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import { LedgerAccessGate } from "./LedgerAccessGate";
+import type {
+  LedgerSessionFatalSignal,
+  PersistentLedgerState,
+} from "./usePersistentLedger";
 
 const PASSPHRASE = "correct horse battery staple";
 const mockPersistencePorts = new WeakMap<
@@ -62,6 +66,7 @@ vi.mock("./DashboardShell", () => ({
   DashboardShell: ({
     session,
     onFinalLock,
+    onSessionFatal,
     onSessionDrainReady,
   }: {
     session?: ReturnType<typeof createFileSession>;
@@ -81,6 +86,10 @@ vi.mock("./DashboardShell", () => ({
         >,
       ) => Promise<SessionQuiesceToken>,
     ) => void;
+    onSessionFatal?: (
+      drain: PersistentLedgerState["drainForSessionQuiesce"],
+      signal: LedgerSessionFatalSignal,
+    ) => Promise<void>;
   }) => {
     const persistencePort = session
       ? getMockPersistencePort(session)
@@ -114,6 +123,36 @@ vi.mock("./DashboardShell", () => ({
           >
             mock-final-lock
           </button>
+        ) : null}
+        {drain && onSessionFatal && session ? (
+          <>
+            <button
+              onClick={() =>
+                void onSessionFatal(drain, {
+                  code: "IMPORT_RECOVERY_BLOCKED",
+                  occurrence: 1,
+                  sessionId: session.sessionId,
+                  sessionGeneration: session.generation,
+                })
+              }
+              type="button"
+            >
+              mock-session-fatal
+            </button>
+            <button
+              onClick={() =>
+                void onSessionFatal(drain, {
+                  code: "IMPORT_RECOVERY_BLOCKED",
+                  occurrence: 1,
+                  sessionId: "stale-session",
+                  sessionGeneration: 0,
+                })
+              }
+              type="button"
+            >
+              mock-stale-session-fatal
+            </button>
+          </>
         ) : null}
       </div>
     );
@@ -742,6 +781,144 @@ describe("LedgerAccessGate", () => {
         name: "选择账本",
       }),
     ).toBeTruthy();
+  });
+
+  it("keeps a recovery-blocked session closed through release retry and requires a fresh selection and unlock", async () => {
+    const user = userEvent.setup();
+    const onBeginQuiesce = vi.fn();
+    let rejectFirstRelease!: (error: Error) => void;
+    const firstRelease = new Promise<void>((_resolve, reject) => {
+      rejectFirstRelease = reject;
+    });
+    const release = vi
+      .fn<() => Promise<void>>()
+      .mockImplementationOnce(() => firstRelease)
+      .mockResolvedValueOnce(undefined);
+    const oldSession = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "gate-fatal-old-session",
+      onBeginQuiesce,
+      release,
+    });
+    const newSession = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "gate-fatal-new-session",
+    });
+    const forgetRememberedConnection = vi.fn(async () => undefined);
+    const inspectRememberedConnection = vi.fn(async () => ({
+      status: "none" as const,
+      ok: true as const,
+    }));
+    const selectExisting = vi.fn(async () => ({ ok: true as const }));
+    const unlockSelected = vi.fn(async () => ({
+      status: "unlocked" as const,
+      ok: true as const,
+      session: newSession,
+    }));
+    const fileController = createFileController({
+      create: vi.fn(async () => ({
+        status: "unlocked" as const,
+        ok: true as const,
+        session: oldSession,
+      })),
+      forgetRememberedConnection,
+      inspectRememberedConnection,
+      selectExisting,
+      unlockSelected,
+    });
+    render(
+      <LedgerAccessGate
+        accessController={createController()}
+        fileAccessController={fileController}
+      />,
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "新建账本" }),
+    );
+    await user.type(
+      screen.getByLabelText("设置账本核心密码"),
+      PASSPHRASE,
+    );
+    await user.type(
+      screen.getByLabelText("再次输入账本核心密码"),
+      PASSPHRASE,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "选择位置并创建" }),
+    );
+    await screen.findByText("dashboard-mounted");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "mock-stale-session-fatal",
+      }),
+    );
+    expect(screen.getByText("dashboard-mounted")).toBeTruthy();
+    expect(onBeginQuiesce).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", { name: "mock-session-fatal" }),
+    );
+    expect(onBeginQuiesce).toHaveBeenCalledOnce();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "正在安全关闭账本" }),
+    ).toBeTruthy();
+    expect(() => oldSession.repository.load()).toThrow(
+      LedgerSessionLifecycleError,
+    );
+
+    await act(async () => {
+      rejectFirstRelease(new Error("release failed"));
+      await firstRelease.catch(() => undefined);
+    });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "恢复阻断后的安全关闭尚未完成",
+      }),
+    ).toBeTruthy();
+    expect(release).toHaveBeenCalledOnce();
+    expect(forgetRememberedConnection).not.toHaveBeenCalled();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+
+    await user.click(
+      screen.getByRole("button", { name: "重试安全关闭" }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "账本已因恢复阻断自动关闭",
+      }),
+    ).toBeTruthy();
+    expect(release).toHaveBeenCalledTimes(2);
+    expect(forgetRememberedConnection).toHaveBeenCalledOnce();
+    expect(inspectRememberedConnection).toHaveBeenCalledOnce();
+    expect(() => oldSession.repository.save(createInitialLedgerData())).toThrow(
+      LedgerSessionLifecycleError,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "重新选择账本" }),
+    );
+    expect(selectExisting).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", { name: "解锁所选账本" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("dashboard-mounted")).toBeNull();
+    await user.type(
+      screen.getByLabelText("账本核心密码"),
+      PASSPHRASE,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "解锁所选账本" }),
+    );
+    expect(unlockSelected).toHaveBeenCalledWith(PASSPHRASE);
+    expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
+    await expect(newSession.repository.load()).resolves.toBeNull();
   });
 
   it("does not restart connection inspection when an in-flight immediate lock finishes after Gate unmount", async () => {
