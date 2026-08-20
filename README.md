@@ -13,9 +13,9 @@
 
 ## 当前状态
 
-截至 2026-08-20，源码 `main` 仍位于 `0d0cb55`，包含 Week 12 含费 P&L、V2 文件合同、FeeRule，以及 Week 13 源码与 UI 重构。Week 14 V3 候选保留在本地功能分支 `zhennn/w14-v3-cash-assets-market-data`，实现边界为 `578f4a5`，相对 `main` 领先 15 个提交，无 upstream，尚未合并或推送。
+截至 2026-08-20，源码 `main` 仍位于 `0d0cb55`，包含 Week 12 含费 P&L、V2 文件合同、FeeRule，以及 Week 13 源码与 UI 重构。Week 14 V3 候选保留在本地功能分支 `zhennn/w14-v3-cash-assets-market-data`；原实现边界为 `578f4a5`，R1 会话自动关闭修复边界为 `bab544f`，无 upstream，尚未合并或推送。
 
-V3 候选的开发执行已通过 56 个定向测试文件／726 项测试、全量 84 个测试文件／911 项测试、全部质量门和真实 Chrome CH-01～CH-14。独立复审随后发现 `IMPORT_RECOVERY_BLOCKED` 没有自动撤销会话、锁定页面并释放密钥持有者，按文件安全合同判定为 `P0 / FAIL`。修复并取得新的独立 `PASS` 前，不合入 `main`，不生成或导入真实 V3 B。
+原 V3 候选的开发执行通过后，独立 01D 发现 `IMPORT_RECOVERY_BLOCKED` 没有自动撤销会话、锁定页面并释放密钥持有者，按文件安全合同判定为 `P0 / FAIL`。R1 已把该错误提升为会话级 fatal signal，并完成 Dashboard 卸载、Repository revoke、lease release、release 失败重试和强制重新选文件／认证；最终 Week 14 定向闭集为 57 个文件／729 项测试，全量为 85 个文件／914 项测试，全部质量门与全新真实 Chrome CH-01～CH-14 通过。该结果仍只是开发候选 `PASS`；新的独立 01R1C 尚未执行，原 01D `FAIL` 不被覆盖，因此仍不合入 `main`，不生成或导入真实 V3 B。
 
 当前候选技术基线：Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5`、`eslint-config-next` `15.5.22`；候选使用 `LedgerData.schemaVersion = 3` 和 `BackupEnvelopeV3`，源码 `main` 仍使用 V2 合同。
 
@@ -26,7 +26,7 @@ V3 候选的开发执行已通过 56 个定向测试文件／726 项测试、全
 - 本地资产与 Binance mapping 解耦；资产可离线新增、记账和保存多日手动价格，没有 Binance 交易对也不删除本地事实。
 - Binance 只在用户明确点击时验证或刷新；浏览器无法读取错误响应时返回 `BINANCE_VALIDATION_UNAVAILABLE`，不猜测、不重试、不请求 ticker。
 - 明文备份升级为 `BackupEnvelopeV3`；合法 V3 B 可零网络预检并整本导入，invalid-cash V3 与旧 V2 B/C 明确拒绝。
-- 当前唯一阻断项是独立复审发现的会话级 fail-closed 缺口；Repository 已禁写，但严重恢复失败后仍依赖用户手动锁定。
+- 原会话级 fail-closed 缺口已在 R1 开发候选中关闭；当前阻断项是尚未取得全新独立 01R1D `PASS`，不能用开发侧绿灯替代独立结论。
 
 ## Week 13 UI 重构与首页交易活动区打磨
 
@@ -143,7 +143,7 @@ git diff --check
 - Week 12 含费 P&L 已由 `01R1D` 独立 PASS；V2 与 FeeRule 已完成开发并进入 `main`，但独立 `02C` 延期，未生成 `02D`。
 - Week 13 源码目录重构已进入 `main`，`01D` 是 R1 开发执行 PASS，尚无合并后独立复审。
 - Week 13 UI 与首页交易活动区打磨均已进入并推送源码 `main`，开发执行 PASS；尚未进行独立验收。
-- Week 14 V3 候选的 01C 为开发执行 `PASS`；独立 01D 因 `W14-01D-P0-01` 判定 `FAIL`，因此候选尚未合入 `main`，真实 V3 B 继续禁止。
+- Week 14 V3 候选的 01C 为开发执行 `PASS`；独立 01D 因 `W14-01D-P0-01` 判定 `FAIL`。R1 开发候选已关闭该缺口并重新通过全部自动门和 Chrome CH-01～CH-14，但 01R1C 尚未执行，因此候选仍未合入 `main`，真实 V3 B 继续禁止。
 - 仅会计币种内实际手续费进入成本和盈亏；阶梯费率、最低手续费、交易所专属舍入和异币换算尚未实现。
 - 持仓调整类交易和原方案中的交易标记叠加层尚未实现。
 - Binance 只提供最新公开价格；历史 Kline / OHLC、轮询和 WebSocket 尚未实现。
@@ -162,5 +162,6 @@ git diff --check
 - Week 13 第一轮 UI 主线合入：`baae5ab094068870e7390cb98dabd95357e00c79`
 - Week 13 首页交易活动区打磨合入：`76213d46d34945375773d808d6122459e6e46ee7`
 - Week 14 V3 实现候选：`578f4a5af6551b321eb6677c555dd459fa2b168e`
+- Week 14 V3 会话自动关闭 R1：`bab544f2506c417969bfae6122e0f712e06a4b73`
 
 分支、远端与发布状态以 Git 实时结果为准；本 README 不把主线发布扩大为独立验收通过。
