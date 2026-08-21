@@ -13,22 +13,24 @@
 
 ## 当前状态
 
-截至 2026-08-22，源码 `main` 仍位于 `0d0cb55`，包含 Week 12 含费 P&L、V2 文件合同、FeeRule，以及 Week 13 源码与 UI 重构。Week 14 V3 候选保留在本地功能分支 `zhennn/w14-v3-cash-assets-market-data`；原实现边界为 `578f4a5`，R1 会话自动关闭修复边界为 `bab544f`，R2 清空确认焦点锁修复边界为 `ac30891`，无 upstream，尚未合并或推送。
+截至 2026-08-22，Week 14 V3、R1 与 R2 已通过 fast-forward 进入源码 `main`。进入主线的证据基线为 commit `49fa99ca70d87c455cebd3d48c5210fef4199ccb`、tree `eecd4e371e161ea1ae13cbdd7785720f533677dc`；其中原实现边界为 `578f4a5`，R1 会话自动关闭修复边界为 `bab544f`，R2 清空确认焦点锁修复边界为 `ac30891`。
 
 原 V3 候选的开发执行通过后，独立 01D 发现 `IMPORT_RECOVERY_BLOCKED` 没有自动撤销会话、锁定页面并释放密钥持有者，按文件安全合同判定为 `P0 / FAIL`。R1 已把该错误提升为会话级 fatal signal，并完成 Dashboard 卸载、Repository revoke、lease release、release 失败重试和强制重新选文件／认证；全新独立 01R1D 确认原 P0 已关闭，但又发现清空确认区的普通 `Tab / Shift+Tab` 可以逃出确认区，记录 `W14-R1D-P1-01` 并继续判定 `FAIL`。
 
-R2 已用最小源码变更补齐初始聚焦、三个可用控件内的正反向循环、`Escape`／取消后的焦点返回和 disabled 控件跳过。最终 Week 14 定向闭集为 58 个文件／739 项测试，全量为 85 个文件／919 项测试；typecheck、lint、production build、差异检查和隔离 Guest Chrome 定向回归均通过。Chrome 证据使用独立 production origin、macOS 原生选择器和仅含虚构数据的 `W14-R2-DEV-FAKE` 文件，确认焦点不逃到地址栏或页面其他控件、`Escape` 不触发清空且回到入口，并记录 0 个意外网络请求、0 个 application error／exception。该结果只是 R2 开发修复候选，不是新的完整 CH-01～CH-14 或独立验收 `PASS`；原 01D 与 01R1D 的 `FAIL` 均不被覆盖，因此仍不合入 `main`，不生成或导入真实 V3 B。
+R2 已用最小源码变更补齐初始聚焦、三个可用控件内的正反向循环、`Escape`／取消后的焦点返回和 disabled 控件跳过。已有开发证据包括 R2 定向 10/10、Week 14 闭集 58 个文件／739 项测试、全量 85 个文件／919 项测试，以及既有 typecheck、lint、production build、差异检查和隔离 Guest Chrome 定向回归。Chrome 证据使用独立 production origin、macOS 原生选择器和仅含虚构数据的 `W14-R2-DEV-FAKE` 文件，确认焦点不逃到地址栏或页面其他控件、`Escape` 不触发清空且回到入口，并记录 0 个意外网络请求、0 个 application error／exception。
 
-当前候选技术基线：Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5`、`eslint-config-next` `15.5.22`；候选使用 `LedgerData.schemaVersion = 3` 和 `BackupEnvelopeV3`，源码 `main` 仍使用 V2 合同。
+产品负责人于 2026-08-22 正式接受上述既有 R2 开发证据，并明确豁免任何新的 Vitest、Week 14／全量测试、typecheck、lint、build、Chrome 和独立复验。这项风险接受与发布决定授权 Week 14 合入 `main`，但不是新的独立复验 `PASS`；原 `01D = FAIL` 与 `01R1D = FAIL` 继续作为历史事实保留，也没有创建 `01R2D`。本次发布收口只新增本 README 的状态记录，没有修改业务源码，并且没有重新运行任何测试。
 
-## Week 14 V3 现金、资产与行情候选
+当前 `main` 技术基线：Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5`、`eslint-config-next` `15.5.22`；账本使用 `LedgerData.schemaVersion = 3` 和 `BackupEnvelopeV3`。
+
+## Week 14 V3 现金、资产与行情
 
 - 全账本增加一个 USDT 现金池；买入自动扣减，卖出自动增加，并支持入金、出金、外部支出和余额校准。
 - 负现金允许保存，但必须显示缺口并二次确认；现金进入总资产、分配、持仓和趋势，不进入 P&L 与交易热力图。
 - 本地资产与 Binance mapping 解耦；资产可离线新增、记账和保存多日手动价格，没有 Binance 交易对也不删除本地事实。
 - Binance 只在用户明确点击时验证或刷新；浏览器无法读取错误响应时返回 `BINANCE_VALIDATION_UNAVAILABLE`，不猜测、不重试、不请求 ticker。
 - 明文备份升级为 `BackupEnvelopeV3`；合法 V3 B 可零网络预检并整本导入，invalid-cash V3 与旧 V2 B/C 明确拒绝。
-- 原会话级 fail-closed 缺口已在 R1 开发候选中关闭，01R1D 随后发现的清空确认焦点锁缺口已由 R2 开发候选修复；当前阻断项是尚未取得全新独立 R2 复验 `PASS`，不能用开发侧绿灯替代独立结论。
+- 原会话级 fail-closed 缺口已在 R1 中关闭，01R1D 随后发现的清空确认焦点锁缺口已由 R2 修复；产品负责人接受现有 R2 开发证据并批准发布，不把该决定冒充新的独立复验结论。
 
 ## Week 13 UI 重构与首页交易活动区打磨
 
@@ -145,7 +147,7 @@ git diff --check
 - Week 12 含费 P&L 已由 `01R1D` 独立 PASS；V2 与 FeeRule 已完成开发并进入 `main`，但独立 `02C` 延期，未生成 `02D`。
 - Week 13 源码目录重构已进入 `main`，`01D` 是 R1 开发执行 PASS，尚无合并后独立复审。
 - Week 13 UI 与首页交易活动区打磨均已进入并推送源码 `main`，开发执行 PASS；尚未进行独立验收。
-- Week 14 V3 候选的 01C 为开发执行 `PASS`；独立 01D 因 `W14-01D-P0-01` 判定 `FAIL`。R1 开发候选关闭原 P0 后，独立 01R1D 又因 `W14-R1D-P1-01` 判定 `FAIL`。R2 开发候选已补齐清空确认焦点锁，并通过永久自动回归和隔离真实 Chrome 定向验证；新的独立 R2 复验尚未执行，因此候选仍未合入 `main`，真实 V3 B 继续禁止。
+- Week 14 V3 的 01C 为开发执行 `PASS`；独立 01D 因 `W14-01D-P0-01` 判定 `FAIL`。R1 关闭原 P0 后，独立 01R1D 又因 `W14-R1D-P1-01` 判定 `FAIL`。R2 已补齐清空确认焦点锁，并取得永久自动回归和隔离真实 Chrome 定向开发证据；产品负责人于 2026-08-22 接受这些既有证据、豁免新的测试与独立复验，并批准 Week 14 进入 `main`。历史 `FAIL` 不被改写，本次发布决定也不构成新的独立复验 `PASS`。
 - 仅会计币种内实际手续费进入成本和盈亏；阶梯费率、最低手续费、交易所专属舍入和异币换算尚未实现。
 - 持仓调整类交易和原方案中的交易标记叠加层尚未实现。
 - Binance 只提供最新公开价格；历史 Kline / OHLC、轮询和 WebSocket 尚未实现。
