@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -50,6 +51,11 @@ export function SettingsWorkspace({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const dangerTriggerRef = useRef<HTMLButtonElement>(null);
+  const dangerConfirmationRef = useRef<HTMLDivElement>(null);
+  const confirmationInputRef = useRef<HTMLInputElement>(null);
+  const confirmClearRef = useRef<HTMLButtonElement>(null);
+  const cancelClearRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusFrameRef = useRef<number | null>(null);
 
   const clearMode: ClearMode | null =
     hydrationStatus === "ready" && canClearReadyLedger
@@ -62,15 +68,33 @@ export function SettingsWorkspace({
     repositorySwitchBlocked ||
     isReadOnly;
 
-  function closeDanger({ restoreFocus = false } = {}) {
-    if (persistenceOperation !== "idle") return;
-    setDangerExpanded(false);
-    setConfirmationValue("");
-    setError("");
-    if (restoreFocus) {
-      requestAnimationFrame(() => dangerTriggerRef.current?.focus());
-    }
-  }
+  const closeDanger = useCallback(
+    ({ restoreFocus = false }: { restoreFocus?: boolean } = {}) => {
+      if (persistenceOperation !== "idle") return;
+      setDangerExpanded(false);
+      setConfirmationValue("");
+      setError("");
+      if (restoreFocus) {
+        if (restoreFocusFrameRef.current !== null) {
+          cancelAnimationFrame(restoreFocusFrameRef.current);
+        }
+        restoreFocusFrameRef.current = requestAnimationFrame(() => {
+          restoreFocusFrameRef.current = null;
+          dangerTriggerRef.current?.focus();
+        });
+      }
+    },
+    [persistenceOperation],
+  );
+
+  useEffect(
+    () => () => {
+      if (restoreFocusFrameRef.current !== null) {
+        cancelAnimationFrame(restoreFocusFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     setTab("market");
@@ -87,12 +111,27 @@ export function SettingsWorkspace({
 
   useEffect(() => {
     if (!dangerExpanded) return;
+    const input = confirmationInputRef.current;
+    if (
+      input &&
+      !input.disabled &&
+      dangerConfirmationRef.current?.contains(input)
+    ) {
+      input.focus();
+    }
+  }, [dangerExpanded]);
+
+  useEffect(() => {
+    if (!dangerExpanded) return;
     const closeFromEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") closeDanger({ restoreFocus: true });
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeDanger({ restoreFocus: true });
+      }
     };
     document.addEventListener("keydown", closeFromEscape);
     return () => document.removeEventListener("keydown", closeFromEscape);
-  });
+  }, [closeDanger, dangerExpanded]);
 
   async function confirmClear() {
     if (!clearMode || clearDisabled) return;
@@ -234,6 +273,30 @@ export function SettingsWorkspace({
               aria-label="清空账本确认"
               className="grid gap-4"
               id="clear-ledger-confirmation"
+              onKeyDown={(event) => {
+                if (event.key !== "Tab") return;
+                const controls = [
+                  confirmationInputRef.current,
+                  confirmClearRef.current,
+                  cancelClearRef.current,
+                ].filter(
+                  (
+                    control,
+                  ): control is HTMLInputElement | HTMLButtonElement =>
+                    control !== null && !control.disabled,
+                );
+                if (controls.length === 0) return;
+                const first = controls[0];
+                const last = controls[controls.length - 1];
+                if (
+                  (event.shiftKey && document.activeElement === first) ||
+                  (!event.shiftKey && document.activeElement === last)
+                ) {
+                  event.preventDefault();
+                  (event.shiftKey ? last : first).focus();
+                }
+              }}
+              ref={dangerConfirmationRef}
               role="region"
             >
               <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-900">
@@ -257,6 +320,7 @@ export function SettingsWorkspace({
                     setConfirmationValue(event.target.value);
                     setError("");
                   }}
+                  ref={confirmationInputRef}
                   value={confirmationValue}
                 />
               </label>
@@ -271,6 +335,7 @@ export function SettingsWorkspace({
                   className="rounded-md bg-red-800 px-4 py-2 font-semibold text-white disabled:opacity-50"
                   disabled={clearDisabled}
                   onClick={() => void confirmClear()}
+                  ref={confirmClearRef}
                   type="button"
                 >
                   确认清空账本内容
@@ -279,6 +344,7 @@ export function SettingsWorkspace({
                   className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 disabled:opacity-50"
                   disabled={persistenceOperation !== "idle"}
                   onClick={() => closeDanger({ restoreFocus: true })}
+                  ref={cancelClearRef}
                   type="button"
                 >
                   取消

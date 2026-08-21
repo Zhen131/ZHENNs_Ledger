@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -11,29 +18,38 @@ import {
 
 afterEach(cleanup);
 
+type SettingsWorkspaceProps = Parameters<typeof SettingsWorkspace>[0];
+
+function settingsWorkspace(
+  onClear: SettingsWorkspaceProps["onClear"],
+  overrides: Partial<SettingsWorkspaceProps> = {},
+) {
+  return (
+    <SettingsWorkspace
+      active
+      canClearHydrationError={false}
+      canClearReadyLedger
+      feePanel={<p>fee panel sentinel</p>}
+      hydrationStatus="ready"
+      isReadOnly={false}
+      ledgerEpoch={1}
+      marketPanel={<p>market panel sentinel</p>}
+      onClear={onClear}
+      persistenceOperation="idle"
+      repositorySwitchBlocked={false}
+      storageKind="ledger-file"
+      {...overrides}
+    />
+  );
+}
+
 function renderSettings(
   onClear = vi.fn(async () => true),
-  overrides: Partial<Parameters<typeof SettingsWorkspace>[0]> = {},
+  overrides: Partial<SettingsWorkspaceProps> = {},
 ) {
   return {
     onClear,
-    ...render(
-      <SettingsWorkspace
-        active
-        canClearHydrationError={false}
-        canClearReadyLedger
-        feePanel={<p>fee panel sentinel</p>}
-        hydrationStatus="ready"
-        isReadOnly={false}
-        ledgerEpoch={1}
-        marketPanel={<p>market panel sentinel</p>}
-        onClear={onClear}
-        persistenceOperation="idle"
-        repositorySwitchBlocked={false}
-        storageKind="ledger-file"
-        {...overrides}
-      />,
-    ),
+    ...render(settingsWorkspace(onClear, overrides)),
   };
 }
 
@@ -81,6 +97,58 @@ describe("SettingsWorkspace", () => {
     ).not.toBeNull();
   });
 
+  it("focuses the clear confirmation input and traps forward Tab twice", async () => {
+    const { onClear } = renderSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
+    );
+    const input = screen.getByLabelText("输入清空确认文本");
+    const confirm = screen.getByRole("button", {
+      name: "确认清空账本内容",
+    });
+    const cancel = screen.getByRole("button", { name: "取消" });
+
+    expect(document.activeElement).toBe(input);
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      await user.tab();
+      expect(document.activeElement).toBe(confirm);
+      await user.tab();
+      expect(document.activeElement).toBe(cancel);
+      await user.tab();
+      expect(document.activeElement).toBe(input);
+    }
+    expect(onClear).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("region", { name: "清空账本确认" }),
+    ).not.toBeNull();
+  });
+
+  it("traps reverse Shift+Tab within the clear confirmation", async () => {
+    renderSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
+    );
+    const input = screen.getByLabelText("输入清空确认文本");
+    const confirm = screen.getByRole("button", {
+      name: "确认清空账本内容",
+    });
+    const cancel = screen.getByRole("button", { name: "取消" });
+
+    expect(document.activeElement).toBe(input);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(cancel);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(confirm);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(input);
+  });
+
   it("closes a dangerous confirmation with Escape without calling clear", async () => {
     const { onClear } = renderSettings();
     const user = userEvent.setup();
@@ -90,10 +158,57 @@ describe("SettingsWorkspace", () => {
       name: "打开清空账本操作",
     });
     await user.click(trigger);
-    fireEvent.keyDown(document, { key: "Escape" });
+    await user.keyboard("{Escape}");
 
     expect(screen.queryByRole("region", { name: "清空账本确认" })).toBeNull();
     expect(onClear).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "打开清空账本操作" }),
+      );
+    });
+  });
+
+  it("restores focus after cancelling the clear confirmation", async () => {
+    const { onClear } = renderSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
+    );
+    await user.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(screen.queryByRole("region", { name: "清空账本确认" })).toBeNull();
+    expect(onClear).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "打开清空账本操作" }),
+      );
+    });
+  });
+
+  it("skips disabled controls without letting Tab leave the confirmation", async () => {
+    const view = renderSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
+    );
+    const input = screen.getByLabelText("输入清空确认文本");
+    view.rerender(settingsWorkspace(view.onClear, { isReadOnly: true }));
+    const confirm = screen.getByRole("button", {
+      name: "确认清空账本内容",
+    }) as HTMLButtonElement;
+    const cancel = screen.getByRole("button", { name: "取消" });
+
+    expect(confirm.disabled).toBe(true);
+    expect(document.activeElement).toBe(input);
+    await user.tab();
+    expect(document.activeElement).toBe(cancel);
+    await user.tab();
+    expect(document.activeElement).toBe(input);
   });
 
   it("explains a disabled dangerous action next to its control", async () => {
@@ -144,5 +259,39 @@ describe("SettingsWorkspace", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("clears stale confirmation state when the ledger epoch changes", async () => {
+    const view = renderSettings();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
+    );
+    await user.type(screen.getByLabelText("输入清空确认文本"), "旧账本");
+    await user.click(
+      screen.getByRole("button", { name: "确认清空账本内容" }),
+    );
+    expect(
+      screen.getByText(
+        `请输入完整确认文本“${PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT}”`,
+      ),
+    ).not.toBeNull();
+
+    view.rerender(settingsWorkspace(view.onClear, { ledgerEpoch: 2 }));
+    await waitFor(() => {
+      expect(screen.queryByRole("region", { name: "清空账本确认" })).toBeNull();
+    });
+    expect(screen.getByText("market panel sentinel")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    await user.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
+    );
+    expect(
+      (screen.getByLabelText("输入清空确认文本") as HTMLInputElement)
+        .value,
+    ).toBe("");
   });
 });
