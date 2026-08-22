@@ -175,40 +175,40 @@ describe("DashboardShell golden UI acceptance", () => {
     const tradeSection = getSection("Trade List");
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
 
-    expectPositionDecimal("BTC", 1, "0.24265306");
-    expectPositionDecimal("BTC", 3, "11");
+    expectPositionDecimal("BTC", 1, "2");
+    expectPositionDecimal("BTC", 3, "20");
     expectPositionDecimal("BTC", 4, "0");
-    expectPositionDecimal("ETH", 1, "0.400040");
-    expectPositionDecimal("ETH", 3, "10");
+    expectPositionDecimal("ETH", 1, "3");
+    expectPositionDecimal("ETH", 3, "24");
     expectPositionDecimal("ETH", 4, "0");
-    expectPositionDecimal("ADA", 1, "85.3244");
-    expectPositionDecimal("ADA", 3, "21.297822152886115445");
-    expectPositionDecimal("ADA", 4, "-0.702177847113884555");
+    expectPositionDecimal("ADA", 1, "15");
+    expectPositionDecimal("ADA", 3, "30");
+    expectPositionDecimal("ADA", 4, "30");
 
     const user = userEvent.setup();
     await user.selectOptions(
       screen.getByLabelText("Price asset", { selector: "select" }),
       "BTC",
     );
-    await user.type(screen.getByLabelText("Current price"), "70000");
-    await user.type(screen.getByLabelText("Price date"), "2026-04-15");
+    await user.type(screen.getByLabelText("Current price"), "15");
+    await user.type(screen.getByLabelText("Price date"), "2026-01-06");
     await user.click(screen.getByRole("button", { name: "Save price" }));
 
     expect(screen.getByText("Price added to the ledger")).not.toBeNull();
-    expectPositionDecimal("BTC", 5, "70000");
-    expectPositionDecimal("BTC", 6, "11.4716");
-    expectPositionDecimal("BTC", 7, "0.4716");
-    expect(screen.getByText(/1 valued assets; total market value 11.4716 USD equivalent/)).not.toBeNull();
+    expectPositionDecimal("BTC", 5, "15");
+    expectPositionDecimal("BTC", 6, "30");
+    expectPositionDecimal("BTC", 7, "10");
+    expect(screen.getByText(/1 valued assets; total market value 30 USD equivalent/)).not.toBeNull();
     expect(screen.getByText("Unvalued assets: ADA, ETH.")).not.toBeNull();
     expect(screen.getByText(/365 calendar days and 5 trades/)).not.toBeNull();
 
     await fillTradeForm({
       type: "sell",
       assetSymbol: "ADA",
-      quantity: "85.3245",
+      quantity: "16",
       price: "1",
-      totalValue: "85.3245",
-      occurredAt: "2026-04-15",
+      totalValue: "16",
+      occurredAt: "2026-01-06",
       fee: "0",
     });
 
@@ -216,12 +216,12 @@ describe("DashboardShell golden UI acceptance", () => {
       screen.getByText("Sell quantity exceeds the available position at that time"),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
-    expectPositionDecimal("ADA", 1, "85.3244");
-    expectPositionDecimal("ADA", 3, "21.297822152886115445");
-    expectPositionDecimal("ADA", 4, "-0.702177847113884555");
+    expectPositionDecimal("ADA", 1, "15");
+    expectPositionDecimal("ADA", 3, "30");
+    expectPositionDecimal("ADA", 4, "30");
 
     const supportedBuyDeleteButton = within(tradeSection).getByRole("button", {
-      name: "Delete buy ADA 2026-04-09",
+      name: "Delete buy ADA 2026-01-04",
     });
     await user.click(supportedBuyDeleteButton);
     await user.click(supportedBuyDeleteButton);
@@ -236,7 +236,7 @@ describe("DashboardShell golden UI acceptance", () => {
     const independentBuyDeleteButton = within(tradeSection).getByRole(
       "button",
       {
-        name: "Delete buy BTC 2026-04-02",
+        name: "Delete buy BTC 2026-01-01",
       },
     );
     await user.click(independentBuyDeleteButton);
@@ -244,10 +244,10 @@ describe("DashboardShell golden UI acceptance", () => {
 
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(5);
     expect(within(getSection("Asset Summary")).queryByText("BTC")).toBeNull();
-    expectPositionDecimal("ETH", 1, "0.400040");
-    expectPositionDecimal("ETH", 3, "10");
-    expectPositionDecimal("ADA", 1, "85.3244");
-    expectPositionDecimal("ADA", 3, "21.297822152886115445");
-    expectPositionDecimal("ADA", 4, "-0.702177847113884555");
+    expectPositionDecimal("ETH", 1, "3");
+    expectPositionDecimal("ETH", 3, "24");
+    expectPositionDecimal("ADA", 1, "15");
+    expectPositionDecimal("ADA", 3, "30");
+    expectPositionDecimal("ADA", 4, "30");
   });
 });

@@ -268,7 +268,7 @@ export function TradeForm({
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
           onChange={(event) => updateField("quantity", event.target.value)}
-          placeholder="0.24265306"
+          placeholder="0.12345678"
           value={form.quantity}
         />
         {errors.quantity ? (

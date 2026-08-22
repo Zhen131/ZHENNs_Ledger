@@ -17,9 +17,9 @@ test("calculates positions, average cost, and realized PnL from buy and sell tra
   const positions = calculatePositions(sampleTrades);
 
   const btc = positionFor(positions, "BTC");
-  expect(btc.quantity).toBe("0.24265306");
-  expect(btc.costBasis).toBe("11");
-  assertDecimalClose(btc.averageCost, "67122.28459848669");
+  expect(btc.quantity).toBe("2");
+  expect(btc.costBasis).toBe("20");
+  assertDecimalClose(btc.averageCost, "10");
   expect(btc.realizedPnl).toBe("0");
   expect(btc.currency).toBe("USD");
   expect(btc.latestPrice).toBeUndefined();
@@ -27,17 +27,17 @@ test("calculates positions, average cost, and realized PnL from buy and sell tra
   expect(btc.unrealizedPnl).toBeUndefined();
 
   const eth = positionFor(positions, "ETH");
-  expect(eth.quantity).toBe("0.400040");
-  expect(eth.costBasis).toBe("10");
-  assertDecimalClose(eth.averageCost, "2060.1565718994643");
+  expect(eth.quantity).toBe("3");
+  expect(eth.costBasis).toBe("24");
+  assertDecimalClose(eth.averageCost, "8");
   expect(eth.realizedPnl).toBe("0");
   expect(eth.currency).toBe("USD");
 
   const ada = positionFor(positions, "ADA");
-  expect(ada.quantity).toBe("85.3244");
-  assertDecimalClose(ada.costBasis, "21.297822152886115445");
-  assertDecimalClose(ada.averageCost, "0.24960998439937597504");
-  assertDecimalClose(ada.realizedPnl, "-0.702177847113884555");
+  expect(ada.quantity).toBe("15");
+  assertDecimalClose(ada.costBasis, "30");
+  assertDecimalClose(ada.averageCost, "2");
+  assertDecimalClose(ada.realizedPnl, "30");
   expect(ada.currency).toBe("USD");
 });
 
@@ -46,15 +46,15 @@ test("calculates market value and unrealized PnL from a price snapshot", () => {
     createPriceSnapshot(
       "price-btc-001",
       "BTC",
-      "70000",
+      "15",
       "2026-06-26T10:00:00Z",
     ),
   ]);
 
   const btc = positionFor(positions, "BTC");
-  expect(btc.latestPrice).toBe("70000");
-  expect(btc.marketValue).toBe("11.4716");
-  expect(btc.unrealizedPnl).toBe("0.4716");
+  expect(btc.latestPrice).toBe("15");
+  expect(btc.marketValue).toBe("30");
+  expect(btc.unrealizedPnl).toBe("10");
   expect(btc.realizedPnl).toBe("0");
 });
 
@@ -109,22 +109,22 @@ test("uses the latest matching-currency snapshot and ignores newer mismatches", 
     createPriceSnapshot(
       "price-btc-usd",
       "BTC",
-      "70000",
+      "15",
       "2026-06-25T10:00:00Z",
     ),
     createPriceSnapshot(
       "price-btc-cny",
       "BTC",
-      "500000",
+      "99",
       "2026-06-26T10:00:00Z",
       "CNY",
     ),
   ]);
 
   const btc = positionFor(positions, "BTC");
-  expect(btc.latestPrice).toBe("70000");
-  expect(btc.marketValue).toBe("11.4716");
-  expect(btc.unrealizedPnl).toBe("0.4716");
+  expect(btc.latestPrice).toBe("15");
+  expect(btc.marketValue).toBe("30");
+  expect(btc.unrealizedPnl).toBe("10");
 });
 
 test("rejects selling more than the current position", () => {

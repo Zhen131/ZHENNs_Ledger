@@ -525,7 +525,7 @@ function createSimpleDraft(
   type: "buy" | "sell",
   assetSymbol: string,
   quantity: string,
-  occurredAt = validDraft.occurredAt,
+  occurredAt = "2026-09-01",
 ): TradeDraft {
   return {
     ...validDraft,
