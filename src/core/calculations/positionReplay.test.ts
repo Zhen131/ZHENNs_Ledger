@@ -166,6 +166,139 @@ describe("fee-aware position replay", () => {
     });
   });
 
+  it("adds only the net acquired quantity when a buy fee uses the traded asset", () => {
+    const positions = replayPositions([
+      trade({
+        id: "asset-fee-buy",
+        occurredAt: "2026-08-01",
+        type: "buy",
+        quantity: "10",
+        price: "10",
+        totalValue: "100",
+        fee: "1",
+        feeCurrency: "BTC",
+      }),
+    ]);
+
+    expect(positions[0]).toEqual({
+      assetSymbol: "BTC",
+      quantity: "9",
+      averageCost: "11.11111111111111111111111111111111111111",
+      costBasis: "100",
+      realizedPnl: "0",
+      currency: "USDT",
+    });
+  });
+
+  it("consumes sold quantity plus a same-asset sell fee and realizes that cost", () => {
+    const positions = replayPositions([
+      trade({
+        id: "buy",
+        occurredAt: "2026-08-01",
+        type: "buy",
+        quantity: "10",
+        price: "10",
+        totalValue: "100",
+        fee: "0",
+      }),
+      trade({
+        id: "asset-fee-sell",
+        occurredAt: "2026-08-02",
+        type: "sell",
+        quantity: "4",
+        price: "15",
+        totalValue: "60",
+        fee: "0.5",
+        feeCurrency: "BTC",
+      }),
+    ]);
+
+    expect(positions[0]).toEqual({
+      assetSymbol: "BTC",
+      quantity: "5.5",
+      averageCost: "10",
+      costBasis: "55",
+      realizedPnl: "15",
+      currency: "USDT",
+    });
+  });
+
+  it("allows a same-asset fee to consume the exact final holding", () => {
+    const positions = replayPositions([
+      trade({
+        id: "buy",
+        occurredAt: "2026-08-01",
+        type: "buy",
+        quantity: "10",
+        price: "10",
+        totalValue: "100",
+        fee: "0",
+      }),
+      trade({
+        id: "final-sell",
+        occurredAt: "2026-08-02",
+        type: "sell",
+        quantity: "9.5",
+        price: "20",
+        totalValue: "190",
+        fee: "0.5",
+        feeCurrency: "BTC",
+      }),
+    ]);
+
+    expect(positions[0]).toEqual(
+      expect.objectContaining({
+        quantity: "0",
+        averageCost: "0",
+        costBasis: "0",
+        realizedPnl: "90",
+      }),
+    );
+  });
+
+  it("rejects a buy whose same-asset fee leaves no acquired quantity", () => {
+    expect(() =>
+      replayPositions([
+        trade({
+          id: "invalid-buy",
+          occurredAt: "2026-08-01",
+          type: "buy",
+          quantity: "1",
+          price: "10",
+          totalValue: "10",
+          fee: "1",
+          feeCurrency: "BTC",
+        }),
+      ]),
+    ).toThrow(/buy fee must be less than/);
+  });
+
+  it("rejects a sell when quantity plus its same-asset fee exceeds holdings", () => {
+    expect(() =>
+      replayPositions([
+        trade({
+          id: "buy",
+          occurredAt: "2026-08-01",
+          type: "buy",
+          quantity: "10",
+          price: "10",
+          totalValue: "100",
+          fee: "0",
+        }),
+        trade({
+          id: "oversell",
+          occurredAt: "2026-08-02",
+          type: "sell",
+          quantity: "9.8",
+          price: "20",
+          totalValue: "196",
+          fee: "0.3",
+          feeCurrency: "BTC",
+        }),
+      ]),
+    ).toThrow(/Cannot sell more BTC/);
+  });
+
   it("records a foreign non-zero fee issue without guessing a conversion", () => {
     const positions = replayPositions([
       trade({

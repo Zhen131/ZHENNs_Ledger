@@ -89,6 +89,53 @@ describe("validateLedgerData", () => {
     }
   });
 
+  it("accepts a valid same-asset fee timeline and rejects fee-driven overselling", () => {
+    const input = createInitialLedgerData();
+    input.trades = [
+      {
+        id: "asset-fee-buy",
+        occurredAt: "2026-07-01",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "10",
+        price: "10",
+        totalValue: "100",
+        currency: "USDT",
+        fee: "1",
+        feeCurrency: "BTC",
+        rawText: "Fictional BTC buy with a BTC fee.",
+        createdAt: "2026-07-01T00:00:00Z",
+        updatedAt: "2026-07-01T00:00:00Z",
+      },
+      {
+        id: "asset-fee-sell",
+        occurredAt: "2026-07-02",
+        timePrecision: "day",
+        type: "sell",
+        assetSymbol: "BTC",
+        quantity: "8.5",
+        price: "20",
+        totalValue: "170",
+        currency: "USDT",
+        fee: "0.5",
+        feeCurrency: "BTC",
+        rawText: "Fictional BTC sell with a BTC fee.",
+        createdAt: "2026-07-02T00:00:00Z",
+        updatedAt: "2026-07-02T00:00:00Z",
+      },
+    ];
+
+    expect(validateLedgerData(input).ok).toBe(true);
+
+    input.trades[1] = { ...input.trades[1], quantity: "8.6", totalValue: "172" };
+    expectError(
+      input,
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_TRADE_TIMELINE,
+      "trades",
+    );
+  });
+
   it("rejects non-object roots and unsupported schema versions", () => {
     expectError(
       "invalid",

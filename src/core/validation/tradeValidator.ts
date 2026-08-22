@@ -8,6 +8,7 @@ import type {
 } from "@/core/models";
 import {
   add,
+  isEqual,
   isGreaterThan,
   isNegative,
   isPositive,
@@ -42,6 +43,8 @@ export const TRADE_VALIDATION_ERROR_CODES = {
   INVALID_DECIMAL: "INVALID_DECIMAL",
   VALUE_MUST_BE_POSITIVE: "VALUE_MUST_BE_POSITIVE",
   FEE_MUST_BE_NON_NEGATIVE: "FEE_MUST_BE_NON_NEGATIVE",
+  ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY:
+    "ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY",
   TOTAL_VALUE_MISMATCH: "TOTAL_VALUE_MISMATCH",
   INSUFFICIENT_HOLDINGS: "INSUFFICIENT_HOLDINGS",
   CURRENCY_MISMATCH: "CURRENCY_MISMATCH",
@@ -161,6 +164,24 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     );
   }
 
+  if (
+    type === "buy" &&
+    assetSymbol !== undefined &&
+    quantity !== undefined &&
+    fee !== undefined &&
+    !isZero(fee) &&
+    feeCurrency === assetSymbol &&
+    (isGreaterThan(fee, quantity) || isEqual(fee, quantity))
+  ) {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY,
+        "fee",
+        "A buy fee paid in the traded asset must be less than quantity",
+      ),
+    );
+  }
+
   if (assetSymbol !== undefined && currency !== undefined) {
     validateCurrencyConsistency(
       assetSymbol,
@@ -245,6 +266,8 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
         assetSymbol,
         quantity,
         currency,
+        fee: fee ?? "0",
+        feeCurrency: feeCurrency ?? currency,
       },
       context.priorTrades,
       errors,
@@ -559,7 +582,13 @@ function validateCurrencyConsistency(
 
 type HoldingsTimelineEntry = Pick<
   Trade,
-  "occurredAt" | "type" | "assetSymbol" | "quantity" | "currency"
+  | "occurredAt"
+  | "type"
+  | "assetSymbol"
+  | "quantity"
+  | "currency"
+  | "fee"
+  | "feeCurrency"
 > & {
   originalIndex: number;
 };
@@ -584,6 +613,8 @@ function validateHoldingsTimeline(
       assetSymbol: trade.assetSymbol,
       quantity: trade.quantity,
       currency: trade.currency,
+      fee: trade.fee,
+      feeCurrency: trade.feeCurrency,
       originalIndex,
     }))
     .filter((trade) => trade.assetSymbol === candidate.assetSymbol);
@@ -605,12 +636,22 @@ function validateHoldingsTimeline(
   let availableQuantity: DecimalString = "0";
 
   for (const trade of timeline) {
+    const feeUsesTradeAsset =
+      !isZero(trade.fee) && trade.feeCurrency === trade.assetSymbol;
     if (trade.type === "buy") {
-      availableQuantity = add(availableQuantity, trade.quantity);
+      availableQuantity = add(
+        availableQuantity,
+        feeUsesTradeAsset
+          ? subtract(trade.quantity, trade.fee)
+          : trade.quantity,
+      );
       continue;
     }
 
-    if (isGreaterThan(trade.quantity, availableQuantity)) {
+    const consumedQuantity = feeUsesTradeAsset
+      ? add(trade.quantity, trade.fee)
+      : trade.quantity;
+    if (isGreaterThan(consumedQuantity, availableQuantity)) {
       errors.push(
         createError(
           TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
@@ -621,7 +662,7 @@ function validateHoldingsTimeline(
       return;
     }
 
-    availableQuantity = subtract(availableQuantity, trade.quantity);
+    availableQuantity = subtract(availableQuantity, consumedQuantity);
   }
 }
 

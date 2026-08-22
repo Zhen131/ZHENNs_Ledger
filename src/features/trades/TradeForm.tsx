@@ -124,6 +124,8 @@ function formatValidationError(error: TradeValidationError): string {
       return `${label}必须大于 0`;
     case "FEE_MUST_BE_NON_NEGATIVE":
       return "实际手续费不能小于 0";
+    case "ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY":
+      return "以交易资产支付买入手续费时，手续费必须小于买入数量";
     case "TOTAL_VALUE_MISMATCH":
       return "成交金额与数量 × 成交均价不一致";
     case "INSUFFICIENT_HOLDINGS":
@@ -564,7 +566,7 @@ export function TradeForm({
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
           onChange={(event) => updateField("quantity", event.target.value)}
-          placeholder="0.24265306"
+          placeholder="0.12345678"
           value={form.quantity}
         />
         {errors.quantity ? (

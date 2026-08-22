@@ -560,6 +560,86 @@ test("rejects invalid and negative fees", () => {
   );
 });
 
+test("requires a same-asset buy fee to be smaller than quantity", () => {
+  for (const fee of ["1", "1.1"]) {
+    expectError(
+      validateTradeDraft(
+        {
+          ...createSimpleDraft("buy", "BTC", "1"),
+          fee,
+          feeCurrency: "BTC",
+        },
+        strictContext,
+      ),
+      TRADE_VALIDATION_ERROR_CODES.ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY,
+      "fee",
+    );
+  }
+
+  expect(
+    validateTradeDraft(
+      {
+        ...createSimpleDraft("buy", "BTC", "1"),
+        fee: "0.1",
+        feeCurrency: "BTC",
+      },
+      strictContext,
+    ).ok,
+  ).toBe(true);
+});
+
+test("uses net buy quantity in the complete holdings timeline", () => {
+  const priorBuy = {
+    ...createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+    fee: "1",
+    feeCurrency: "ADA",
+  };
+
+  expect(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "9"), {
+      ...context,
+      priorTrades: [priorBuy],
+    }).ok,
+  ).toBe(true);
+  expectError(
+    validateTradeDraft(createSimpleDraft("sell", "ADA", "9.1"), {
+      ...context,
+      priorTrades: [priorBuy],
+    }),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
+test("requires holdings for sell quantity plus its same-asset fee", () => {
+  const priorTrades = [
+    createSimpleTrade("buy-ada", "buy", "ADA", "10", "2026-04-01"),
+  ];
+
+  expect(
+    validateTradeDraft(
+      {
+        ...createSimpleDraft("sell", "ADA", "9.5", "2026-04-02"),
+        fee: "0.5",
+        feeCurrency: "ADA",
+      },
+      { ...context, priorTrades },
+    ).ok,
+  ).toBe(true);
+  expectError(
+    validateTradeDraft(
+      {
+        ...createSimpleDraft("sell", "ADA", "9.6", "2026-04-02"),
+        fee: "0.5",
+        feeCurrency: "ADA",
+      },
+      { ...context, priorTrades },
+    ),
+    TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+    "quantity",
+  );
+});
+
 test("returns multiple field errors in one result", () => {
   const result = validateTradeDraft(
     {
@@ -605,7 +685,7 @@ function createSimpleDraft(
   type: "buy" | "sell",
   assetSymbol: string,
   quantity: string,
-  occurredAt = validDraft.occurredAt,
+  occurredAt = "2026-09-01",
 ): TradeDraft {
   return {
     ...validDraft,

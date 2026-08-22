@@ -287,6 +287,26 @@ describe("TradeForm", () => {
     );
   });
 
+  it("explains when a same-asset buy fee would consume the whole purchase", async () => {
+    const onTradeCreated = vi.fn(() => "applied" as const);
+    render(<ControlledTradeForm onTradeCreated={onTradeCreated} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("数量"), "1");
+    await user.type(screen.getByLabelText("成交均价"), "10");
+    await user.clear(screen.getByLabelText("实际手续费"));
+    await user.type(screen.getByLabelText("实际手续费"), "1");
+    await user.selectOptions(screen.getByLabelText("手续费币种"), "BTC");
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(
+      screen.getByText(
+        "以交易资产支付买入手续费时，手续费必须小于买入数量",
+      ),
+    ).not.toBeNull();
+    expect(onTradeCreated).not.toHaveBeenCalled();
+  });
+
   it("keeps a negative trade at zero mutation until keyboard-safe confirmation", async () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.cashEvents = [cashDeposit("small-cover", "5")];

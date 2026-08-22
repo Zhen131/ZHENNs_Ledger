@@ -3,6 +3,7 @@ import { add, isZero, subtract } from "@/core/shared";
 
 export type TradeCashImpactInput = {
   type: TradeType;
+  assetSymbol: string;
   totalValue: DecimalString;
   currency: string;
   fee: DecimalString;
@@ -26,7 +27,14 @@ export type TradeCashImpactResult =
 export function calculateTradeCashImpact(
   trade: TradeCashImpactInput,
 ): TradeCashImpactResult {
-  if (!isZero(trade.fee) && trade.feeCurrency !== trade.currency) {
+  const feeUsesTradeAsset =
+    !isZero(trade.fee) && trade.feeCurrency === trade.assetSymbol;
+
+  if (
+    !isZero(trade.fee) &&
+    trade.feeCurrency !== trade.currency &&
+    !feeUsesTradeAsset
+  ) {
     return {
       ok: false,
       reason: "UNSUPPORTED_FEE_CURRENCY",
@@ -38,9 +46,11 @@ export function calculateTradeCashImpact(
   return {
     ok: true,
     amount:
-      trade.type === "buy"
-        ? add(trade.totalValue, trade.fee)
-        : subtract(trade.totalValue, trade.fee),
+      feeUsesTradeAsset
+        ? trade.totalValue
+        : trade.type === "buy"
+          ? add(trade.totalValue, trade.fee)
+          : subtract(trade.totalValue, trade.fee),
     currency: trade.currency,
     kind: trade.type === "buy" ? "buy-outflow" : "sell-proceeds",
   };

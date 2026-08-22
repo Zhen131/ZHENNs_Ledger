@@ -30,7 +30,7 @@ test("subtracts decimal strings exactly", () => {
 });
 
 test("multiplies trade quantity and price with decimal arithmetic", () => {
-  expect(multiply("0.24265306", "67121.7")).toBe("10.999904196");
+  expect(multiply("1.25", "8")).toBe("10");
 });
 
 test("divides cost basis by quantity for average cost", () => {

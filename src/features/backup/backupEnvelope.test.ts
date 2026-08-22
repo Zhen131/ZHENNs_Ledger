@@ -52,6 +52,36 @@ describe("BackupEnvelopeV3", () => {
     expect(parseBackupJson(serialized)).toEqual(created);
   });
 
+  it("round-trips same-asset fees through the unchanged V3 envelope", () => {
+    const ledger = createInitialLedgerData();
+    ledger.trades = [
+      {
+        id: "fictional-asset-fee-buy",
+        occurredAt: "2026-07-01",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "10",
+        price: "10",
+        totalValue: "100",
+        currency: "USDT",
+        fee: "1",
+        feeCurrency: "BTC",
+        rawText: "Fictional V3 same-asset fee example.",
+        createdAt: "2026-07-01T00:00:00Z",
+        updatedAt: "2026-07-01T00:00:00Z",
+      },
+    ];
+
+    const created = createBackupEnvelope(ledger, metadata, "2026-07-23");
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const serialized = serializeBackupEnvelope(created.value);
+    expect(parseBackupJson(serialized, "2026-07-23")).toEqual(created);
+    expect(JSON.parse(serialized).ledgerData.schemaVersion).toBe(3);
+  });
+
   it("exports only LedgerData facts and strips chart or session-derived fields", () => {
     const ledger = createInitialLedgerData();
     const result = createBackupEnvelope(

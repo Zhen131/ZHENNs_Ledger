@@ -9,6 +9,7 @@ import {
   divide,
   isEqual,
   isGreaterThan,
+  isPositive,
   isZero,
   multiply,
   subtract,
@@ -61,7 +62,15 @@ export function applyTradeToReplay(
   }
 
   if (trade.type === "buy") {
-    position.quantity = add(position.quantity, trade.quantity);
+    const acquiredQuantity = usesTradeAssetFee(trade)
+      ? subtract(trade.quantity, trade.fee)
+      : trade.quantity;
+    if (!isPositive(acquiredQuantity)) {
+      throw new Error(
+        `A ${trade.assetSymbol} buy fee must be less than the bought quantity`,
+      );
+    }
+    position.quantity = add(position.quantity, acquiredQuantity);
     position.costBasis = add(
       position.costBasis,
       cashImpact.ok ? cashImpact.amount : trade.totalValue,
@@ -69,24 +78,27 @@ export function applyTradeToReplay(
     return;
   }
 
-  if (isGreaterThan(trade.quantity, position.quantity)) {
+  const consumedQuantity = usesTradeAssetFee(trade)
+    ? add(trade.quantity, trade.fee)
+    : trade.quantity;
+  if (isGreaterThan(consumedQuantity, position.quantity)) {
     throw new Error(`Cannot sell more ${trade.assetSymbol} than current position`);
   }
   if (isZero(position.quantity)) {
     throw new Error(`Cannot sell ${trade.assetSymbol} with zero current position`);
   }
 
-  const isFullSell = isEqual(trade.quantity, position.quantity);
+  const isFullSell = isEqual(consumedQuantity, position.quantity);
   const soldCostBasis = isFullSell
     ? position.costBasis
     : multiply(
-        trade.quantity,
+        consumedQuantity,
         divide(position.costBasis, position.quantity),
       );
   const netProceeds = cashImpact.ok ? cashImpact.amount : trade.totalValue;
   position.quantity = isFullSell
     ? "0"
-    : subtract(position.quantity, trade.quantity);
+    : subtract(position.quantity, consumedQuantity);
   position.costBasis = isFullSell
     ? "0"
     : subtract(position.costBasis, soldCostBasis);
@@ -94,6 +106,12 @@ export function applyTradeToReplay(
     position.realizedPnl,
     subtract(netProceeds, soldCostBasis),
   );
+}
+
+function usesTradeAssetFee(
+  trade: Pick<Trade, "assetSymbol" | "fee" | "feeCurrency">,
+): boolean {
+  return !isZero(trade.fee) && trade.feeCurrency === trade.assetSymbol;
 }
 
 export function getReplayPositions(

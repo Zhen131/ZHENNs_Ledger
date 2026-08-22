@@ -132,6 +132,46 @@ describe("PnL summary", () => {
     ]);
   });
 
+  it("keeps same-asset fees reliable across cash, cost, and realized PnL", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      trade({
+        id: "asset-fee-buy",
+        occurredAt: "2026-08-01",
+        type: "buy",
+        quantity: "10",
+        price: "10",
+        totalValue: "100",
+        fee: "1",
+        feeCurrency: "BTC",
+      }),
+      trade({
+        id: "asset-fee-sell",
+        occurredAt: "2026-08-02",
+        type: "sell",
+        quantity: "4",
+        price: "15",
+        totalValue: "60",
+        fee: "0.5",
+        feeCurrency: "BTC",
+      }),
+    ];
+
+    const summary = buildLedgerPnlSummary(ledgerData, {
+      todayKey: TODAY,
+      mode: "auto",
+    });
+
+    expect(summary.buyOutflow).toEqual({ value: "100", missingReasons: [] });
+    expect(summary.sellProceeds).toEqual({ value: "60", missingReasons: [] });
+    expect(summary.remainingCostBasis).toEqual({
+      value: "50",
+      missingReasons: [],
+    });
+    expect(summary.realizedPnl).toEqual({ value: "10", missingReasons: [] });
+    expect(summary.feeAccountingIssues).toEqual([]);
+  });
+
   it("does not aggregate an injected unsupported currency as if it were USDT", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.assets[1] = {
