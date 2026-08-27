@@ -1,5 +1,6 @@
 import type { Position } from "@/core/models";
 import { compare, isZero } from "@/core/shared";
+import { LedgerNumber } from "@/ui";
 import type { Ref } from "react";
 
 export function getTopMarketValuePositions(
@@ -70,8 +71,8 @@ export function HoldingsOverview({
               单一现金池
             </span>
           </span>
-          <span className="ledger-numeric max-w-full break-all text-sm font-semibold">
-            {cashBalance} USDT
+          <span className="max-w-full break-all text-sm font-semibold">
+            <LedgerNumber kind="money" value={cashBalance} /> USDT
           </span>
         </li>
         {topPositions.map((position) => (
@@ -82,11 +83,18 @@ export function HoldingsOverview({
             <span>
               <strong>{position.assetSymbol}</strong>
               <span className="ml-2 text-xs text-[var(--ledger-muted)]">
-                {position.quantity}
+                <LedgerNumber kind="quantity" value={position.quantity} />
               </span>
             </span>
-            <span className="ledger-numeric max-w-full break-all text-sm font-semibold">
-              {position.marketValue} {position.currency}
+            <span className="max-w-full break-all text-sm font-semibold">
+              {position.marketValue === undefined ? (
+                "--"
+              ) : (
+                <>
+                  <LedgerNumber kind="money" value={position.marketValue} />{" "}
+                  {position.currency}
+                </>
+              )}
             </span>
           </li>
         ))}

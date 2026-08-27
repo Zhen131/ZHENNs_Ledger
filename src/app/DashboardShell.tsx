@@ -57,6 +57,7 @@ import { MarketDataControls } from "@/features/market-data/ui";
 import { LocalAssetManager } from "@/features/assets/ui";
 import {
   ConfirmDeleteButton,
+  LedgerNumber,
   type FileStatusTone,
   type ConfirmDeleteOutcome,
 } from "@/ui";
@@ -141,9 +142,13 @@ function SummaryMetricCard({
     <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
       <h3 className="text-sm font-medium text-slate-600">{label}</h3>
       <p className="mt-2 text-xl font-semibold text-slate-950">
-        {metric.value === undefined
-          ? "不可完整计算"
-          : `${metric.value} ${valuationLabel}`}
+        {metric.value === undefined ? (
+          "不可完整计算"
+        ) : (
+          <>
+            <LedgerNumber kind="money" value={metric.value} /> {valuationLabel}
+          </>
+        )}
       </p>
       {metric.missingReasons.length > 0 ? (
         <ul className="mt-2 grid gap-1 text-xs leading-5 text-amber-800">
@@ -804,8 +809,10 @@ export function DashboardShell({
                   >
                     <span>
                       未来交易：{trade.type === "buy" ? "买入" : "卖出"} ·{" "}
-                      {trade.assetSymbol} · 数量 {trade.quantity} · 价格{" "}
-                      {trade.price} {trade.currency} · {trade.occurredAt} · ID{" "}
+                      {trade.assetSymbol} · 数量{" "}
+                      <LedgerNumber kind="quantity" value={trade.quantity} /> · 价格{" "}
+                      <LedgerNumber kind="money" value={trade.price} />{" "}
+                      {trade.currency} · {trade.occurredAt} · ID{" "}
                       {shortLedgerId(trade.id)}
                     </span>
                     <ConfirmDeleteButton
@@ -822,7 +829,8 @@ export function DashboardShell({
                     key={snapshot.id}
                   >
                     <span>
-                      未来价格：{snapshot.assetSymbol} · {snapshot.price}{" "}
+                      未来价格：{snapshot.assetSymbol} ·{" "}
+                      <LedgerNumber kind="money" value={snapshot.price} />{" "}
                       {snapshot.currency} · 来源{" "}
                       {snapshot.source === "api" ? "Binance API" : "手动"} ·{" "}
                       {snapshot.recordedAt} · ID {shortLedgerId(snapshot.id)}
@@ -844,7 +852,11 @@ export function DashboardShell({
                   >
                     <span>
                       未来资产转移：{assetTransfer.assetSymbol} · 数量{" "}
-                      {assetTransfer.quantity} · {assetTransfer.occurredAt} · ID{" "}
+                      <LedgerNumber
+                        kind="quantity"
+                        value={assetTransfer.quantity}
+                      />{" "}
+                      · {assetTransfer.occurredAt} · ID{" "}
                       {shortLedgerId(assetTransfer.id)}
                     </span>
                     <ConfirmDeleteButton
@@ -983,39 +995,90 @@ export function DashboardShell({
                               ) : null}
                             </td>
                             <td className="py-3 text-slate-600">
-                              {position.quantity}
+                              <LedgerNumber
+                                kind="quantity"
+                                value={position.quantity}
+                              />
                             </td>
                             <td className="py-3 text-slate-600">
-                              {feeAccountingReliable
-                                ? `${position.averageCost} ${position.currency}`
-                                : "不可可靠计算"}
+                              {feeAccountingReliable ? (
+                                <>
+                                  <LedgerNumber
+                                    kind="money"
+                                    value={position.averageCost}
+                                  />{" "}
+                                  {position.currency}
+                                </>
+                              ) : (
+                                "不可可靠计算"
+                              )}
                             </td>
                             <td className="py-3 text-slate-600">
-                              {feeAccountingReliable
-                                ? `${position.costBasis} ${position.currency}`
-                                : "不可可靠计算"}
+                              {feeAccountingReliable ? (
+                                <>
+                                  <LedgerNumber
+                                    kind="money"
+                                    value={position.costBasis}
+                                  />{" "}
+                                  {position.currency}
+                                </>
+                              ) : (
+                                "不可可靠计算"
+                              )}
                             </td>
                             <td className="py-3 text-slate-600">
-                              {feeAccountingReliable
-                                ? `${position.realizedPnl} ${position.currency}`
-                                : "不可可靠计算"}
+                              {feeAccountingReliable ? (
+                                <>
+                                  <LedgerNumber
+                                    kind="money"
+                                    value={position.realizedPnl}
+                                  />{" "}
+                                  {position.currency}
+                                </>
+                              ) : (
+                                "不可可靠计算"
+                              )}
                             </td>
                             <td className="py-3 text-slate-500">
-                              {position.latestPrice === undefined
-                                ? "未输入价格"
-                                : `${position.latestPrice} ${position.currency}`}
+                              {position.latestPrice === undefined ? (
+                                "未输入价格"
+                              ) : (
+                                <>
+                                  <LedgerNumber
+                                    kind="money"
+                                    value={position.latestPrice}
+                                  />{" "}
+                                  {position.currency}
+                                </>
+                              )}
                             </td>
                             <td className="py-3 text-slate-500">
-                              {position.marketValue === undefined
-                                ? "--"
-                                : `${position.marketValue} ${position.currency}`}
+                              {position.marketValue === undefined ? (
+                                "--"
+                              ) : (
+                                <>
+                                  <LedgerNumber
+                                    kind="money"
+                                    value={position.marketValue}
+                                  />{" "}
+                                  {position.currency}
+                                </>
+                              )}
                             </td>
                             <td className="py-3 text-slate-500">
                               {!feeAccountingReliable
                                 ? "不可可靠计算"
                                 : position.unrealizedPnl === undefined
                                   ? "缺少合法价格"
-                                : `${position.unrealizedPnl} ${position.currency}`}
+                                  : (
+                                      <>
+                                        <LedgerNumber
+                                          kind="money"
+                                          value={position.unrealizedPnl}
+                                        />{" "}
+                                        {position.currency}
+                                      </>
+                                    )}
                             </td>
                           </tr>
                           );

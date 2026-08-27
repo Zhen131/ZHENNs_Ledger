@@ -14,7 +14,7 @@ import {
   type LedgerTimeSnapshot,
 } from "@/core/shared";
 import { selectPriceAsOf } from "@/features/portfolio";
-import { ConfirmDeleteButton } from "@/ui";
+import { ConfirmDeleteButton, LedgerNumber } from "@/ui";
 import {
   ASSET_ERROR_CODES,
   createLocalAsset,
@@ -241,13 +241,12 @@ export function LocalAssetManager({
               <div className="min-w-0 text-sm">
                 <p className="text-xs font-medium text-slate-500">当前价格来源</p>
                 <p className="break-words">
-                  {selectedPrice
-                    ? `${selectedPrice.snapshot.price} USDT · ${
-                        selectedPrice.actualSource === "manual"
-                          ? "手动"
-                          : "Binance"
-                      }`
-                    : "无合法价格"}
+                  {selectedPrice ? (
+                    <>
+                      <LedgerNumber kind="money" value={selectedPrice.snapshot.price} />{" "}
+                      USDT · {selectedPrice.actualSource === "manual" ? "手动" : "Binance"}
+                    </>
+                  ) : "无合法价格"}
                 </p>
               </div>
               <div className="grid gap-2 md:justify-items-end">

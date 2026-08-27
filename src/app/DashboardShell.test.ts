@@ -132,10 +132,10 @@ describe("TradeTable", () => {
     expect(html).toContain(buyTrade.assetSymbol);
     expect(html).toContain(buyTrade.quantity);
     expect(html).toContain(buyTrade.price);
-    expect(html).toContain(
-      `${buyTrade.totalValue} ${buyTrade.currency}`,
-    );
-    expect(html).toContain(`${buyTrade.fee} ${buyTrade.feeCurrency}`);
+    expect(html).toContain(`title="${buyTrade.totalValue}"`);
+    expect(html).toContain(`title="${buyTrade.fee}"`);
+    expect(html).toContain(buyTrade.currency);
+    expect(html).toContain(buyTrade.feeCurrency);
     expect(html).toContain("不可可靠计算：XCU-BUY 手续费未换算");
     expect(html).not.toContain(
       "暂无交易。添加交易后，这里会自动显示。",
@@ -206,15 +206,17 @@ describe("DashboardShell ledger views", () => {
     );
     expect(html).toContain("SOL");
     expect(html).toContain("2.3456789");
-    expect(html).toContain("100 USD");
-    expect(html).toContain("200 USD");
-    expect(html).toContain("0 USD");
-    expect(html).toContain("120 USD");
-    expect(html).toContain("240 USD");
-    expect(html).toContain("40 USD");
+    for (const raw of ["100", "200", "0", "120", "240", "40"]) {
+      expect(html).toContain(`title="${raw}"`);
+    }
+    expect(html).toContain(">100.00</span> USD");
+    expect(html).toContain(">200.00</span> USD");
+    expect(html).toContain(">120.00</span> USD");
+    expect(html).toContain(">240.00</span> USD");
+    expect(html).toContain(">40.00</span> USD");
     expect(html).toContain("DOGE");
-    expect(html).toContain("0.1 USD");
-    expect(html).toContain("1 USD");
+    expect(html).toContain(">0.10</span> USD");
+    expect(html).toContain(">1.00</span> USD");
     expect(html).toContain("未输入价格");
     expect(html.match(/>--</g)).toHaveLength(1);
     expect(html).toContain("缺少合法价格");

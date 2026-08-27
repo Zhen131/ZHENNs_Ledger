@@ -851,12 +851,12 @@ describe("DashboardShell trade interactions", () => {
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
     expect(within(tradeSection).getByText("买入")).not.toBeNull();
-    expect(within(tradeSection).getAllByText("70 USDT")).not.toHaveLength(0);
+    expect(within(tradeSection).getAllByTitle("70")).not.toHaveLength(0);
 
     const positionSection = getSection("资产汇总");
     expect(within(positionSection).getByText("BTC")).not.toBeNull();
     expect(within(positionSection).getByText("0.001")).not.toBeNull();
-    expect(within(positionSection).getByText("70000 USDT")).not.toBeNull();
+    expect(within(positionSection).getByTitle("70000")).not.toBeNull();
   });
 
   it("creates, versions, and deactivates fee rules only after authenticated persistence", async () => {
@@ -955,7 +955,7 @@ describe("DashboardShell trade interactions", () => {
       "Binance",
     );
 
-    expect(within(tradeSection).getByText(/候选：6.5 USDT/)).not.toBeNull();
+    expect(within(tradeSection).getByTitle("6.5")).not.toBeNull();
     expect(
       (within(tradeSection).getByLabelText("实际手续费") as HTMLInputElement)
         .value,
@@ -1144,9 +1144,9 @@ describe("DashboardShell trade interactions", () => {
     expect(await screen.findByText("价格已认证保存")).not.toBeNull();
 
     const positionSection = getSection("资产汇总");
-    expect(within(positionSection).getByText("80000 USDT")).not.toBeNull();
-    expect(within(positionSection).getByText("80 USDT")).not.toBeNull();
-    expect(within(positionSection).getByText("10 USDT")).not.toBeNull();
+    expect(within(positionSection).getByTitle("80000")).not.toBeNull();
+    expect(within(positionSection).getByTitle("80")).not.toBeNull();
+    expect(within(positionSection).getByTitle("10")).not.toBeNull();
   });
 
   it("hydrates saved LedgerData without overwriting it with initial state", async () => {
@@ -1234,12 +1234,12 @@ describe("DashboardShell trade interactions", () => {
 
     const tradeSection = getSection("交易列表");
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
-    expect(within(tradeSection).getAllByText("70 USDT")).not.toHaveLength(0);
+    expect(within(tradeSection).getAllByTitle("70")).not.toHaveLength(0);
 
     const positionSection = getSection("资产汇总");
-    expect(within(positionSection).getByText("80000 USDT")).not.toBeNull();
-    expect(within(positionSection).getByText("80 USDT")).not.toBeNull();
-    expect(within(positionSection).getByText("10 USDT")).not.toBeNull();
+    expect(within(positionSection).getByTitle("80000")).not.toBeNull();
+    expect(within(positionSection).getByTitle("80")).not.toBeNull();
+    expect(within(positionSection).getByTitle("10")).not.toBeNull();
 
     const secondUser = userEvent.setup();
     const persistedDelete = within(tradeSection).getByRole("button", {
@@ -1796,12 +1796,20 @@ describe("DashboardShell data management", () => {
       expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
       expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
       expect(getSection("交易列表")).not.toBeNull();
-      expect(
-        screen.getByText(/几何分配 1 项；净总资产 79999 USDT/),
-      ).not.toBeNull();
-      expect(
-        screen.getByText("现金缺口 1 USDT；负现金不绘制为正扇区。"),
-      ).not.toBeNull();
+      const totalMarketValue = screen
+        .getAllByTitle("79999")
+        .find((element) =>
+          element.closest("p")?.textContent?.includes("几何分配"),
+        );
+      expect(totalMarketValue?.closest("p")?.textContent).toContain(
+        "几何分配 1 项；净总资产 79,999.00 USDT",
+      );
+      const deficit = screen
+        .getAllByTitle("1")
+        .find((element) => element.closest("p")?.textContent?.includes("现金缺口"));
+      expect(deficit?.closest("p")?.textContent).toBe(
+        "现金缺口 1.00 USDT；负现金不绘制为正扇区。",
+      );
     });
     expect(
       screen.getByRole("button", { name: "手动价格" }).getAttribute(

@@ -1,5 +1,6 @@
 import type { EChartsCoreOption } from "echarts/core";
 
+import { formatMoney, formatPercent } from "@/ui";
 import type {
   HoldingAllocationSlice,
   HoldingHistoryPoint,
@@ -64,11 +65,10 @@ export function buildAllocationChartOption(
             : datum.source === "binance"
               ? "Binance"
               : "手动价格";
-        const ratio = toFiniteChartNumber(datum.ratio) * 100;
         return [
           `<strong>${datum.name}</strong>`,
-          `${datum.marketValue} ${valuationLabel}`,
-          `${ratio.toFixed(2)}%`,
+          `${formatMoney(datum.marketValue)} ${valuationLabel}`,
+          formatPercent(datum.ratio),
           `${source} · 截至 ${datum.asOf}`,
         ].join("<br/>");
       },
@@ -109,16 +109,16 @@ export function buildHoldingHistoryChartOption(
         const marketValue =
           point.totalMarketValue === undefined
             ? `缺价：${point.missingPriceAssets.join("、")}`
-            : `${point.totalMarketValue} ${point.valuation.label}`;
+            : `${formatMoney(point.totalMarketValue)} ${point.valuation.label}`;
         return [
           `<strong>${date}</strong>`,
           `剩余含费成本：${
             point.totalCostBasis === undefined
               ? `手续费币种问题：${point.unreliableFeeAssets.join("、")}`
-              : `${point.totalCostBasis} ${point.valuation.label}`
+              : `${formatMoney(point.totalCostBasis)} ${point.valuation.label}`
           }`,
           `总资产：${marketValue}`,
-          `USDT 现金：${point.cashBalance} ${point.valuation.label}`,
+          `USDT 现金：${formatMoney(point.cashBalance)} ${point.valuation.label}`,
         ].join("<br/>");
       },
     },

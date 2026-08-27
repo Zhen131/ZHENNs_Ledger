@@ -3,6 +3,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 
 import type { CashMutationProjection } from "./cashProjection";
+import { LedgerNumber } from "@/ui";
 
 export function NegativeCashConfirmationDialog({
   title,
@@ -60,15 +61,15 @@ export function NegativeCashConfirmationDialog({
         </p>
         <dl className="mt-4 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 rounded-xl bg-red-50 p-4 text-sm">
           <dt>当前余额</dt>
-          <dd>{projection.currentBalance} USDT</dd>
+          <dd><LedgerNumber kind="money" value={projection.currentBalance} /> USDT</dd>
           <dt>本次变化</dt>
-          <dd>{projection.delta} USDT</dd>
+          <dd><LedgerNumber kind="money" value={projection.delta} /> USDT</dd>
           <dt className="font-semibold">保存后余额</dt>
           <dd className="font-semibold text-red-800">
-            {projection.nextBalance} USDT
+            <LedgerNumber kind="money" value={projection.nextBalance} /> USDT
           </dd>
           <dt>现金缺口</dt>
-          <dd>{projection.deficit} USDT</dd>
+          <dd><LedgerNumber kind="money" value={projection.deficit} /> USDT</dd>
         </dl>
         <p className="mt-3 text-xs leading-5 text-slate-600">
           确认只对当前账本版本有效；若期间发生其他保存，本次确认会失效且不会写入。

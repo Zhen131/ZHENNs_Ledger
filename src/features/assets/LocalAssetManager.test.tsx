@@ -101,7 +101,8 @@ describe("LocalAssetManager", () => {
       name: "删除本地资产 SOL",
     });
 
-    expect(screen.getByText("150 USDT · 手动")).not.toBeNull();
+    expect(screen.getByTitle("150").textContent).toBe("150.00");
+    expect(screen.getByText(/USDT · 手动/)).not.toBeNull();
     await user.click(button);
     await user.click(button);
 

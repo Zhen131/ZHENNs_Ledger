@@ -117,6 +117,7 @@ describe("holdings workspace views", () => {
     expect(screen.getAllByText("0.4")).toHaveLength(1);
     expect(screen.getAllByText("0.6")).toHaveLength(1);
     expect(screen.getAllByText("0").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByTitle("9").textContent).toBe("9.00");
   });
 
   it("closes details when the backdrop is pressed", () => {

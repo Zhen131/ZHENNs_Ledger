@@ -111,7 +111,7 @@ function expectPositionDecimal(
   const actual = getPositionCellValue(assetSymbol, columnIndex).replace(
     /\s+(?:USD|USDT)$/,
     "",
-  );
+  ).replaceAll(",", "");
 
   expect(isWithinTolerance(actual, expected, "0.0000000001")).toBe(true);
 }
@@ -158,7 +158,7 @@ async function fillTradeForm(input: {
   }
 
   if (input.expectedCashImpact) {
-    expect(screen.getByText(input.expectedCashImpact)).not.toBeNull();
+    expect(screen.getAllByTitle(input.expectedCashImpact)).not.toHaveLength(0);
   }
 
   await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -221,7 +221,7 @@ describe("DashboardShell golden UI acceptance", () => {
       totalValue: "6500",
       occurredAt: "2026-07-20",
       fee: "5",
-      expectedCashImpact: "本次现金变化：-6505 USDT",
+      expectedCashImpact: "-6505",
     });
     await waitFor(() => {
       expect(screen.getByText("交易已认证保存")).not.toBeNull();
@@ -234,7 +234,7 @@ describe("DashboardShell golden UI acceptance", () => {
       totalValue: "2800",
       occurredAt: "2026-07-21",
       fee: "3",
-      expectedCashImpact: "本次现金变化：2797 USDT",
+      expectedCashImpact: "2797",
     });
     await waitFor(() => {
       expect(screen.getByText("交易已认证保存")).not.toBeNull();
@@ -259,13 +259,13 @@ describe("DashboardShell golden UI acceptance", () => {
 
     const summary = getSection("净盈亏摘要");
     for (const value of ["6505", "2797", "3903", "195", "897"]) {
-      expect(within(summary).getByText(`${value} USDT`)).not.toBeNull();
+      expect(within(summary).getByTitle(value)).not.toBeNull();
     }
     const trades = getSection("交易列表");
-    expect(within(trades).getByText("6505 USDT")).not.toBeNull();
-    expect(within(trades).getByText("2797 USDT")).not.toBeNull();
-    expect(within(trades).getByText("5 USDT")).not.toBeNull();
-    expect(within(trades).getByText("3 USDT")).not.toBeNull();
+    expect(within(trades).getAllByTitle("6505")).not.toHaveLength(0);
+    expect(within(trades).getAllByTitle("2797")).not.toHaveLength(0);
+    expect(within(trades).getAllByTitle("5")).not.toHaveLength(0);
+    expect(within(trades).getAllByTitle("3")).not.toHaveLength(0);
   });
 
   it("withholds fee-sensitive UI values for an old foreign-fee fact without hiding market value or heatmap counts", async () => {
@@ -315,7 +315,7 @@ describe("DashboardShell golden UI acceptance", () => {
     ).not.toBeNull();
     const positionRow = getPositionRow("BTC");
     expect(within(positionRow).getAllByText("不可可靠计算")).toHaveLength(4);
-    expect(within(positionRow).getAllByText("12 USDT")).toHaveLength(2);
+    expect(within(positionRow).getAllByTitle("12")).toHaveLength(2);
     expect(within(getSection("净盈亏摘要")).getAllByText("不可完整计算")).toHaveLength(4);
     expect(screen.getByText(/个成本点因异币手续费无法换算而断开/)).not.toBeNull();
     expect(screen.getByText(/共 365 个自然日、1 笔交易/)).not.toBeNull();
@@ -361,10 +361,12 @@ describe("DashboardShell golden UI acceptance", () => {
     expectPositionDecimal("BTC", 5, "15");
     expectPositionDecimal("BTC", 6, "30");
     expectPositionDecimal("BTC", 7, "10");
-    expect(screen.getByText(/几何分配 1 项；净总资产 -14 USDT/)).not.toBeNull();
-    expect(
-      screen.getByText("现金缺口 44 USDT；负现金不绘制为正扇区。"),
-    ).not.toBeNull();
+    expect(screen.getByTitle("-14").closest("p")?.textContent).toContain(
+      "几何分配 1 项；净总资产 -14.00 USDT",
+    );
+    expect(screen.getByTitle("44").closest("p")?.textContent).toBe(
+      "现金缺口 44.00 USDT；负现金不绘制为正扇区。",
+    );
     expect(screen.getByText("未估值资产：ADA、ETH。")).not.toBeNull();
     expect(screen.getByText(/共 365 个自然日、5 笔交易/)).not.toBeNull();
 

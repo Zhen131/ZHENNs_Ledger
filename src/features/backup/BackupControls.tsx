@@ -58,6 +58,7 @@ import {
   createBinanceMarketDataClient,
   type BinanceMarketDataClient,
 } from "@/platform/integrations";
+import { LedgerNumber } from "@/ui";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
 
@@ -1348,11 +1349,23 @@ function PreflightReportView({
         </div>
         <div>
           <dt className="text-slate-500">USDT 现金余额</dt>
-          <dd>{result.metadata?.cashBalance ?? "不可得"}</dd>
+          <dd>
+            {result.metadata?.cashBalance === undefined ? (
+              "不可得"
+            ) : (
+              <LedgerNumber kind="money" value={result.metadata.cashBalance} />
+            )}
+          </dd>
         </div>
         <div>
           <dt className="text-slate-500">USDT 现金缺口</dt>
-          <dd>{result.metadata?.cashDeficit ?? "不可得"}</dd>
+          <dd>
+            {result.metadata?.cashDeficit === undefined ? (
+              "不可得"
+            ) : (
+              <LedgerNumber kind="money" value={result.metadata.cashDeficit} />
+            )}
+          </dd>
         </div>
         <div>
           <dt className="text-slate-500">硬错误</dt>

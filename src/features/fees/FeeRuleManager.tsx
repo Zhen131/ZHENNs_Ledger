@@ -14,6 +14,7 @@ import {
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
+import { LedgerNumber } from "@/ui";
 
 type FeeRuleManagerProps = Readonly<{
   clock?: LedgerClock;
@@ -329,9 +330,15 @@ export function FeeRuleManager({
               {rule.name} · {rule.platform} + {rule.assetSymbol} · {rule.status}
             </p>
             <p className="mt-1 text-slate-600">
-              {rule.type === "fixed"
-                ? `固定 ${rule.amount} USDT`
-                : `成交金额 × ${rule.rate}`} · ID {rule.id}
+              {rule.type === "fixed" ? (
+                <>
+                  固定 <LedgerNumber kind="money" value={rule.amount} /> USDT
+                </>
+              ) : (
+                <>
+                  成交金额 × <LedgerNumber kind="percent" value={rule.rate} />
+                </>
+              )} · ID {rule.id}
             </p>
             <p className="mt-1 text-xs text-slate-500">
               创建 {rule.createdAt}

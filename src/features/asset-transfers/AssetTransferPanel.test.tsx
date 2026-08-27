@@ -83,6 +83,62 @@ describe("AssetTransferPanel", () => {
     expect(created).not.toHaveProperty("networkFee");
   });
 
+  it("T2-02/T2-03 keeps transfer input and saved decimal characters unchanged", async () => {
+    const quantity = "0.036198180000000001";
+    const unitPrice = "4.000000000000000001";
+    const onCreate = vi.fn<
+      Parameters<typeof AssetTransferPanel>[0]["onAssetTransferCreated"]
+    >(() => "applied" as const);
+    renderPanel({ onCreate });
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText("转移类别"), "external-in");
+    await user.type(screen.getByLabelText("数量"), quantity);
+    await user.type(screen.getByLabelText("到账单价（USDT）"), unitPrice);
+
+    expect((screen.getByLabelText("数量") as HTMLInputElement).value).toBe(quantity);
+    expect((screen.getByLabelText("到账单价（USDT）") as HTMLInputElement).value)
+      .toBe(unitPrice);
+
+    await user.click(screen.getByRole("button", { name: "保存资产转入转出" }));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ quantity, unitPrice }),
+      expect.anything(),
+    );
+  });
+
+  it("formats transfer quantities, asset fees, and arrival prices only in the fact list", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [
+      {
+        ...savedTransfer(),
+        quantity: "2.000000000000000001",
+        unitPrice: "594.862375883946480045",
+      },
+      {
+        id: "saved-external-out",
+        occurredAt: "2026-08-18",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "0.6177",
+        category: "external-out",
+        reason: "withdrawal",
+        networkFee: "0.000300000000000001",
+        fromLocation: "exchange",
+        createdAt: "2026-08-18T08:00:00.000Z",
+        updatedAt: "2026-08-18T08:00:00.000Z",
+      },
+    ];
+
+    renderPanel({ ledgerData });
+
+    expect(screen.getByTitle("2.000000000000000001").textContent).toBe("2");
+    expect(screen.getByTitle("594.862375883946480045").textContent).toBe("594.86");
+    expect(screen.getByTitle("0.6177").textContent).toBe("0.6177");
+    expect(screen.getByTitle("0.000300000000000001").textContent).toBe("0.0003");
+  });
+
   it("renders Chinese field errors beside and linked to the invalid control", async () => {
     renderPanel();
     const user = userEvent.setup();

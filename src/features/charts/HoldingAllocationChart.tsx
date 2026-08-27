@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
+import { LedgerNumber } from "@/ui";
 import type { HoldingAllocation } from "./chartDataService";
 import { buildAllocationChartOption } from "./chartOptionBuilders";
 import { EChart } from "./EChart";
@@ -37,7 +38,8 @@ export function HoldingAllocationChart({
           />
           <p className="text-sm leading-6 text-[var(--ledger-muted)]">
             几何分配 {allocation.slices.length} 项；净总资产{" "}
-            {allocation.totalMarketValue} {allocation.valuation.label}。
+            <LedgerNumber kind="money" value={allocation.totalMarketValue} />{" "}
+            {allocation.valuation.label}。
           </p>
         </>
       ) : allocation.missingPriceAssets.length > 0 ? (
@@ -48,12 +50,14 @@ export function HoldingAllocationChart({
       ) : (
         <p className="mt-3 text-sm leading-6 text-[var(--ledger-muted)]">
           当前没有可绘制的正资产扇区；净总资产为{" "}
-          {allocation.totalMarketValue} {allocation.valuation.label}。
+          <LedgerNumber kind="money" value={allocation.totalMarketValue} />{" "}
+          {allocation.valuation.label}。
         </p>
       )}
       {allocation.cashDeficit !== "0" ? (
         <p className="mt-2 text-sm font-semibold text-red-800">
-          现金缺口 {allocation.cashDeficit} USDT；负现金不绘制为正扇区。
+          现金缺口 <LedgerNumber kind="money" value={allocation.cashDeficit} />{" "}
+          USDT；负现金不绘制为正扇区。
         </p>
       ) : null}
       {allocation.slices.length > 0 &&

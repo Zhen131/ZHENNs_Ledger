@@ -30,6 +30,7 @@ import {
 } from "@/platform/integrations";
 import {
   ConfirmDeleteButton,
+  LedgerNumber,
   type ConfirmDeleteOutcome,
 } from "@/ui";
 import {
@@ -880,13 +881,14 @@ export function MarketDataControls({
                 return (
                   <li key={position.assetSymbol}>
                     <strong>{position.assetSymbol}</strong>：
-                    {selected
-                      ? `${selected.snapshot.price} ${selected.snapshot.currency} · ${
-                          selected.actualSource === "binance"
-                            ? "Binance"
-                            : "手动"
-                        } · 截至 ${selected.asOf}`
-                      : "无合法价格"}
+                    {selected ? (
+                      <>
+                        <LedgerNumber kind="money" value={selected.snapshot.price} />{" "}
+                        {selected.snapshot.currency} · {selected.actualSource === "binance"
+                          ? "Binance"
+                          : "手动"} · 截至 {selected.asOf}
+                      </>
+                    ) : "无合法价格"}
                     {failure
                       ? ` · 本次刷新失败：${formatBinanceFailure(failure)}`
                       : ""}

@@ -85,7 +85,7 @@ describe("workspace TradeTable", () => {
     const user = userEvent.setup();
     const table = screen.getByRole("table");
 
-    expect(within(table).getByText("20 USDT")).not.toBeNull();
+    expect(within(table).getByTitle("20").textContent).toBe("20.00");
     expect(within(table).queryByText("Binance")).toBeNull();
     expect(screen.queryByRole("button", { name: /编辑/ })).toBeNull();
 
@@ -93,7 +93,8 @@ describe("workspace TradeTable", () => {
     await user.click(detailButton);
     expect(within(table).getByText("Binance")).not.toBeNull();
     expect(within(table).getByText("FeeRule rule-btc")).not.toBeNull();
-    expect(within(table).getByText("21 USDT · 买入总支出")).not.toBeNull();
+    expect(within(table).getByTitle("21").textContent).toBe("21.00");
+    expect(within(table).getByText(/买入总支出/)).not.toBeNull();
     expect(within(table).getByText("long term")).not.toBeNull();
 
     fireEvent.keyDown(document, { key: "Escape" });
@@ -120,7 +121,7 @@ describe("workspace TradeTable", () => {
         variant="workspace"
       />,
     );
-    await userEvent.setup().click(screen.getByText("20 USDT").closest("tr")!);
+    await userEvent.setup().click(screen.getByTitle("20").closest("tr")!);
     expect(onExpandedTradeIdChange).toHaveBeenCalledWith("trade-detail");
 
     view.rerender(

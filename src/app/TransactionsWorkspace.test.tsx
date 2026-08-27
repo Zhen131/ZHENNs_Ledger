@@ -133,7 +133,7 @@ describe("TransactionsWorkspace filters and intent", () => {
     fireEvent.change(screen.getByLabelText("类型筛选"), {
       target: { value: "sell" },
     });
-    expect(within(table).getByText("0.5 USDT")).not.toBeNull();
+    expect(within(table).getByTitle("0.5").textContent).toBe("0.50");
     expect(within(table).queryByText("ETH")).toBeNull();
     expect(
       screen.getByText(
@@ -577,9 +577,9 @@ describe("TransactionsWorkspace delayed deletion", () => {
     const dialog = screen.getByRole("dialog", {
       name: "确认删除交易后的负现金",
     });
-    expect(dialog.textContent).toContain("当前余额0.5 USDT");
-    expect(dialog.textContent).toContain("本次变化-1 USDT");
-    expect(dialog.textContent).toContain("保存后余额-0.5 USDT");
+    expect(dialog.textContent).toContain("当前余额0.50 USDT");
+    expect(dialog.textContent).toContain("本次变化-1.00 USDT");
+    expect(dialog.textContent).toContain("保存后余额-0.50 USDT");
     expect(onDeleteTrade).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "确认并删除" }));
@@ -680,8 +680,8 @@ describe("TransactionsWorkspace unified cash activity", () => {
     const dialog = screen.getByRole("dialog", {
       name: "确认删除现金事实后的负现金",
     });
-    expect(dialog.textContent).toContain("保存后余额-1 USDT");
-    expect(dialog.textContent).toContain("现金缺口1 USDT");
+    expect(dialog.textContent).toContain("保存后余额-1.00 USDT");
+    expect(dialog.textContent).toContain("现金缺口1.00 USDT");
     expect(onDeleteCashEvent).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "确认并删除" }));

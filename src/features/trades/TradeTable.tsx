@@ -1,12 +1,19 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { calculateTradeCashImpact } from "@/core/calculations";
 import type { Trade } from "@/core/models";
 import { getLedgerDateKey, isLedgerFactInFuture } from "@/core/shared";
 import {
   ConfirmDeleteButton,
+  LedgerNumber,
   type ConfirmDeleteOutcome,
 } from "@/ui";
 import {
@@ -269,10 +276,15 @@ function WorkspaceTradeTable({
                     </td>
                     <td className="px-3 py-3 font-semibold">{trade.assetSymbol}</td>
                     <td className="px-3 py-3 text-[var(--ledger-muted)]">
-                      {trade.totalValue} {trade.currency}
+                      <LedgerNumber kind="money" value={trade.totalValue} />{" "}
+                      {trade.currency}
                     </td>
                     <td className="px-3 py-3 text-[var(--ledger-muted)]">
-                      {trade.fee} {trade.feeCurrency}
+                      <LedgerNumber
+                        kind={trade.feeCurrency === "USDT" ? "money" : "quantity"}
+                        value={trade.fee}
+                      />{" "}
+                      {trade.feeCurrency}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="grid grid-cols-2 gap-2">
@@ -318,10 +330,18 @@ function WorkspaceTradeTable({
                     <tr className="bg-[#fbfaf7]">
                       <td className="px-4 py-4" colSpan={6}>
                         <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                          <Detail label="数量" value={trade.quantity} />
+                          <Detail
+                            label="数量"
+                            value={<LedgerNumber kind="quantity" value={trade.quantity} />}
+                          />
                           <Detail
                             label="成交均价"
-                            value={`${trade.price} ${trade.currency}`}
+                            value={
+                              <>
+                                <LedgerNumber kind="money" value={trade.price} />{" "}
+                                {trade.currency}
+                              </>
+                            }
                           />
                           <Detail label="平台" value={trade.platform ?? "未填写"} />
                           <Detail
@@ -330,15 +350,14 @@ function WorkspaceTradeTable({
                           />
                           <Detail
                             label="现金影响"
-                            value={
-                              cashImpact.ok
-                                ? `${cashImpact.amount} ${cashImpact.currency} · ${
-                                    cashImpact.kind === "buy-outflow"
-                                      ? "买入总支出"
-                                      : "卖出净到账"
-                                  }`
-                                : `不可可靠计算：${cashImpact.feeCurrency} 手续费未换算`
-                            }
+                            value={cashImpact.ok ? (
+                              <>
+                                <LedgerNumber kind="money" value={cashImpact.amount} />{" "}
+                                {cashImpact.currency} · {cashImpact.kind === "buy-outflow"
+                                  ? "买入总支出"
+                                  : "卖出净到账"}
+                              </>
+                            ) : `不可可靠计算：${cashImpact.feeCurrency} 手续费未换算`}
                           />
                           <Detail label="备注" value={trade.note ?? "未填写"} />
                         </div>
@@ -355,7 +374,7 @@ function WorkspaceTradeTable({
   );
 }
 
-function Detail({ label, value }: Readonly<{ label: string; value: string }>) {
+function Detail({ label, value }: Readonly<{ label: string; value: ReactNode }>) {
   return (
     <div className="min-w-0">
       <dt className="text-xs font-medium text-[var(--ledger-muted)]">{label}</dt>
@@ -411,13 +430,22 @@ function LegacyTradeTable({
                     {trade.type === "buy" ? "买入" : "卖出"}
                   </td>
                   <td className="py-3 font-medium">{trade.assetSymbol}</td>
-                  <td className="py-3 text-slate-600">{trade.quantity}</td>
-                  <td className="py-3 text-slate-600">{trade.price}</td>
                   <td className="py-3 text-slate-600">
-                    {trade.totalValue} {trade.currency}
+                    <LedgerNumber kind="quantity" value={trade.quantity} />
                   </td>
                   <td className="py-3 text-slate-600">
-                    {trade.fee} {trade.feeCurrency}
+                    <LedgerNumber kind="money" value={trade.price} />
+                  </td>
+                  <td className="py-3 text-slate-600">
+                    <LedgerNumber kind="money" value={trade.totalValue} />{" "}
+                    {trade.currency}
+                  </td>
+                  <td className="py-3 text-slate-600">
+                    <LedgerNumber
+                      kind={trade.feeCurrency === "USDT" ? "money" : "quantity"}
+                      value={trade.fee}
+                    />{" "}
+                    {trade.feeCurrency}
                   </td>
                   <td className="py-3 text-slate-600">
                     {trade.platform ?? "未填写"}
@@ -428,7 +456,8 @@ function LegacyTradeTable({
                   <td className="py-3 text-slate-600">
                     {cashImpact.ok ? (
                       <>
-                        {cashImpact.amount} {cashImpact.currency}
+                        <LedgerNumber kind="money" value={cashImpact.amount} />{" "}
+                        {cashImpact.currency}
                         <span className="block text-xs text-slate-500">
                           {cashImpact.kind === "buy-outflow"
                             ? "买入总支出"

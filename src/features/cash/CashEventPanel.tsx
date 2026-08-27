@@ -20,6 +20,7 @@ import {
   type CashMutationProjection,
 } from "./cashProjection";
 import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog";
+import { LedgerNumber } from "@/ui";
 
 type PendingRisk = Readonly<{
   operation: "add" | "delete";
@@ -289,7 +290,7 @@ export function CashEventPanel({
           </p>
         </div>
         <p className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold">
-          当前 {currentBalance} USDT
+          当前 <LedgerNumber kind="money" value={currentBalance} /> USDT
         </p>
       </div>
 
@@ -347,7 +348,9 @@ export function CashEventPanel({
         </label>
         {type === "balance-adjustment" && amountOrTarget !== "" ? (
           <p className="text-sm text-slate-600 sm:col-span-2">
-            保存时会重新读取当前余额 {currentBalance} USDT，并固定 before／target／adjustment 三项证据。
+            保存时会重新读取当前余额{" "}
+            <LedgerNumber kind="money" value={currentBalance} /> USDT，并固定
+            before／target／adjustment 三项证据。
           </p>
         ) : null}
         <div className="sm:col-span-2">
@@ -382,9 +385,16 @@ export function CashEventPanel({
                     {cashTypeLabel(cashEvent.type)} · {cashEvent.occurredAt.slice(0, 10)}
                   </p>
                   <p className="mt-1 break-words text-xs text-slate-600">
-                    {cashEvent.type === "balance-adjustment"
-                      ? `before ${cashEvent.balanceBefore} → target ${cashEvent.targetBalance}；adjustment ${cashEvent.adjustmentAmount} USDT`
-                      : `${cashEvent.amount} USDT`}
+                    {cashEvent.type === "balance-adjustment" ? (
+                      <>
+                        before <LedgerNumber kind="money" value={cashEvent.balanceBefore} />{" "}
+                        → target <LedgerNumber kind="money" value={cashEvent.targetBalance} />；
+                        adjustment{" "}
+                        <LedgerNumber kind="money" value={cashEvent.adjustmentAmount} /> USDT
+                      </>
+                    ) : (
+                      <><LedgerNumber kind="money" value={cashEvent.amount} /> USDT</>
+                    )}
                     {cashEvent.note ? ` · ${cashEvent.note}` : ""}
                   </p>
                 </div>

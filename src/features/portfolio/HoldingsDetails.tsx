@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
-import type { Position } from "@/core/models";
-import { LedgerIcon } from "@/ui";
+import type { DecimalString, Position } from "@/core/models";
+import { LedgerIcon, LedgerNumber } from "@/ui";
 
 export function HoldingsDetails({
   open,
@@ -13,7 +13,7 @@ export function HoldingsDetails({
 }: Readonly<{
   open: boolean;
   positions: readonly Position[];
-  cashBalance: string;
+  cashBalance: DecimalString;
   onClose: () => void;
 }>) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -84,15 +84,15 @@ export function HoldingsDetails({
             <HoldingDetailRow
               values={[
                 "现金 USDT",
-                `${cashBalance} USDT`,
+                <><LedgerNumber kind="money" value={cashBalance} /> USDT</>,
                 "—",
                 "—",
                 "—",
                 "—",
                 "—",
                 "—",
-                "1 USDT",
-                `${cashBalance} USDT`,
+                <><LedgerNumber kind="money" value="1" /> USDT</>,
+                <><LedgerNumber kind="money" value={cashBalance} /> USDT</>,
                 "—",
               ]}
             />
@@ -101,16 +101,16 @@ export function HoldingsDetails({
                 key={`${position.assetSymbol}-${position.currency}`}
                 values={[
                   position.assetSymbol,
-                  position.quantity,
-                  position.locationQuantities.exchange,
-                  position.locationQuantities["cold-wallet"],
-                  position.locationQuantities["cold-wallet-earn"],
+                  <LedgerNumber key="quantity" kind="quantity" value={position.quantity} />,
+                  <LedgerNumber key="exchange" kind="quantity" value={position.locationQuantities.exchange} />,
+                  <LedgerNumber key="cold-wallet" kind="quantity" value={position.locationQuantities["cold-wallet"]} />,
+                  <LedgerNumber key="cold-wallet-earn" kind="quantity" value={position.locationQuantities["cold-wallet-earn"]} />,
                   metric(position.averageCost, position.currency, position.feeAccountingIssues !== undefined),
                   metric(position.costBasis, position.currency, position.feeAccountingIssues !== undefined),
                   metric(position.realizedPnl, position.currency, position.feeAccountingIssues !== undefined),
-                  position.latestPrice === undefined ? "未输入价格" : `${position.latestPrice} ${position.currency}`,
-                  position.marketValue === undefined ? "—" : `${position.marketValue} ${position.currency}`,
-                  position.feeAccountingIssues ? "不可可靠计算" : position.unrealizedPnl === undefined ? "缺少合法价格" : `${position.unrealizedPnl} ${position.currency}`,
+                  position.latestPrice === undefined ? "未输入价格" : <><LedgerNumber kind="money" value={position.latestPrice} /> {position.currency}</>,
+                  position.marketValue === undefined ? "—" : <><LedgerNumber kind="money" value={position.marketValue} /> {position.currency}</>,
+                  position.feeAccountingIssues ? "不可可靠计算" : position.unrealizedPnl === undefined ? "缺少合法价格" : <><LedgerNumber kind="money" value={position.unrealizedPnl} /> {position.currency}</>,
                 ]}
               />
             ))}
@@ -135,7 +135,7 @@ const holdingLabels = [
   "未实现净盈亏",
 ] as const;
 
-function HoldingDetailRow({ values }: Readonly<{ values: readonly string[] }>) {
+function HoldingDetailRow({ values }: Readonly<{ values: readonly ReactNode[] }>) {
   return (
     <div
       className="grid min-w-0 gap-2 py-4 text-sm lg:grid-cols-11 lg:gap-3"
@@ -150,7 +150,7 @@ function HoldingDetailRow({ values }: Readonly<{ values: readonly string[] }>) {
           <span className="text-[var(--ledger-muted)] lg:hidden">
             {holdingLabels[index]}
           </span>
-          <span className={`min-w-0 break-words ${index === 0 ? "font-semibold" : "ledger-numeric"}`}>
+          <span className={`min-w-0 break-words ${index === 0 ? "font-semibold" : ""}`}>
             {value}
           </span>
         </div>
@@ -159,6 +159,12 @@ function HoldingDetailRow({ values }: Readonly<{ values: readonly string[] }>) {
   );
 }
 
-function metric(value: string, currency: string, unreliable: boolean) {
-  return unreliable ? "不可可靠计算" : `${value} ${currency}`;
+function metric(
+  value: DecimalString,
+  currency: string,
+  unreliable: boolean,
+): ReactNode {
+  return unreliable ? "不可可靠计算" : (
+    <><LedgerNumber kind="money" value={value} /> {currency}</>
+  );
 }

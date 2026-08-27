@@ -143,9 +143,9 @@ describe("ChartsOverview", () => {
       />,
     );
 
-    expect(
-      screen.getByText("现金缺口 25 USDT；负现金不绘制为正扇区。"),
-    ).not.toBeNull();
+    expect(screen.getByTitle("25").closest("p")?.textContent).toBe(
+      "现金缺口 25.00 USDT；负现金不绘制为正扇区。",
+    );
     expect(allocation.slices.map((slice) => slice.assetSymbol)).not.toContain(
       "现金 USDT",
     );

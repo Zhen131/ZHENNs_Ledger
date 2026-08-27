@@ -44,7 +44,9 @@ describe("chart option builders", () => {
     expect(tooltip.formatter({ data: data[0] })).toContain(
       "Binance · 截至 2026-07-25T08:00:00Z",
     );
-    expect(tooltip.formatter({ data: data[0] })).toContain(
+    expect(tooltip.formatter({ data: data[0] })).toContain("12.35 USDT");
+    expect(tooltip.formatter({ data: data[0] })).toContain("+100.00%");
+    expect(tooltip.formatter({ data: data[0] })).not.toContain(
       "12.34567890123456789 USDT",
     );
   });
@@ -80,6 +82,9 @@ describe("chart option builders", () => {
 
     const option = buildHoldingHistoryChartOption(points);
     const series = option.series as Array<Record<string, unknown>>;
+    const tooltip = option.tooltip as {
+      formatter: (params: unknown) => string;
+    };
 
     expect(series).toHaveLength(2);
     expect(series[0]).toMatchObject({
@@ -103,6 +108,15 @@ describe("chart option builders", () => {
       data: [10, 15],
     });
     expect((option.yAxis as Record<string, unknown>).name).toBe("USDT");
+    expect(tooltip.formatter({ axisValue: "2026-07-24" })).toContain(
+      "剩余含费成本：10.00 USDT",
+    );
+    expect(tooltip.formatter({ axisValue: "2026-07-24" })).toContain(
+      "总资产：12.00 USDT",
+    );
+    expect(tooltip.formatter({ axisValue: "2026-07-24" })).toContain(
+      "USDT 现金：0.00 USDT",
+    );
   });
 
   it("breaks fee-sensitive cost while keeping market value visible", () => {

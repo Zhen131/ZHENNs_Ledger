@@ -35,6 +35,7 @@ import {
   projectLedgerCashMutation,
   type CashMutationProjection,
 } from "@/features/cash";
+import { formatMoney, LedgerNumber } from "@/ui";
 
 const SUCCESS_FEEDBACK_MS = 4_000;
 
@@ -716,7 +717,8 @@ export function TradeForm({
                 <option value="">保持手填</option>
                 {feeRuleMatch.candidates.map((candidate) => (
                   <option key={candidate.rule.id} value={candidate.rule.id}>
-                    {candidate.rule.name} · {candidate.rule.id} · {candidate.fee} USDT
+                    {candidate.rule.name} · {candidate.rule.id} ·{" "}
+                    {formatMoney(candidate.fee)} USDT
                   </option>
                 ))}
               </select>
@@ -729,11 +731,24 @@ export function TradeForm({
         {defaultCandidate ? (
           <div className="mt-2 rounded-md border border-sky-200 bg-white p-3">
             <p>
-              候选：{defaultCandidate.fee} {defaultCandidate.currency} · {defaultCandidate.rule.name}
+              候选：
+              <LedgerNumber kind="money" value={defaultCandidate.fee} />{" "}
+              {defaultCandidate.currency} · {defaultCandidate.rule.name}
               （{defaultCandidate.rule.id}）
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              {defaultCandidate.rule.type} · 公式 {defaultCandidate.formula}
+              {defaultCandidate.rule.type} · 公式{" "}
+              {defaultCandidate.rule.type === "fixed" ? (
+                <>
+                  <LedgerNumber kind="money" value={defaultCandidate.rule.amount} />{" "}
+                  USDT fixed
+                </>
+              ) : (
+                <>
+                  <LedgerNumber kind="money" value={form.totalValue} /> ×{" "}
+                  <LedgerNumber kind="percent" value={defaultCandidate.rule.rate} />
+                </>
+              )}
             </p>
             <button
               className="mt-2 rounded-md border border-sky-300 px-3 py-1.5 font-medium text-sky-900"
@@ -789,11 +804,30 @@ export function TradeForm({
       <div className="md:col-span-2">
         {cashImpactPreview ? (
           <div className="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
-            <p>成交金额（不含手续费）：{form.totalValue} {currency}</p>
-            <p>实际手续费：{form.fee} {feeCurrency}</p>
-            <p>当前现金：{cashImpactPreview.currentBalance} USDT</p>
-            <p>本次现金变化：{cashImpactPreview.delta} USDT</p>
-            <p>保存后现金：{cashImpactPreview.nextBalance} USDT</p>
+            <p>
+              成交金额（不含手续费）：
+              <LedgerNumber kind="money" value={form.totalValue} /> {currency}
+            </p>
+            <p>
+              实际手续费：
+              <LedgerNumber
+                kind={feeCurrency === "USDT" ? "money" : "quantity"}
+                value={form.fee}
+              />{" "}
+              {feeCurrency}
+            </p>
+            <p>
+              当前现金：
+              <LedgerNumber kind="money" value={cashImpactPreview.currentBalance} /> USDT
+            </p>
+            <p>
+              本次现金变化：
+              <LedgerNumber kind="money" value={cashImpactPreview.delta} /> USDT
+            </p>
+            <p>
+              保存后现金：
+              <LedgerNumber kind="money" value={cashImpactPreview.nextBalance} /> USDT
+            </p>
             <p>
               来源：{selectedCandidate
                 ? `${selectedCandidate.rule.name} · ${selectedCandidate.rule.id}`

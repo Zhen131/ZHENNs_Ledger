@@ -187,7 +187,8 @@ describe("HomeWorkspace", () => {
     const user = userEvent.setup();
 
     expect(screen.getByText("还没有交易记录")).toBeTruthy();
-    expect(screen.getAllByText("0 USDT").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("0.00").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByTitle("0").length).toBeGreaterThanOrEqual(1);
     await user.click(screen.getByRole("button", { name: "记录第一笔交易" }));
     expect(onNavigateToTrade).toHaveBeenCalledOnce();
   });

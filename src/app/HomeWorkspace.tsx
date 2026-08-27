@@ -17,7 +17,7 @@ import {
   TradeHeatmapChart,
 } from "@/features/charts/ui";
 import { HoldingsDetails, HoldingsOverview } from "@/features/portfolio/ui";
-import { LedgerIcon, SurfaceCard } from "@/ui";
+import { LedgerIcon, LedgerNumber, SurfaceCard } from "@/ui";
 
 export function HomeWorkspace({
   active,
@@ -258,10 +258,14 @@ function MetricCard({
   return (
     <SurfaceCard className="min-w-0 p-4 min-[1100px]:p-3">
       <h2 className="text-xs font-medium text-[var(--ledger-muted)]">{label}</h2>
-      <p className="ledger-numeric mt-2 truncate text-xl font-semibold">
-        {metricValue === undefined
-          ? "不可完整计算"
-          : `${metricValue} ${valuationLabel}`}
+      <p className="mt-2 truncate text-xl font-semibold">
+        {metricValue === undefined ? (
+          "不可完整计算"
+        ) : (
+          <>
+            <LedgerNumber kind="money" value={metricValue} /> {valuationLabel}
+          </>
+        )}
       </p>
       {missingReasons.length > 0 ? (
         <p className="mt-1 truncate text-xs font-medium text-amber-800">

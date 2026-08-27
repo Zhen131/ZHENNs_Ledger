@@ -1142,6 +1142,15 @@ describe("BackupControls", () => {
       expect(screen.getByText(/当前账本仅开放明文备份的只读预检/)).not.toBeNull();
     });
     expect(screen.getByText("300")).not.toBeNull();
+    for (const label of ["USDT 现金余额", "USDT 现金缺口"]) {
+      const number = screen.getByText(label).parentElement?.querySelector(
+        ".ledger-numeric",
+      );
+      expect(number).not.toBeNull();
+      expect(number?.getAttribute("title")).toBe(
+        number?.getAttribute("aria-label"),
+      );
+    }
     expect(screen.queryByRole("button", { name: "确认恢复备份" })).toBeNull();
     expect(screen.queryByRole("button", { name: "我已核对全部可疑组" })).toBeNull();
     expect(onImport).not.toHaveBeenCalled();

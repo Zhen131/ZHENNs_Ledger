@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { useState } from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -163,6 +163,46 @@ describe("TradeForm", () => {
     );
   });
 
+  it("T2-02/T2-03 preserves raw decimal characters in inputs, draft state, and the saved trade", async () => {
+    const raw = {
+      quantity: "0.036198180000000001",
+      price: "100.000000000000000001",
+      totalValue: "3.619818000000000100",
+      fee: "0.000300000000000001",
+    };
+    const onTradeCreated = vi.fn(() => "applied" as const);
+    render(<ControlledTradeForm onTradeCreated={onTradeCreated} />);
+    const user = userEvent.setup();
+    const quantity = screen.getByLabelText("数量") as HTMLInputElement;
+    const price = screen.getByLabelText("成交均价") as HTMLInputElement;
+    const totalValue = screen.getByLabelText(
+      "成交金额（不含手续费）",
+    ) as HTMLInputElement;
+    const fee = screen.getByLabelText("实际手续费") as HTMLInputElement;
+
+    await user.selectOptions(screen.getByLabelText("类型"), "sell");
+    await user.type(quantity, raw.quantity);
+    await user.type(price, raw.price);
+    await user.clear(totalValue);
+    await user.type(totalValue, raw.totalValue);
+    await user.clear(fee);
+    await user.type(fee, raw.fee);
+
+    expect(quantity.value).toBe(raw.quantity);
+    expect(price.value).toBe(raw.price);
+    expect(totalValue.value).toBe(raw.totalValue);
+    expect(fee.value).toBe(raw.fee);
+    expect(JSON.parse(screen.getByTestId("trade-draft").textContent ?? "{}"))
+      .toMatchObject(raw);
+
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(onTradeCreated).toHaveBeenCalledWith(
+      expect.objectContaining(raw),
+      expect.anything(),
+    );
+  });
+
   it("deduplicates platform suggestions while preserving freehand input", async () => {
     render(<ControlledTradeForm />);
     const user = userEvent.setup();
@@ -274,7 +314,7 @@ describe("TradeForm", () => {
     await user.type(screen.getByLabelText("实际手续费"), "0.1");
     await user.selectOptions(screen.getByLabelText("手续费币种"), "BTC");
 
-    expect(screen.getByText("本次现金变化：-10 USDT")).not.toBeNull();
+    expect(screen.getByTitle("-10").textContent).toBe("-10.00");
     await user.click(screen.getByRole("button", { name: "保存交易" }));
 
     expect(onTradeCreated).toHaveBeenCalledWith(
@@ -325,7 +365,8 @@ describe("TradeForm", () => {
     await user.click(trigger);
 
     const dialog = screen.getByRole("dialog", { name: "确认交易后的负现金" });
-    expect(dialog.textContent).toContain("保存后余额-5 USDT");
+    expect(within(dialog).getByTitle("-5").textContent).toBe("-5.00");
+    expect(dialog.textContent).toContain("保存后余额-5.00 USDT");
     expect(onTradeCreated).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(
       screen.getByRole("button", { name: "确认并保存" }),

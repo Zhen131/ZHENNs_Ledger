@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -55,7 +55,8 @@ describe("CashEventPanel", () => {
 
     const dialog = screen.getByRole("dialog", { name: "确认负现金余额" });
     expect(dialog.textContent).toContain("保存后余额");
-    expect(dialog.textContent).toContain("-5 USDT");
+    expect(within(dialog).getAllByTitle("-5")).toHaveLength(2);
+    expect(dialog.textContent).toContain("-5.00 USDT");
     expect(onCreate).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(
       screen.getByRole("button", { name: "确认并保存" }),
@@ -140,7 +141,7 @@ describe("CashEventPanel", () => {
     await user.click(screen.getByRole("button", { name: "删除" }));
     expect(
       screen.getByRole("dialog", { name: "确认删除后的负现金" }).textContent,
-    ).toContain("-15 USDT");
+    ).toContain("-15.00 USDT");
     expect(onDelete).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "确认并删除" }));
     expect(onDelete).toHaveBeenCalledWith(

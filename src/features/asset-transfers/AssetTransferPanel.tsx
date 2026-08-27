@@ -19,6 +19,7 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
+import { LedgerNumber } from "@/ui";
 import {
   ASSET_TRANSFER_REASONS_BY_CATEGORY,
   createValidatedAssetTransfer,
@@ -494,14 +495,21 @@ export function AssetTransferPanel({
                     {assetTransfer.occurredAt.slice(0, 10)}
                   </p>
                   <p className="mt-1 break-words text-xs text-slate-600">
-                    数量 {assetTransfer.quantity} ·{" "}
+                    数量 <LedgerNumber kind="quantity" value={assetTransfer.quantity} /> ·{" "}
                     {transferLocationSummary(assetTransfer)}
-                    {assetTransfer.networkFee
-                      ? ` · 链上手续费 ${assetTransfer.networkFee} ${assetTransfer.assetSymbol}`
-                      : ""}
-                    {assetTransfer.unitPrice
-                      ? ` · 到账单价 ${assetTransfer.unitPrice} USDT`
-                      : ""}
+                    {assetTransfer.networkFee !== undefined ? (
+                      <>
+                        {" "}· 链上手续费{" "}
+                        <LedgerNumber kind="quantity" value={assetTransfer.networkFee} />{" "}
+                        {assetTransfer.assetSymbol}
+                      </>
+                    ) : null}
+                    {assetTransfer.unitPrice !== undefined ? (
+                      <>
+                        {" "}· 到账单价{" "}
+                        <LedgerNumber kind="money" value={assetTransfer.unitPrice} /> USDT
+                      </>
+                    ) : null}
                     {assetTransfer.note ? ` · ${assetTransfer.note}` : ""}
                   </p>
                 </div>
