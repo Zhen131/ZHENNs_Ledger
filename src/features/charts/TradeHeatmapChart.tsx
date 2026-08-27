@@ -198,7 +198,7 @@ function HomeTradeHeatmap({
       <div className="flex flex-1 items-center justify-center py-4">
         <div
           aria-label="最近 365 天交易活动日格"
-          className="grid aspect-[53/7] w-full max-w-[636px] gap-[clamp(1px,0.15vw,2px)]"
+          className="grid aspect-[53/7] w-full gap-[clamp(1px,0.15vw,2px)]"
           role="grid"
           style={{
             gridTemplateColumns: `repeat(${HOME_HEATMAP_COLUMN_COUNT}, minmax(0, 1fr))`,

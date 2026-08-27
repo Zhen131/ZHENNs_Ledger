@@ -12,8 +12,13 @@ type PieDatum = {
   value: number;
   marketValue: string;
   ratio: string;
-  source: "manual" | "binance" | "cash";
+  source: "manual" | "binance" | "cash" | "grouped";
   asOf: string;
+  groupedMembers?: Array<{
+    assetSymbol: string;
+    marketValue: string;
+  }>;
+  itemStyle?: { color: string };
 };
 
 type TooltipParams = {
@@ -28,6 +33,21 @@ export const TRADE_HEATMAP_LEVEL_COLORS = [
   "#d9822b",
   "#9c4f1a",
 ] as const;
+
+export const ALLOCATION_CHART_COLORS = [
+  "#d9822b",
+  "#4e79a7",
+  "#59a14f",
+  "#e15759",
+  "#b07aa1",
+  "#76b7b2",
+  "#edc948",
+  "#f28e2b",
+  "#9c755f",
+  "#6b8e9f",
+] as const;
+
+export const GROUPED_ALLOCATION_COLOR = "#8b8176";
 
 export function toFiniteChartNumber(value: string): number {
   const parsed = Number(value);
@@ -48,11 +68,18 @@ export function buildAllocationChartOption(
     ratio: slice.ratio,
     source: slice.source,
     asOf: slice.asOf,
+    ...(slice.groupedMembers === undefined
+      ? {}
+      : { groupedMembers: slice.groupedMembers }),
+    ...(slice.source === "grouped"
+      ? { itemStyle: { color: GROUPED_ALLOCATION_COLOR } }
+      : {}),
   }));
 
   return {
-    color: ["#d9822b", "#8f9b73", "#c8a56a", "#9a6d4a", "#6f7f72"],
+    color: [...ALLOCATION_CHART_COLORS],
     tooltip: {
+      appendTo: "body",
       trigger: "item",
       formatter: (params: TooltipParams) => {
         const datum = params.data as PieDatum | undefined;
@@ -64,11 +91,21 @@ export function buildAllocationChartOption(
             ? "USDT 现金重放"
             : datum.source === "binance"
               ? "Binance"
-              : "手动价格";
+              : datum.source === "grouped"
+                ? "小额资产合并"
+                : "手动价格";
+        const groupedMembers =
+          datum.source === "grouped"
+            ? (datum.groupedMembers ?? []).map(
+                (member) =>
+                  `${member.assetSymbol}：${formatMoney(member.marketValue)} ${valuationLabel}`,
+              )
+            : [];
         return [
           `<strong>${datum.name}</strong>`,
           `${formatMoney(datum.marketValue)} ${valuationLabel}`,
           formatPercent(datum.ratio),
+          ...groupedMembers,
           `${source} · 截至 ${datum.asOf}`,
         ].join("<br/>");
       },
@@ -98,6 +135,7 @@ export function buildHoldingHistoryChartOption(
 
   return {
     tooltip: {
+      appendTo: "body",
       trigger: "axis",
       formatter: (params: TooltipParams | TooltipParams[]) => {
         const first = Array.isArray(params) ? params[0] : params;
@@ -209,6 +247,7 @@ export function buildTradeHeatmapChartOption(
 
   return {
     tooltip: {
+      appendTo: "body",
       formatter: (params: TooltipParams) => {
         const datum = params.data as
           | [string, number, number, number, number]

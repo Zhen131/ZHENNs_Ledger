@@ -67,7 +67,8 @@ describe("home TradeHeatmapChart", () => {
       expect(cells).toHaveLength(365);
       expect(today.style.gridColumn).toBe("53");
       expect(today.style.gridRow).toBe(expectedRow);
-      expect(screen.getByRole("grid").className).toContain("max-w-[636px]");
+      expect(screen.getByRole("grid").className).toContain("w-full");
+      expect(screen.getByRole("grid").className).not.toContain("max-w-");
       expect(screen.queryByText("一月")).toBeNull();
       expect(screen.queryByText("最高")).toBeNull();
     },

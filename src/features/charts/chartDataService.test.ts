@@ -5,6 +5,7 @@ import type {
   PriceSnapshot,
   Trade,
 } from "@/core/models";
+import { add } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createPriceSnapshot,
@@ -15,7 +16,10 @@ import {
   buildHoldingHistory,
   buildTradeHeatmap,
 } from "./chartDataService";
-import { getPositionsFromLedger } from "@/features/portfolio";
+import {
+  getPositionsFromLedger,
+  type LedgerProjection,
+} from "@/features/portfolio";
 
 const TODAY = "2026-07-25";
 
@@ -63,6 +67,59 @@ function manualPrice(
   return {
     ...createPriceSnapshot(id, assetSymbol, price, recordedAt),
     currency: "USDT",
+  };
+}
+
+function allocationProjection(
+  entries: readonly Readonly<{
+    assetSymbol: string;
+    marketValue: string;
+    source?: "manual" | "binance";
+  }>[],
+  cashBalance = "0",
+): LedgerProjection {
+  const pricedAssetMarketValue = entries.reduce(
+    (sum, entry) => add(sum, entry.marketValue),
+    "0",
+  );
+  const selectedPricesByAsset = Object.fromEntries(
+    entries.map((entry) => [
+      entry.assetSymbol,
+      { source: entry.source ?? "manual", asOf: TODAY },
+    ]),
+  );
+  return {
+    cash: {
+      currency: "USDT",
+      balance: cashBalance,
+      deficit: "0",
+      effects: [],
+    },
+    positions: entries.map((entry) => ({
+      assetSymbol: entry.assetSymbol,
+      quantity: "1",
+      locationQuantities: {
+        exchange: "1",
+        "cold-wallet": "0",
+        "cold-wallet-earn": "0",
+      },
+      averageCost: "1",
+      costBasis: "1",
+      realizedPnl: "0",
+      giftIncome: "0",
+      currency: "USDT",
+      marketValue: entry.marketValue,
+    })),
+    valuation: {
+      currency: "USDT",
+      pricedAssetMarketValue,
+      totalAssetValue: add(pricedAssetMarketValue, cashBalance),
+      complete: true,
+      missingPriceAssets: [],
+      excludedCurrencyAssets: [],
+      selectedPricesByAsset,
+    },
+    issues: [],
   };
 }
 
@@ -211,6 +268,136 @@ describe("holding allocation", () => {
         source: "manual",
       }),
     ]);
+  });
+
+  it("T3-05 groups ratios strictly below 2%, keeps exactly 2%, and preserves market value", () => {
+    const projection = allocationProjection(
+      [
+        { assetSymbol: "BTC", marketValue: "800" },
+        { assetSymbol: "ETH", marketValue: "160" },
+        { assetSymbol: "ADA", marketValue: "11" },
+        { assetSymbol: "SOL", marketValue: "9" },
+      ],
+      "20",
+    );
+    const originalPositions = structuredClone(projection.positions);
+
+    const allocation = buildHoldingAllocation(createInitialLedgerData(), {
+      todayKey: TODAY,
+      mode: "auto",
+      projection,
+    });
+
+    expect(allocation.slices.map(({ assetSymbol }) => assetSymbol)).toEqual([
+      "BTC",
+      "ETH",
+      "现金 USDT",
+      "其他",
+    ]);
+    expect(allocation.slices[2]).toEqual(
+      expect.objectContaining({
+        assetSymbol: "现金 USDT",
+        marketValue: "20",
+        ratio: "0.02",
+        source: "cash",
+      }),
+    );
+    expect(allocation.slices[3]).toEqual({
+      assetSymbol: "其他",
+      marketValue: "20",
+      ratio: "0.02",
+      source: "grouped",
+      asOf: TODAY,
+      groupedMembers: [
+        { assetSymbol: "ADA", marketValue: "11" },
+        { assetSymbol: "SOL", marketValue: "9" },
+      ],
+    });
+    expect(
+      allocation.slices.reduce(
+        (sum, slice) => add(sum, slice.marketValue),
+        "0",
+      ),
+    ).toBe("1000");
+    expect(allocation.totalMarketValue).toBe("1000");
+    expect(projection.positions).toEqual(originalPositions);
+  });
+
+  it("T3-05 lets positive cash participate in the below-2% group", () => {
+    const projection = allocationProjection(
+      [{ assetSymbol: "BTC", marketValue: "99" }],
+      "1",
+    );
+
+    const allocation = buildHoldingAllocation(createInitialLedgerData(), {
+      todayKey: TODAY,
+      mode: "auto",
+      projection,
+    });
+
+    expect(allocation.slices).toEqual([
+      expect.objectContaining({ assetSymbol: "BTC", ratio: "0.99" }),
+      {
+        assetSymbol: "其他",
+        marketValue: "1",
+        ratio: "0.01",
+        source: "grouped",
+        asOf: TODAY,
+        groupedMembers: [
+          { assetSymbol: "现金 USDT", marketValue: "1" },
+        ],
+      },
+    ]);
+  });
+
+  it("T3-06 caps allocation at eight slices and folds every item after the top seven into Other", () => {
+    const projection = allocationProjection([
+      { assetSymbol: "A", marketValue: "30" },
+      { assetSymbol: "B", marketValue: "20" },
+      { assetSymbol: "C", marketValue: "15" },
+      { assetSymbol: "D", marketValue: "10" },
+      { assetSymbol: "E", marketValue: "8" },
+      { assetSymbol: "F", marketValue: "6" },
+      { assetSymbol: "G", marketValue: "5" },
+      { assetSymbol: "H", marketValue: "4" },
+      { assetSymbol: "I", marketValue: "2" },
+    ]);
+
+    const allocation = buildHoldingAllocation(createInitialLedgerData(), {
+      todayKey: TODAY,
+      mode: "auto",
+      projection,
+    });
+
+    expect(allocation.slices).toHaveLength(8);
+    expect(allocation.slices.map(({ assetSymbol }) => assetSymbol)).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "其他",
+    ]);
+    expect(allocation.slices[7]).toEqual({
+      assetSymbol: "其他",
+      marketValue: "6",
+      ratio: "0.06",
+      source: "grouped",
+      asOf: TODAY,
+      groupedMembers: [
+        { assetSymbol: "H", marketValue: "4" },
+        { assetSymbol: "I", marketValue: "2" },
+      ],
+    });
+    expect(
+      allocation.slices.reduce(
+        (sum, slice) => add(sum, slice.marketValue),
+        "0",
+      ),
+    ).toBe("100");
+    expect(allocation.totalMarketValue).toBe("100");
   });
 });
 

@@ -23,6 +23,7 @@ export type SummaryMetric = {
 
 export type LedgerPnlSummary = {
   buyOutflow: SummaryMetric;
+  buyOutflowByAsset: Record<string, SummaryMetric>;
   sellProceeds: SummaryMetric;
   remainingCostBasis: SummaryMetric;
   realizedPnl: SummaryMetric;
@@ -44,23 +45,38 @@ export function buildLedgerPnlSummary(
   let buyOutflow: DecimalString = "0";
   let sellProceeds: DecimalString = "0";
   const buyReasons: string[] = [];
+  const buyOutflowByAsset = new Map<string, DecimalString>();
+  const buyReasonsByAsset = new Map<string, string[]>();
   const sellReasons: string[] = [];
 
   for (const trade of partition.activeTrades) {
     const reasons = trade.type === "buy" ? buyReasons : sellReasons;
+    const assetReasons =
+      trade.type === "buy"
+        ? getOrCreateReasons(buyReasonsByAsset, trade.assetSymbol)
+        : undefined;
+    if (trade.type === "buy" && !buyOutflowByAsset.has(trade.assetSymbol)) {
+      buyOutflowByAsset.set(trade.assetSymbol, "0");
+    }
     if (!isSupportedValuationCurrency(trade.currency)) {
-      reasons.push(`${trade.id} 使用不支持的计价币种 ${trade.currency}`);
+      const reason = `${trade.id} 使用不支持的计价币种 ${trade.currency}`;
+      reasons.push(reason);
+      assetReasons?.push(reason);
       continue;
     }
     const cashImpact = calculateTradeCashImpact(trade);
     if (!cashImpact.ok) {
-      reasons.push(
-        `${trade.id} 的 ${trade.feeCurrency} 手续费无法换算为 ${trade.currency}`,
-      );
+      const reason = `${trade.id} 的 ${trade.feeCurrency} 手续费无法换算为 ${trade.currency}`;
+      reasons.push(reason);
+      assetReasons?.push(reason);
       continue;
     }
     if (trade.type === "buy") {
       buyOutflow = add(buyOutflow, cashImpact.amount);
+      buyOutflowByAsset.set(
+        trade.assetSymbol,
+        add(buyOutflowByAsset.get(trade.assetSymbol) ?? "0", cashImpact.amount),
+      );
     } else {
       sellProceeds = add(sellProceeds, cashImpact.amount);
     }
@@ -119,6 +135,15 @@ export function buildLedgerPnlSummary(
 
   return {
     buyOutflow: metric(buyOutflow, buyReasons),
+    buyOutflowByAsset: Object.fromEntries(
+      [...buyOutflowByAsset.keys()].sort().map((assetSymbol) => [
+        assetSymbol,
+        metric(
+          buyOutflowByAsset.get(assetSymbol) ?? "0",
+          buyReasonsByAsset.get(assetSymbol) ?? [],
+        ),
+      ]),
+    ),
     sellProceeds: metric(sellProceeds, sellReasons),
     remainingCostBasis: metric(remainingCostBasis, costReasons),
     realizedPnl: metric(realizedPnl, realizedReasons),
@@ -128,6 +153,17 @@ export function buildLedgerPnlSummary(
     excludedCurrencyAssets: uniqueSorted(excludedCurrencyAssets),
     valuation,
   };
+}
+
+function getOrCreateReasons(
+  reasonsByAsset: Map<string, string[]>,
+  assetSymbol: string,
+): string[] {
+  const existing = reasonsByAsset.get(assetSymbol);
+  if (existing) return existing;
+  const reasons: string[] = [];
+  reasonsByAsset.set(assetSymbol, reasons);
+  return reasons;
 }
 
 function metric(value: DecimalString, reasons: string[]): SummaryMetric {

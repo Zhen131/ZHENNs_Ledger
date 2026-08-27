@@ -6,9 +6,11 @@ import type {
   TradeHeatmapDay,
 } from "./chartDataService";
 import {
+  ALLOCATION_CHART_COLORS,
   buildAllocationChartOption,
   buildHoldingHistoryChartOption,
   buildTradeHeatmapChartOption,
+  GROUPED_ALLOCATION_COLOR,
   TRADE_HEATMAP_LEVEL_COLORS,
   toFiniteChartNumber,
 } from "./chartOptionBuilders";
@@ -29,10 +31,13 @@ describe("chart option builders", () => {
     const series = option.series as Array<Record<string, unknown>>;
     const data = series[0].data as Array<Record<string, unknown>>;
     const tooltip = option.tooltip as {
+      appendTo: string;
       formatter: (params: unknown) => string;
     };
 
     expect(series[0].type).toBe("pie");
+    expect(tooltip.appendTo).toBe("body");
+    expect(tooltip).not.toHaveProperty("confine");
     expect(data[0]).toMatchObject({
       name: "BTC",
       value: 12.345678901234567,
@@ -41,6 +46,8 @@ describe("chart option builders", () => {
       source: "binance",
       asOf: "2026-07-25T08:00:00Z",
     });
+    expect(data[0]).not.toHaveProperty("itemStyle");
+    expect(data[0]).not.toHaveProperty("groupedMembers");
     expect(tooltip.formatter({ data: data[0] })).toContain(
       "Binance · 截至 2026-07-25T08:00:00Z",
     );
@@ -49,6 +56,43 @@ describe("chart option builders", () => {
     expect(tooltip.formatter({ data: data[0] })).not.toContain(
       "12.34567890123456789 USDT",
     );
+  });
+
+  it("uses a ten-colour palette and renders every grouped member in the neutral other tooltip", () => {
+    const slices: HoldingAllocationSlice[] = [
+      {
+        assetSymbol: "其他",
+        marketValue: "1.23486",
+        ratio: "0.0123486",
+        source: "grouped",
+        asOf: "2026-07-25",
+        groupedMembers: [
+          { assetSymbol: "ALPHA", marketValue: "1.23456" },
+          { assetSymbol: "BETA", marketValue: "0.0003" },
+        ],
+      },
+    ];
+
+    const option = buildAllocationChartOption(slices, "USDT");
+    const series = option.series as Array<Record<string, unknown>>;
+    const data = series[0].data as Array<Record<string, unknown>>;
+    const tooltip = option.tooltip as {
+      formatter: (params: unknown) => string;
+    };
+    const palette = option.color as string[];
+    const content = tooltip.formatter({ data: data[0] });
+
+    expect(ALLOCATION_CHART_COLORS).toHaveLength(10);
+    expect(new Set(palette).size).toBeGreaterThanOrEqual(10);
+    expect(data[0]).toMatchObject({
+      name: "其他",
+      source: "grouped",
+      itemStyle: { color: GROUPED_ALLOCATION_COLOR },
+      groupedMembers: slices[0].groupedMembers,
+    });
+    expect(content).toContain("ALPHA：1.23 USDT");
+    expect(content).toContain("BETA：0.0003 USDT");
+    expect(content).toContain("小额资产合并 · 截至 2026-07-25");
   });
 
   it("uses two step lines and leaves missing market values disconnected", () => {
@@ -83,10 +127,13 @@ describe("chart option builders", () => {
     const option = buildHoldingHistoryChartOption(points);
     const series = option.series as Array<Record<string, unknown>>;
     const tooltip = option.tooltip as {
+      appendTo: string;
       formatter: (params: unknown) => string;
     };
 
     expect(series).toHaveLength(2);
+    expect(tooltip.appendTo).toBe("body");
+    expect(tooltip).not.toHaveProperty("confine");
     expect(series[0]).toMatchObject({
       name: "总资产",
       type: "line",
@@ -174,11 +221,14 @@ describe("chart option builders", () => {
       pieces: Array<Record<string, unknown>>;
     };
     const calendar = option.calendar as Record<string, unknown>;
+    const tooltip = option.tooltip as Record<string, unknown>;
 
     expect(series[0]).toMatchObject({
       type: "heatmap",
       coordinateSystem: "calendar",
     });
+    expect(tooltip.appendTo).toBe("body");
+    expect(tooltip).not.toHaveProperty("confine");
     expect(data).toHaveLength(365);
     expect(data.at(-1)).toEqual(["day-364", 4, 2, 1, 1]);
     expect(visualMap.pieces.map((piece) => piece.label)).toEqual([

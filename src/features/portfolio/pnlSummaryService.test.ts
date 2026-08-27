@@ -79,11 +79,17 @@ describe("PnL summary", () => {
     });
 
     expect(summary.buyOutflow).toEqual({ value: "6505", missingReasons: [] });
+    expect(summary.buyOutflowByAsset).toEqual({
+      BTC: { value: "6505", missingReasons: [] },
+    });
     expect(summary.sellProceeds).toEqual({ value: "2797", missingReasons: [] });
     expect(summary.remainingCostBasis).toEqual({
       value: "3903",
       missingReasons: [],
     });
+    expect(summary.buyOutflowByAsset.BTC?.value).not.toBe(
+      summary.remainingCostBasis.value,
+    );
     expect(summary.realizedPnl).toEqual({ value: "195", missingReasons: [] });
     expect(summary.unrealizedPnl).toEqual({
       value: "897",
@@ -118,6 +124,9 @@ describe("PnL summary", () => {
     });
 
     expect(summary.buyOutflow.value).toBeUndefined();
+    expect(summary.buyOutflowByAsset.BTC).toEqual({
+      missingReasons: ["buy 的 BNB 手续费无法换算为 USDT"],
+    });
     expect(summary.sellProceeds.value).toBe("2797");
     expect(summary.remainingCostBasis.value).toBeUndefined();
     expect(summary.realizedPnl.value).toBeUndefined();
@@ -163,6 +172,9 @@ describe("PnL summary", () => {
     });
 
     expect(summary.buyOutflow).toEqual({ value: "100", missingReasons: [] });
+    expect(summary.buyOutflowByAsset).toEqual({
+      BTC: { value: "100", missingReasons: [] },
+    });
     expect(summary.sellProceeds).toEqual({ value: "60", missingReasons: [] });
     expect(summary.remainingCostBasis).toEqual({
       value: "50",
@@ -211,9 +223,41 @@ describe("PnL summary", () => {
     expect(summary.buyOutflow.missingReasons).toEqual([
       "eth-usd 使用不支持的计价币种 USD",
     ]);
+    expect(summary.buyOutflowByAsset).toEqual({
+      BTC: { value: "10", missingReasons: [] },
+      ETH: {
+        missingReasons: ["eth-usd 使用不支持的计价币种 USD"],
+      },
+    });
     expect(summary.valuation).toEqual({
       label: "USD/USDT 近似等值",
       usesApproximation: true,
     });
+  });
+
+  it("groups only active buys and does not let sells reduce lifetime asset outflow", () => {
+    const ledgerData = fixedLedger();
+    ledgerData.trades.push(
+      trade({
+        id: "future-buy",
+        occurredAt: "2026-08-10",
+        type: "buy",
+        assetSymbol: "ETH",
+        quantity: "1",
+        price: "20",
+        totalValue: "20",
+        fee: "1",
+      }),
+    );
+
+    const summary = buildLedgerPnlSummary(ledgerData, {
+      todayKey: TODAY,
+      mode: "auto",
+    });
+
+    expect(summary.buyOutflowByAsset).toEqual({
+      BTC: { value: "6505", missingReasons: [] },
+    });
+    expect(summary.buyOutflowByAsset).not.toHaveProperty("ETH");
   });
 });

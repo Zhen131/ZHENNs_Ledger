@@ -80,7 +80,7 @@ export function HomeWorkspace({
   return (
     <section
       aria-label="首页工作区"
-      className="grid min-w-0 gap-4 min-[1100px]:gap-3"
+      className="grid max-w-full min-w-0 gap-4 overflow-x-hidden min-[1100px]:gap-3"
       data-workspace-page="home"
     >
       {ledgerData.trades.length === 0 ? (
@@ -101,7 +101,10 @@ export function HomeWorkspace({
         </SurfaceCard>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-4">
+      <div
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-4"
+        data-home-row="metrics"
+      >
         <MetricCard
           label="当前总资产"
           metric={allocation.totalMarketValue}
@@ -125,7 +128,10 @@ export function HomeWorkspace({
         />
       </div>
 
-      <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(0,1.65fr)_minmax(260px,.75fr)]">
+      <div
+        className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(0,1.65fr)_minmax(260px,.75fr)]"
+        data-home-row="market"
+      >
         <SurfaceCard className="min-w-0 p-4 min-[1100px]:p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -209,15 +215,20 @@ export function HomeWorkspace({
         </div>
       </div>
 
-      <div className="grid min-w-0 items-stretch gap-4 min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <SurfaceCard className="min-w-0 p-4">
-          <HoldingsOverview
-            cashBalance={cashBalance}
-            onShowAll={openDetails}
-            positions={positions}
-            triggerRef={holdingsTriggerRef}
-          />
-        </SurfaceCard>
+      <SurfaceCard
+        className="min-w-0 max-w-full p-4"
+        data-home-row="holdings"
+      >
+        <HoldingsOverview
+          buyOutflowByAsset={pnlSummary.buyOutflowByAsset}
+          cashBalance={cashBalance}
+          onShowAll={openDetails}
+          positions={positions}
+          triggerRef={holdingsTriggerRef}
+        />
+      </SurfaceCard>
+
+      <div className="min-w-0 max-w-full" data-home-row="activity">
         <TradeHeatmapChart
           heatmap={heatmap}
           onLocateDate={(date) => {

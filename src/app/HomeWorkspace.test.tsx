@@ -45,6 +45,9 @@ vi.mock("@/features/charts/ui", () => ({
 const zeroMetric = { value: "0", missingReasons: [] };
 const summary: LedgerPnlSummary = {
   buyOutflow: zeroMetric,
+  buyOutflowByAsset: {
+    BTC: { value: "10", missingReasons: [] },
+  },
   sellProceeds: zeroMetric,
   remainingCostBasis: { value: "10", missingReasons: [] },
   realizedPnl: { value: "2", missingReasons: [] },
@@ -138,14 +141,33 @@ describe("HomeWorkspace", () => {
     expect(screen.getByTestId("heatmap-chart").dataset.variant).toBe("home");
   });
 
-  it("stacks cards at phone width and uses the 1100px workspace breakpoint", () => {
+  it("uses the strict four-row home layout and contains horizontal table overflow", () => {
     renderHome();
     const workspace = screen.getByRole("region", { name: "首页工作区" });
     const summaryGrid = workspace.querySelector("div.grid.grid-cols-1");
     expect(summaryGrid?.className).toContain("sm:grid-cols-2");
     expect(summaryGrid?.className).toContain("min-[1100px]:grid-cols-4");
-    expect(workspace.innerHTML).toContain(
-      "min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]",
+    expect(workspace.className).toContain("overflow-x-hidden");
+    expect(
+      Array.from(workspace.querySelectorAll(":scope > [data-home-row]")).map(
+        (row) => row.getAttribute("data-home-row"),
+      ),
+    ).toEqual(["metrics", "market", "holdings", "activity"]);
+    const holdingsRow = workspace.querySelector('[data-home-row="holdings"]');
+    const activityRow = workspace.querySelector('[data-home-row="activity"]');
+    expect(holdingsRow?.querySelector("table")).toBeTruthy();
+    expect(activityRow?.querySelector('[data-testid="heatmap-chart"]')).toBeTruthy();
+    expect(
+      holdingsRow?.querySelector('[data-holdings-scroll="true"]')?.className,
+    ).toContain("overflow-x-auto");
+    expect(
+      holdingsRow?.querySelector("table")?.className,
+    ).toContain("min-w-[1120px]");
+    expect(holdingsRow?.contains(activityRow)).toBe(false);
+    expect(
+      workspace.querySelector('[data-home-row="market"]')?.className,
+    ).toContain(
+      "min-[1100px]:grid-cols-[minmax(0,1.65fr)_minmax(260px,.75fr)]",
     );
     expect(
       screen.getByRole("button", { name: /记一笔交易/ }).innerHTML,

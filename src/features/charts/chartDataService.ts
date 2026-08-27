@@ -11,7 +11,9 @@ import {
   add,
   divide,
   isGreaterThan,
+  isLessThan,
   isNegative,
+  isPositive,
   isZero,
   toDecimalString,
 } from "@/core/shared";
@@ -27,12 +29,18 @@ import {
   type ValuationDisplay,
 } from "@/features/portfolio";
 
+export type HoldingAllocationGroupedMember = {
+  assetSymbol: string;
+  marketValue: DecimalString;
+};
+
 export type HoldingAllocationSlice = {
   assetSymbol: string;
   marketValue: DecimalString;
   ratio: DecimalString;
-  source: "manual" | "binance" | "cash";
+  source: "manual" | "binance" | "cash" | "grouped";
   asOf: string;
+  groupedMembers?: HoldingAllocationGroupedMember[];
 };
 
 export type HoldingAllocation = {
@@ -77,6 +85,10 @@ export type TradeHeatmapActivityGroup = {
   type: "buy" | "sell";
   count: number;
 };
+
+const MIN_STANDALONE_ALLOCATION_RATIO = "0.02";
+const MAX_ALLOCATION_SLICES = 8;
+const MAX_VISIBLE_SLICES_WITH_GROUP = MAX_ALLOCATION_SLICES - 1;
 
 export function buildHoldingAllocation(
   ledgerData: LedgerData,
@@ -124,22 +136,19 @@ export function buildHoldingAllocation(
     });
   }
 
+  const sortedPositiveValues = valued
+    .filter((item) => isPositive(item.marketValue))
+    .sort(compareAllocationMarketValue);
   const slices = isZero(geometryTotal)
     ? []
-    : valued
-        .map((item) => ({
+    : groupHoldingAllocationSlices(
+        sortedPositiveValues.map<HoldingAllocationSlice>((item) => ({
           ...item,
           ratio: toDecimalString(divide(item.marketValue, geometryTotal)),
-        }))
-        .sort((left, right) => {
-          if (isGreaterThan(left.marketValue, right.marketValue)) {
-            return -1;
-          }
-          if (isGreaterThan(right.marketValue, left.marketValue)) {
-            return 1;
-          }
-          return left.assetSymbol.localeCompare(right.assetSymbol);
-        });
+        })),
+        geometryTotal,
+        options.todayKey,
+      );
 
   return {
     slices,
@@ -155,6 +164,70 @@ export function buildHoldingAllocation(
       ["USDT"],
       getDefaultValuationCurrency(ledgerData),
     ),
+  };
+}
+
+function compareAllocationMarketValue(
+  left: Pick<HoldingAllocationSlice, "assetSymbol" | "marketValue">,
+  right: Pick<HoldingAllocationSlice, "assetSymbol" | "marketValue">,
+): number {
+  if (isGreaterThan(left.marketValue, right.marketValue)) return -1;
+  if (isGreaterThan(right.marketValue, left.marketValue)) return 1;
+  return left.assetSymbol.localeCompare(right.assetSymbol);
+}
+
+function groupHoldingAllocationSlices(
+  sortedSlices: readonly HoldingAllocationSlice[],
+  geometryTotal: DecimalString,
+  todayKey: string,
+): HoldingAllocationSlice[] {
+  const standalone = sortedSlices.filter(
+    (slice) => !isLessThan(slice.ratio, MIN_STANDALONE_ALLOCATION_RATIO),
+  );
+  const belowThreshold = sortedSlices.filter((slice) =>
+    isLessThan(slice.ratio, MIN_STANDALONE_ALLOCATION_RATIO),
+  );
+
+  if (belowThreshold.length === 0 && standalone.length <= MAX_ALLOCATION_SLICES) {
+    return standalone;
+  }
+  if (
+    belowThreshold.length > 0 &&
+    standalone.length + 1 <= MAX_ALLOCATION_SLICES
+  ) {
+    return [
+      ...standalone,
+      createGroupedAllocationSlice(belowThreshold, geometryTotal, todayKey),
+    ];
+  }
+
+  const visible = sortedSlices.slice(0, MAX_VISIBLE_SLICES_WITH_GROUP);
+  const grouped = sortedSlices.slice(MAX_VISIBLE_SLICES_WITH_GROUP);
+  return [
+    ...visible,
+    createGroupedAllocationSlice(grouped, geometryTotal, todayKey),
+  ];
+}
+
+function createGroupedAllocationSlice(
+  members: readonly HoldingAllocationSlice[],
+  geometryTotal: DecimalString,
+  todayKey: string,
+): HoldingAllocationSlice {
+  const marketValue = members.reduce<DecimalString>(
+    (sum, member) => add(sum, member.marketValue),
+    "0",
+  );
+  return {
+    assetSymbol: "其他",
+    marketValue,
+    ratio: toDecimalString(divide(marketValue, geometryTotal)),
+    source: "grouped",
+    asOf: todayKey,
+    groupedMembers: members.map(({ assetSymbol, marketValue: memberValue }) => ({
+      assetSymbol,
+      marketValue: memberValue,
+    })),
   };
 }
 
