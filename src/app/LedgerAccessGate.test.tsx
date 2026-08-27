@@ -114,6 +114,11 @@ vi.mock("./DashboardShell", () => ({
     return (
       <div>
         dashboard-mounted
+        {session?.capabilities.canImportBackup && session.readyImportPort ? (
+          <section aria-label="导入与导出">
+            <input aria-label="选择账本备份文件" type="file" />
+          </section>
+        ) : null}
         {drain && onFinalLock ? (
           <button
             onClick={() =>
@@ -248,8 +253,15 @@ function createDeferred<T>(): Deferred<T> {
 
 class MemoryLedgerFileHandle implements LedgerFileHandle {
   bytes = new Uint8Array();
+  writes = 0;
+  readonly remove = vi.fn(async () => undefined);
 
-  constructor(readonly name = "gate-a.lftl") {}
+  constructor(
+    readonly name = "gate-a.lftl",
+    initial = "",
+  ) {
+    this.bytes = new TextEncoder().encode(initial);
+  }
 
   async getFile() {
     const snapshot = this.bytes.slice();
@@ -263,6 +275,7 @@ class MemoryLedgerFileHandle implements LedgerFileHandle {
     let pending = this.bytes;
     return {
       write: async (serialized) => {
+        this.writes += 1;
         pending = new TextEncoder().encode(serialized);
       },
       close: async () => {
@@ -275,6 +288,35 @@ class MemoryLedgerFileHandle implements LedgerFileHandle {
   async isSameEntry(other: LedgerFileHandle): Promise<boolean> {
     return other === this;
   }
+}
+
+function createInspectableLedgerFile(ledgerSchemaVersion: number): string {
+  return JSON.stringify({
+    fileFormatVersion: 2,
+    fileId: "fictional-retired-file",
+    crypto: {
+      cryptoVersion: 1,
+      kdf: {
+        name: "PBKDF2",
+        hash: "SHA-256",
+        iterations: 600_000,
+        saltBase64Url: "BwcHBwcHBwcHBwcHBwcHBw",
+      },
+      cipher: {
+        name: "AES-GCM",
+        keyLength: 256,
+        tagLength: 128,
+      },
+    },
+    current: {
+      revisionId: "fictional-retired-revision",
+      parentRevisionId: null,
+      ledgerSchemaVersion,
+      ivBase64Url: "CAgICAgICAgICAgI",
+      ciphertextBase64Url: "CQkJCQkJCQkJCQkJCQkJCQ",
+    },
+    previous: null,
+  });
 }
 
 describe("LedgerAccessGate", () => {
@@ -1030,13 +1072,44 @@ describe("LedgerAccessGate", () => {
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
 
-  it("explains that a V2 ledger payload is rejected before password or decryption", async () => {
+  it("rejects a V3 ledger without touching it, then creates V4 with ready import reachable in the same flow", async () => {
     const user = userEvent.setup();
+    const retiredSource = new MemoryLedgerFileHandle(
+      "retired-v3.lftl",
+      createInspectableLedgerFile(3),
+    );
+    const sourceBefore = retiredSource.bytes.slice();
+    const v4Target = new MemoryLedgerFileHandle("created-v4.lftl");
+    const pickerProvider: LedgerFilePickerProvider = {
+      showOpenFilePicker: vi.fn(async () => [retiredSource]),
+      showSaveFilePicker: vi.fn(async () => v4Target),
+    };
+    const connectionAdapter = {
+      read: vi.fn(async () => null),
+      write: vi.fn(async () => undefined),
+      clear: vi.fn(async () => undefined),
+    };
+    const realController = new DefaultLedgerFileAccessController(
+      new LedgerFileHandleAdapter(pickerProvider),
+      {
+        generateId: vi
+          .fn()
+          .mockReturnValueOnce("created-v4-file")
+          .mockReturnValueOnce("created-v4-revision"),
+        now: () => new Date("2026-08-18T08:00:00.000Z"),
+      },
+      {
+        acquire: vi.fn(async () => ({
+          status: "acquired" as const,
+          lease: GATE_TEST_LEASE,
+        })),
+      },
+      () => "unused-recovery",
+      connectionAdapter,
+    );
     const fileController = createFileController({
-      selectExisting: vi.fn(async () => ({
-        ok: false as const,
-        code: LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA,
-      })),
+      create: vi.fn((passphrase) => realController.create(passphrase)),
+      selectExisting: vi.fn(() => realController.selectExisting()),
     });
     render(
       <LedgerAccessGate
@@ -1050,10 +1123,38 @@ describe("LedgerAccessGate", () => {
     );
 
     expect(
-      screen.getByText(/该文件承载 V2 账本；当前 V3 不提供迁移/),
+      screen.getByText(/该文件承载 V3、其他旧版或未知 schema 的账本；当前 V4 不兼容且不提供迁移/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/原文件未被写入、删除或覆盖/),
     ).toBeTruthy();
     expect(screen.queryByLabelText("账本核心密码")).toBeNull();
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
+    expect(retiredSource.bytes).toEqual(sourceBefore);
+    expect(retiredSource.writes).toBe(0);
+    expect(retiredSource.remove).not.toHaveBeenCalled();
+    expect(connectionAdapter.write).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "新建账本" }));
+    await user.type(
+      screen.getByLabelText("设置账本核心密码"),
+      PASSPHRASE,
+    );
+    await user.type(
+      screen.getByLabelText("再次输入账本核心密码"),
+      PASSPHRASE,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "选择位置并创建" }),
+    );
+
+    expect(fileController.create).toHaveBeenCalledWith(PASSPHRASE);
+    expect(await screen.findByText("dashboard-mounted")).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: "导入与导出" }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("选择账本备份文件")).toBeTruthy();
+    expect(v4Target.writes).toBeGreaterThan(0);
   });
 
   it("ignores a slow file selection from an old controller after the controller changes", async () => {

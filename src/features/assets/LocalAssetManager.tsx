@@ -298,6 +298,7 @@ function formatRemovalError(
   }
   const labels = {
     trades: "交易或非 USDT 手续费",
+    assetTransfers: "资产转入转出",
     priceSnapshots: "价格事实",
     feeRules: "手续费规则",
   };

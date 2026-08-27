@@ -4,13 +4,13 @@ import { bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
   SUPPORTED_LEDGER_SCHEMA_VERSION,
-  createCanonicalLedgerPayloadV3,
+  createCanonicalLedgerPayloadV4,
   createLedgerFileCryptoV2,
   createLedgerFileGenerationAadV2,
   evaluateLedgerFilePayloadByteLength,
-  type EncryptedLedgerGenerationV3,
+  type EncryptedLedgerGenerationV4,
   type LedgerFileV2,
-  validateDecryptedLedgerPayloadV3,
+  validateDecryptedLedgerPayloadV4,
   validateLedgerFileV2,
 } from "./ledgerFileContract";
 import { createInitialLedgerData } from "@/core/state";
@@ -19,11 +19,11 @@ function createGeneration(
   revisionId: string,
   parentRevisionId: string | null,
   ivByte: number,
-): EncryptedLedgerGenerationV3 {
+): EncryptedLedgerGenerationV4 {
   return {
     revisionId,
     parentRevisionId,
-    ledgerSchemaVersion: 3,
+    ledgerSchemaVersion: 4,
     ivBase64Url: bytesToBase64Url(new Uint8Array(12).fill(ivByte)),
     ciphertextBase64Url: bytesToBase64Url(new Uint8Array(16).fill(9)),
   };
@@ -75,6 +75,28 @@ describe("LedgerFileV2 contract", () => {
 
     expect(validateLedgerFileV2(changed).ok).toBe(false);
   });
+
+  it.each([2, 3] as const)(
+    "rejects a V%i ledger before any ciphertext handling",
+    (ledgerSchemaVersion) => {
+      const file = createFile();
+      const result = validateLedgerFileV2({
+        ...file,
+        current: { ...file.current, ledgerSchemaVersion },
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        errors: [
+          expect.objectContaining({
+            code: "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
+            path: "current.ledgerSchemaVersion",
+            message: `This file contains a V${ledgerSchemaVersion} ledger; V4 does not provide migration`,
+          }),
+        ],
+      });
+    },
+  );
 
   it("rejects missing, extra, non-canonical Base64URL, and invalid revision relationships", () => {
     const file = createFile(true);
@@ -146,7 +168,7 @@ describe("LedgerFileV2 contract", () => {
       generation: {
         revisionId: "revision-b",
         parentRevisionId: "revision-a",
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
         ivBase64Url: file.current.ivBase64Url,
       },
     });
@@ -154,13 +176,13 @@ describe("LedgerFileV2 contract", () => {
     expect(aad).not.toContain("ciphertextBase64Url");
   });
 
-  it("canonicalizes only savedAt and the five LedgerData fact collections", () => {
+  it("canonicalizes only savedAt and the six LedgerData fact collections", () => {
     const ledger = {
       ...createInitialLedgerData(),
       positions: [{ assetSymbol: "BTC" }],
       chartData: { fake: true },
     };
-    const result = createCanonicalLedgerPayloadV3(
+    const result = createCanonicalLedgerPayloadV4(
       ledger,
       "2026-07-28T10:00:00.000Z",
     );
@@ -181,18 +203,18 @@ describe("LedgerFileV2 contract", () => {
       ledgerData: createInitialLedgerData(),
     };
 
-    expect(validateDecryptedLedgerPayloadV3(payload).ok).toBe(true);
+    expect(validateDecryptedLedgerPayloadV4(payload).ok).toBe(true);
     expect(
-      validateDecryptedLedgerPayloadV3({ ...payload, uiState: {} }),
+      validateDecryptedLedgerPayloadV4({ ...payload, uiState: {} }),
     ).toMatchObject({ ok: false });
     expect(
-      validateDecryptedLedgerPayloadV3({
+      validateDecryptedLedgerPayloadV4({
         ...payload,
         ledgerData: { ...payload.ledgerData, kline: [] },
       }),
     ).toMatchObject({ ok: false });
     expect(
-      createCanonicalLedgerPayloadV3(
+      createCanonicalLedgerPayloadV4(
         payload.ledgerData,
         "2026-07-28",
       ),
@@ -204,7 +226,7 @@ describe("LedgerFileV2 contract", () => {
 
     expect(LEDGER_FILE_OUTER_V2_CONSTANTS.fileFormatVersion).toBe(2);
     expect(LEDGER_CRYPTO_CONSTANTS.formatVersion).toBe(2);
-    expect(SUPPORTED_LEDGER_SCHEMA_VERSION).toBe(3);
+    expect(SUPPORTED_LEDGER_SCHEMA_VERSION).toBe(4);
     expect(LEDGER_CRYPTO_CONSTANTS.ledgerSchemaVersion).toBe(1);
     expect(validateLedgerFileV2(createFile()).ok).toBe(true);
   });

@@ -6,8 +6,15 @@ import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
 } from "./usePersistentLedger";
-import type { CashEvent, LedgerData, PriceSnapshot, Trade } from "@/core/models";
+import type {
+  AssetTransfer,
+  CashEvent,
+  LedgerData,
+  PriceSnapshot,
+  Trade,
+} from "@/core/models";
 import type { LedgerClock, LedgerTimeSnapshot } from "@/core/shared";
+import { AssetTransferPanel } from "@/features/asset-transfers/ui";
 import { PriceForm } from "@/features/prices/ui";
 import { TradeForm } from "@/features/trades/ui";
 import { CashEventPanel } from "@/features/cash/ui";
@@ -19,6 +26,7 @@ import type {
 
 type RecordTarget =
   | { kind: "cash"; currency: "USDT" }
+  | { kind: "asset-transfer" }
   | { kind: "trade"; assetSymbol: string };
 
 export function RecordWorkspace({
@@ -41,6 +49,8 @@ export function RecordWorkspace({
   onTradeCreated,
   onCashEventCreated,
   onCashEventDeleted,
+  onAssetTransferCreated,
+  onAssetTransferDeleted,
   onPriceSnapshotCreated,
   marketDataPanel,
 }: Readonly<{
@@ -74,6 +84,14 @@ export function RecordWorkspace({
   ) => ApplyLedgerActionResult;
   onCashEventDeleted: (
     cashEventId: string,
+    timeSnapshot: LedgerTimeSnapshot,
+  ) => ApplyLedgerActionResult;
+  onAssetTransferCreated: (
+    assetTransfer: AssetTransfer,
+    timeSnapshot: LedgerTimeSnapshot,
+  ) => ApplyLedgerActionResult;
+  onAssetTransferDeleted: (
+    assetTransferId: string,
     timeSnapshot: LedgerTimeSnapshot,
   ) => ApplyLedgerActionResult;
   onPriceSnapshotCreated: (
@@ -136,9 +154,9 @@ export function RecordWorkspace({
       data-workspace-page="record"
     >
       <SurfaceCard className="p-5">
-        <h2 className="text-lg font-semibold">记录现金、交易与价格</h2>
+        <h2 className="text-lg font-semibold">记录现金、交易、资产转入转出与价格</h2>
         <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
-          先选择现金或某项本地资产；切换时会卸载另一张表单，不保留过期确认。
+          先选择现金、资产转移或某项本地资产；切换时会卸载另一张表单，不保留过期确认。
         </p>
       </SurfaceCard>
 
@@ -162,6 +180,10 @@ export function RecordWorkspace({
                 setRecordTarget({ kind: "cash", currency: "USDT" });
                 return;
               }
+              if (event.target.value === "asset-transfer") {
+                setRecordTarget({ kind: "asset-transfer" });
+                return;
+              }
               const assetSymbol = event.target.value.slice("trade:".length);
               setRecordTarget({ kind: "trade", assetSymbol });
               onTradeDraftChange({ ...tradeDraft, assetSymbol });
@@ -169,10 +191,13 @@ export function RecordWorkspace({
             value={
               recordTarget.kind === "cash"
                 ? "cash:USDT"
-                : `trade:${recordTarget.assetSymbol}`
+                : recordTarget.kind === "asset-transfer"
+                  ? "asset-transfer"
+                  : `trade:${recordTarget.assetSymbol}`
             }
           >
             <option value="cash:USDT">现金 USDT</option>
+            <option value="asset-transfer">资产转入转出</option>
             {ledgerData.assets.map((asset) => (
               <option key={asset.id} value={`trade:${asset.symbol}`}>
                 {asset.symbol} · {asset.name}
@@ -193,6 +218,18 @@ export function RecordWorkspace({
               mutationVersion={mutationVersion}
               onCashEventCreated={onCashEventCreated}
               onCashEventDeleted={onCashEventDeleted}
+              persistedVersion={persistedVersion}
+              persistenceStatus={persistenceStatus}
+            />
+          ) : recordTarget.kind === "asset-transfer" ? (
+            <AssetTransferPanel
+              clock={clock}
+              isWritable={isWritable}
+              ledgerData={ledgerData}
+              ledgerEpoch={ledgerEpoch}
+              mutationVersion={mutationVersion}
+              onAssetTransferCreated={onAssetTransferCreated}
+              onAssetTransferDeleted={onAssetTransferDeleted}
               persistedVersion={persistedVersion}
               persistenceStatus={persistenceStatus}
             />

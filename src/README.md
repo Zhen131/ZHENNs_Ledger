@@ -30,7 +30,7 @@ src/
 
 ### `features`
 
-The seven current features are `backup`, `charts`, `fees`, `market-data`, `portfolio`, `prices`, and `trades`. Each feature is flat:
+The eight current features are `asset-transfers`, `backup`, `charts`, `fees`, `market-data`, `portfolio`, `prices`, and `trades`. Asset transfers own category-driven draft validation and the authenticated-save panel for custody movements, external transfers, and gains. Each feature is flat:
 
 - `index.ts` exports logic only.
 - `ui.ts` exports UI only; it may be an empty module when a feature has no independent UI component.

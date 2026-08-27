@@ -46,7 +46,7 @@ export function validateTradeRemoval(
   };
 
   try {
-    replayPositions(candidateLedger.trades);
+    replayPositions(candidateLedger.trades, candidateLedger.assetTransfers);
   } catch {
     return {
       ok: false,

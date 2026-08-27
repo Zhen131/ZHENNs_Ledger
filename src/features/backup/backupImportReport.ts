@@ -40,6 +40,7 @@ export function formatBackupImportReportMarkdown(
       `- 资产：${numberOrUnavailable(result.metadata.assetCount)}`,
       `- 交易：${numberOrUnavailable(result.metadata.tradeCount)}`,
       `- 现金事件：${numberOrUnavailable(result.metadata.cashEventCount)}`,
+      `- 资产转入转出：${numberOrUnavailable(result.metadata.assetTransferCount)}`,
       `- 价格快照：${numberOrUnavailable(result.metadata.priceSnapshotCount)}`,
       `- 手续费规则：${numberOrUnavailable(result.metadata.feeRuleCount)}`,
       `- USDT 现金余额：${textOrUnavailable(result.metadata.cashBalance)}`,

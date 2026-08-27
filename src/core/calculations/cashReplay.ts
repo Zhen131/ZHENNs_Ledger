@@ -25,6 +25,13 @@ export type UsdtCashReplayOptions = Readonly<{
   asOf?: string;
 }>;
 
+export type LedgerReplayCandidate = Readonly<{
+  id: string;
+  kind: "trade" | "cash-event" | "asset-transfer";
+  occurredAt: string;
+  createdAt: string;
+}>;
+
 type CashReplayCandidate = Omit<UsdtCashReplayEffect, "balanceAfter">;
 
 export function replayUsdtCash(
@@ -83,9 +90,9 @@ function cashEventDelta(cashEvent: CashEvent): DecimalString {
   }
 }
 
-function compareCashReplayCandidates(
-  left: CashReplayCandidate,
-  right: CashReplayCandidate,
+export function compareCashReplayCandidates(
+  left: LedgerReplayCandidate,
+  right: LedgerReplayCandidate,
 ): number {
   const leftDate = getLedgerDateKey(left.occurredAt);
   const rightDate = getLedgerDateKey(right.occurredAt);
@@ -105,7 +112,8 @@ function compareCashReplayCandidates(
     return createdAtOrder;
   }
   if (left.kind !== right.kind) {
-    return left.kind === "trade" ? -1 : 1;
+    if (left.kind === "trade") return -1;
+    if (right.kind === "trade") return 1;
   }
   return left.id.localeCompare(right.id, "en");
 }

@@ -1,5 +1,8 @@
 export type {
   Asset,
+  AssetTransfer,
+  AssetTransferCategory,
+  AssetTransferReason,
   BinanceMarketMapping,
   BinancePriceProvenance,
   CashBalanceAdjustmentEvent,
@@ -8,6 +11,7 @@ export type {
   CashEventType,
   CashFlowEvent,
   CurrencyCode,
+  CustodyLocation,
   DecimalString,
   FeeAccountingIssue,
   FeeRule,

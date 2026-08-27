@@ -14,7 +14,7 @@ const metadata = {
   exportedAt: "2026-07-23T12:34:56.789Z",
 };
 
-describe("BackupEnvelopeV3", () => {
+describe("BackupEnvelopeV4", () => {
   it("creates a detached, versioned backup envelope", () => {
     const ledger = createInitialLedgerData();
     const result = createBackupEnvelope(ledger, metadata);
@@ -25,7 +25,7 @@ describe("BackupEnvelopeV3", () => {
         backupFormatVersion: BACKUP_FORMAT_VERSION,
         appVersion: "0.1.0",
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
         ledgerData: ledger,
       },
     });
@@ -52,7 +52,7 @@ describe("BackupEnvelopeV3", () => {
     expect(parseBackupJson(serialized)).toEqual(created);
   });
 
-  it("round-trips same-asset fees through the unchanged V3 envelope", () => {
+  it("round-trips same-asset fees through the unchanged V4 envelope", () => {
     const ledger = createInitialLedgerData();
     ledger.trades = [
       {
@@ -67,7 +67,7 @@ describe("BackupEnvelopeV3", () => {
         currency: "USDT",
         fee: "1",
         feeCurrency: "BTC",
-        rawText: "Fictional V3 same-asset fee example.",
+        rawText: "Fictional V4 same-asset fee example.",
         createdAt: "2026-07-01T00:00:00Z",
         updatedAt: "2026-07-01T00:00:00Z",
       },
@@ -79,7 +79,7 @@ describe("BackupEnvelopeV3", () => {
 
     const serialized = serializeBackupEnvelope(created.value);
     expect(parseBackupJson(serialized, "2026-07-23")).toEqual(created);
-    expect(JSON.parse(serialized).ledgerData.schemaVersion).toBe(3);
+    expect(JSON.parse(serialized).ledgerData.schemaVersion).toBe(4);
   });
 
   it("exports only LedgerData facts and strips chart or session-derived fields", () => {
@@ -115,6 +115,7 @@ describe("BackupEnvelopeV3", () => {
       "assets",
       "trades",
       "cashEvents",
+      "assetTransfers",
       "priceSnapshots",
       "feeRules",
     ]);
@@ -162,7 +163,7 @@ describe("BackupEnvelopeV3", () => {
   it("rejects invalid metadata and mismatched schema versions", () => {
     const ledger = createInitialLedgerData();
     const result = validateBackupEnvelope({
-      backupFormatVersion: 3,
+      backupFormatVersion: 4,
       appVersion: "",
       exportedAt: "2026-07-23",
       ledgerSchemaVersion: 1,
@@ -189,25 +190,25 @@ describe("BackupEnvelopeV3", () => {
   it("rejects non-canonical top-level keys, order, and app versions", () => {
     const ledger = createInitialLedgerData();
     const extraKey = validateBackupEnvelope({
-      backupFormatVersion: 3,
+      backupFormatVersion: 4,
       appVersion: metadata.appVersion,
       exportedAt: metadata.exportedAt,
-      ledgerSchemaVersion: 3,
+      ledgerSchemaVersion: 4,
       ledgerData: ledger,
       unexpected: true,
     });
     const wrongOrder = validateBackupEnvelope({
       appVersion: metadata.appVersion,
-      backupFormatVersion: 3,
+      backupFormatVersion: 4,
       exportedAt: metadata.exportedAt,
-      ledgerSchemaVersion: 3,
+      ledgerSchemaVersion: 4,
       ledgerData: ledger,
     });
     const invalidAppVersion = validateBackupEnvelope({
-      backupFormatVersion: 3,
+      backupFormatVersion: 4,
       appVersion: ` ${"x".repeat(128)}`,
       exportedAt: metadata.exportedAt,
-      ledgerSchemaVersion: 3,
+      ledgerSchemaVersion: 4,
       ledgerData: ledger,
     });
 
@@ -230,7 +231,34 @@ describe("BackupEnvelopeV3", () => {
     });
   });
 
-  it("rejects a V1 backup without returning a V2 value", () => {
+  it.each([
+    [2, "这是 V2 备份；当前 V4 不兼容且不提供迁移"],
+    [3, "这是 V3 备份；当前 V4 不兼容且不提供迁移"],
+  ] as const)(
+    "rejects a V%i backup at the version boundary without inspecting ledgerData",
+    (backupFormatVersion, message) => {
+      const result = validateBackupEnvelope({
+        backupFormatVersion,
+        appVersion: metadata.appVersion,
+        exportedAt: metadata.exportedAt,
+        ledgerSchemaVersion: backupFormatVersion,
+        ledgerData: { deliberatelyInvalid: true },
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        errors: [
+          {
+            code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+            path: "backupFormatVersion",
+            message,
+          },
+        ],
+      });
+    },
+  );
+
+  it("rejects a V1 backup without returning a V4 value", () => {
     const ledger = createInitialLedgerData();
     const result = validateBackupEnvelope({
       backupFormatVersion: 1,
@@ -261,10 +289,10 @@ describe("BackupEnvelopeV3", () => {
 
     expect(
       validateBackupEnvelope({
-        backupFormatVersion: 3,
+        backupFormatVersion: 4,
         appVersion: metadata.appVersion,
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
         ledgerData: ledger,
       }),
     ).toEqual({

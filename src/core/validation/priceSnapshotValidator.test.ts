@@ -41,7 +41,7 @@ describe("validatePriceSnapshotDraft", () => {
     ).toBe(true);
   });
 
-  it("rejects non-USDT prices in every V3 validation mode", () => {
+  it("rejects non-USDT prices in every V4 validation mode", () => {
     const legacyDraft = { ...validDraft, currency: "USD" };
 
     const strictResult = validatePriceSnapshotDraft(legacyDraft, assets);

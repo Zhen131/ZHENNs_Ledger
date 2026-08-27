@@ -138,7 +138,7 @@ export function validatePriceSnapshotDraft(
       createError(
         PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.UNSUPPORTED_VALUATION_CURRENCY,
         "currency",
-        "V3 supports USDT valuation only",
+        "V4 supports USDT valuation only",
       ),
     );
   }

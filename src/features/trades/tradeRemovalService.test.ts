@@ -94,4 +94,88 @@ describe("validateTradeRemoval", () => {
       tradeId: "future-sell",
     });
   });
+
+  it("replays transfers when deciding whether a trade can be deleted", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [
+      {
+        id: "external-in-support",
+        occurredAt: "2026-04-01",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "10",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "1",
+        toLocation: "exchange",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-01T00:00:00.000Z",
+      },
+    ];
+    ledgerData.trades = [
+      {
+        ...sampleTrades[0],
+        id: "redundant-buy",
+        occurredAt: "2026-04-02",
+        assetSymbol: "BTC",
+        type: "buy",
+        quantity: "5",
+        price: "1",
+        totalValue: "5",
+      },
+      {
+        ...sampleTrades[0],
+        id: "later-sell",
+        occurredAt: "2026-04-03",
+        assetSymbol: "BTC",
+        type: "sell",
+        quantity: "10",
+        price: "1",
+        totalValue: "10",
+      },
+    ];
+
+    expect(validateTradeRemoval("redundant-buy", ledgerData)).toEqual({
+      ok: true,
+      tradeId: "redundant-buy",
+    });
+  });
+
+  it("blocks deleting a buy that an external-out transfer consumes", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      {
+        ...sampleTrades[0],
+        id: "supporting-buy",
+        occurredAt: "2026-04-01",
+        assetSymbol: "BTC",
+        type: "buy",
+        quantity: "10",
+        price: "1",
+        totalValue: "10",
+      },
+    ];
+    ledgerData.assetTransfers = [
+      {
+        id: "external-out-consumer",
+        occurredAt: "2026-04-02",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "10",
+        category: "external-out",
+        reason: "withdrawal",
+        fromLocation: "exchange",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-01T00:00:00.000Z",
+      },
+    ];
+
+    expect(validateTradeRemoval("supporting-buy", ledgerData)).toEqual({
+      ok: false,
+      error: {
+        code: TRADE_REMOVAL_ERROR_CODES.BREAKS_LEDGER_TIMELINE,
+        message: expect.any(String),
+      },
+    });
+  });
 });

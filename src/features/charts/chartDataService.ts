@@ -170,6 +170,7 @@ export function buildHoldingHistory(
     [
       ...ledgerData.trades.map((trade) => trade.occurredAt),
       ...ledgerData.cashEvents.map((cashEvent) => cashEvent.occurredAt),
+      ...ledgerData.assetTransfers.map((transfer) => transfer.occurredAt),
     ],
     options.todayKey,
     options.range,

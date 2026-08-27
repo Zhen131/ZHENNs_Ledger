@@ -17,9 +17,9 @@ import {
 } from "@/features/backup";
 import { bytesToBase64Url } from "@/platform/encryption";
 import {
-  type DecryptedLedgerPayloadV3,
+  type DecryptedLedgerPayloadV4,
   type LedgerFileV2,
-  validateDecryptedLedgerPayloadV3,
+  validateDecryptedLedgerPayloadV4,
   validateLedgerFileV2,
 } from "./ledgerFileContract";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
@@ -509,8 +509,8 @@ async function readVerifiedFile(
   handle: AtomicLedgerHandle,
 ): Promise<{
   file: LedgerFileV2;
-  current: DecryptedLedgerPayloadV3;
-  previous: DecryptedLedgerPayloadV3 | null;
+  current: DecryptedLedgerPayloadV4;
+  previous: DecryptedLedgerPayloadV4 | null;
 }> {
   const parsed: unknown = JSON.parse(handle.text());
   const validated = validateLedgerFileV2(parsed);
@@ -537,8 +537,8 @@ async function readVerifiedFile(
   return { file: validated.value, current, previous };
 }
 
-function parsePayload(serialized: string): DecryptedLedgerPayloadV3 {
-  const result = validateDecryptedLedgerPayloadV3(JSON.parse(serialized));
+function parsePayload(serialized: string): DecryptedLedgerPayloadV4 {
+  const result = validateDecryptedLedgerPayloadV4(JSON.parse(serialized));
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error("invalid test payload");
   return result.value.value;

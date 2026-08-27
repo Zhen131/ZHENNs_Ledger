@@ -7,7 +7,12 @@ import {
 import { ledgerReducer } from "./ledgerReducer";
 import { createBuiltInAssets } from "@/core/catalog";
 import { createPriceSnapshot, createSimpleTrade } from "@/test-support";
-import type { CashEvent, FeeRule, FixedFeeRule } from "@/core/models";
+import type {
+  AssetTransfer,
+  CashEvent,
+  FeeRule,
+  FixedFeeRule,
+} from "@/core/models";
 
 function createFeeRule(id = "fee-okx-btc-v1"): FixedFeeRule {
   return {
@@ -26,10 +31,11 @@ function createFeeRule(id = "fee-okx-btc-v1"): FixedFeeRule {
 
 test("creates an in-memory ledger with built-in assets", () => {
   expect(createInitialLedgerData()).toEqual({
-    schemaVersion: 3,
+    schemaVersion: 4,
     assets: createBuiltInAssets(),
     trades: [],
     cashEvents: [],
+    assetTransfers: [],
     priceSnapshots: [],
     feeRules: [],
   });
@@ -46,6 +52,7 @@ test("creates independent array references for each initial ledger", () => {
   }
   expect(firstLedger.trades).not.toBe(secondLedger.trades);
   expect(firstLedger.cashEvents).not.toBe(secondLedger.cashEvents);
+  expect(firstLedger.assetTransfers).not.toBe(secondLedger.assetTransfers);
   expect(firstLedger.priceSnapshots).not.toBe(secondLedger.priceSnapshots);
   expect(firstLedger.feeRules).not.toBe(secondLedger.feeRules);
 });
@@ -146,6 +153,56 @@ test("adds and deletes only the selected cash fact", () => {
   expect(deleted.trades).toBe(added.trades);
 });
 
+test("adds and deletes only the selected asset transfer", () => {
+  const assetTransfer = createTransfer("transfer-one", "2026-08-18");
+  const initial = createInitialLedgerData();
+  const added = ledgerReducer(initial, {
+    type: "assetTransfer/add",
+    assetTransfer,
+  });
+  const deleted = ledgerReducer(added, {
+    type: "assetTransfer/delete",
+    assetTransferId: assetTransfer.id,
+  });
+
+  expect(added.assetTransfers).toEqual([assetTransfer]);
+  expect(added.assetTransfers).not.toBe(initial.assetTransfers);
+  expect(initial.assetTransfers).toEqual([]);
+  expect(deleted.assetTransfers).toEqual([]);
+  expect(deleted.trades).toBe(added.trades);
+});
+
+test("futureFacts/deleteAll removes future transfers with the other future facts", () => {
+  const initial = createInitialLedgerData();
+  initial.assetTransfers = [
+    createTransfer("active-transfer", "2026-08-18"),
+    createTransfer("future-transfer", "2026-08-20"),
+  ];
+  initial.cashEvents = [
+    {
+      id: "future-cash",
+      occurredAt: "2026-08-20",
+      timePrecision: "day",
+      type: "deposit",
+      currency: "USDT",
+      amount: "1",
+      createdAt: "2026-08-18T08:00:00.000Z",
+      updatedAt: "2026-08-18T08:00:00.000Z",
+    },
+  ];
+
+  const next = ledgerReducer(initial, {
+    type: "futureFacts/deleteAll",
+    todayKey: "2026-08-18",
+  });
+
+  expect(next.assetTransfers.map((item) => item.id)).toEqual([
+    "active-transfer",
+  ]);
+  expect(next.cashEvents).toEqual([]);
+  expect(initial.assetTransfers).toHaveLength(2);
+});
+
 test("adds a price snapshot without mutating the previous ledger", () => {
   const previousLedger = createInitialLedgerData();
   const priceSnapshot = createPriceSnapshot(
@@ -237,9 +294,26 @@ test("resets user data and restores independent built-in assets", () => {
   expect(nextLedger.assets[0]).not.toBe(previousLedger.assets[0]);
   expect(nextLedger.trades).not.toBe(previousLedger.trades);
   expect(nextLedger.cashEvents).not.toBe(previousLedger.cashEvents);
+  expect(nextLedger.assetTransfers).not.toBe(previousLedger.assetTransfers);
   expect(nextLedger.priceSnapshots).not.toBe(previousLedger.priceSnapshots);
   expect(nextLedger.feeRules).not.toBe(previousLedger.feeRules);
 });
+
+function createTransfer(id: string, occurredAt: string): AssetTransfer {
+  return {
+    id,
+    occurredAt,
+    timePrecision: "day",
+    assetSymbol: "BTC",
+    quantity: "1",
+    category: "external-in",
+    reason: "deposit",
+    unitPrice: "1",
+    toLocation: "exchange",
+    createdAt: "2026-08-18T08:00:00.000Z",
+    updatedAt: "2026-08-18T08:00:00.000Z",
+  };
+}
 
 test("creates independent built-in assets across consecutive resets", () => {
   const firstReset = ledgerReducer(createInitialLedgerData(), {

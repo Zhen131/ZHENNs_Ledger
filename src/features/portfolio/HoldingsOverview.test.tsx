@@ -20,10 +20,16 @@ function position(
   return {
     assetSymbol,
     quantity: "1",
+    locationQuantities: {
+      exchange: "0.4",
+      "cold-wallet": "0.6",
+      "cold-wallet-earn": "0",
+    },
     averageCost: "1",
     costBasis: "1",
     ...(marketValue === undefined ? {} : { marketValue }),
     realizedPnl: "0",
+    giftIncome: "0",
     currency: "USDT",
   };
 }
@@ -91,6 +97,26 @@ describe("holdings workspace views", () => {
       screen.getByRole("button", { name: "关闭完整持仓详情" }),
     );
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("always renders all three custody-location columns and quantities", () => {
+    render(
+      <HoldingsDetails
+        cashBalance="0"
+        onClose={vi.fn()}
+        open
+        positions={[position("BTC", "9")]}
+      />,
+    );
+
+    expect(screen.getByRole("columnheader", { name: "交易所数量" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "冷钱包数量" })).toBeTruthy();
+    expect(
+      screen.getByRole("columnheader", { name: "冷钱包理财数量" }),
+    ).toBeTruthy();
+    expect(screen.getAllByText("0.4")).toHaveLength(1);
+    expect(screen.getAllByText("0.6")).toHaveLength(1);
+    expect(screen.getAllByText("0").length).toBeGreaterThanOrEqual(1);
   });
 
   it("closes details when the backdrop is pressed", () => {

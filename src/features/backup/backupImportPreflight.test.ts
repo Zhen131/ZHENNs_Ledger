@@ -25,7 +25,7 @@ import {
 const TODAY = "2026-07-31";
 
 describe("preflightBackupJson", () => {
-  it("round-trips a structured V2 trade through export and strict rawText preflight", async () => {
+  it("round-trips a structured V4 ledger trade through export and strict rawText preflight", async () => {
     const ledger = createInitialLedgerData();
     const created = createValidatedTrade(
       {
@@ -122,7 +122,7 @@ describe("preflightBackupJson", () => {
     expect(inspectLedgerBackupImportEvidence(evidence)).toBeNull();
   });
 
-  it("reports source, five collection counts, missing mappings and negative cash as a warning", async () => {
+  it("reports source, six collection counts, missing mappings and negative cash as a warning", async () => {
     const ledger = createInitialLedgerData();
     ledger.assets[0] = {
       ...ledger.assets[0],
@@ -163,11 +163,12 @@ describe("preflightBackupJson", () => {
     ]);
     expect(result.metadata).toMatchObject({
       sourceFileName: "fictional-negative-cash.backup.json",
-      backupFormatVersion: 3,
-      ledgerSchemaVersion: 3,
+      backupFormatVersion: 4,
+      ledgerSchemaVersion: 4,
       assetCount: ledger.assets.length,
       tradeCount: 0,
       cashEventCount: 1,
+      assetTransferCount: 0,
       priceSnapshotCount: 0,
       feeRuleCount: 0,
       cashBalance: "-50",
@@ -225,53 +226,59 @@ describe("preflightBackupJson", () => {
     expect(result.candidate).toBeUndefined();
   });
 
-  it("short-circuits a V2 B at the version stage without candidate, warnings, duplicate grouping, or network", async () => {
-    const parsed = JSON.parse(readFixture("suspicions-only.backup.json"));
-    parsed.backupFormatVersion = 2;
-    parsed.ledgerData.trades[0].quantity = "also-invalid";
-    const fetchSpy = vi.fn(async () => {
-      throw new Error("preflight must stay offline");
-    });
-    vi.stubGlobal("fetch", fetchSpy);
+  it.each([
+    [2, "这是 V2 备份；当前 V4 不兼容且不提供迁移"],
+    [3, "这是 V3 备份；当前 V4 不兼容且不提供迁移"],
+  ] as const)(
+    "short-circuits a V%i backup at the version stage without candidate, warnings, duplicate grouping, or network",
+    async (legacyVersion, message) => {
+      const parsed = JSON.parse(readFixture("suspicions-only.backup.json"));
+      parsed.backupFormatVersion = legacyVersion;
+      parsed.ledgerData.trades[0].quantity = "also-invalid";
+      const fetchSpy = vi.fn(async () => {
+        throw new Error("preflight must stay offline");
+      });
+      vi.stubGlobal("fetch", fetchSpy);
 
-    const result = await preflightBackupJson(
-      `${JSON.stringify(parsed, null, 2)}\n`,
-      {
-        todayKey: TODAY,
-        selectionGeneration: 8,
-        sourceFileName: "fictional-v2.backup.json",
-      },
-    );
+      const result = await preflightBackupJson(
+        `${JSON.stringify(parsed, null, 2)}\n`,
+        {
+          todayKey: TODAY,
+          selectionGeneration: 8,
+          sourceFileName: `fictional-v${legacyVersion}.backup.json`,
+        },
+      );
 
-    expect(result.hardErrorCount).toBe(1);
-    expect(result.suspiciousGroupCount).toBe(0);
-    expect(result.warningCount).toBe(0);
-    expect(result.candidate).toBeUndefined();
-    expect(result.candidateIdentity).toBeUndefined();
-    expect(createLedgerBackupImportEvidence(result)).toBeNull();
-    expect(result.retainedDetails).toEqual([
-      expect.objectContaining({
-        code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
-        path: "backupFormatVersion",
-        message: "这是 V2 备份；V3 不提供迁移",
-      }),
-    ]);
-    expect(result.metadata).toEqual({
-      sourceFileName: "fictional-v2.backup.json",
-      backupFormatVersion: 2,
-      appVersion: parsed.appVersion,
-      exportedAt: parsed.exportedAt,
-      ledgerSchemaVersion: parsed.ledgerSchemaVersion,
-    });
-    expect(result.skippedChecks.map(({ check }) => check)).toEqual([
-      "ledger-structure",
-      "resource-policy",
-      "import-policy",
-      "duplicate-grouping",
-    ]);
-    expect(fetchSpy).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
-  });
+      expect(result.hardErrorCount).toBe(1);
+      expect(result.suspiciousGroupCount).toBe(0);
+      expect(result.warningCount).toBe(0);
+      expect(result.candidate).toBeUndefined();
+      expect(result.candidateIdentity).toBeUndefined();
+      expect(createLedgerBackupImportEvidence(result)).toBeNull();
+      expect(result.retainedDetails).toEqual([
+        expect.objectContaining({
+          code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+          path: "backupFormatVersion",
+          message,
+        }),
+      ]);
+      expect(result.metadata).toEqual({
+        sourceFileName: `fictional-v${legacyVersion}.backup.json`,
+        backupFormatVersion: legacyVersion,
+        appVersion: parsed.appVersion,
+        exportedAt: parsed.exportedAt,
+        ledgerSchemaVersion: parsed.ledgerSchemaVersion,
+      });
+      expect(result.skippedChecks.map(({ check }) => check)).toEqual([
+        "ledger-structure",
+        "resource-policy",
+        "import-policy",
+        "duplicate-grouping",
+      ]);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    },
+  );
 
   it("rejects absent Binance mapping and distinguishes null from explicit mapping identities", async () => {
     const parsed = JSON.parse(
@@ -613,10 +620,19 @@ function getSuspiciousDetails(
 }
 
 function readFixture(name: string): string {
-  return readFileSync(
+  const serialized = readFileSync(
     new URL(`../../../test-fixtures/w11-b-import/${name}`, import.meta.url),
     "utf8",
   );
+  const parsed = JSON.parse(serialized);
+  parsed.backupFormatVersion = 4;
+  parsed.ledgerSchemaVersion = 4;
+  parsed.ledgerData = {
+    ...parsed.ledgerData,
+    schemaVersion: 4,
+    assetTransfers: parsed.ledgerData.assetTransfers ?? [],
+  };
+  return `${JSON.stringify(parsed, null, 2)}\n`;
 }
 
 function sha256(value: string): string {

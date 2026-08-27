@@ -116,15 +116,31 @@ describe("createValidatedPriceSnapshot", () => {
   });
 
   it("treats IDs from other collections and invalid candidates as collisions", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [
+      {
+        id: "transfer-collision",
+        occurredAt: "2026-07-15",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "1",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "1",
+        toLocation: "exchange",
+        createdAt: "2026-07-15T00:00:00.000Z",
+        updatedAt: "2026-07-15T00:00:00.000Z",
+      },
+    ];
     const dependencies = createDependencies([
-      "asset-btc",
+      "transfer-collision",
       " invalid-id ",
       "price-new",
     ]);
 
     const result = createValidatedPriceSnapshot(
       validDraft,
-      createInitialLedgerData(),
+      ledgerData,
       dependencies,
     );
 

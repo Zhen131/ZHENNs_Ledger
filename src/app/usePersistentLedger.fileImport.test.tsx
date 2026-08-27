@@ -340,7 +340,7 @@ describe("usePersistentLedger ready C import", () => {
   );
 
   it(
-    "imports a normal V3 backup without requiring historical Trade.rawText",
+    "imports a normal V4 backup without requiring historical Trade.rawText",
     async () => {
       const parsed = JSON.parse(
         readFixture("valid-300.backup.json"),
@@ -546,7 +546,7 @@ describe("usePersistentLedger ready C import", () => {
     );
   });
 
-  it("rejects a V3 B with an absent Binance mapping before any file write", async () => {
+  it("rejects a V4 B with an absent Binance mapping before any file write", async () => {
     const parsed = JSON.parse(
       readFixture("valid-300.backup.json"),
     );

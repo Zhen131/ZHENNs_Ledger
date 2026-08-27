@@ -83,6 +83,12 @@ const position = {
   marketValue: "15",
   realizedPnl: "2",
   unrealizedPnl: "5",
+  locationQuantities: {
+    exchange: "0.25",
+    "cold-wallet": "0",
+    "cold-wallet-earn": "0",
+  },
+  giftIncome: "0",
   currency: "USDT",
 };
 

@@ -108,7 +108,7 @@ export function createUsdtAsset(symbol: string, name: string): Asset {
 
 export function createTradeFromDraft(draft: TradeDraft, id: string): Trade {
   if (draft.currency !== "USDT") {
-    throw new Error("V3 trade fixtures must use USDT");
+    throw new Error("V4 trade fixtures must use USDT");
   }
   const currency: "USDT" = draft.currency;
 

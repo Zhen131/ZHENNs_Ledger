@@ -41,6 +41,7 @@ import {
 } from "@/features/portfolio";
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
 import { validateTradeRemoval } from "@/features/trades";
+import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 import {
   getLedgerDateKey,
   isLedgerFactInFuture,
@@ -378,6 +379,9 @@ export function DashboardShell({
   const futurePriceSnapshots = ledgerData.priceSnapshots.filter((snapshot) =>
     isLedgerFactInFuture(snapshot.recordedAt, todayKey),
   );
+  const futureAssetTransfers = ledgerData.assetTransfers.filter((transfer) =>
+    isLedgerFactInFuture(transfer.occurredAt, todayKey),
+  );
 
   function removeValidatedTrade(
     tradeId: string,
@@ -427,6 +431,29 @@ export function DashboardShell({
     const outcome = applyLedgerAction({
       type: "priceSnapshot/delete",
       priceSnapshotId,
+    });
+    setFutureCorrectionError(
+      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+    );
+    return outcome;
+  }
+
+  function handleDeleteFutureAssetTransfer(
+    assetTransferId: string,
+  ): ConfirmDeleteOutcome {
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+
+    const result = validateAssetTransferRemoval(assetTransferId, ledgerData);
+    if (!result.ok) {
+      setFutureCorrectionError(result.error.message);
+      return "rejected";
+    }
+
+    const outcome = applyLedgerAction({
+      type: "assetTransfer/delete",
+      assetTransferId: result.assetTransferId,
     });
     setFutureCorrectionError(
       outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
@@ -759,7 +786,7 @@ export function DashboardShell({
             <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
               <p className="font-semibold">未来事实纠正模式</p>
               <p>
-                未来交易和价格不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可逐条删除未来事实、救援导出、导入合法整账、清空或删除全部无效未来事实。
+                未来交易、价格和资产转入转出不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可逐条删除未来事实、救援导出、导入合法整账、清空或删除全部无效未来事实。
               </p>
               {futureCorrectionError ? (
                 <p
@@ -806,6 +833,26 @@ export function DashboardShell({
                       label="删除未来价格"
                       onConfirm={() =>
                         handleDeleteFuturePrice(snapshot.id)
+                      }
+                    />
+                  </li>
+                ))}
+                {futureAssetTransfers.map((assetTransfer) => (
+                  <li
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-white p-3"
+                    key={assetTransfer.id}
+                  >
+                    <span>
+                      未来资产转移：{assetTransfer.assetSymbol} · 数量{" "}
+                      {assetTransfer.quantity} · {assetTransfer.occurredAt} · ID{" "}
+                      {shortLedgerId(assetTransfer.id)}
+                    </span>
+                    <ConfirmDeleteButton
+                      ariaLabel={`删除未来资产转移 ${assetTransfer.assetSymbol} ${assetTransfer.occurredAt} ${assetTransfer.id}`}
+                      disabled={!canCorrectFutureFacts}
+                      label="删除未来资产转移"
+                      onConfirm={() =>
+                        handleDeleteFutureAssetTransfer(assetTransfer.id)
                       }
                     />
                   </li>
@@ -1274,6 +1321,18 @@ export function DashboardShell({
         onCashEventDeleted={(cashEventId, timeSnapshot) =>
           applyLedgerAction(
             { type: "cashEvent/delete", cashEventId },
+            timeSnapshot,
+          )
+        }
+        onAssetTransferCreated={(assetTransfer, timeSnapshot) =>
+          applyLedgerAction(
+            { type: "assetTransfer/add", assetTransfer },
+            timeSnapshot,
+          )
+        }
+        onAssetTransferDeleted={(assetTransferId, timeSnapshot) =>
+          applyLedgerAction(
+            { type: "assetTransfer/delete", assetTransferId },
             timeSnapshot,
           )
         }

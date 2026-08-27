@@ -690,7 +690,7 @@ export function BackupControls({
     }, exportTime.todayKey);
 
     if (!envelopeResult.ok) {
-      setMessage("无法导出：当前账本未通过 V3 结构、资源或业务校验。");
+      setMessage("无法导出：当前账本未通过 V4 结构、资源或业务校验。");
       return;
     }
 
@@ -698,7 +698,7 @@ export function BackupControls({
     const bytePolicy = evaluateLedgerJsonResourcePolicy(serialized);
     if (!bytePolicy.ok) {
       setMessage(
-        "无法导出：当前 V3 无法安全导出该超大账本；未创建备份文件。",
+        "无法导出：当前 V4 无法安全导出该超大账本；未创建备份文件。",
       );
       return;
     }
@@ -788,7 +788,7 @@ export function BackupControls({
           todayKey: selectionTimeSnapshot.todayKey,
           selectionGeneration,
           sourceFileName: file.name,
-          // Normal V3 restore keeps Trade.rawText optional; only an explicitly
+          // Normal V4 restore keeps Trade.rawText optional; only an explicitly
           // selected historical-ingest surface opts into strict source lines.
           requireHistoricalRawText: requiresHistoricalRawText,
         });
@@ -1333,6 +1333,10 @@ function PreflightReportView({
         <div>
           <dt className="text-slate-500">现金事件</dt>
           <dd>{result.metadata?.cashEventCount ?? "不可得"}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">资产转入转出</dt>
+          <dd>{result.metadata?.assetTransferCount ?? "不可得"}</dd>
         </div>
         <div>
           <dt className="text-slate-500">价格快照</dt>

@@ -35,6 +35,7 @@ const LEGACY_TOP_LEVEL_AREAS = [
   "validators",
 ] as const;
 const FEATURES = [
+  "asset-transfers",
   "backup",
   "charts",
   "fees",

@@ -32,11 +32,17 @@ const fixedClock: LedgerClock = {
 const pricedPosition: Position = {
   assetSymbol: "SOL",
   quantity: "2.3456789",
+  locationQuantities: {
+    exchange: "1.3456789",
+    "cold-wallet": "1",
+    "cold-wallet-earn": "0",
+  },
   averageCost: "100",
   costBasis: "200",
   latestPrice: "120",
   marketValue: "240",
   realizedPnl: "0",
+  giftIncome: "0",
   unrealizedPnl: "40",
   currency: "USD",
 };
@@ -44,9 +50,15 @@ const pricedPosition: Position = {
 const unpricedPosition: Position = {
   assetSymbol: "DOGE",
   quantity: "10",
+  locationQuantities: {
+    exchange: "10",
+    "cold-wallet": "0",
+    "cold-wallet-earn": "0",
+  },
   averageCost: "0.1",
   costBasis: "1",
   realizedPnl: "0",
+  giftIncome: "0",
   currency: "USD",
 };
 

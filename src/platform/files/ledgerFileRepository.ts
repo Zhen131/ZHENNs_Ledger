@@ -4,13 +4,13 @@ import {
   type LedgerFileHandleAdapter,
 } from "./ledgerFileHandleAdapter";
 import {
-  createCanonicalLedgerPayloadV3,
-  type CanonicalLedgerPayloadV3,
-  type DecryptedLedgerPayloadV3,
-  type EncryptedLedgerGenerationV3,
+  createCanonicalLedgerPayloadV4,
+  type CanonicalLedgerPayloadV4,
+  type DecryptedLedgerPayloadV4,
+  type EncryptedLedgerGenerationV4,
   type LedgerFileV2,
   SUPPORTED_LEDGER_SCHEMA_VERSION,
-  validateDecryptedLedgerPayloadV3,
+  validateDecryptedLedgerPayloadV4,
   validateLedgerFileV2,
 } from "./ledgerFileContract";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
@@ -86,8 +86,8 @@ export type LedgerFileRepositorySessionDependencies =
   };
 
 type VerifiedGeneration = {
-  generation: EncryptedLedgerGenerationV3;
-  payload: DecryptedLedgerPayloadV3;
+  generation: EncryptedLedgerGenerationV4;
+  payload: DecryptedLedgerPayloadV4;
   serializedPayload: string;
   serializedLedgerData: string;
 };
@@ -106,13 +106,13 @@ type PendingSaveIntent = {
   baseCurrent: VerifiedGeneration;
   file: LedgerFileV2;
   serializedFile: string;
-  expectedCurrent: CanonicalLedgerPayloadV3;
+  expectedCurrent: CanonicalLedgerPayloadV4;
 };
 
 type PendingRecoveryIntent = {
   file: LedgerFileV2;
   serializedFile: string;
-  expectedCurrent: CanonicalLedgerPayloadV3;
+  expectedCurrent: CanonicalLedgerPayloadV4;
 };
 
 type PendingClearIntent = PendingSaveIntent & {
@@ -213,7 +213,7 @@ export class LedgerFileRepository
       const now = dependencies.now ?? (() => new Date());
       const fileId = generateId();
       const revisionId = generateId();
-      const payloadResult = createCanonicalLedgerPayloadV3(
+      const payloadResult = createCanonicalLedgerPayloadV4(
         initialLedgerData,
         now().toISOString(),
       );
@@ -409,7 +409,7 @@ export class LedgerFileRepository
         "A ledger-file import authorization already owns the next write",
       );
     }
-    const candidateValidation = createCanonicalLedgerPayloadV3(
+    const candidateValidation = createCanonicalLedgerPayloadV4(
       candidate,
       this.verified.current.payload.savedAt,
     );
@@ -444,7 +444,7 @@ export class LedgerFileRepository
         "A ledger-file clear intent must be reconciled before saving",
       );
     }
-    const candidateForComparison = createCanonicalLedgerPayloadV3(
+    const candidateForComparison = createCanonicalLedgerPayloadV4(
       candidate,
       this.verified.current.payload.savedAt,
     );
@@ -489,7 +489,7 @@ export class LedgerFileRepository
       return;
     }
 
-    const payloadResult = createCanonicalLedgerPayloadV3(
+    const payloadResult = createCanonicalLedgerPayloadV4(
       candidate,
       this.now().toISOString(),
     );
@@ -827,7 +827,7 @@ export class LedgerFileRepository
       );
     }
 
-    const comparison = createCanonicalLedgerPayloadV3(
+    const comparison = createCanonicalLedgerPayloadV4(
       candidate,
       this.verified.current.payload.savedAt,
     );
@@ -864,7 +864,7 @@ export class LedgerFileRepository
     await this.assertDiskMatchesVerified();
     assertImportActive(signal);
 
-    const payloadResult = createCanonicalLedgerPayloadV3(
+    const payloadResult = createCanonicalLedgerPayloadV4(
       candidate,
       this.now().toISOString(),
     );
@@ -1054,7 +1054,7 @@ export class LedgerFileRepository
     ) {
       return false;
     }
-    const initial = createCanonicalLedgerPayloadV3(
+    const initial = createCanonicalLedgerPayloadV4(
       createInitialLedgerData(),
       this.verified.current.payload.savedAt,
     );
@@ -1154,7 +1154,7 @@ export class LedgerFileRepository
     await this.assertDiskMatchesVerified();
     const baseFile = this.verified.file;
     const baseCurrent = this.verified.current;
-    const payloadResult = createCanonicalLedgerPayloadV3(
+    const payloadResult = createCanonicalLedgerPayloadV4(
       createInitialLedgerData(),
       this.now().toISOString(),
     );
@@ -1474,7 +1474,7 @@ export class LedgerFileRecoveryCandidate {
     }
 
     if (!this.pendingIntent) {
-      const payloadResult = createCanonicalLedgerPayloadV3(
+      const payloadResult = createCanonicalLedgerPayloadV4(
         this.verifiedPrevious.payload.ledgerData,
         this.now().toISOString(),
       );
@@ -1600,7 +1600,7 @@ function expectedFromPending(pending: PendingSaveIntent) {
 
 function expectedFromRecovery(
   pending: PendingRecoveryIntent,
-  previousGeneration: EncryptedLedgerGenerationV3,
+  previousGeneration: EncryptedLedgerGenerationV4,
   previousPayload: VerifiedGeneration,
 ): VerificationExpectation {
   return {
@@ -1631,9 +1631,9 @@ type VerificationExpectation = {
   fileId: string;
   currentRevisionId: string;
   currentParentRevisionId: string | null;
-  currentGeneration: EncryptedLedgerGenerationV3;
-  currentPayload: CanonicalLedgerPayloadV3;
-  previousGeneration: EncryptedLedgerGenerationV3 | null;
+  currentGeneration: EncryptedLedgerGenerationV4;
+  currentPayload: CanonicalLedgerPayloadV4;
+  previousGeneration: EncryptedLedgerGenerationV4 | null;
   previousPayload: Pick<
     VerifiedGeneration,
     "serializedPayload" | "serializedLedgerData"
@@ -1819,7 +1819,7 @@ async function verifyLedgerFileForOpen(
 
 async function verifyGeneration(
   file: LedgerFileV2,
-  generation: EncryptedLedgerGenerationV3,
+  generation: EncryptedLedgerGenerationV4,
   crypto: LedgerFileCrypto,
 ): Promise<VerifiedGeneration> {
   const plaintext = await crypto.decryptGeneration(
@@ -1837,7 +1837,7 @@ async function verifyGeneration(
     );
   }
 
-  const payloadResult = validateDecryptedLedgerPayloadV3(parsed);
+  const payloadResult = validateDecryptedLedgerPayloadV4(parsed);
   if (!payloadResult.ok) {
     throw new LedgerFileRepositoryError(
       LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
@@ -1921,8 +1921,8 @@ function serializeLedgerFile(file: LedgerFileV2): string {
 }
 
 function orderedGeneration(
-  generation: EncryptedLedgerGenerationV3,
-): EncryptedLedgerGenerationV3 {
+  generation: EncryptedLedgerGenerationV4,
+): EncryptedLedgerGenerationV4 {
   return {
     revisionId: generation.revisionId,
     parentRevisionId: generation.parentRevisionId,
@@ -1933,8 +1933,8 @@ function orderedGeneration(
 }
 
 function sameGeneration(
-  left: EncryptedLedgerGenerationV3,
-  right: EncryptedLedgerGenerationV3,
+  left: EncryptedLedgerGenerationV4,
+  right: EncryptedLedgerGenerationV4,
 ): boolean {
   return JSON.stringify(orderedGeneration(left)) ===
     JSON.stringify(orderedGeneration(right));

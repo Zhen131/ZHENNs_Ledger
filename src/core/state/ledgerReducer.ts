@@ -1,5 +1,6 @@
 import type {
   Asset,
+  AssetTransfer,
   CashEvent,
   FeeRule,
   LedgerData,
@@ -24,6 +25,14 @@ export type LedgerAction =
   | {
       type: "cashEvent/delete";
       cashEventId: string;
+    }
+  | {
+      type: "assetTransfer/add";
+      assetTransfer: AssetTransfer;
+    }
+  | {
+      type: "assetTransfer/delete";
+      assetTransferId: string;
     }
   | {
       type: "asset/add";
@@ -108,6 +117,19 @@ export function ledgerReducer(
       return nextCashEvents.length === state.cashEvents.length
         ? state
         : { ...state, cashEvents: nextCashEvents };
+    }
+    case "assetTransfer/add":
+      return {
+        ...state,
+        assetTransfers: [...state.assetTransfers, action.assetTransfer],
+      };
+    case "assetTransfer/delete": {
+      const nextAssetTransfers = state.assetTransfers.filter(
+        (assetTransfer) => assetTransfer.id !== action.assetTransferId,
+      );
+      return nextAssetTransfers.length === state.assetTransfers.length
+        ? state
+        : { ...state, assetTransfers: nextAssetTransfers };
     }
     case "asset/add":
       return state.assets.some(
@@ -206,11 +228,16 @@ export function ledgerReducer(
       const nextCashEvents = state.cashEvents.filter(
         (cashEvent) => cashEvent.occurredAt.slice(0, 10) <= action.todayKey,
       );
+      const nextAssetTransfers = state.assetTransfers.filter(
+        (assetTransfer) =>
+          assetTransfer.occurredAt.slice(0, 10) <= action.todayKey,
+      );
 
       if (
         nextTrades.length === state.trades.length &&
         nextPriceSnapshots.length === state.priceSnapshots.length &&
-        nextCashEvents.length === state.cashEvents.length
+        nextCashEvents.length === state.cashEvents.length &&
+        nextAssetTransfers.length === state.assetTransfers.length
       ) {
         return state;
       }
@@ -219,6 +246,7 @@ export function ledgerReducer(
         ...state,
         trades: nextTrades,
         cashEvents: nextCashEvents,
+        assetTransfers: nextAssetTransfers,
         priceSnapshots: nextPriceSnapshots,
       };
     }

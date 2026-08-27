@@ -1235,7 +1235,7 @@ function getFileAccessErrorMessage(
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION:
       return "检测到旧版或未知 .lftl 容器格式。当前版本不支持解锁或迁移；未写入所选文件。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA:
-      return "该文件承载 V2 账本；当前 V3 不提供迁移。已在密码、KDF 和解密前停止，未写入所选文件。";
+      return "该文件承载 V3、其他旧版或未知 schema 的账本；当前 V4 不兼容且不提供迁移。已在密码、KDF 和解密前停止；原文件未被写入、删除或覆盖。你仍可新建 V4 账本。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:
       return "所选文件不是合法账本，或文件结构已经损坏；未写入任何内容。";
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED:

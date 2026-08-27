@@ -11,7 +11,7 @@ import {
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { LedgerData, Trade } from "@/core/models";
+import type { AssetTransfer, LedgerData, Trade } from "@/core/models";
 import type { StorageAdapter } from "@/platform/legacy";
 import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
 import {
@@ -307,6 +307,20 @@ describe("usePersistentLedger hydration safety", () => {
     futureLedger.trades = [
       createSimpleTrade("future-trade", "buy", "BTC", "1", "2099-01-01"),
     ];
+    const futureTransfer: AssetTransfer = {
+      id: "future-transfer",
+      occurredAt: "2099-01-01",
+      timePrecision: "day",
+      assetSymbol: "BTC",
+      quantity: "1",
+      category: "external-in",
+      reason: "deposit",
+      unitPrice: "1",
+      toLocation: "exchange",
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T00:00:00.000Z",
+    };
+    futureLedger.assetTransfers = [futureTransfer];
     const repository = createRepository({
       load: vi.fn(async () => futureLedger),
     });
@@ -320,6 +334,11 @@ describe("usePersistentLedger hydration safety", () => {
     expect(
       result.current.compatibilityWarnings.some(
         (warning) => warning.path === "trades[0].occurredAt",
+      ),
+    ).toBe(true);
+    expect(
+      result.current.compatibilityWarnings.some(
+        (warning) => warning.path === "assetTransfers[0].occurredAt",
       ),
     ).toBe(true);
 
@@ -336,6 +355,28 @@ describe("usePersistentLedger hydration safety", () => {
           tradeId: "normal-trade",
         }),
       ).toBe("rejected");
+      expect(
+        result.current.applyLedgerAction({
+          type: "assetTransfer/add",
+          assetTransfer: {
+            ...futureTransfer,
+            id: "normal-transfer",
+            occurredAt: "2020-01-01",
+          },
+        }),
+      ).toBe("rejected");
+      expect(
+        result.current.applyLedgerMutation((current) => ({
+          ...current,
+          assetTransfers: [],
+        })),
+      ).toBe("rejected");
+      expect(
+        result.current.applyLedgerAction({
+          type: "assetTransfer/delete",
+          assetTransferId: futureTransfer.id,
+        }),
+      ).toBe("applied");
       expect(
         result.current.applyLedgerAction({
           type: "futureFacts/deleteAll",

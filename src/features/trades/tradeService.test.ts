@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { LedgerData, Trade, TradeDraft } from "@/core/models";
+import type {
+  AssetTransfer,
+  CustodyLocation,
+  LedgerData,
+  Trade,
+  TradeDraft,
+} from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";
 import {
@@ -136,7 +142,7 @@ describe("createValidatedTrade success", () => {
     );
   });
 
-  it("rejects USD trades under the V3 contract", () => {
+  it("rejects USD trades under the V4 contract", () => {
     const legacyLedger = createInitialLedgerData();
     const result = createValidatedTrade(
       { ...validBuy, currency: "USD" },
@@ -442,6 +448,68 @@ describe("createValidatedTrade ID and dependency handling", () => {
   });
 });
 
+describe("createValidatedTrade V4 transfer integration", () => {
+  it("accepts a sell supported by an earlier external-in transfer", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [externalIn("supporting-transfer", "exchange")];
+    const dependencies = createDependencies(["supported-sell"]);
+
+    const result = createValidatedTrade(
+      btcSell("6"),
+      ledgerData,
+      dependencies,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.trade.id).toBe("supported-sell");
+    expect(dependencies.generateId).toHaveBeenCalledOnce();
+    expect(dependencies.now).toHaveBeenCalledOnce();
+  });
+
+  it("T1-08 rejects a sell supported only outside exchange", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [
+      externalIn("cold-wallet-transfer", "cold-wallet"),
+    ];
+    const dependencies = createDependencies(["unused"]);
+
+    const result = createValidatedTrade(
+      btcSell("1"),
+      ledgerData,
+      dependencies,
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.kind === "validation") {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+            field: "quantity",
+          }),
+        ]),
+      );
+    }
+    expect(dependencies.generateId).not.toHaveBeenCalled();
+    expect(dependencies.now).not.toHaveBeenCalled();
+  });
+
+  it("treats an asset-transfer ID as a global ID collision", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [externalIn("transfer-collision", "exchange")];
+    const dependencies = createDependencies([
+      "transfer-collision",
+      "trade-unique",
+    ]);
+
+    const result = createValidatedTrade(validBuy, ledgerData, dependencies);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.trade.id).toBe("trade-unique");
+    expect(dependencies.generateId).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("createValidatedTrade immutability and downstream safety", () => {
   it("does not mutate input or ledger data on any result path", () => {
     const cases: Array<{
@@ -573,6 +641,38 @@ function createSell(quantity: string, occurredAt: string): TradeDraft {
     price: "1",
     totalValue: quantity,
     currency: "USDT",
+  };
+}
+
+function btcSell(quantity: string): TradeDraft {
+  return {
+    occurredAt: "2026-04-02",
+    timePrecision: "day",
+    type: "sell",
+    assetSymbol: "BTC",
+    quantity,
+    price: "1",
+    totalValue: quantity,
+    currency: "USDT",
+  };
+}
+
+function externalIn(
+  id: string,
+  toLocation: CustodyLocation,
+): AssetTransfer {
+  return {
+    id,
+    occurredAt: "2026-04-01",
+    timePrecision: "day",
+    assetSymbol: "BTC",
+    quantity: "10",
+    category: "external-in",
+    reason: "deposit",
+    unitPrice: "1",
+    toLocation,
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
   };
 }
 

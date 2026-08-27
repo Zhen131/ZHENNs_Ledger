@@ -28,7 +28,7 @@ export const LEDGER_FILE_OUTER_V2_CONSTANTS = {
   maximumTechnicalIdLength: DEFAULT_LEDGER_RESOURCE_LIMITS.id,
 } as const;
 
-export const SUPPORTED_LEDGER_SCHEMA_VERSION = 3 as const;
+export const SUPPORTED_LEDGER_SCHEMA_VERSION = 4 as const;
 
 export const MAX_LEDGER_FILE_V2_BYTES = 32 * 1024 * 1024;
 
@@ -47,10 +47,10 @@ export type LedgerFileCryptoV2 = {
   };
 };
 
-export type EncryptedLedgerGenerationV3 = {
+export type EncryptedLedgerGenerationV4 = {
   revisionId: string;
   parentRevisionId: string | null;
-  ledgerSchemaVersion: 3;
+  ledgerSchemaVersion: 4;
   ivBase64Url: string;
   ciphertextBase64Url: string;
 };
@@ -59,17 +59,17 @@ export type LedgerFileV2 = {
   fileFormatVersion: 2;
   fileId: string;
   crypto: LedgerFileCryptoV2;
-  current: EncryptedLedgerGenerationV3;
-  previous: EncryptedLedgerGenerationV3 | null;
+  current: EncryptedLedgerGenerationV4;
+  previous: EncryptedLedgerGenerationV4 | null;
 };
 
-export type DecryptedLedgerPayloadV3 = {
+export type DecryptedLedgerPayloadV4 = {
   savedAt: string;
   ledgerData: LedgerData;
 };
 
-export type CanonicalLedgerPayloadV3 = {
-  value: DecryptedLedgerPayloadV3;
+export type CanonicalLedgerPayloadV4 = {
+  value: DecryptedLedgerPayloadV4;
   serializedPayload: string;
   serializedLedgerData: string;
 };
@@ -96,7 +96,7 @@ export type LedgerFileValidationResult =
   | { ok: false; errors: LedgerFileContractError[] };
 
 export type LedgerFilePayloadValidationResult =
-  | { ok: true; value: CanonicalLedgerPayloadV3 }
+  | { ok: true; value: CanonicalLedgerPayloadV4 }
   | { ok: false; errors: LedgerFileContractError[] };
 
 const FILE_KEYS = [
@@ -123,6 +123,7 @@ const GENERATION_KEYS = [
 ] as const;
 const PAYLOAD_KEYS = ["ledgerData", "savedAt"] as const;
 const LEDGER_DATA_KEYS = [
+  "assetTransfers",
   "assets",
   "cashEvents",
   "feeRules",
@@ -228,7 +229,7 @@ export function validateLedgerFileV2(
     return currentResult;
   }
 
-  let previous: EncryptedLedgerGenerationV3 | null = null;
+  let previous: EncryptedLedgerGenerationV4 | null = null;
   if (input.previous !== null) {
     const previousResult = validateGeneration(input.previous, "previous");
     if (!previousResult.ok) {
@@ -264,7 +265,7 @@ export function validateLedgerFileV2(
   };
 }
 
-export function createCanonicalLedgerPayloadV3(
+export function createCanonicalLedgerPayloadV4(
   ledgerData: unknown,
   savedAt: string,
 ): LedgerFilePayloadValidationResult {
@@ -299,7 +300,7 @@ export function createCanonicalLedgerPayloadV3(
     );
   }
 
-  const value: DecryptedLedgerPayloadV3 = {
+  const value: DecryptedLedgerPayloadV4 = {
     savedAt,
     ledgerData: ledgerResult.value,
   };
@@ -333,7 +334,7 @@ export function evaluateLedgerFilePayloadByteLength(
   return evaluateLedgerJsonResourcePolicy(serializedPayload);
 }
 
-export function validateDecryptedLedgerPayloadV3(
+export function validateDecryptedLedgerPayloadV4(
   input: unknown,
 ): LedgerFilePayloadValidationResult {
   if (
@@ -348,7 +349,7 @@ export function validateDecryptedLedgerPayloadV3(
     );
   }
 
-  return createCanonicalLedgerPayloadV3(input.ledgerData, input.savedAt);
+  return createCanonicalLedgerPayloadV4(input.ledgerData, input.savedAt);
 }
 
 export function createLedgerFileGenerationAadV2(
@@ -357,7 +358,7 @@ export function createLedgerFileGenerationAadV2(
     "fileFormatVersion" | "fileId" | "crypto"
   >,
   generation: Omit<
-    EncryptedLedgerGenerationV3,
+    EncryptedLedgerGenerationV4,
     "ciphertextBase64Url"
   >,
 ): Uint8Array {
@@ -412,7 +413,7 @@ function validateGeneration(
   input: unknown,
   path: "current" | "previous",
 ):
-  | { ok: true; value: EncryptedLedgerGenerationV3 }
+  | { ok: true; value: EncryptedLedgerGenerationV4 }
   | { ok: false; errors: LedgerFileContractError[] } {
   if (!isExactObject(input, GENERATION_KEYS)) {
     return failure(
@@ -426,8 +427,8 @@ function validateGeneration(
     return failure(
       "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
       `${path}.ledgerSchemaVersion`,
-      input.ledgerSchemaVersion === 2
-        ? "This file contains a V2 ledger; V3 does not provide migration"
+      input.ledgerSchemaVersion === 2 || input.ledgerSchemaVersion === 3
+        ? `This file contains a V${input.ledgerSchemaVersion} ledger; V4 does not provide migration`
         : "The ledger schema version is unsupported",
     );
   }
@@ -475,7 +476,7 @@ function validateGeneration(
 
   return {
     ok: true,
-    value: input as EncryptedLedgerGenerationV3,
+    value: input as EncryptedLedgerGenerationV4,
   };
 }
 

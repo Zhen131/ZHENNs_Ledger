@@ -211,6 +211,34 @@ function createFutureCorrectionLedger(): LedgerData {
       "2026-07-26",
     ),
   ];
+  ledgerData.assetTransfers = [
+    {
+      id: "future-transfer-btc-a",
+      occurredAt: "2026-07-26",
+      timePrecision: "day",
+      assetSymbol: "BTC",
+      quantity: "3",
+      category: "external-in",
+      reason: "deposit",
+      unitPrice: "20",
+      toLocation: "cold-wallet",
+      createdAt: "2026-07-26T08:00:00.000Z",
+      updatedAt: "2026-07-26T08:00:00.000Z",
+    },
+    {
+      id: "future-transfer-btc-b",
+      occurredAt: "2026-07-26",
+      timePrecision: "day",
+      assetSymbol: "BTC",
+      quantity: "4",
+      category: "gain",
+      reason: "airdrop",
+      unitPrice: "5",
+      toLocation: "cold-wallet-earn",
+      createdAt: "2026-07-26T09:00:00.000Z",
+      updatedAt: "2026-07-26T09:00:00.000Z",
+    },
+  ];
   return ledgerData;
 }
 
@@ -1313,7 +1341,7 @@ describe("DashboardShell trade interactions", () => {
 });
 
 describe("DashboardShell future fact correction", () => {
-  it("deletes only the named future trade or price after two activations and persists across remount", async () => {
+  it("deletes only the named future trade, price, or asset transfer after two activations and persists across remount", async () => {
     const repository = createMemoryRepository(createFutureCorrectionLedger());
     const view = await renderDashboard(repository);
     const user = userEvent.setup();
@@ -1325,6 +1353,9 @@ describe("DashboardShell future fact correction", () => {
     });
     const priceDelete = screen.getByRole("button", {
       name: "删除未来价格 BTC 2026-07-26 future-price-btc-a",
+    });
+    const transferDelete = screen.getByRole("button", {
+      name: "删除未来资产转移 BTC 2026-07-26 future-transfer-btc-a",
     });
 
     await user.click(tradeDelete);
@@ -1355,6 +1386,12 @@ describe("DashboardShell future fact correction", () => {
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledTimes(2);
     });
+    await user.click(transferDelete);
+    expect(repository.save).toHaveBeenCalledTimes(2);
+    await user.click(transferDelete);
+    await waitFor(() => {
+      expect(repository.save).toHaveBeenCalledTimes(3);
+    });
     const stored = await repository.load();
     expect(stored?.trades.map((trade) => trade.id)).toEqual([
       "normal-btc",
@@ -1362,6 +1399,9 @@ describe("DashboardShell future fact correction", () => {
     ]);
     expect(stored?.priceSnapshots.map((snapshot) => snapshot.id)).toEqual([
       "future-price-btc-b",
+    ]);
+    expect(stored?.assetTransfers.map((transfer) => transfer.id)).toEqual([
+      "future-transfer-btc-b",
     ]);
 
     view.unmount();
@@ -1374,6 +1414,16 @@ describe("DashboardShell future fact correction", () => {
     expect(
       screen.getByRole("button", {
         name: "删除未来交易 ETH 2026-07-26 future-eth-b",
+      }),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: "删除未来资产转移 BTC 2026-07-26 future-transfer-btc-a",
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", {
+        name: "删除未来资产转移 BTC 2026-07-26 future-transfer-btc-b",
       }),
     ).not.toBeNull();
   });
@@ -1404,6 +1454,7 @@ describe("DashboardShell future fact correction", () => {
       "normal-btc",
     ]);
     expect((await repository.load())?.priceSnapshots).toEqual([]);
+    expect((await repository.load())?.assetTransfers).toEqual([]);
   });
 
   it("rejects deleting a future buy until its dependent future sell is removed", async () => {
@@ -1451,6 +1502,77 @@ describe("DashboardShell future fact correction", () => {
       expect(screen.queryByText("未来事实纠正模式")).toBeNull();
     });
   });
+
+  it.each(["sell", "external-out"] as const)(
+    "rejects deleting a future external-in that supports a later future %s",
+    async (dependentKind) => {
+      const ledgerData = createInitialLedgerData();
+      ledgerData.assets = ledgerData.assets.map((asset) => ({
+        ...asset,
+        binanceMapping: null,
+      }));
+      ledgerData.assetTransfers = [
+        {
+          id: "future-supporting-in",
+          occurredAt: "2026-07-26",
+          timePrecision: "day",
+          assetSymbol: "BTC",
+          quantity: "1",
+          category: "external-in",
+          reason: "deposit",
+          unitPrice: "10",
+          toLocation: "exchange",
+          createdAt: "2026-07-26T08:00:00.000Z",
+          updatedAt: "2026-07-26T08:00:00.000Z",
+        },
+      ];
+      if (dependentKind === "sell") {
+        ledgerData.trades = [
+          createSimpleTrade(
+            "future-dependent-sell",
+            "sell",
+            "BTC",
+            "1",
+            "2026-07-27",
+          ),
+        ];
+      } else {
+        ledgerData.assetTransfers.push({
+          id: "future-dependent-out",
+          occurredAt: "2026-07-27",
+          timePrecision: "day",
+          assetSymbol: "BTC",
+          quantity: "1",
+          category: "external-out",
+          reason: "withdrawal",
+          fromLocation: "exchange",
+          createdAt: "2026-07-27T08:00:00.000Z",
+          updatedAt: "2026-07-27T08:00:00.000Z",
+        });
+      }
+      const repository = createMemoryRepository(ledgerData);
+      await renderDashboard(repository);
+      const user = userEvent.setup();
+
+      const supportingTransferDelete = screen.getByRole("button", {
+        name: "删除未来资产转移 BTC 2026-07-26 future-supporting-in",
+      });
+      await user.click(supportingTransferDelete);
+      await user.click(supportingTransferDelete);
+
+      expect(
+        screen.getByText(
+          "无法删除：该转移支撑了后续交易或转移，请先删除依赖它的后续事实",
+        ),
+      ).not.toBeNull();
+      expect(repository.save).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("button", {
+          name: "删除未来资产转移 BTC 2026-07-26 future-supporting-in",
+        }),
+      ).not.toBeNull();
+    },
+  );
 
   it("keeps the final single-delete dirty after save failure and confirms persistence only after retry", async () => {
     const initialLedger = createInitialLedgerData();

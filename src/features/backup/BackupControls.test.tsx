@@ -43,7 +43,7 @@ afterEach(() => {
 
 const FIXED_EXPORTED_AT = "2026-07-23T12:34:56.000Z";
 const FIXED_BACKUP_FILENAME =
-  "local-first-trading-ledger-backup-v3-20260723-123456Z.json";
+  "local-first-trading-ledger-backup-v4-20260723-123456Z.json";
 const fixedClock = {
   now: () => new Date(FIXED_EXPORTED_AT),
 };
@@ -131,10 +131,7 @@ function createPostImportPairingLedger(): LedgerData {
 }
 
 function createPermanentFixtureFile(name: string) {
-  const serialized = readFileSync(
-    `test-fixtures/w11-b-import/${name}`,
-    "utf8",
-  );
+  const serialized = readPermanentFixture(name);
   const file = new File([serialized], name, {
     type: "application/json",
   });
@@ -143,6 +140,22 @@ function createPermanentFixtureFile(name: string) {
     value: vi.fn(async () => serialized),
   });
   return { file, serialized };
+}
+
+function readPermanentFixture(name: string): string {
+  const serialized = readFileSync(
+    `test-fixtures/w11-b-import/${name}`,
+    "utf8",
+  );
+  const parsed = JSON.parse(serialized);
+  parsed.backupFormatVersion = 4;
+  parsed.ledgerSchemaVersion = 4;
+  parsed.ledgerData = {
+    ...parsed.ledgerData,
+    schemaVersion: 4,
+    assetTransfers: parsed.ledgerData.assetTransfers ?? [],
+  };
+  return `${JSON.stringify(parsed, null, 2)}\n`;
 }
 
 function createPaddedBackupFile(serialized: string, name = "ledger.json") {
@@ -322,12 +335,9 @@ describe("BackupControls", () => {
     expect(message).toContain("移至安全位置或在不再需要时删除");
   });
 
-  it("exports all four collections and 300 historical rawText values without derived or session state", async () => {
+  it("exports all six collections and 300 historical rawText values without derived or session state", async () => {
     const source = parseBackupJson(
-      readFileSync(
-        "test-fixtures/w11-b-import/valid-300.backup.json",
-        "utf8",
-      ),
+      readPermanentFixture("valid-300.backup.json"),
     );
     if (!source.ok) throw new Error("Permanent export fixture must be valid");
     const download = stubBackupDownload();
@@ -363,6 +373,7 @@ describe("BackupControls", () => {
       "assets",
       "trades",
       "cashEvents",
+      "assetTransfers",
       "priceSnapshots",
       "feeRules",
     ]);
@@ -413,7 +424,7 @@ describe("BackupControls", () => {
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(
       screen.getByText(
-        "无法导出：当前账本未通过 V3 结构、资源或业务校验。",
+        "无法导出：当前账本未通过 V4 结构、资源或业务校验。",
       ),
     ).not.toBeNull();
   });
@@ -436,7 +447,7 @@ describe("BackupControls", () => {
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(
       screen.getByText(
-        "无法导出：当前账本未通过 V3 结构、资源或业务校验。",
+        "无法导出：当前账本未通过 V4 结构、资源或业务校验。",
       ),
     ).not.toBeNull();
   });
@@ -757,46 +768,54 @@ describe("BackupControls", () => {
     expect(facts).toEqual(before);
   });
 
-  it("rejects V2 B before import, file mutation, or Binance calls", async () => {
-    const parsed = JSON.parse(
-      readFileSync(
-        "test-fixtures/w11-b-import/valid-300.backup.json",
-        "utf8",
-      ),
-    );
-    parsed.backupFormatVersion = 2;
-    const client: BinanceMarketDataClient = {
-      validateSpotSymbol: vi.fn(),
-      fetchLatestPrices: vi.fn(),
-    };
-    const onImport = vi.fn(async () => ({ ok: true }));
-    const applyLedgerMutation = vi.fn(() => "applied" as const);
-    renderControls({
-      applyLedgerMutation,
-      canImportBackup: true,
-      isWritable: true,
-      marketDataClient: client,
-      onImport,
-    });
-    const user = userEvent.setup();
+  it.each([
+    [2, "这是 V2 备份；当前 V4 不兼容且不提供迁移"],
+    [3, "这是 V3 备份；当前 V4 不兼容且不提供迁移"],
+  ] as const)(
+    "rejects a V%i backup before import, file mutation, or Binance calls",
+    async (legacyVersion, message) => {
+      const parsed = JSON.parse(
+        readPermanentFixture("valid-300.backup.json"),
+      );
+      parsed.backupFormatVersion = legacyVersion;
+      const client: BinanceMarketDataClient = {
+        validateSpotSymbol: vi.fn(),
+        fetchLatestPrices: vi.fn(),
+      };
+      const onImport = vi.fn(async () => ({ ok: true }));
+      const applyLedgerMutation = vi.fn(() => "applied" as const);
+      renderControls({
+        applyLedgerMutation,
+        canImportBackup: true,
+        isWritable: true,
+        marketDataClient: client,
+        onImport,
+      });
+      const user = userEvent.setup();
 
-    await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
-      createPaddedBackupFile(
-        `${JSON.stringify(parsed, null, 2)}\n`,
-        "fictional-v2.backup.json",
-      ),
-    );
+      await user.upload(
+        screen.getByLabelText("选择账本备份文件"),
+        createPaddedBackupFile(
+          `${JSON.stringify(parsed, null, 2)}\n`,
+          `fictional-v${legacyVersion}.backup.json`,
+        ),
+      );
 
-    await screen.findAllByText(/这是 V2 备份；V3 不提供迁移/);
-    expect(
-      screen.queryByRole("button", { name: "确认恢复备份" }),
-    ).toBeNull();
-    expect(onImport).not.toHaveBeenCalled();
-    expect(applyLedgerMutation).not.toHaveBeenCalled();
-    expect(client.validateSpotSymbol).not.toHaveBeenCalled();
-    expect(client.fetchLatestPrices).not.toHaveBeenCalled();
-  });
+      await screen.findAllByText((_, element) =>
+        Boolean(
+          element?.tagName === "LI" &&
+            element.textContent?.includes(message),
+        ),
+      );
+      expect(
+        screen.queryByRole("button", { name: "确认恢复备份" }),
+      ).toBeNull();
+      expect(onImport).not.toHaveBeenCalled();
+      expect(applyLedgerMutation).not.toHaveBeenCalled();
+      expect(client.validateSpotSymbol).not.toHaveBeenCalled();
+      expect(client.fetchLatestPrices).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["cancel", "unmount"] as const)(
     "aborts the bound import signal on %s while a C import is pending",
@@ -946,6 +965,8 @@ describe("BackupControls", () => {
     expect(screen.getByText("导出时间")).not.toBeNull();
     expect(screen.getByText("资产")).not.toBeNull();
     expect(screen.getByText("交易")).not.toBeNull();
+    expect(screen.getByText("现金事件")).not.toBeNull();
+    expect(screen.getByText("资产转入转出")).not.toBeNull();
     expect(screen.getByText("价格快照")).not.toBeNull();
     expect(screen.getByText("手续费规则")).not.toBeNull();
     expect(screen.getByText(/原备份文件仍是未加密明文/)).not.toBeNull();
@@ -1127,10 +1148,7 @@ describe("BackupControls", () => {
     expect(facts).toEqual(before);
     expect(file.text).toHaveBeenCalledOnce();
     expect(serialized).toBe(
-      readFileSync(
-        "test-fixtures/w11-b-import/valid-300.backup.json",
-        "utf8",
-      ),
+      readPermanentFixture("valid-300.backup.json"),
     );
   });
 

@@ -46,7 +46,10 @@ export async function refreshBinancePrices(
   signal?: AbortSignal,
 ): Promise<BinancePriceRefreshResult> {
   const partition = partitionLedgerFactsForToday(ledgerData, todayKey);
-  const positions = replayPositions(partition.activeTrades);
+  const positions = replayPositions(
+    partition.activeTrades,
+    partition.activeAssetTransfers,
+  );
   const nonZeroSymbols = new Set(
     positions
       .filter((position) => !isZero(position.quantity))
@@ -189,6 +192,7 @@ export function mergeBinancePriceRefresh(
           ...ledgerData.assets,
           ...ledgerData.trades,
           ...ledgerData.cashEvents,
+          ...ledgerData.assetTransfers,
           ...priceSnapshots,
           ...ledgerData.feeRules,
         ].map(({ id }) => id),

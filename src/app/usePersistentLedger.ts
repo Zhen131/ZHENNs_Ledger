@@ -408,6 +408,8 @@ export function usePersistentLedger(
   const factPartition = partitionLedgerFactsForToday(ledgerData, todayKey);
   const isFutureFactCorrectionMode =
     factPartition.futureTrades.length > 0 ||
+    factPartition.futureCashEvents.length > 0 ||
+    factPartition.futureAssetTransfers.length > 0 ||
     factPartition.futurePriceSnapshots.length > 0;
 
   const publishPersistenceVersionState = useCallback(
@@ -1842,6 +1844,12 @@ function hasFutureFacts(ledgerData: LedgerData, todayKey: string): boolean {
     ledgerData.trades.some((trade) =>
       isLedgerFactInFuture(trade.occurredAt, todayKey),
     ) ||
+    ledgerData.cashEvents.some((cashEvent) =>
+      isLedgerFactInFuture(cashEvent.occurredAt, todayKey),
+    ) ||
+    ledgerData.assetTransfers.some((assetTransfer) =>
+      isLedgerFactInFuture(assetTransfer.occurredAt, todayKey),
+    ) ||
     ledgerData.priceSnapshots.some((snapshot) =>
       isLedgerFactInFuture(snapshot.recordedAt, todayKey),
     )
@@ -1860,6 +1868,26 @@ function isCorrectionAction(
   if (action.type === "trade/delete") {
     const trade = ledgerData.trades.find((item) => item.id === action.tradeId);
     return trade !== undefined && isLedgerFactInFuture(trade.occurredAt, todayKey);
+  }
+
+  if (action.type === "cashEvent/delete") {
+    const cashEvent = ledgerData.cashEvents.find(
+      (item) => item.id === action.cashEventId,
+    );
+    return (
+      cashEvent !== undefined &&
+      isLedgerFactInFuture(cashEvent.occurredAt, todayKey)
+    );
+  }
+
+  if (action.type === "assetTransfer/delete") {
+    const assetTransfer = ledgerData.assetTransfers.find(
+      (item) => item.id === action.assetTransferId,
+    );
+    return (
+      assetTransfer !== undefined &&
+      isLedgerFactInFuture(assetTransfer.occurredAt, todayKey)
+    );
   }
 
   if (action.type === "priceSnapshot/delete") {

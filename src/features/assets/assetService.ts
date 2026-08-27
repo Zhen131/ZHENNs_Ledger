@@ -28,6 +28,7 @@ export type AssetErrorCode =
 
 export type AssetDependencyCollection =
   | "trades"
+  | "assetTransfers"
   | "priceSnapshots"
   | "feeRules";
 
@@ -171,6 +172,7 @@ export function inspectAssetDependencies(
 ): AssetDependencySummary[] {
   const pathsByCollection: Record<AssetDependencyCollection, string[]> = {
     trades: [],
+    assetTransfers: [],
     priceSnapshots: [],
     feeRules: [],
   };
@@ -180,6 +182,13 @@ export function inspectAssetDependencies(
     }
     if (!isZero(trade.fee) && trade.feeCurrency === symbol) {
       pathsByCollection.trades.push(`trades[${index}].feeCurrency`);
+    }
+  });
+  ledgerData.assetTransfers.forEach((assetTransfer, index) => {
+    if (assetTransfer.assetSymbol === symbol) {
+      pathsByCollection.assetTransfers.push(
+        `assetTransfers[${index}].assetSymbol`,
+      );
     }
   });
   ledgerData.priceSnapshots.forEach((snapshot, index) => {
@@ -253,6 +262,7 @@ function collectLedgerIds(ledgerData: LedgerData): Set<string> {
       ...ledgerData.assets,
       ...ledgerData.trades,
       ...ledgerData.cashEvents,
+      ...ledgerData.assetTransfers,
       ...ledgerData.priceSnapshots,
       ...ledgerData.feeRules,
     ].map(({ id }) => id),

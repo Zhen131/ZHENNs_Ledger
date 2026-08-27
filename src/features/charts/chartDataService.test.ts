@@ -289,6 +289,44 @@ describe("holding history", () => {
     );
   });
 
+  it("starts all-range history at an asset transfer without changing cash", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [
+      {
+        id: "fictional-external-in",
+        occurredAt: "2026-07-18",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "2",
+        category: "external-in",
+        reason: "deposit",
+        toLocation: "cold-wallet",
+        unitPrice: "40",
+        createdAt: "2026-07-18T00:00:00Z",
+        updatedAt: "2026-07-18T00:00:00Z",
+      },
+    ];
+    ledgerData.priceSnapshots = [
+      manualPrice("btc-price", "BTC", "50", "2026-07-18"),
+    ];
+
+    const points = buildHoldingHistory(ledgerData, {
+      todayKey: TODAY,
+      mode: "auto",
+      range: "all",
+    });
+
+    expect(points[0]).toEqual(
+      expect.objectContaining({
+        date: "2026-07-18",
+        cashBalance: "0",
+        totalCostBasis: "80",
+        assetMarketValue: "100",
+        totalMarketValue: "100",
+      }),
+    );
+  });
+
   it("replays pre-range facts once and carries the last real price forward", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.trades = [

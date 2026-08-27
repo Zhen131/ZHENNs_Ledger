@@ -4,7 +4,9 @@ import type {
   Trade,
   TradeDraft,
 } from "@/core/models";
+import { replayPositions } from "@/core/calculations";
 import {
+  TRADE_VALIDATION_ERROR_CODES,
   type TradeValidationError,
   validateTradeDraft,
 } from "@/core/validation";
@@ -70,6 +72,7 @@ export function createValidatedTrade(
   const validationResult = validateTradeDraft(input, {
     assets: ledgerData.assets,
     priorTrades: ledgerData.trades,
+    priorAssetTransfers: ledgerData.assetTransfers,
     todayKey:
       dependencies.todayKey?.() ??
       captureLedgerTime(systemLedgerClock).todayKey,
@@ -91,6 +94,7 @@ export function createValidatedTrade(
       ...ledgerData.assets,
       ...ledgerData.trades,
       ...ledgerData.cashEvents,
+      ...ledgerData.assetTransfers,
       ...ledgerData.priceSnapshots,
       ...ledgerData.feeRules,
     ].map(({ id }) => id),
@@ -147,16 +151,37 @@ export function createValidatedTrade(
       ? createStructuredTradeRawText(persistedDraft)
       : persistedDraft.rawText;
 
-  return {
-    ok: true,
-    trade: {
-      ...persistedDraft,
-      id,
-      rawText,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
+  const trade: Trade = {
+    ...persistedDraft,
+    id,
+    rawText,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   };
+
+  try {
+    replayPositions(
+      [...ledgerData.trades, trade],
+      ledgerData.assetTransfers,
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      kind: "validation",
+      errors: [
+        {
+          code: TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+          field: "quantity",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Adding this trade would invalidate the holdings timeline",
+        },
+      ],
+    };
+  }
+
+  return { ok: true, trade };
 }
 
 function isTechnicalId(value: string): boolean {

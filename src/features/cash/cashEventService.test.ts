@@ -123,26 +123,24 @@ describe("createValidatedCashEvent", () => {
 
   it("retries IDs across every collection and uses the third unique value", () => {
     const ledger = createInitialLedgerData();
-    ledger.trades = [
+    ledger.assetTransfers = [
       {
-        id: "taken-trade",
+        id: "taken-transfer",
         occurredAt: "2026-08-18",
         timePrecision: "day",
-        type: "buy",
         assetSymbol: "BTC",
         quantity: "1",
-        price: "1",
-        totalValue: "1",
-        currency: "USDT",
-        fee: "0",
-        feeCurrency: "USDT",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "1",
+        toLocation: "exchange",
         createdAt: NOW,
         updatedAt: NOW,
       },
     ];
     const deps = dependencies([
       ledger.assets[0].id,
-      "taken-trade",
+      "taken-transfer",
       "cash-unique",
     ]);
     const result = createValidatedCashEvent(

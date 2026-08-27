@@ -40,7 +40,7 @@ export function HoldingsDetails({
     >
       <aside
         aria-label="完整持仓详情"
-        className="h-full w-full max-w-3xl overflow-y-auto bg-[var(--ledger-shell)] p-5 shadow-2xl motion-safe:animate-[ledger-slide-in_180ms_ease-out]"
+        className="h-full w-full max-w-6xl overflow-y-auto bg-[var(--ledger-shell)] p-5 shadow-2xl motion-safe:animate-[ledger-slide-in_180ms_ease-out]"
       >
         <header className="flex items-center justify-between gap-3">
           <div>
@@ -61,12 +61,15 @@ export function HoldingsDetails({
         </header>
         <div className="mt-5" role="table" aria-label="完整持仓与现金明细">
           <div
-            className="hidden grid-cols-8 gap-3 border-b border-[var(--ledger-border)] py-2 text-sm text-[var(--ledger-muted)] lg:grid"
+            className="hidden grid-cols-11 gap-3 border-b border-[var(--ledger-border)] py-2 text-sm text-[var(--ledger-muted)] lg:grid"
             role="row"
           >
             {[
               "资产",
               "持仓数量",
+              "交易所数量",
+              "冷钱包数量",
+              "冷钱包理财数量",
               "含费平均成本",
               "剩余含费成本",
               "已实现净盈亏",
@@ -85,6 +88,9 @@ export function HoldingsDetails({
                 "—",
                 "—",
                 "—",
+                "—",
+                "—",
+                "—",
                 "1 USDT",
                 `${cashBalance} USDT`,
                 "—",
@@ -96,6 +102,9 @@ export function HoldingsDetails({
                 values={[
                   position.assetSymbol,
                   position.quantity,
+                  position.locationQuantities.exchange,
+                  position.locationQuantities["cold-wallet"],
+                  position.locationQuantities["cold-wallet-earn"],
                   metric(position.averageCost, position.currency, position.feeAccountingIssues !== undefined),
                   metric(position.costBasis, position.currency, position.feeAccountingIssues !== undefined),
                   metric(position.realizedPnl, position.currency, position.feeAccountingIssues !== undefined),
@@ -115,6 +124,9 @@ export function HoldingsDetails({
 const holdingLabels = [
   "资产",
   "持仓数量",
+  "交易所数量",
+  "冷钱包数量",
+  "冷钱包理财数量",
   "含费平均成本",
   "剩余含费成本",
   "已实现净盈亏",
@@ -126,7 +138,7 @@ const holdingLabels = [
 function HoldingDetailRow({ values }: Readonly<{ values: readonly string[] }>) {
   return (
     <div
-      className="grid min-w-0 gap-2 py-4 text-sm lg:grid-cols-8 lg:gap-3"
+      className="grid min-w-0 gap-2 py-4 text-sm lg:grid-cols-11 lg:gap-3"
       role="row"
     >
       {values.map((value, index) => (

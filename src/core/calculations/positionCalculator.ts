@@ -1,4 +1,5 @@
 import type {
+  AssetTransfer,
   Position,
   PriceSnapshot,
   Trade,
@@ -17,8 +18,9 @@ import { replayPositions } from "./positionReplay";
 export function calculatePositions(
   trades: Trade[],
   priceSnapshots: PriceSnapshot[] = [],
+  assetTransfers: AssetTransfer[] = [],
 ): Position[] {
-  return replayPositions(trades).map((position) =>
+  return replayPositions(trades, assetTransfers).map((position) =>
     attachLegacyLatestPrice(position, priceSnapshots),
   );
 }

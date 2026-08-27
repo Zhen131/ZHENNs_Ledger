@@ -34,7 +34,7 @@ const valuationOptions = {
   mode: "manual" as const,
 };
 
-describe("Week 14 V3 cross-module regression", () => {
+describe("Week 14 scenario under the V4 cross-module contract", () => {
   it("keeps one cash truth across projection, allocation, activity, P&L, and heatmap", () => {
     const ledger = createWeek14V3Scenario();
     const projection = buildLedgerProjection(ledger, {
@@ -138,7 +138,7 @@ describe("Week 14 V3 cross-module regression", () => {
     );
   });
 
-  it("round-trips the canonical scenario through the exact V3 backup envelope", () => {
+  it("round-trips the canonical scenario through the exact V4 backup envelope", () => {
     const ledger = createWeek14V3Scenario();
     const envelope = createBackupEnvelope(
       ledger,

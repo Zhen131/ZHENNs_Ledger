@@ -163,21 +163,24 @@ describe("FeeRuleManager", () => {
 
   it("retries cross-collection and malformed IDs before creating a rule", async () => {
     const ledgerData = createInitialLedgerData();
-    ledgerData.cashEvents = [
+    ledgerData.assetTransfers = [
       {
-        id: "cash-collision",
+        id: "transfer-collision",
         occurredAt: "2026-07-25",
         timePrecision: "day",
-        type: "deposit",
-        currency: "USDT",
-        amount: "1",
+        assetSymbol: "BTC",
+        quantity: "1",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "1",
+        toLocation: "exchange",
         createdAt: "2026-07-25T00:00:00Z",
         updatedAt: "2026-07-25T00:00:00Z",
       },
     ];
     const randomUUID = vi
       .fn()
-      .mockReturnValueOnce("cash-collision")
+      .mockReturnValueOnce("transfer-collision")
       .mockReturnValueOnce(" invalid-id ")
       .mockReturnValueOnce("fee-new");
     vi.stubGlobal("crypto", { randomUUID });

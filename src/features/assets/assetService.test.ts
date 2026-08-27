@@ -114,6 +114,32 @@ describe("local asset creation", () => {
     expect(deps.generateId).toHaveBeenCalledTimes(3);
     expect(deps.now).not.toHaveBeenCalled();
   });
+
+  it("treats an asset-transfer ID as a global asset ID collision", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [
+      {
+        id: "transfer-collision",
+        occurredAt: "2026-08-18",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "1",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "1",
+        toLocation: "exchange",
+        createdAt: TIMESTAMP,
+        updatedAt: TIMESTAMP,
+      },
+    ];
+    const deps = dependencies(["transfer-collision", "asset-sol"]);
+
+    const result = createLocalAsset("SOL", ledgerData, deps);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.asset.id).toBe("asset-sol");
+    expect(deps.generateId).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("local asset removal", () => {
@@ -140,6 +166,21 @@ describe("local asset removal", () => {
         currency: "USDT",
         recordedAt: "2026-08-18",
         source: "manual",
+        createdAt: TIMESTAMP,
+        updatedAt: TIMESTAMP,
+      },
+    ];
+    ledgerData.assetTransfers = [
+      {
+        id: "sol-transfer",
+        occurredAt: "2026-08-18",
+        timePrecision: "day",
+        assetSymbol: "SOL",
+        quantity: "1",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "100",
+        toLocation: "exchange",
         createdAt: TIMESTAMP,
         updatedAt: TIMESTAMP,
       },
@@ -179,6 +220,11 @@ describe("local asset removal", () => {
         paths: ["trades[0].assetSymbol", "trades[0].feeCurrency"],
       },
       {
+        collection: "assetTransfers",
+        count: 1,
+        paths: ["assetTransfers[0].assetSymbol"],
+      },
+      {
         collection: "priceSnapshots",
         count: 1,
         paths: ["priceSnapshots[0].assetSymbol"],
@@ -196,7 +242,7 @@ describe("local asset removal", () => {
     expect(removed.ok).toBe(false);
     if (!removed.ok) {
       expect(removed.error.code).toBe(ASSET_ERROR_CODES.DEPENDENCY_EXISTS);
-      expect(removed.error.dependencies).toHaveLength(3);
+      expect(removed.error.dependencies).toHaveLength(4);
     }
     expect(ledgerData.assets.some((asset) => asset.symbol === "SOL")).toBe(
       true,

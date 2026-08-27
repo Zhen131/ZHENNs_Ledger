@@ -488,7 +488,7 @@ test("keeps a foreign-fee fact readable when fee matching is not requested", () 
   }
 });
 
-test("enforces USDT for all V3 writes and matching non-zero fees when requested", () => {
+test("enforces USDT for all V4 writes and matching non-zero fees when requested", () => {
   expectError(
     validateTradeDraft({ ...validDraft, currency: "USD" }, strictContext),
     TRADE_VALIDATION_ERROR_CODES.NEW_FACT_REQUIRES_USDT,

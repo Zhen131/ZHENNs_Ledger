@@ -139,6 +139,41 @@ describe("Binance price refresh", () => {
     ]);
   });
 
+  it("refreshes a mapped holding created only by an active asset transfer", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.assetTransfers = [
+      {
+        id: "btc-external-in",
+        occurredAt: "2026-07-20",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "1",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "60000",
+        toLocation: "cold-wallet",
+        createdAt: "2026-07-20T08:00:00.000Z",
+        updatedAt: "2026-07-20T08:00:00.000Z",
+      },
+    ];
+    const client = createClient();
+
+    const result = await refreshBinancePrices(
+      ledgerData,
+      TODAY,
+      { client, clock },
+    );
+
+    expect(client.validateSpotSymbol).toHaveBeenCalledWith(
+      "BTC",
+      "BTCUSDT",
+      undefined,
+    );
+    expect(result.successes).toEqual([
+      expect.objectContaining({ assetSymbol: "BTC" }),
+    ]);
+  });
+
   it("upserts the same response day, preserves id/createdAt/manual facts, and appends across days", () => {
     const ledgerData = createInitialLedgerData();
     ledgerData.priceSnapshots = [
@@ -190,12 +225,24 @@ describe("Binance price refresh", () => {
 
   it("retries price IDs against every fact collection and uses only the third unique ID", () => {
     const ledgerData = createInitialLedgerData();
-    ledgerData.trades = [
-      createSimpleTrade("trade-collision", "buy", "BTC", "1", "2026-07-20"),
+    ledgerData.assetTransfers = [
+      {
+        id: "transfer-collision",
+        occurredAt: "2026-07-20",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "1",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "1",
+        toLocation: "exchange",
+        createdAt: "2026-07-20T08:00:00.000Z",
+        updatedAt: "2026-07-20T08:00:00.000Z",
+      },
     ];
     const candidates = [
       ledgerData.assets[0].id,
-      ledgerData.trades[0].id,
+      ledgerData.assetTransfers[0].id,
       "unique-api-price",
     ];
     const generateId = vi.fn(() => candidates.shift()!);

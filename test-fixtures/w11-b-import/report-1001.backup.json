@@ -1,10 +1,10 @@
 {
-  "backupFormatVersion": 3,
+  "backupFormatVersion": 4,
   "appVersion": "0.1.0",
   "exportedAt": "2026-07-30T12:00:00Z",
-  "ledgerSchemaVersion": 3,
+  "ledgerSchemaVersion": 4,
   "ledgerData": {
-    "schemaVersion": 3,
+    "schemaVersion": 4,
     "assets": [
       {
         "id": "asset-btc",
@@ -16068,6 +16068,7 @@
       }
     ],
     "cashEvents": [],
+    "assetTransfers": [],
     "priceSnapshots": [
       {
         "id": "fictional-price-btc",

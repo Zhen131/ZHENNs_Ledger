@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { validateBackupEnvelope } from "@/features/backup";
-import type { PriceSnapshot } from "@/core/models";
+import type { AssetTransfer, PriceSnapshot } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createUsdtPriceSnapshot as createPriceSnapshot,
@@ -52,6 +52,10 @@ describe("ledger fact compatibility policy", () => {
       createPriceSnapshot("active-price", "BTC", "70000", TODAY),
       createPriceSnapshot("future-price", "BTC", "71000", "2026-07-26"),
     ];
+    ledgerData.assetTransfers = [
+      createTransfer("active-transfer", TODAY),
+      createTransfer("future-transfer", "2026-07-26"),
+    ];
 
     const result = partitionLedgerFactsForToday(ledgerData, TODAY);
     expect(result.activeTrades.map((trade) => trade.id)).toEqual(["active"]);
@@ -62,6 +66,22 @@ describe("ledger fact compatibility policy", () => {
     expect(result.futurePriceSnapshots.map((price) => price.id)).toEqual([
       "future-price",
     ]);
+    expect(result.activeAssetTransfers.map((item) => item.id)).toEqual([
+      "active-transfer",
+    ]);
+    expect(result.futureAssetTransfers.map((item) => item.id)).toEqual([
+      "future-transfer",
+    ]);
+    expect(
+      collectLedgerCompatibilityWarnings(ledgerData, TODAY),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "LEDGER_FUTURE_FACT",
+          path: "assetTransfers[1].occurredAt",
+        }),
+      ]),
+    );
   });
 
   it("uses only explicit persisted mappings and never restores a fallback", () => {
@@ -107,7 +127,6 @@ describe("ledger fact compatibility policy", () => {
       createApiSnapshot("api-1", TODAY),
       createApiSnapshot("api-2", TODAY, "2026-07-25T11:00:00+08:00"),
     ];
-
     expect(validateLedgerData(ledgerData).ok).toBe(true);
     expect(
       collectLedgerCompatibilityWarnings(ledgerData, TODAY).map(
@@ -142,6 +161,9 @@ describe("strict import policy", () => {
         currency: "EUR" as never,
       },
     ];
+    ledgerData.assetTransfers = [
+      createTransfer("future-transfer", "2026-07-26"),
+    ];
 
     const result = validateLedgerImportPolicy(ledgerData, TODAY);
     expect(result.ok).toBe(false);
@@ -151,6 +173,7 @@ describe("strict import policy", () => {
           "assets[0].quoteCurrency",
           "trades[0].occurredAt",
           "trades[0].currency",
+          "assetTransfers[0].occurredAt",
           "priceSnapshots[0].recordedAt",
           "priceSnapshots[0].currency",
         ]),
@@ -206,20 +229,36 @@ describe("strict import policy", () => {
 
     const backup = validateBackupEnvelope(
       {
-        backupFormatVersion: 3,
+        backupFormatVersion: 4,
         appVersion: "0.1.0",
         exportedAt: "2026-07-25T12:00:00Z",
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
         ledgerData,
       },
       TODAY,
     );
     expect(backup.ok).toBe(true);
     if (backup.ok) {
-      expect(backup.value.ledgerData.schemaVersion).toBe(3);
+      expect(backup.value.ledgerData.schemaVersion).toBe(4);
       expect(
         backup.value.ledgerData.priceSnapshots[0].binanceProvenance?.symbol,
       ).toBe("BTCUSDT");
     }
   });
 });
+
+function createTransfer(id: string, occurredAt: string): AssetTransfer {
+  return {
+    id,
+    occurredAt,
+    timePrecision: "day",
+    assetSymbol: "BTC",
+    quantity: "1",
+    category: "external-in",
+    reason: "deposit",
+    unitPrice: "1",
+    toLocation: "exchange",
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+  };
+}

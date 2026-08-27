@@ -142,6 +142,51 @@ describe("Ledger resource policy", () => {
     });
   });
 
+  it("bounds the V4 asset-transfer collection and persisted strings", () => {
+    const ledger = createInitialLedgerData();
+    ledger.assetTransfers = [
+      {
+        id: "i".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.id + 1),
+        occurredAt: "2026-08-18",
+        timePrecision: "day",
+        assetSymbol: "S".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.symbol + 1),
+        quantity: "1".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.decimal + 1),
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "2".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.decimal + 1),
+        networkFee: "3".repeat(
+          DEFAULT_LEDGER_RESOURCE_LIMITS.decimal + 1,
+        ),
+        toLocation: "exchange",
+        note: "n".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.note + 1),
+        createdAt: "2026-08-18T08:00:00.000Z",
+        updatedAt: "2026-08-18T08:00:00.000Z",
+      },
+    ];
+
+    const result = evaluateLedgerResourcePolicy(ledger, {
+      assetTransfers: 0,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: LEDGER_RESOURCE_POLICY_ERROR_CODES.COLLECTION_LIMIT_EXCEEDED,
+            path: "assetTransfers",
+          }),
+          expect.objectContaining({ path: "assetTransfers[0].id" }),
+          expect.objectContaining({ path: "assetTransfers[0].assetSymbol" }),
+          expect.objectContaining({ path: "assetTransfers[0].quantity" }),
+          expect.objectContaining({ path: "assetTransfers[0].unitPrice" }),
+          expect.objectContaining({ path: "assetTransfers[0].networkFee" }),
+          expect.objectContaining({ path: "assetTransfers[0].note" }),
+        ]),
+      );
+    }
+  });
+
   it("counts UTF-8 bytes before JSON parsing", () => {
     const serialized = "x".repeat(9);
 

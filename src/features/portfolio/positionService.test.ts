@@ -12,10 +12,11 @@ function createLedgerData(
   overrides: Partial<LedgerData> = {},
 ): LedgerData {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     assets: createBuiltInAssets(),
     trades: [],
     cashEvents: [],
+    assetTransfers: [],
     priceSnapshots: [],
     feeRules: [],
     ...overrides,
@@ -96,5 +97,50 @@ describe("getPositionsFromLedger", () => {
     expect(btc?.feeAccountingIssues?.[0]).toEqual(
       expect.objectContaining({ tradeId: sampleTrades[0].id }),
     );
+  });
+
+  it("derives an active transfer-only position and isolates future transfers", () => {
+    const ledgerData = createLedgerData();
+    ledgerData.assetTransfers = [
+      {
+        id: "active-transfer",
+        occurredAt: "2026-07-01",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "2",
+        category: "external-in",
+        reason: "deposit",
+        unitPrice: "10",
+        toLocation: "cold-wallet",
+        createdAt: "2026-07-01T08:00:00.000Z",
+        updatedAt: "2026-07-01T08:00:00.000Z",
+      },
+      {
+        id: "future-transfer",
+        occurredAt: "2099-01-01",
+        timePrecision: "day",
+        assetSymbol: "BTC",
+        quantity: "99",
+        category: "gain",
+        reason: "airdrop",
+        unitPrice: "1",
+        toLocation: "exchange",
+        createdAt: "2026-07-01T08:00:00.000Z",
+        updatedAt: "2026-07-01T08:00:00.000Z",
+      },
+    ];
+
+    expect(
+      getPositionsFromLedger(ledgerData, { todayKey: "2026-07-25" })[0],
+    ).toMatchObject({
+      quantity: "2",
+      costBasis: "20",
+      giftIncome: "0",
+      locationQuantities: {
+        exchange: "0",
+        "cold-wallet": "2",
+        "cold-wallet-earn": "0",
+      },
+    });
   });
 });

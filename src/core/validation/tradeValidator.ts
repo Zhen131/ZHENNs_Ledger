@@ -1,13 +1,14 @@
 import type {
   Asset,
+  AssetTransfer,
   DecimalString,
   TimePrecision,
   Trade,
   TradeDraft,
   TradeType,
 } from "@/core/models";
+import { replayPositions } from "@/core/calculations";
 import {
-  add,
   isEqual,
   isGreaterThan,
   isNegative,
@@ -15,12 +16,8 @@ import {
   isZero,
   isWithinTolerance,
   multiply,
-  subtract,
 } from "@/core/shared";
-import {
-  compareLedgerFactOrder,
-  isLedgerFactInFuture,
-} from "@/core/shared";
+import { isLedgerFactInFuture } from "@/core/shared";
 import { isSupportedValuationCurrency } from "@/core/policies";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
 
@@ -85,6 +82,7 @@ export type ValidatedTradeDraft = Omit<TradeDraft, "fee" | "currency"> & {
 export type TradeValidationContext = {
   assets: readonly Asset[];
   priorTrades: readonly Trade[];
+  priorAssetTransfers?: readonly AssetTransfer[];
   totalValueTolerance?: DecimalString;
   skipHoldingsTimeline?: boolean;
   todayKey?: string;
@@ -246,7 +244,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
       createError(
         TRADE_VALIDATION_ERROR_CODES.UNSUPPORTED_VALUATION_CURRENCY,
         "currency",
-        "V3 supports USDT valuation only",
+        "V4 supports USDT valuation only",
       ),
     );
   }
@@ -257,19 +255,30 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     type !== undefined &&
     assetSymbol !== undefined &&
     quantity !== undefined &&
+    price !== undefined &&
+    totalValue !== undefined &&
+    timePrecision !== undefined &&
+    fee !== undefined &&
     currency === "USDT"
   ) {
     validateHoldingsTimeline(
       {
+        id: "candidate-trade",
         occurredAt,
+        timePrecision,
         type,
         assetSymbol,
         quantity,
+        price,
+        totalValue,
         currency,
-        fee: fee ?? "0",
+        fee,
         feeCurrency: feeCurrency ?? currency,
+        createdAt: "9999-12-31T23:59:59.999Z",
+        updatedAt: "9999-12-31T23:59:59.999Z",
       },
       context.priorTrades,
+      context.priorAssetTransfers ?? [],
       errors,
     );
   }
@@ -580,89 +589,30 @@ function validateCurrencyConsistency(
   }
 }
 
-type HoldingsTimelineEntry = Pick<
-  Trade,
-  | "occurredAt"
-  | "type"
-  | "assetSymbol"
-  | "quantity"
-  | "currency"
-  | "fee"
-  | "feeCurrency"
-> & {
-  originalIndex: number;
-};
-
 /**
- * 只检查候选交易加入后的数量时间线，不生成 Position，
- * 也不计算成本或盈亏。
- *
- * 排序规则与 positionCalculator 保持一致：先按 occurredAt，再以
- * 原数组序号作为同一时间的稳定顺序。候选交易未来会被
- * reducer 追加，因此同时间下排在所有已有交易之后。
+ * Reuse the canonical merged position replay so a transfer-supported sell is
+ * accepted and exchange-location shortages are rejected. The synthetic
+ * technical timestamp places the draft after existing same-occurrence facts;
+ * tradeService replays once more with the final persisted ID and timestamp.
  */
 function validateHoldingsTimeline(
-  candidate: Omit<HoldingsTimelineEntry, "originalIndex">,
+  candidate: Trade,
   priorTrades: readonly Trade[],
+  priorAssetTransfers: readonly AssetTransfer[],
   errors: TradeValidationError[],
 ): void {
-  const timeline: HoldingsTimelineEntry[] = priorTrades
-    .map((trade, originalIndex) => ({
-      occurredAt: trade.occurredAt,
-      type: trade.type,
-      assetSymbol: trade.assetSymbol,
-      quantity: trade.quantity,
-      currency: trade.currency,
-      fee: trade.fee,
-      feeCurrency: trade.feeCurrency,
-      originalIndex,
-    }))
-    .filter((trade) => trade.assetSymbol === candidate.assetSymbol);
-
-  timeline.push({
-    ...candidate,
-    originalIndex: priorTrades.length,
-  });
-
-  timeline.sort((left, right) =>
-    compareLedgerFactOrder(
-      left.occurredAt,
-      right.occurredAt,
-      left.originalIndex,
-      right.originalIndex,
-    ),
-  );
-
-  let availableQuantity: DecimalString = "0";
-
-  for (const trade of timeline) {
-    const feeUsesTradeAsset =
-      !isZero(trade.fee) && trade.feeCurrency === trade.assetSymbol;
-    if (trade.type === "buy") {
-      availableQuantity = add(
-        availableQuantity,
-        feeUsesTradeAsset
-          ? subtract(trade.quantity, trade.fee)
-          : trade.quantity,
-      );
-      continue;
-    }
-
-    const consumedQuantity = feeUsesTradeAsset
-      ? add(trade.quantity, trade.fee)
-      : trade.quantity;
-    if (isGreaterThan(consumedQuantity, availableQuantity)) {
-      errors.push(
-        createError(
-          TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
-          "quantity",
-          `Adding this trade would make the ${candidate.assetSymbol} holdings timeline negative`,
-        ),
-      );
-      return;
-    }
-
-    availableQuantity = subtract(availableQuantity, consumedQuantity);
+  try {
+    replayPositions([...priorTrades, candidate], priorAssetTransfers);
+  } catch (error) {
+    errors.push(
+      createError(
+        TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
+        "quantity",
+        error instanceof Error
+          ? error.message
+          : `Adding this trade would invalidate the ${candidate.assetSymbol} holdings timeline`,
+      ),
+    );
   }
 }
 

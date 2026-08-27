@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
-  type EncryptedLedgerGenerationV3,
+  type EncryptedLedgerGenerationV4,
   type LedgerFileCryptoV2,
 } from "./ledgerFileContract";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
@@ -19,7 +19,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
       },
       '{"savedAt":"2026-07-28T10:00:00.000Z","ledgerData":{"trades":[]}}',
     );
@@ -28,7 +28,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-b",
         parentRevisionId: "revision-a",
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
       },
       '{"savedAt":"2026-07-28T10:01:00.000Z","ledgerData":{"trades":[1]}}',
     );
@@ -56,7 +56,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
       },
       "secret payload",
     );
@@ -126,7 +126,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
       },
       "first",
     );
@@ -135,7 +135,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "b",
         parentRevisionId: "a",
-        ledgerSchemaVersion: 3,
+        ledgerSchemaVersion: 4,
       },
       "second",
     );
@@ -172,10 +172,10 @@ describe("LedgerFileCrypto", () => {
         tagLength: 128,
       },
     };
-    const generation: EncryptedLedgerGenerationV3 = {
+    const generation: EncryptedLedgerGenerationV4 = {
       revisionId: "fixture-revision",
       parentRevisionId: null,
-      ledgerSchemaVersion: 3,
+      ledgerSchemaVersion: 4,
       ivBase64Url: "CQkJCQkJCQkJCQkJ",
       ciphertextBase64Url:
         "9zhn4OlMwPmw33DWGPkNJm1YjvAmEOulk7Hfig8ONwFt8kUmMLcJkwwEDBIJ3KIVBPOP4kMWp7TgDWoGyM7h05jLEJ6yt7vGksvXJ8OCnfLyPRpr_cLE7bamZ9FBu1OSv7LpiUFVqvVLdGjpEnBBG90RuplgmJTElLEZo7KCHXnWap0dpalQmD4SyfsICT5Akw",
@@ -192,8 +192,8 @@ describe("LedgerFileCrypto", () => {
 });
 
 function createTamperedGenerations(
-  generation: EncryptedLedgerGenerationV3,
-): Array<[string, EncryptedLedgerGenerationV3]> {
+  generation: EncryptedLedgerGenerationV4,
+): Array<[string, EncryptedLedgerGenerationV4]> {
   const changedCiphertext = base64UrlToBytes(
     generation.ciphertextBase64Url,
   );
@@ -222,7 +222,7 @@ function createTamperedGenerations(
       {
         ...generation,
         ledgerSchemaVersion: 99,
-      } as unknown as EncryptedLedgerGenerationV3,
+      } as unknown as EncryptedLedgerGenerationV4,
     ],
     [
       "file-a",

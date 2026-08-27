@@ -22,6 +22,7 @@ describe("RecordWorkspace target routing", () => {
 
     expect(target.value).toBe("cash:USDT");
     expect(target.options[0]?.textContent).toBe("现金 USDT");
+    expect(target.options[1]?.textContent).toBe("资产转入转出");
     expect(screen.getByLabelText("现金类型")).not.toBeNull();
     expect(screen.queryByLabelText("数量")).toBeNull();
 
@@ -30,6 +31,12 @@ describe("RecordWorkspace target routing", () => {
     expect(screen.queryByLabelText("现金类型")).toBeNull();
     expect(screen.getByLabelText("数量")).not.toBeNull();
     expect(screen.getByText("新增 BTC 交易")).not.toBeNull();
+
+    await user.selectOptions(target, "asset-transfer");
+    expect(screen.queryByLabelText("现金类型")).toBeNull();
+    expect(screen.queryByText("新增 BTC 交易")).toBeNull();
+    expect(screen.getByLabelText("转移类别")).not.toBeNull();
+    expect(screen.getByLabelText("数量")).not.toBeNull();
 
     await user.selectOptions(target, "cash:USDT");
     expect(screen.getByLabelText("现金类型")).not.toBeNull();
@@ -66,6 +73,8 @@ function renderWorkspace() {
       mutationVersion={0}
       onCashEventCreated={vi.fn(() => "applied" as const)}
       onCashEventDeleted={vi.fn(() => "applied" as const)}
+      onAssetTransferCreated={vi.fn(() => "applied" as const)}
+      onAssetTransferDeleted={vi.fn(() => "applied" as const)}
       onIntentConsumed={vi.fn()}
       onPriceDraftChange={vi.fn()}
       onPriceReset={vi.fn()}

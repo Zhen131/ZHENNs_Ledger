@@ -1,9 +1,13 @@
 import { calculatePositions } from "@/core/calculations";
 import type {
   Asset,
+  AssetTransfer,
+  AssetTransferCategory,
+  AssetTransferReason,
   BinanceMarketMapping,
   BinancePriceProvenance,
   CashEvent,
+  CustodyLocation,
   FeeRule,
   LedgerData,
   PriceSnapshot,
@@ -53,6 +57,7 @@ const ROOT_KEYS = [
   "assets",
   "trades",
   "cashEvents",
+  "assetTransfers",
   "priceSnapshots",
   "feeRules",
 ] as const;
@@ -110,6 +115,22 @@ const CASH_ADJUSTMENT_KEYS = [
   "targetBalance",
   "adjustmentAmount",
 ] as const;
+const ASSET_TRANSFER_KEYS = [
+  "id",
+  "occurredAt",
+  "timePrecision",
+  "assetSymbol",
+  "quantity",
+  "category",
+  "reason",
+  "unitPrice",
+  "networkFee",
+  "fromLocation",
+  "toLocation",
+  "note",
+  "createdAt",
+  "updatedAt",
+] as const;
 const PRICE_KEYS = [
   "id",
   "assetSymbol",
@@ -148,7 +169,7 @@ const ASSET_SYMBOL_PATTERN = /^[A-Z0-9]{1,32}$/;
 
 /**
  * Persistence exports accept the live application object but serialize only
- * the six canonical V3 fact fields. Import validation remains exact and must
+ * the seven canonical V4 fact fields. Import validation remains exact and must
  * call validateLedgerData directly.
  */
 export function selectLedgerDataFacts(input: unknown): unknown {
@@ -161,6 +182,7 @@ export function selectLedgerDataFacts(input: unknown): unknown {
     assets: input.assets,
     trades: input.trades,
     cashEvents: input.cashEvents,
+    assetTransfers: input.assetTransfers,
     priceSnapshots: input.priceSnapshots,
     feeRules: input.feeRules,
   };
@@ -182,7 +204,7 @@ export function validateLedgerData(input: unknown): LedgerDataValidationResult {
 
   const errors: LedgerDataValidationError[] = [];
   checkExactKeys(input, ROOT_KEYS, "ledgerData", errors);
-  if (input.schemaVersion !== 3) {
+  if (input.schemaVersion !== 4) {
     errors.push(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION,
@@ -195,12 +217,14 @@ export function validateLedgerData(input: unknown): LedgerDataValidationResult {
   const rawAssets = readCollection(input, "assets", errors);
   const rawTrades = readCollection(input, "trades", errors);
   const rawCashEvents = readCollection(input, "cashEvents", errors);
+  const rawAssetTransfers = readCollection(input, "assetTransfers", errors);
   const rawPriceSnapshots = readCollection(input, "priceSnapshots", errors);
   const rawFeeRules = readCollection(input, "feeRules", errors);
   if (
     rawAssets === undefined ||
     rawTrades === undefined ||
     rawCashEvents === undefined ||
+    rawAssetTransfers === undefined ||
     rawPriceSnapshots === undefined ||
     rawFeeRules === undefined
   ) {
@@ -219,27 +243,38 @@ export function validateLedgerData(input: unknown): LedgerDataValidationResult {
   const cashEvents = rawCashEvents
     .map((value, index) => readCashEvent(value, index, errors))
     .filter((value): value is CashEvent => value !== undefined);
+  const assetTransfers = rawAssetTransfers
+    .map((value, index) => readAssetTransfer(value, index, errors))
+    .filter((value): value is AssetTransfer => value !== undefined);
   const priceSnapshots = rawPriceSnapshots
     .map((value, index) => readPriceSnapshot(value, index, assets, errors))
     .filter((value): value is PriceSnapshot => value !== undefined);
 
   validateGlobalIdentifiers(
-    { assets, trades, cashEvents, priceSnapshots, feeRules },
+    { assets, trades, cashEvents, assetTransfers, priceSnapshots, feeRules },
     errors,
   );
   validateUniqueAssetSymbols(assets, errors);
-  validateReferences(trades, priceSnapshots, feeRules, assets, errors);
+  validateReferences(
+    trades,
+    assetTransfers,
+    priceSnapshots,
+    feeRules,
+    assets,
+    errors,
+  );
 
   if (
     errors.length === 0 &&
     assets.length === rawAssets.length &&
     trades.length === rawTrades.length &&
     cashEvents.length === rawCashEvents.length &&
+    assetTransfers.length === rawAssetTransfers.length &&
     priceSnapshots.length === rawPriceSnapshots.length &&
     feeRules.length === rawFeeRules.length
   ) {
     try {
-      calculatePositions(trades, priceSnapshots);
+      calculatePositions(trades, priceSnapshots, assetTransfers);
     } catch (error) {
       errors.push(
         createError(
@@ -260,10 +295,11 @@ export function validateLedgerData(input: unknown): LedgerDataValidationResult {
   return {
     ok: true,
     value: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       assets,
       trades,
       cashEvents,
+      assetTransfers,
       priceSnapshots,
       feeRules,
     },
@@ -291,7 +327,13 @@ export function collectValidLedgerTradeProjections(
 
 function readCollection(
   input: Record<string, unknown>,
-  field: "assets" | "trades" | "cashEvents" | "priceSnapshots" | "feeRules",
+  field:
+    | "assets"
+    | "trades"
+    | "cashEvents"
+    | "assetTransfers"
+    | "priceSnapshots"
+    | "feeRules",
   errors: LedgerDataValidationError[],
 ): unknown[] | undefined {
   const value = input[field];
@@ -529,7 +571,7 @@ function readTrade(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
         `${path}.currency`,
-        "V3 trade currency must be USDT",
+        "V4 trade currency must be USDT",
       ),
     );
   }
@@ -750,6 +792,240 @@ function readCashEvent(
   };
 }
 
+function readAssetTransfer(
+  value: unknown,
+  index: number,
+  errors: LedgerDataValidationError[],
+): AssetTransfer | undefined {
+  const path = `assetTransfers[${index}]`;
+  const record = readEntityRecord(value, path, errors);
+  if (!record) return undefined;
+  const errorCount = errors.length;
+  checkAllowedKeys(record, ASSET_TRANSFER_KEYS, path, errors);
+
+  const id = readTechnicalId(record.id, `${path}.id`, errors);
+  const occurredAt = readFactTimestamp(
+    record.occurredAt,
+    `${path}.occurredAt`,
+    errors,
+  );
+  const timePrecision = readTimePrecision(
+    record.timePrecision,
+    `${path}.timePrecision`,
+    errors,
+  );
+  const assetSymbol = readAssetSymbol(
+    record.assetSymbol,
+    `${path}.assetSymbol`,
+    errors,
+  );
+  const quantity = readCanonicalDecimal(
+    record.quantity,
+    `${path}.quantity`,
+    errors,
+    "positive",
+  );
+  const category = readAssetTransferCategory(
+    record.category,
+    `${path}.category`,
+    errors,
+  );
+  const reason = readAssetTransferReason(
+    record.reason,
+    `${path}.reason`,
+    errors,
+  );
+  const unitPrice =
+    record.unitPrice === undefined
+      ? undefined
+      : readCanonicalDecimal(
+          record.unitPrice,
+          `${path}.unitPrice`,
+          errors,
+          "positive",
+        );
+  const networkFee =
+    record.networkFee === undefined
+      ? undefined
+      : readCanonicalDecimal(
+          record.networkFee,
+          `${path}.networkFee`,
+          errors,
+          "positive",
+        );
+  const fromLocation = readOptionalCustodyLocation(
+    record.fromLocation,
+    `${path}.fromLocation`,
+    errors,
+  );
+  const toLocation = readOptionalCustodyLocation(
+    record.toLocation,
+    `${path}.toLocation`,
+    errors,
+  );
+  const note = readOptionalString(record.note, `${path}.note`, errors);
+  const createdAt = readTechnicalTimestamp(
+    record.createdAt,
+    `${path}.createdAt`,
+    errors,
+  );
+  const updatedAt = readTechnicalTimestamp(
+    record.updatedAt,
+    `${path}.updatedAt`,
+    errors,
+  );
+  validateTimestampOrder(createdAt, updatedAt, `${path}.updatedAt`, errors);
+  validateAssetTransferCombination(
+    record,
+    path,
+    category,
+    reason,
+    unitPrice,
+    fromLocation,
+    toLocation,
+    errors,
+  );
+
+  if (
+    errors.length !== errorCount ||
+    id === undefined ||
+    occurredAt === undefined ||
+    timePrecision === undefined ||
+    assetSymbol === undefined ||
+    quantity === undefined ||
+    category === undefined ||
+    reason === undefined ||
+    createdAt === undefined ||
+    updatedAt === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    id,
+    occurredAt,
+    timePrecision,
+    assetSymbol,
+    quantity,
+    category,
+    reason,
+    ...(unitPrice === undefined ? {} : { unitPrice }),
+    ...(networkFee === undefined ? {} : { networkFee }),
+    ...(fromLocation === undefined ? {} : { fromLocation }),
+    ...(toLocation === undefined ? {} : { toLocation }),
+    ...(note === undefined ? {} : { note }),
+    createdAt,
+    updatedAt,
+  };
+}
+
+function validateAssetTransferCombination(
+  record: Record<string, unknown>,
+  path: string,
+  category: AssetTransferCategory | undefined,
+  reason: AssetTransferReason | undefined,
+  unitPrice: string | undefined,
+  fromLocation: CustodyLocation | undefined,
+  toLocation: CustodyLocation | undefined,
+  errors: LedgerDataValidationError[],
+): void {
+  if (category !== undefined) {
+    switch (category) {
+      case "internal":
+        requireTransferField(fromLocation, `${path}.fromLocation`, errors);
+        requireTransferField(toLocation, `${path}.toLocation`, errors);
+        forbidTransferField(record, "unitPrice", path, errors);
+        if (
+          fromLocation !== undefined &&
+          toLocation !== undefined &&
+          fromLocation === toLocation
+        ) {
+          errors.push(
+            createError(
+              LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+              `${path}.toLocation`,
+              "internal toLocation must differ from fromLocation",
+            ),
+          );
+        }
+        break;
+      case "external-in":
+        forbidTransferField(record, "fromLocation", path, errors);
+        requireTransferField(toLocation, `${path}.toLocation`, errors);
+        requireTransferField(unitPrice, `${path}.unitPrice`, errors);
+        forbidTransferField(record, "networkFee", path, errors);
+        break;
+      case "external-out":
+        requireTransferField(fromLocation, `${path}.fromLocation`, errors);
+        forbidTransferField(record, "toLocation", path, errors);
+        forbidTransferField(record, "unitPrice", path, errors);
+        break;
+      case "gain":
+        forbidTransferField(record, "fromLocation", path, errors);
+        requireTransferField(toLocation, `${path}.toLocation`, errors);
+        requireTransferField(unitPrice, `${path}.unitPrice`, errors);
+        forbidTransferField(record, "networkFee", path, errors);
+        break;
+    }
+  }
+
+  if (
+    category !== undefined &&
+    reason !== undefined &&
+    ASSET_TRANSFER_CATEGORY_BY_REASON[reason] !== category
+  ) {
+    errors.push(
+      createError(
+        LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+        `${path}.reason`,
+        `${reason} is not valid for ${category}`,
+      ),
+    );
+  }
+}
+
+const ASSET_TRANSFER_CATEGORY_BY_REASON: Readonly<
+  Record<AssetTransferReason, AssetTransferCategory>
+> = {
+  deposit: "external-in",
+  withdrawal: "external-out",
+  "internal-move": "internal",
+  airdrop: "gain",
+  interest: "gain",
+  "platform-gift": "gain",
+};
+
+function requireTransferField(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): void {
+  if (value !== undefined) return;
+  errors.push(
+    createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      path,
+      `${path} is required for this asset transfer category`,
+    ),
+  );
+}
+
+function forbidTransferField(
+  record: Record<string, unknown>,
+  field: "fromLocation" | "toLocation" | "unitPrice" | "networkFee",
+  path: string,
+  errors: LedgerDataValidationError[],
+): void {
+  if (!Object.hasOwn(record, field)) return;
+  errors.push(
+    createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      `${path}.${field}`,
+      `${path}.${field} must be absent for this asset transfer category`,
+    ),
+  );
+}
+
 function readPriceSnapshot(
   value: unknown,
   index: number,
@@ -789,7 +1065,7 @@ function readPriceSnapshot(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
         `${path}.currency`,
-        "V3 price currency must be USDT",
+        "V4 price currency must be USDT",
       ),
     );
   }
@@ -1050,7 +1326,12 @@ function readFeeRule(
 function validateGlobalIdentifiers(
   collections: Pick<
     LedgerData,
-    "assets" | "trades" | "cashEvents" | "priceSnapshots" | "feeRules"
+    | "assets"
+    | "trades"
+    | "cashEvents"
+    | "assetTransfers"
+    | "priceSnapshots"
+    | "feeRules"
   >,
   errors: LedgerDataValidationError[],
 ): void {
@@ -1097,6 +1378,7 @@ function validateUniqueAssetSymbols(
 
 function validateReferences(
   trades: readonly Trade[],
+  assetTransfers: readonly AssetTransfer[],
   priceSnapshots: readonly PriceSnapshot[],
   feeRules: readonly FeeRule[],
   assets: readonly Asset[],
@@ -1111,6 +1393,17 @@ function validateReferences(
           LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
           `priceSnapshots[${index}].assetSymbol`,
           `Unknown asset: ${snapshot.assetSymbol}`,
+        ),
+      );
+    }
+  });
+  assetTransfers.forEach((assetTransfer, index) => {
+    if (!assetSymbols.has(assetTransfer.assetSymbol)) {
+      errors.push(
+        createError(
+          LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_REFERENCE,
+          `assetTransfers[${index}].assetSymbol`,
+          `Unknown asset: ${assetTransfer.assetSymbol}`,
         ),
       );
     }
@@ -1442,6 +1735,77 @@ function readTimePrecision(
       LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
       path,
       `${path} must be day, minute, or second`,
+    ),
+  );
+  return undefined;
+}
+
+function readAssetTransferCategory(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): AssetTransferCategory | undefined {
+  if (
+    value === "internal" ||
+    value === "external-in" ||
+    value === "external-out" ||
+    value === "gain"
+  ) {
+    return value;
+  }
+  errors.push(
+    createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      path,
+      `${path} must be internal, external-in, external-out, or gain`,
+    ),
+  );
+  return undefined;
+}
+
+function readAssetTransferReason(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): AssetTransferReason | undefined {
+  if (
+    value === "deposit" ||
+    value === "withdrawal" ||
+    value === "internal-move" ||
+    value === "airdrop" ||
+    value === "interest" ||
+    value === "platform-gift"
+  ) {
+    return value;
+  }
+  errors.push(
+    createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      path,
+      `${path} uses an unsupported asset transfer reason`,
+    ),
+  );
+  return undefined;
+}
+
+function readOptionalCustodyLocation(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): CustodyLocation | undefined {
+  if (value === undefined) return undefined;
+  if (
+    value === "exchange" ||
+    value === "cold-wallet" ||
+    value === "cold-wallet-earn"
+  ) {
+    return value;
+  }
+  errors.push(
+    createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      path,
+      `${path} must be exchange, cold-wallet, or cold-wallet-earn`,
     ),
   );
   return undefined;

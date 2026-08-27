@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { CashEvent, LedgerData, Trade } from "@/core/models";
+import type {
+  AssetTransfer,
+  CashEvent,
+  LedgerData,
+  Trade,
+} from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";
 import { replayUsdtCash } from "./cashReplay";
@@ -8,7 +13,7 @@ import { calculateTradeUsdtCashDelta } from "./tradeCashImpact";
 
 const CREATED_AT = "2026-08-18T08:00:00.000Z";
 
-describe("V3 deterministic USDT cash replay", () => {
+describe("V4 deterministic USDT cash replay", () => {
   it("replays deposit, withdrawal, expense, and a fixed adjustment exactly", () => {
     const firstThree = [
       flow("deposit", "1000", "cash-deposit", "2026-08-01"),
@@ -145,6 +150,51 @@ describe("V3 deterministic USDT cash replay", () => {
     ]);
     expect(result.balance).toBe("0");
   });
+
+  it("T1-06 ignores every asset-transfer category byte for byte", () => {
+    const ledger = makeLedger({
+      trades: [trade("buy", "buy", "100", "2", "USDT")],
+      cashEvents: [flow("deposit", "250", "deposit", "2026-08-01")],
+    });
+    const before = replayUsdtCash(ledger);
+    ledger.assetTransfers = [
+      assetTransfer({
+        id: "internal",
+        category: "internal",
+        reason: "internal-move",
+        quantity: "1",
+        fromLocation: "exchange",
+        toLocation: "cold-wallet",
+      }),
+      assetTransfer({
+        id: "external-in",
+        category: "external-in",
+        reason: "deposit",
+        quantity: "2",
+        unitPrice: "4",
+        toLocation: "exchange",
+      }),
+      assetTransfer({
+        id: "external-out",
+        category: "external-out",
+        reason: "withdrawal",
+        quantity: "1",
+        networkFee: "0.1",
+        fromLocation: "cold-wallet",
+      }),
+      assetTransfer({
+        id: "gain",
+        category: "gain",
+        reason: "airdrop",
+        quantity: "3",
+        unitPrice: "5",
+        toLocation: "cold-wallet-earn",
+      }),
+    ];
+
+    expect(replayUsdtCash(ledger)).toEqual(before);
+    expect(replayUsdtCash(ledger).balance).toBe("148");
+  });
 });
 
 function makeLedger(
@@ -212,6 +262,28 @@ function trade(
     price: totalValue,
     fee,
     feeCurrency,
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+  };
+}
+
+function assetTransfer(
+  input: Pick<
+    AssetTransfer,
+    "id" | "category" | "reason" | "quantity"
+  > &
+    Partial<
+      Pick<
+        AssetTransfer,
+        "unitPrice" | "networkFee" | "fromLocation" | "toLocation"
+      >
+    >,
+): AssetTransfer {
+  return {
+    ...input,
+    occurredAt: "2026-08-02",
+    timePrecision: "day",
+    assetSymbol: "BTC",
     createdAt: CREATED_AT,
     updatedAt: CREATED_AT,
   };

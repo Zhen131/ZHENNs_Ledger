@@ -1,5 +1,6 @@
 import type {
   Asset,
+  AssetTransfer,
   CashEvent,
   LedgerData,
   PriceSnapshot,
@@ -25,9 +26,11 @@ export type LedgerCompatibilityWarning = {
 export type LedgerFactPartition = {
   activeTrades: Trade[];
   activeCashEvents: CashEvent[];
+  activeAssetTransfers: AssetTransfer[];
   activePriceSnapshots: PriceSnapshot[];
   futureTrades: Trade[];
   futureCashEvents: CashEvent[];
+  futureAssetTransfers: AssetTransfer[];
   futurePriceSnapshots: PriceSnapshot[];
   unsupportedCurrencyAssets: Asset[];
 };
@@ -46,6 +49,8 @@ export function partitionLedgerFactsForToday(
   const futureTrades: Trade[] = [];
   const activeCashEvents: CashEvent[] = [];
   const futureCashEvents: CashEvent[] = [];
+  const activeAssetTransfers: AssetTransfer[] = [];
+  const futureAssetTransfers: AssetTransfer[] = [];
   const activePriceSnapshots: PriceSnapshot[] = [];
   const futurePriceSnapshots: PriceSnapshot[] = [];
 
@@ -70,12 +75,21 @@ export function partitionLedgerFactsForToday(
     ).push(cashEvent);
   }
 
+  for (const assetTransfer of ledgerData.assetTransfers) {
+    (isLedgerFactInFuture(assetTransfer.occurredAt, todayKey)
+      ? futureAssetTransfers
+      : activeAssetTransfers
+    ).push(assetTransfer);
+  }
+
   return {
     activeTrades,
     activeCashEvents,
+    activeAssetTransfers,
     activePriceSnapshots,
     futureTrades,
     futureCashEvents,
+    futureAssetTransfers,
     futurePriceSnapshots,
     unsupportedCurrencyAssets: ledgerData.assets.filter(
       (asset) => !isSupportedValuationCurrency(asset.quoteCurrency),
@@ -122,6 +136,17 @@ export function collectLedgerCompatibilityWarnings(
         path: `cashEvents[${index}].occurredAt`,
         message:
           "未来现金事件已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+      });
+    }
+  });
+
+  ledgerData.assetTransfers.forEach((assetTransfer, index) => {
+    if (isLedgerFactInFuture(assetTransfer.occurredAt, todayKey)) {
+      warnings.push({
+        code: "LEDGER_FUTURE_FACT",
+        path: `assetTransfers[${index}].occurredAt`,
+        message:
+          "未来资产转入转出已隔离，必须删除、替换账本或清空后才能恢复普通写入",
       });
     }
   });

@@ -5,6 +5,7 @@ export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   assets: 500,
   trades: 25_000,
   cashEvents: 25_000,
+  assetTransfers: 25_000,
   priceSnapshots: 5_000,
   feeRules: 500,
   id: 128,
@@ -17,7 +18,9 @@ export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   rawText: 16_384,
 } as const;
 
-export type LedgerResourceLimits = typeof DEFAULT_LEDGER_RESOURCE_LIMITS;
+export type LedgerResourceLimits = {
+  [Key in keyof typeof DEFAULT_LEDGER_RESOURCE_LIMITS]: number;
+};
 
 export const LEDGER_RESOURCE_POLICY_ERROR_CODES = {
   FILE_TOO_LARGE: "LEDGER_RESOURCE_FILE_TOO_LARGE",
@@ -57,6 +60,12 @@ export function evaluateLedgerResourcePolicy(
     "cashEvents",
     ledgerData.cashEvents.length,
     limits.cashEvents,
+  );
+  checkCollection(
+    errors,
+    "assetTransfers",
+    ledgerData.assetTransfers.length,
+    limits.assetTransfers,
   );
   checkCollection(
     errors,
@@ -157,6 +166,42 @@ export function evaluateLedgerResourcePolicy(
     } else {
       checkString(errors, `${path}.amount`, cashEvent.amount, limits.decimal);
     }
+  }
+
+  for (let index = 0; index < ledgerData.assetTransfers.length; index += 1) {
+    const assetTransfer = ledgerData.assetTransfers[index];
+    const path = `assetTransfers[${index}]`;
+    checkString(errors, `${path}.id`, assetTransfer.id, limits.id);
+    checkString(
+      errors,
+      `${path}.assetSymbol`,
+      assetTransfer.assetSymbol,
+      limits.symbol,
+    );
+    checkString(
+      errors,
+      `${path}.quantity`,
+      assetTransfer.quantity,
+      limits.decimal,
+    );
+    checkOptionalString(
+      errors,
+      `${path}.unitPrice`,
+      assetTransfer.unitPrice,
+      limits.decimal,
+    );
+    checkOptionalString(
+      errors,
+      `${path}.networkFee`,
+      assetTransfer.networkFee,
+      limits.decimal,
+    );
+    checkOptionalString(
+      errors,
+      `${path}.note`,
+      assetTransfer.note,
+      limits.note,
+    );
   }
 
   for (

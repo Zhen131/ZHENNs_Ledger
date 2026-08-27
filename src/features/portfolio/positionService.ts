@@ -49,7 +49,10 @@ export function getValuedPositionsFromLedger(
     ledgerData.assets.map((asset) => [asset.symbol, asset]),
   );
 
-  return replayPositions(partition.activeTrades).map((position) => {
+  return replayPositions(
+    partition.activeTrades,
+    partition.activeAssetTransfers,
+  ).map((position) => {
     const asset = assetsBySymbol.get(position.assetSymbol);
     if (!asset) {
       return { position };

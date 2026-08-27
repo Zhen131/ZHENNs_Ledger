@@ -218,6 +218,7 @@ function collectLedgerIds(ledgerData: LedgerData): Set<string> {
       ...ledgerData.assets,
       ...ledgerData.trades,
       ...ledgerData.cashEvents,
+      ...ledgerData.assetTransfers,
       ...ledgerData.priceSnapshots,
       ...ledgerData.feeRules,
     ].map(({ id }) => id),

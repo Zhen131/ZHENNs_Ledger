@@ -4,7 +4,7 @@ import {
   SUPPORTED_LEDGER_SCHEMA_VERSION,
   createLedgerFileCryptoV2,
   createLedgerFileGenerationAadV2,
-  type EncryptedLedgerGenerationV3,
+  type EncryptedLedgerGenerationV4,
   type LedgerFileCryptoV2,
 } from "./ledgerFileContract";
 import {
@@ -86,7 +86,7 @@ export class LedgerFileCrypto {
       ledgerSchemaVersion: typeof SUPPORTED_LEDGER_SCHEMA_VERSION;
     },
     serializedPayload: string,
-  ): Promise<EncryptedLedgerGenerationV3> {
+  ): Promise<EncryptedLedgerGenerationV4> {
     const iv = this.cryptoProvider.getRandomValues(
       new Uint8Array(LEDGER_FILE_OUTER_V2_CONSTANTS.ivBytes),
     );
@@ -121,7 +121,7 @@ export class LedgerFileCrypto {
 
   async decryptGeneration(
     fileId: string,
-    generation: EncryptedLedgerGenerationV3,
+    generation: EncryptedLedgerGenerationV4,
   ): Promise<string> {
     const iv = base64UrlToBytes(generation.ivBase64Url);
     const ciphertext = base64UrlToBytes(

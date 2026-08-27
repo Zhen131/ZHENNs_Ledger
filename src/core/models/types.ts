@@ -11,6 +11,25 @@ export type FeeRuleType = "fixed" | "percentage";
 export type FeeRuleStatus = "active" | "inactive";
 export type ValuationPriceMode = "auto" | "manual";
 
+export type AssetTransferCategory =
+  | "internal"
+  | "external-in"
+  | "external-out"
+  | "gain";
+
+export type AssetTransferReason =
+  | "deposit"
+  | "withdrawal"
+  | "internal-move"
+  | "airdrop"
+  | "interest"
+  | "platform-gift";
+
+export type CustodyLocation =
+  | "exchange"
+  | "cold-wallet"
+  | "cold-wallet-earn";
+
 export type BinanceMarketMapping = {
   provider: "binance";
   symbol: string;
@@ -156,6 +175,23 @@ export type CashBalanceAdjustmentEvent = CashEventBase & {
 
 export type CashEvent = CashFlowEvent | CashBalanceAdjustmentEvent;
 
+export type AssetTransfer = {
+  id: string;
+  occurredAt: ISODateString | ISODateTimeString;
+  timePrecision: TimePrecision;
+  assetSymbol: string;
+  quantity: DecimalString;
+  category: AssetTransferCategory;
+  reason: AssetTransferReason;
+  unitPrice?: DecimalString;
+  networkFee?: DecimalString;
+  fromLocation?: CustodyLocation;
+  toLocation?: CustodyLocation;
+  note?: string;
+  createdAt: ISODateTimeString;
+  updatedAt: ISODateTimeString;
+};
+
 export type FeeAccountingIssue = {
   code: "UNSUPPORTED_FEE_CURRENCY";
   tradeId: string;
@@ -169,21 +205,24 @@ export type FeeAccountingIssue = {
 export type Position = {
   assetSymbol: string;
   quantity: DecimalString;
+  locationQuantities: Readonly<Record<CustodyLocation, DecimalString>>;
   averageCost: DecimalString;
   costBasis: DecimalString;
   latestPrice?: DecimalString;
   marketValue?: DecimalString;
   realizedPnl: DecimalString;
+  giftIncome: DecimalString;
   unrealizedPnl?: DecimalString;
   currency: CurrencyCode;
   feeAccountingIssues?: readonly FeeAccountingIssue[];
 };
 
 export type LedgerData = {
-  schemaVersion: 3;
+  schemaVersion: 4;
   assets: Asset[];
   trades: Trade[];
   cashEvents: CashEvent[];
+  assetTransfers: AssetTransfer[];
   priceSnapshots: PriceSnapshot[];
   feeRules: FeeRule[];
 };
