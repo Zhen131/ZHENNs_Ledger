@@ -13,6 +13,10 @@
 
 ## 当前状态
 
+截至 2026-08-28，开发分支 `zhennn/w15-main-v4-display-home` 已完成 Week 15 第一批的三个功能阶段：资产转入转出与三位置重放、统一只读数字格式化、首页前五持仓成本区，以及饼图／热力图修整。三个阶段提交依次为 `10ca0fe`、`45701d4`、`1e4e3df`；验收阶段又以 `80bb92d` 落实后置版本分层决定，保持备份格式 V3、只升账本 schema V4，并加入冻结黄金样例。本分支尚未合并或推送，不能描述为已经进入 `main`。
+
+版本分层与黄金样例修正后的统一自动质量门为 92 个测试文件、1081 项测试全部通过，typecheck、lint、Next 15.5.22 production build 和差异检查通过。真实 Chrome 四项手工确认仍待浏览器扩展通信恢复后执行，因此当前仍不能提前写成完整 `PASS` 或独立验收通过。
+
 截至 2026-08-22，Week 14 V3、R1 与 R2 已通过 fast-forward 进入源码 `main`。进入主线的证据基线为 commit `49fa99ca70d87c455cebd3d48c5210fef4199ccb`、tree `eecd4e371e161ea1ae13cbdd7785720f533677dc`；其中原实现边界为 `578f4a5`，R1 会话自动关闭修复边界为 `bab544f`，R2 清空确认焦点锁修复边界为 `ac30891`。
 
 原 V3 候选的开发执行通过后，独立 01D 发现 `IMPORT_RECOVERY_BLOCKED` 没有自动撤销会话、锁定页面并释放密钥持有者，按文件安全合同判定为 `P0 / FAIL`。R1 已把该错误提升为会话级 fatal signal，并完成 Dashboard 卸载、Repository revoke、lease release、release 失败重试和强制重新选文件／认证；全新独立 01R1D 确认原 P0 已关闭，但又发现清空确认区的普通 `Tab / Shift+Tab` 可以逃出确认区，记录 `W14-R1D-P1-01` 并继续判定 `FAIL`。
@@ -21,7 +25,17 @@ R2 已用最小源码变更补齐初始聚焦、三个可用控件内的正反�
 
 产品负责人于 2026-08-22 正式接受上述既有 R2 开发证据，并明确豁免任何新的 Vitest、Week 14／全量测试、typecheck、lint、build、Chrome 和独立复验。这项风险接受与发布决定授权 Week 14 合入 `main`，但不是新的独立复验 `PASS`；原 `01D = FAIL` 与 `01R1D = FAIL` 继续作为历史事实保留，也没有创建 `01R2D`。本次发布收口只新增本 README 的状态记录，没有修改业务源码，并且没有重新运行任何测试。
 
-当前 `main` 技术基线：Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5`、`eslint-config-next` `15.5.22`；账本使用 `LedgerData.schemaVersion = 3` 和 `BackupEnvelopeV3`。
+当前开发分支技术基线：Next `15.5.22`、React / React DOM `19.2.8`、ESLint `9.39.5`、`eslint-config-next` `15.5.22`。四个版本号独立演进：`fileFormatVersion = 2`、`cryptoVersion = 1`、`ledgerSchemaVersion = 4`、`backupFormatVersion = 3`。
+
+## Week 15 V4 资产转移、显示边界与首页持仓成本
+
+- 新增 `AssetTransfer`，覆盖内部划转、外部转入、外部转出和白拿类到账；交易与转移按同一确定性时间线重放。
+- 持仓固定派生交易所、冷钱包、冷钱包理财三个位置；币本位链上手续费从来源位置扣除并把对应成本计入已实现亏损，四类资产转移均不改变 USDT 现金池。
+- 白拿类和外部转入按到账单价进入成本；总花费继续使用历史累计买入现金流出，不能用剩余 `costBasis` 代替。
+- 只读展示通过 `LedgerNumber` 在渲染边界格式化；底层 `DecimalString`、计算、保存、导出和重新导入保持逐字符不变。
+- 首页改为四行：指标、趋势与资产分配、独占整行的前五持仓成本表、独占整行的 365 日热力图。
+- 资产分配把占比严格低于 2% 的扇区合并为“其他”，最多八个扇区；提示框挂到 `body`，并列出被合并资产及金额。
+- `.lftl` 继续使用加密外壳 `fileFormatVersion = 2` 和 `cryptoVersion = 1`，内部账本升级为 schema V4；明文 B 继续使用未变化的备份信封格式 V3，并在顶层声明 ledger schema V4。旧账本明确中文拒绝、零写零删，拒绝后仍可新建 V4 账本。
 
 ## Week 14 V3 现金、资产与行情
 
@@ -60,6 +74,7 @@ R2 已用最小源码变更补齐初始聚焦、三个可用控件内的正反�
 
 - 交易买卖录入、运行期校验、确定性业务排序、全时间线超卖保护和安全删除。
 - 单一 USDT 现金池、四类现金事实、交易现金自动流转、负现金二次确认和统一流水。
+- 四类资产转入转出、三位置持仓、币本位链上手续费和按到账价计入成本的奖励事实。
 - 离线本地资产生命周期、可选 Binance mapping、多日手动价格和用户显式行情刷新。
 - 可选交易平台事实，以及 fixed USDT / percentage FeeRule；多个精确匹配时 fail closed，历史交易只读取用户最终确认的实际手续费。
 - 手续费规则新增、版本替换和停用，不原地改写历史经济事实。
@@ -67,19 +82,20 @@ R2 已用最小源码变更补齐初始聚焦、三个可用控件内的正反�
 - 手工价格快照与按需 Binance 最新价刷新；8 秒超时，不重试、不轮询、不使用 WebSocket。
 - 持仓表、资产分配和历史价值曲线共用同一价格选择规则。
 - 三类事实派生图表：资产分配、含费成本／市值历史、365 日交易热力。
+- 只读数字统一格式化并保留原值悬停／读屏入口；首页展示前五持仓的价格、均价、涨跌、盈亏、数量、累计总花费与市值。
 - 新未来事实拒绝；既有未来事实进入受限纠错模式。
 - 表单、账本、备份、日期、引用、DecimalString、唯一性和完整交易时间线的运行期校验。
 - PBKDF2-SHA-256 600,000 次迭代和不可导出的 AES-256-GCM 会话密钥。
 - 密码与 `CryptoKey` 只存在当前会话；刷新或关闭后必须重新解锁。
-- 用户选择的 V3 账本 `.lftl` 文件、current / previous 双代、revision lineage、close 后复读、重连与权限 fail closed。
+- 用户选择的 V4 账本 `.lftl` 文件、current / previous 双代、revision lineage、close 后复读、重连与权限 fail closed。
 - Web Locks、真实文件身份、页面 lease、短时写锁和写前 revision 复读，降低浏览器多标签冲突风险。
-- 明文 `BackupEnvelopeV3` 导出、零写预检、SHA-256 内容身份和校验后的整本恢复。
+- 明文备份格式 V3 承载 ledger schema V4，支持导出、零写预检、SHA-256 内容身份和校验后的整本恢复。
 - dirty / pending / retry / 离开警告、repository generation 和过期异步结果保护。
 - 文件字节数、实体数量和关键字符串长度的 `ResourcePolicy` 限制。
 
 ## 数据与安全边界
 
-- `Trade`、`CashEvent`、`PriceSnapshot`、资产、FeeRule 和 Binance mapping 是事实；`Position[]`、现金余额、图表切片、估值模式和选中日期是派生或会话状态，不写入账本文件或备份。
+- `Trade`、`CashEvent`、`AssetTransfer`、`PriceSnapshot`、资产、FeeRule 和 Binance mapping 是事实；`Position[]`、现金余额、图表切片、估值模式和选中日期是派生或会话状态，不写入账本文件或备份。
 - 缺失的 Binance mapping 在保存和导出中继续缺失；运行期 fallback 不改写 `LedgerData`。显式 `null` 和显式 mapping 对象保持不同语义。
 - `Trade.totalValue` 不含手续费。会计币种内的买入手续费增加成本，卖出手续费减少净收入和已实现盈亏。
 - FeeRule 只按精确 `platform + assetSymbol` 匹配，不折叠大小写、不猜别名、不在冲突时选择第一条，也不因规则变化重算历史交易。
@@ -97,14 +113,18 @@ R2 已用最小源码变更补齐初始聚焦、三个可用控件内的正反�
 
 ## 文件版本边界
 
-当前 V3 候选只接受 `LedgerData.schemaVersion = 3` 和 `BackupEnvelopeV3`。C 文件继续使用既有加密外壳 `fileFormatVersion = 2`，但内部 generation 必须声明 `ledgerSchemaVersion = 3`。
+当前候选只接受 `LedgerData.schemaVersion = 4`。B 文件继续使用五键信封 `backupFormatVersion = 3`，但顶层 `ledgerSchemaVersion` 与内部账本都必须为 `4`。C 文件继续使用既有加密外壳 `fileFormatVersion = 2`、`cryptoVersion = 1`，其 generation 必须在解密前明文声明 `ledgerSchemaVersion = 4`。
 
 ```text
-V2 B / 承载 V2 账本的旧 C / 更早格式
--> 识别旧版本
--> 显示需要 V3 的明确提示
+backupFormatVersion = 2 的旧 B / backupFormatVersion = 3 但 ledgerSchemaVersion = 2 或 3 的旧 B /
+承载 V2/V3 账本的旧 C / 更早或未知格式
+-> 按各自独立的明文版本号识别旧版本
+-> 显示当前 ledger schema V4 不兼容且不提供迁移的明确中文提示
 -> 不读取密码、不解密、不迁移、不写回、不发布连接、不自动删除
+-> 拒绝后仍可新建 V4 账本并进入导入流程
 ```
+
+`test-fixtures/golden/golden-backup-format-v3-ledger-schema-v4.json` 是本次新增的全虚构冻结黄金 B 样例；未来版本必须新增文件，不能原地修改既有黄金样例。
 
 ## 源码结构
 
@@ -112,7 +132,7 @@ V2 B / 承载 V2 账本的旧 C / 更早格式
 src/
   app/           Next.js 入口、访问控制、工作区组合与持久化流程
   core/          账本事实、计算、策略、状态、共享基础和校验
-  features/      备份、图表、手续费、行情、持仓、价格和交易
+  features/      资产转移、备份、图表、手续费、行情、持仓、价格和交易
   platform/      文件、持久化、加密、协调、外部集成和旧格式边界
   ui/            跨功能复用的界面原语
   test-support/  共享夹具、测试替身和永久结构守卫
@@ -148,10 +168,11 @@ git diff --check
 - Week 13 源码目录重构已进入 `main`，`01D` 是 R1 开发执行 PASS，尚无合并后独立复审。
 - Week 13 UI 与首页交易活动区打磨均已进入并推送源码 `main`，开发执行 PASS；尚未进行独立验收。
 - Week 14 V3 的 01C 为开发执行 `PASS`；独立 01D 因 `W14-01D-P0-01` 判定 `FAIL`。R1 关闭原 P0 后，独立 01R1D 又因 `W14-R1D-P1-01` 判定 `FAIL`。R2 已补齐清空确认焦点锁，并取得永久自动回归和隔离真实 Chrome 定向开发证据；产品负责人于 2026-08-22 接受这些既有证据、豁免新的测试与独立复验，并批准 Week 14 进入 `main`。历史 `FAIL` 不被改写，本次发布决定也不构成新的独立复验 `PASS`。
+- Week 15 ledger schema V4 当前停留在 `zhennn/w15-main-v4-display-home` 开发分支；版本分层修正后的完整自动质量门已通过，但真实 Chrome 四项手工确认和根文档 `01C` 尚未完成，因此未合并、未推送，也不能称为完整开发执行 `PASS`。
 - 仅会计币种内实际手续费进入成本和盈亏；阶梯费率、最低手续费、交易所专属舍入和异币换算尚未实现。
-- 持仓调整类交易和原方案中的交易标记叠加层尚未实现。
+- V4 使用独立资产转移事实表达托管位置变化、外部转入转出和奖励；不会伪造买卖交易来校准数量。原方案中的交易标记叠加层仍未实现。
 - Binance 只提供最新公开价格；历史 Kline / OHLC、轮询和 WebSocket 尚未实现。
-- 浏览器补偿流程不是操作系统原子事务；重要 V2 数据仍应保留独立备份。
+- 浏览器补偿流程不是操作系统原子事务；重要旧版数据仍应保留独立备份。
 - Mac 桌面端仍是产品讨论方向，不是已经实现的代码。
 - 分页、虚拟列表和大账本性能预算尚未建立，不能在无测量证据时声称 25,000 笔交易流畅。
 - 论文分支的确定性生成器、Playwright、四项性能指标、重复统计、七理想评估和论文级证据仍未实现。
@@ -168,5 +189,9 @@ git diff --check
 - Week 14 V3 实现候选：`578f4a5af6551b321eb6677c555dd459fa2b168e`
 - Week 14 V3 会话自动关闭 R1：`bab544f2506c417969bfae6122e0f712e06a4b73`
 - Week 14 清空确认焦点锁 R2：`ac30891e31ac51da1dc1fb33b499fdaa372d16e3`
+- Week 15 V4 数据模型：`10ca0fe98fbb15214dae452fce147894128c5a56`
+- Week 15 显示边界：`45701d441dadc421b9a896a4d8a585326a75a0e7`
+- Week 15 首页与图表：`1e4e3dff52833972131ff20f2520eedca4120ab3`
+- Week 15 版本分层与黄金样例修正：`80bb92d16ac3113e3f2623da6ec593ecc91239f8`
 
 分支、远端与发布状态以 Git 实时结果为准；本 README 不把主线发布扩大为独立验收通过。
