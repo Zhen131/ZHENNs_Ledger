@@ -229,7 +229,7 @@ describe("strict import policy", () => {
 
     const backup = validateBackupEnvelope(
       {
-        backupFormatVersion: 4,
+        backupFormatVersion: 3,
         appVersion: "0.1.0",
         exportedAt: "2026-07-25T12:00:00Z",
         ledgerSchemaVersion: 4,

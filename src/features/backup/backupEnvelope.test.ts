@@ -14,7 +14,7 @@ const metadata = {
   exportedAt: "2026-07-23T12:34:56.789Z",
 };
 
-describe("BackupEnvelopeV4", () => {
+describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
   it("creates a detached, versioned backup envelope", () => {
     const ledger = createInitialLedgerData();
     const result = createBackupEnvelope(ledger, metadata);
@@ -52,7 +52,7 @@ describe("BackupEnvelopeV4", () => {
     expect(parseBackupJson(serialized)).toEqual(created);
   });
 
-  it("round-trips same-asset fees through the unchanged V4 envelope", () => {
+  it("round-trips ledger schema V4 facts through backup format V3", () => {
     const ledger = createInitialLedgerData();
     ledger.trades = [
       {
@@ -160,13 +160,13 @@ describe("BackupEnvelopeV4", () => {
     });
   });
 
-  it("rejects invalid metadata and mismatched schema versions", () => {
+  it("rejects invalid metadata for the current version pair", () => {
     const ledger = createInitialLedgerData();
     const result = validateBackupEnvelope({
-      backupFormatVersion: 4,
+      backupFormatVersion: 3,
       appVersion: "",
       exportedAt: "2026-07-23",
-      ledgerSchemaVersion: 1,
+      ledgerSchemaVersion: 4,
       ledgerData: ledger,
     });
 
@@ -175,22 +175,14 @@ describe("BackupEnvelopeV4", () => {
       errors: expect.arrayContaining([
         expect.objectContaining({ code: "BACKUP_INVALID_APP_VERSION" }),
         expect.objectContaining({ code: "BACKUP_INVALID_EXPORTED_AT" }),
-        expect.objectContaining({ code: "BACKUP_SCHEMA_VERSION_MISMATCH" }),
       ]),
     });
-    if (!result.ok) {
-      expect(
-        result.errors.filter(
-          (error) => error.code === "BACKUP_SCHEMA_VERSION_MISMATCH",
-        ),
-      ).toHaveLength(1);
-    }
   });
 
   it("rejects non-canonical top-level keys, order, and app versions", () => {
     const ledger = createInitialLedgerData();
     const extraKey = validateBackupEnvelope({
-      backupFormatVersion: 4,
+      backupFormatVersion: 3,
       appVersion: metadata.appVersion,
       exportedAt: metadata.exportedAt,
       ledgerSchemaVersion: 4,
@@ -199,13 +191,13 @@ describe("BackupEnvelopeV4", () => {
     });
     const wrongOrder = validateBackupEnvelope({
       appVersion: metadata.appVersion,
-      backupFormatVersion: 4,
+      backupFormatVersion: 3,
       exportedAt: metadata.exportedAt,
       ledgerSchemaVersion: 4,
       ledgerData: ledger,
     });
     const invalidAppVersion = validateBackupEnvelope({
-      backupFormatVersion: 4,
+      backupFormatVersion: 3,
       appVersion: ` ${"x".repeat(128)}`,
       exportedAt: metadata.exportedAt,
       ledgerSchemaVersion: 4,
@@ -232,16 +224,52 @@ describe("BackupEnvelopeV4", () => {
   });
 
   it.each([
-    [2, "这是 V2 备份；当前 V4 不兼容且不提供迁移"],
-    [3, "这是 V3 备份；当前 V4 不兼容且不提供迁移"],
+    {
+      boundary: "backup format V1",
+      backupFormatVersion: 1,
+      ledgerSchemaVersion: 4,
+      code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+      path: "backupFormatVersion",
+      message: "这是备份格式 V1；当前备份格式为 V3，且不提供迁移",
+    },
+    {
+      boundary: "backup format V2",
+      backupFormatVersion: 2,
+      ledgerSchemaVersion: 4,
+      code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+      path: "backupFormatVersion",
+      message: "这是备份格式 V2；当前备份格式为 V3，且不提供迁移",
+    },
+    {
+      boundary: "ledger schema V1",
+      backupFormatVersion: 3,
+      ledgerSchemaVersion: 1,
+      code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+      path: "ledgerSchemaVersion",
+      message: "这是账本 schema V1 的备份；当前账本 schema 为 V4，且不提供迁移",
+    },
+    {
+      boundary: "ledger schema V3",
+      backupFormatVersion: 3,
+      ledgerSchemaVersion: 3,
+      code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+      path: "ledgerSchemaVersion",
+      message: "这是账本 schema V3 的备份；当前账本 schema 为 V4，且不提供迁移",
+    },
   ] as const)(
-    "rejects a V%i backup at the version boundary without inspecting ledgerData",
-    (backupFormatVersion, message) => {
+    "rejects retired $boundary before inspecting ledgerData",
+    ({
+      backupFormatVersion,
+      ledgerSchemaVersion,
+      code,
+      path,
+      message,
+    }) => {
       const result = validateBackupEnvelope({
         backupFormatVersion,
         appVersion: metadata.appVersion,
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: backupFormatVersion,
+        ledgerSchemaVersion,
         ledgerData: { deliberatelyInvalid: true },
       });
 
@@ -249,8 +277,8 @@ describe("BackupEnvelopeV4", () => {
         ok: false,
         errors: [
           {
-            code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
-            path: "backupFormatVersion",
+            code,
+            path,
             message,
           },
         ],
@@ -258,28 +286,25 @@ describe("BackupEnvelopeV4", () => {
     },
   );
 
-  it("rejects a V1 backup without returning a V4 value", () => {
+  it("rejects an unknown future backup format independently from ledger schema", () => {
     const ledger = createInitialLedgerData();
     const result = validateBackupEnvelope({
-      backupFormatVersion: 1,
+      backupFormatVersion: 4,
       appVersion: metadata.appVersion,
       exportedAt: metadata.exportedAt,
-      ledgerSchemaVersion: 1,
-      ledgerData: { ...ledger, schemaVersion: 1 },
+      ledgerSchemaVersion: 4,
+      ledgerData: ledger,
     });
 
     expect(result).toEqual({
       ok: false,
-      errors: expect.arrayContaining([
-        expect.objectContaining({
+      errors: [
+        {
           code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
           path: "backupFormatVersion",
-        }),
-        expect.objectContaining({
-          code: "BACKUP_SCHEMA_VERSION_MISMATCH",
-          path: "ledgerSchemaVersion",
-        }),
-      ]),
+          message: "Unsupported backup format version: 4",
+        },
+      ],
     });
   });
 
@@ -289,7 +314,7 @@ describe("BackupEnvelopeV4", () => {
 
     expect(
       validateBackupEnvelope({
-        backupFormatVersion: 4,
+        backupFormatVersion: 3,
         appVersion: metadata.appVersion,
         exportedAt: metadata.exportedAt,
         ledgerSchemaVersion: 4,

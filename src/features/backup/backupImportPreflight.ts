@@ -17,7 +17,7 @@ import {
 import {
   validateBackupEnvelope,
   type BackupEnvelopeError,
-  type BackupEnvelopeV4,
+  type BackupEnvelopeV3,
 } from "./backupEnvelope";
 import { createLedgerDataContentIdentity } from "@/platform/persistence/identity";
 import { listAssetsMissingBinanceMapping } from "@/features/market-data";
@@ -174,7 +174,7 @@ export type BackupImportPreflightOptions = Readonly<{
   sourceFileName?: string;
   /**
    * Only the explicit historical-ingest path requires every trade to preserve
-   * a source line. Normal V4 backup restore keeps Trade.rawText optional.
+   * a source line. Normal ledger schema V4 backup restore keeps Trade.rawText optional.
    */
   requireHistoricalRawText?: boolean;
 }>;
@@ -254,11 +254,18 @@ export async function preflightBackupJson(
     });
   }
 
-  if (
+  const retiredBackupBoundary =
     isRecord(parsed) &&
-    (parsed.backupFormatVersion === 2 || parsed.backupFormatVersion === 3)
-  ) {
-    const legacyVersion = parsed.backupFormatVersion;
+    typeof parsed.backupFormatVersion === "number" &&
+    parsed.backupFormatVersion < 3
+      ? `备份格式 V${parsed.backupFormatVersion}`
+      : isRecord(parsed) &&
+          parsed.backupFormatVersion === 3 &&
+          typeof parsed.ledgerSchemaVersion === "number" &&
+          parsed.ledgerSchemaVersion < 4
+        ? `账本 schema V${parsed.ledgerSchemaVersion}`
+        : null;
+  if (retiredBackupBoundary !== null && isRecord(parsed)) {
     const versionResult = validateBackupEnvelope(parsed, options.todayKey);
     const versionErrors = versionResult.ok
       ? []
@@ -266,10 +273,10 @@ export async function preflightBackupJson(
           normalizeEnvelopeError(error, undefined),
         );
     skippedChecks.push(
-      skipped("ledger-structure", `V${legacyVersion} 备份已在版本阶段停止。`),
-      skipped("resource-policy", `V${legacyVersion} 备份已在版本阶段停止。`),
-      skipped("import-policy", `V${legacyVersion} 备份已在版本阶段停止。`),
-      skipped("duplicate-grouping", `V${legacyVersion} 备份已在版本阶段停止。`),
+      skipped("ledger-structure", `${retiredBackupBoundary} 已在版本阶段停止。`),
+      skipped("resource-policy", `${retiredBackupBoundary} 已在版本阶段停止。`),
+      skipped("import-policy", `${retiredBackupBoundary} 已在版本阶段停止。`),
+      skipped("duplicate-grouping", `${retiredBackupBoundary} 已在版本阶段停止。`),
     );
     return finalizeResult({
       contentIdentity,
@@ -642,9 +649,9 @@ function toChineseErrorMessage(error: BackupEnvelopeError): string {
     return `账本字段未通过结构校验：${error.message}`;
   }
   if (
-    error.code === "BACKUP_UNSUPPORTED_FORMAT_VERSION" &&
-    (error.message === "这是 V2 备份；当前 V4 不兼容且不提供迁移" ||
-      error.message === "这是 V3 备份；当前 V4 不兼容且不提供迁移")
+    (error.code === "BACKUP_UNSUPPORTED_FORMAT_VERSION" ||
+      error.code === "BACKUP_SCHEMA_VERSION_MISMATCH") &&
+    error.message.endsWith("且不提供迁移")
   ) {
     return error.message;
   }
@@ -1008,6 +1015,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// Compile-time guard: preflight consumes only the current V4 backup envelope.
-const _backupEnvelopeV4Contract: BackupEnvelopeV4["backupFormatVersion"] = 4;
-void _backupEnvelopeV4Contract;
+// Compile-time guard: preflight consumes backup format V3 carrying ledger schema V4.
+const _backupEnvelopeV3Contract: BackupEnvelopeV3["backupFormatVersion"] = 3;
+void _backupEnvelopeV3Contract;

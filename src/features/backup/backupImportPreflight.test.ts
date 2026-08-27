@@ -163,7 +163,7 @@ describe("preflightBackupJson", () => {
     ]);
     expect(result.metadata).toMatchObject({
       sourceFileName: "fictional-negative-cash.backup.json",
-      backupFormatVersion: 4,
+      backupFormatVersion: 3,
       ledgerSchemaVersion: 4,
       assetCount: ledger.assets.length,
       tradeCount: 0,
@@ -227,13 +227,32 @@ describe("preflightBackupJson", () => {
   });
 
   it.each([
-    [2, "这是 V2 备份；当前 V4 不兼容且不提供迁移"],
-    [3, "这是 V3 备份；当前 V4 不兼容且不提供迁移"],
+    {
+      legacyLedgerSchemaVersion: 2,
+      backupFormatVersion: 2,
+      code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
+      path: "backupFormatVersion",
+      message: "这是备份格式 V2；当前备份格式为 V3，且不提供迁移",
+    },
+    {
+      legacyLedgerSchemaVersion: 3,
+      backupFormatVersion: 3,
+      code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+      path: "ledgerSchemaVersion",
+      message: "这是账本 schema V3 的备份；当前账本 schema 为 V4，且不提供迁移",
+    },
   ] as const)(
-    "short-circuits a V%i backup at the version stage without candidate, warnings, duplicate grouping, or network",
-    async (legacyVersion, message) => {
+    "short-circuits a V$legacyLedgerSchemaVersion ledger backup at the version stage without candidate, warnings, duplicate grouping, or network",
+    async ({
+      legacyLedgerSchemaVersion,
+      backupFormatVersion,
+      code,
+      path,
+      message,
+    }) => {
       const parsed = JSON.parse(readFixture("suspicions-only.backup.json"));
-      parsed.backupFormatVersion = legacyVersion;
+      parsed.backupFormatVersion = backupFormatVersion;
+      parsed.ledgerSchemaVersion = legacyLedgerSchemaVersion;
       parsed.ledgerData.trades[0].quantity = "also-invalid";
       const fetchSpy = vi.fn(async () => {
         throw new Error("preflight must stay offline");
@@ -245,7 +264,7 @@ describe("preflightBackupJson", () => {
         {
           todayKey: TODAY,
           selectionGeneration: 8,
-          sourceFileName: `fictional-v${legacyVersion}.backup.json`,
+          sourceFileName: `fictional-ledger-v${legacyLedgerSchemaVersion}.backup.json`,
         },
       );
 
@@ -257,17 +276,17 @@ describe("preflightBackupJson", () => {
       expect(createLedgerBackupImportEvidence(result)).toBeNull();
       expect(result.retainedDetails).toEqual([
         expect.objectContaining({
-          code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
-          path: "backupFormatVersion",
+          code,
+          path,
           message,
         }),
       ]);
       expect(result.metadata).toEqual({
-        sourceFileName: `fictional-v${legacyVersion}.backup.json`,
-        backupFormatVersion: legacyVersion,
+        sourceFileName: `fictional-ledger-v${legacyLedgerSchemaVersion}.backup.json`,
+        backupFormatVersion,
         appVersion: parsed.appVersion,
         exportedAt: parsed.exportedAt,
-        ledgerSchemaVersion: parsed.ledgerSchemaVersion,
+        ledgerSchemaVersion: legacyLedgerSchemaVersion,
       });
       expect(result.skippedChecks.map(({ check }) => check)).toEqual([
         "ledger-structure",
@@ -528,6 +547,7 @@ describe("preflightBackupJson", () => {
           kind: "hard-error",
           code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
           path: "backupFormatVersion",
+          message: "这是备份格式 V1；当前备份格式为 V3，且不提供迁移",
         }),
       ]),
     );
@@ -625,7 +645,7 @@ function readFixture(name: string): string {
     "utf8",
   );
   const parsed = JSON.parse(serialized);
-  parsed.backupFormatVersion = 4;
+  parsed.backupFormatVersion = 3;
   parsed.ledgerSchemaVersion = 4;
   parsed.ledgerData = {
     ...parsed.ledgerData,

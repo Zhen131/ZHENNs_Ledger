@@ -17,10 +17,10 @@ import {
   validateLedgerData,
 } from "@/core/validation";
 
-export const BACKUP_FORMAT_VERSION = 4 as const;
+export const BACKUP_FORMAT_VERSION = 3 as const;
 
-export type BackupEnvelopeV4 = {
-  backupFormatVersion: 4;
+export type BackupEnvelopeV3 = {
+  backupFormatVersion: 3;
   appVersion: string;
   exportedAt: string;
   ledgerSchemaVersion: 4;
@@ -46,7 +46,7 @@ export type BackupEnvelopeError =
   | LedgerImportPolicyError;
 
 export type BackupEnvelopeResult =
-  | { ok: true; value: BackupEnvelopeV4 }
+  | { ok: true; value: BackupEnvelopeV3 }
   | { ok: false; errors: BackupEnvelopeError[] };
 
 export type BackupMetadata = {
@@ -99,7 +99,7 @@ export function createBackupEnvelope(
   };
 }
 
-export function serializeBackupEnvelope(envelope: BackupEnvelopeV4): string {
+export function serializeBackupEnvelope(envelope: BackupEnvelopeV3): string {
   return `${JSON.stringify(envelope, null, 2)}\n`;
 }
 
@@ -140,27 +140,34 @@ export function validateBackupEnvelope(
     };
   }
 
-  if (input.backupFormatVersion === 2) {
+  if (
+    typeof input.backupFormatVersion === "number" &&
+    input.backupFormatVersion < BACKUP_FORMAT_VERSION
+  ) {
     return {
       ok: false,
       errors: [
         createError(
           "BACKUP_UNSUPPORTED_FORMAT_VERSION",
           "backupFormatVersion",
-          "这是 V2 备份；当前 V4 不兼容且不提供迁移",
+          `这是备份格式 V${input.backupFormatVersion}；当前备份格式为 V3，且不提供迁移`,
         ),
       ],
     };
   }
 
-  if (input.backupFormatVersion === 3) {
+  if (
+    input.backupFormatVersion === BACKUP_FORMAT_VERSION &&
+    typeof input.ledgerSchemaVersion === "number" &&
+    input.ledgerSchemaVersion < 4
+  ) {
     return {
       ok: false,
       errors: [
         createError(
-          "BACKUP_UNSUPPORTED_FORMAT_VERSION",
-          "backupFormatVersion",
-          "这是 V3 备份；当前 V4 不兼容且不提供迁移",
+          "BACKUP_SCHEMA_VERSION_MISMATCH",
+          "ledgerSchemaVersion",
+          `这是账本 schema V${input.ledgerSchemaVersion} 的备份；当前账本 schema 为 V4，且不提供迁移`,
         ),
       ],
     };
@@ -179,7 +186,7 @@ export function validateBackupEnvelope(
       createError(
         "BACKUP_INVALID_ENVELOPE",
         "backup",
-        "V4 backup must contain exactly the five canonical top-level keys in order",
+        "Backup format V3 must contain exactly the five canonical top-level keys in order",
       ),
     );
   }

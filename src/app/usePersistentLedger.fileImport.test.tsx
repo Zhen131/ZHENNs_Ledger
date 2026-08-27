@@ -340,7 +340,7 @@ describe("usePersistentLedger ready C import", () => {
   );
 
   it(
-    "imports a normal V4 backup without requiring historical Trade.rawText",
+    "imports a normal ledger schema V4 backup without requiring historical Trade.rawText",
     async () => {
       const parsed = JSON.parse(
         readFixture("valid-300.backup.json"),

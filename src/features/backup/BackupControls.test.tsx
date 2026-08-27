@@ -43,7 +43,7 @@ afterEach(() => {
 
 const FIXED_EXPORTED_AT = "2026-07-23T12:34:56.000Z";
 const FIXED_BACKUP_FILENAME =
-  "local-first-trading-ledger-backup-v4-20260723-123456Z.json";
+  "local-first-trading-ledger-backup-v3-20260723-123456Z.json";
 const fixedClock = {
   now: () => new Date(FIXED_EXPORTED_AT),
 };
@@ -148,7 +148,7 @@ function readPermanentFixture(name: string): string {
     "utf8",
   );
   const parsed = JSON.parse(serialized);
-  parsed.backupFormatVersion = 4;
+  parsed.backupFormatVersion = 3;
   parsed.ledgerSchemaVersion = 4;
   parsed.ledgerData = {
     ...parsed.ledgerData,
@@ -769,15 +769,29 @@ describe("BackupControls", () => {
   });
 
   it.each([
-    [2, "这是 V2 备份；当前 V4 不兼容且不提供迁移"],
-    [3, "这是 V3 备份；当前 V4 不兼容且不提供迁移"],
+    {
+      legacyLedgerSchemaVersion: 2,
+      backupFormatVersion: 2,
+      message: "这是备份格式 V2；当前备份格式为 V3，且不提供迁移",
+    },
+    {
+      legacyLedgerSchemaVersion: 3,
+      backupFormatVersion: 3,
+      message: "这是账本 schema V3 的备份；当前账本 schema 为 V4，且不提供迁移",
+    },
   ] as const)(
-    "rejects a V%i backup before import, file mutation, or Binance calls",
-    async (legacyVersion, message) => {
+    "rejects a V$legacyLedgerSchemaVersion ledger backup before import, file mutation, or Binance calls",
+    async ({
+      legacyLedgerSchemaVersion,
+      backupFormatVersion,
+      message,
+    }) => {
       const parsed = JSON.parse(
         readPermanentFixture("valid-300.backup.json"),
       );
-      parsed.backupFormatVersion = legacyVersion;
+      parsed.backupFormatVersion = backupFormatVersion;
+      parsed.ledgerSchemaVersion = legacyLedgerSchemaVersion;
+      parsed.ledgerData = { deliberatelyInvalid: true };
       const client: BinanceMarketDataClient = {
         validateSpotSymbol: vi.fn(),
         fetchLatestPrices: vi.fn(),
@@ -797,7 +811,7 @@ describe("BackupControls", () => {
         screen.getByLabelText("选择账本备份文件"),
         createPaddedBackupFile(
           `${JSON.stringify(parsed, null, 2)}\n`,
-          `fictional-v${legacyVersion}.backup.json`,
+          `fictional-ledger-v${legacyLedgerSchemaVersion}.backup.json`,
         ),
       );
 

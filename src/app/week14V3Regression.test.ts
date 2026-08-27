@@ -138,7 +138,7 @@ describe("Week 14 scenario under the V4 cross-module contract", () => {
     );
   });
 
-  it("round-trips the canonical scenario through the exact V4 backup envelope", () => {
+  it("round-trips the canonical ledger V4 scenario through backup format V3", () => {
     const ledger = createWeek14V3Scenario();
     const envelope = createBackupEnvelope(
       ledger,

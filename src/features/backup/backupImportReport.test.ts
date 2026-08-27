@@ -67,19 +67,19 @@ describe("formatBackupImportReportMarkdown", () => {
     }
   });
 
-  it("includes the selected source file and the full V4 collection summary", async () => {
+  it("reports backup format V3 separately from the full ledger schema V4 summary", async () => {
     const result = await preflightBackupJson(
       readFixture("valid-300.backup.json"),
       {
         todayKey: TODAY,
         selectionGeneration: 2,
-        sourceFileName: "fictional-v4.backup.json",
+        sourceFileName: "fictional-backup-v3-ledger-v4.json",
       },
     );
     const report = formatBackupImportReportMarkdown(result);
 
-    expect(report).toContain("来源文件名：fictional-v4.backup.json");
-    expect(report).toContain("备份格式版本：4");
+    expect(report).toContain("来源文件名：fictional-backup-v3-ledger-v4.json");
+    expect(report).toContain("备份格式版本：3");
     expect(report).toContain("账本 schema 版本：4");
     expect(report).toContain("资产：3");
     expect(report).toContain("交易：300");
@@ -106,7 +106,7 @@ function readFixture(name: string): string {
     "utf8",
   );
   const parsed = JSON.parse(serialized);
-  parsed.backupFormatVersion = 4;
+  parsed.backupFormatVersion = 3;
   parsed.ledgerSchemaVersion = 4;
   parsed.ledgerData = {
     ...parsed.ledgerData,

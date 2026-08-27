@@ -1,0 +1,77 @@
+{
+  "backupFormatVersion": 3,
+  "appVersion": "0.1.0-golden",
+  "exportedAt": "2026-08-01T12:34:56.789Z",
+  "ledgerSchemaVersion": 4,
+  "ledgerData": {
+    "schemaVersion": 4,
+    "assets": [
+      {
+        "id": "asset-fictional-alpha",
+        "symbol": "FICTA",
+        "name": "Fictional Alpha",
+        "quoteCurrency": "USDT",
+        "binanceMapping": null,
+        "createdAt": "2026-08-01T08:00:00Z",
+        "updatedAt": "2026-08-01T08:00:00Z"
+      }
+    ],
+    "trades": [],
+    "cashEvents": [
+      {
+        "id": "cash-fictional-deposit",
+        "occurredAt": "2026-08-01T09:00:00Z",
+        "timePrecision": "second",
+        "type": "deposit",
+        "currency": "USDT",
+        "amount": "25.000000000000000001",
+        "note": "Fictional golden fixture cash fact.",
+        "createdAt": "2026-08-01T09:00:00Z",
+        "updatedAt": "2026-08-01T09:00:00Z"
+      }
+    ],
+    "assetTransfers": [
+      {
+        "id": "transfer-fictional-external-in",
+        "occurredAt": "2026-08-01T10:00:00Z",
+        "timePrecision": "second",
+        "assetSymbol": "FICTA",
+        "quantity": "2.500000000000000001",
+        "category": "external-in",
+        "reason": "deposit",
+        "unitPrice": "4.000000000000000003",
+        "toLocation": "exchange",
+        "note": "Fictional golden fixture asset transfer.",
+        "createdAt": "2026-08-01T10:00:00Z",
+        "updatedAt": "2026-08-01T10:00:00Z"
+      }
+    ],
+    "priceSnapshots": [
+      {
+        "assetSymbol": "FICTA",
+        "price": "5.500000000000000002",
+        "currency": "USDT",
+        "recordedAt": "2026-08-01T11:00:00Z",
+        "source": "manual",
+        "note": "Fictional golden fixture price.",
+        "id": "price-fictional-alpha",
+        "createdAt": "2026-08-01T11:00:00Z",
+        "updatedAt": "2026-08-01T11:00:00Z"
+      }
+    ],
+    "feeRules": [
+      {
+        "id": "fee-rule-fictional-alpha",
+        "name": "Fictional fixed fee",
+        "platform": "Fictional Venue",
+        "assetSymbol": "FICTA",
+        "status": "active",
+        "createdAt": "2026-08-01T08:30:00Z",
+        "updatedAt": "2026-08-01T08:30:00Z",
+        "type": "fixed",
+        "amount": "0.125",
+        "currency": "USDT"
+      }
+    ]
+  }
+}
