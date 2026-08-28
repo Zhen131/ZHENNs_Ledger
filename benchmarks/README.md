@@ -51,6 +51,15 @@ Element lookup never depends on Chinese UI wording. Existing stable workspace
 attributes, native element roles/types, form structure, and benchmark-only
 attributes injected from navigation order are used instead.
 
+Probe one generated scale without writing a ledger or result file:
+
+```sh
+npm run bench:probe -- --scale=S-100K
+```
+
+The probe reports generation time, full product Validator outcome, position and
+cash replay time, serialized backup bytes, and resident memory after the probe.
+
 The normal `npm test` configuration includes only `src/**/*.test.{ts,tsx}`;
 benchmark contracts use `*.contract.ts` and therefore never join the default
 test suite.
