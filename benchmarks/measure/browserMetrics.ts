@@ -230,9 +230,19 @@ async function createAndImport(
   const backupInput = page.locator(
     '[data-workspace-page="transfer"] input[type="file"]',
   );
-  await withSyntheticBackupFile(generated, (filePath) =>
-    backupInput.setInputFiles(filePath),
-  );
+  try {
+    await withSyntheticBackupFile(generated, (filePath) =>
+      backupInput.setInputFiles(filePath),
+    );
+  } catch (error) {
+    if (error instanceof RangeError && error.message === "Invalid string length") {
+      throw new BenchmarkSetupError(
+        "backup-serialization",
+        `The synthetic backup for ${generated.scale} exceeded the runtime string limit`,
+      );
+    }
+    throw error;
+  }
 
   const confirmation = page.locator(
     '[data-workspace-page="transfer"] button.bg-slate-950',
