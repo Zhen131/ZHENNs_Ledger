@@ -10,8 +10,8 @@ import { chromium, type BrowserContext, type Page } from "playwright";
 
 import {
   generateSyntheticLedger,
-  serializeSyntheticBackup,
   SYNTHETIC_SCALE_TRADE_COUNTS,
+  withSyntheticBackupFile,
   type SyntheticLedgerResult,
   type SyntheticScale,
 } from "../generator/syntheticLedger";
@@ -230,12 +230,9 @@ async function createAndImport(
   const backupInput = page.locator(
     '[data-workspace-page="transfer"] input[type="file"]',
   );
-  const serialized = serializeSyntheticBackup(generated);
-  await backupInput.setInputFiles({
-    name: `${generated.scale}.generated.json`,
-    mimeType: "application/json",
-    buffer: Buffer.from(serialized, "utf8"),
-  });
+  await withSyntheticBackupFile(generated, (filePath) =>
+    backupInput.setInputFiles(filePath),
+  );
 
   const confirmation = page.locator(
     '[data-workspace-page="transfer"] button.bg-slate-950',
