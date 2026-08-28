@@ -3,13 +3,6 @@ import { compare, divide, isZero, subtract } from "@/core/shared";
 import { LedgerNumber } from "@/ui";
 import type { Ref } from "react";
 
-import type { SummaryMetric } from "./pnlSummaryService";
-
-const ZERO_BUY_OUTFLOW: SummaryMetric = {
-  value: "0",
-  missingReasons: [],
-};
-
 export function getTopMarketValuePositions(
   positions: readonly Position[],
   limit = 5,
@@ -54,13 +47,11 @@ export function calculatePriceChangeRatio(
 export function HoldingsOverview({
   positions,
   cashBalance,
-  buyOutflowByAsset,
   onShowAll,
   triggerRef,
 }: Readonly<{
   positions: readonly Position[];
   cashBalance: string;
-  buyOutflowByAsset: Readonly<Record<string, SummaryMetric>>;
   onShowAll: () => void;
   triggerRef?: Ref<HTMLButtonElement>;
 }>) {
@@ -146,8 +137,6 @@ export function HoldingsOverview({
                 position.feeAccountingIssues !== undefined;
               const changeRatio = calculatePriceChangeRatio(position);
               const toneClass = priceChangeTone(changeRatio);
-              const buyOutflow =
-                buyOutflowByAsset[position.assetSymbol] ?? ZERO_BUY_OUTFLOW;
               return (
                 <tr
                   className="border-b border-[var(--ledger-border)] last:border-b-0"
@@ -217,13 +206,14 @@ export function HoldingsOverview({
                     <LedgerNumber kind="quantity" value={position.quantity} />
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
-                    {buyOutflow.value === undefined ? (
-                      <span title={buyOutflow.missingReasons.join("；")}>
-                        不可完整计算
-                      </span>
+                    {hasUnreliableCost ? (
+                      "不可可靠计算"
                     ) : (
                       <>
-                        <LedgerNumber kind="money" value={buyOutflow.value} />{" "}
+                        <LedgerNumber
+                          kind="money"
+                          value={position.costBasis}
+                        />{" "}
                         {position.currency}
                       </>
                     )}

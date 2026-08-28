@@ -10,7 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { LedgerData, Position, Trade } from "@/core/models";
+import type { AssetTransfer, LedgerData, Position, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { HoldingsDetails } from "./HoldingsDetails";
 import {
@@ -76,6 +76,65 @@ function trade(
   };
 }
 
+function fictionalTrade(
+  assetSymbol: string,
+  overrides: Pick<
+    Trade,
+    | "id"
+    | "occurredAt"
+    | "type"
+    | "quantity"
+    | "price"
+    | "totalValue"
+  >,
+): Trade {
+  return {
+    ...overrides,
+    timePrecision: "day",
+    assetSymbol,
+    currency: "USDT",
+    fee: "0",
+    feeCurrency: "USDT",
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+  };
+}
+
+function fictionalTransfer(
+  assetSymbol: string,
+  overrides: Pick<
+    AssetTransfer,
+    "id" | "occurredAt" | "category" | "reason" | "quantity"
+  > &
+    Partial<
+      Pick<AssetTransfer, "fromLocation" | "toLocation" | "unitPrice">
+    >,
+): AssetTransfer {
+  return {
+    ...overrides,
+    timePrecision: "day",
+    assetSymbol,
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+  };
+}
+
+function fictionalPrice(
+  assetSymbol: string,
+  price: string,
+): LedgerData["priceSnapshots"][number] {
+  return {
+    id: `${assetSymbol.toLowerCase()}-scenario-price`,
+    assetSymbol,
+    price,
+    currency: "USDT",
+    recordedAt: TODAY,
+    source: "manual",
+    createdAt: TIMESTAMP,
+    updatedAt: TIMESTAMP,
+  };
+}
+
 function fixedLedger(): LedgerData {
   const ledger = createInitialLedgerData();
   ledger.trades = [
@@ -138,9 +197,6 @@ describe("holdings workspace views", () => {
     const onShowAll = vi.fn();
     render(
       <HoldingsOverview
-        buyOutflowByAsset={{
-          BTC: { value: "9", missingReasons: [] },
-        }}
         cashBalance="0"
         onShowAll={onShowAll}
         positions={[position("BTC", "9"), position("ADA")]}
@@ -161,7 +217,6 @@ describe("holdings workspace views", () => {
 
     render(
       <HoldingsOverview
-        buyOutflowByAsset={summary.buyOutflowByAsset}
         cashBalance="123.4567"
         onShowAll={vi.fn()}
         positions={positions}
@@ -202,8 +257,8 @@ describe("holdings workspace views", () => {
     expect(within(cells[5] as HTMLElement).getByTitle("0.06").textContent).toBe(
       "0.06",
     );
-    expect(within(cells[6] as HTMLElement).getByTitle("6505").textContent).toBe(
-      "6,505.00",
+    expect(within(cells[6] as HTMLElement).getByTitle("3903").textContent).toBe(
+      "3,903.00",
     );
     expect(within(cells[7] as HTMLElement).getByTitle("4800").textContent).toBe(
       "4,800.00",
@@ -248,7 +303,6 @@ describe("holdings workspace views", () => {
     };
     render(
       <HoldingsOverview
-        buyOutflowByAsset={{}}
         cashBalance="0"
         onShowAll={vi.fn()}
         positions={[loss, zeroAverage]}
@@ -283,6 +337,216 @@ describe("holdings workspace views", () => {
     );
   });
 
+  it("T-01 through T-05 self-check the BTC sale row and remove lifetime spend", () => {
+    const ledger = createInitialLedgerData();
+    ledger.trades = [
+      fictionalTrade("BTC", {
+        id: "btc-buy-one",
+        occurredAt: "2026-08-01",
+        type: "buy",
+        quantity: "0.10",
+        price: "30000",
+        totalValue: "3000",
+      }),
+      fictionalTrade("BTC", {
+        id: "btc-buy-two",
+        occurredAt: "2026-08-02",
+        type: "buy",
+        quantity: "0.05",
+        price: "40000",
+        totalValue: "2000",
+      }),
+      fictionalTrade("BTC", {
+        id: "btc-sell",
+        occurredAt: "2026-08-03",
+        type: "sell",
+        quantity: "0.05",
+        price: "50000",
+        totalValue: "2500",
+      }),
+    ];
+    ledger.priceSnapshots = [fictionalPrice("BTC", "45000")];
+    const options = { todayKey: TODAY, mode: "auto" as const };
+    const positions = getPositionsFromLedger(ledger, options);
+    const summary = buildLedgerPnlSummary(ledger, options);
+
+    render(
+      <HoldingsOverview
+        cashBalance="0"
+        onShowAll={vi.fn()}
+        positions={positions}
+      />,
+    );
+
+    expect(summary.buyOutflowByAsset.BTC?.value).toBe("5000");
+    const row = screen.getByRole("row", { name: /BTC/ });
+    const cells = row.querySelectorAll("th, td");
+    expect(Array.from(cells, (cell) => cell.textContent)).toEqual([
+      "BTC",
+      "45,000.00 USDT",
+      "33,333.33 USDT",
+      "+35.00%",
+      "1,166.67 USDT",
+      "0.1",
+      "3,333.33 USDT",
+      "4,500.00 USDT",
+    ]);
+    expect(within(row).queryByTitle("5000")).toBeNull();
+  });
+
+  it("T-06 shows the remaining ETH cost after an external transfer", () => {
+    const ledger = createInitialLedgerData();
+    ledger.trades = [
+      fictionalTrade("ETH", {
+        id: "eth-buy",
+        occurredAt: "2026-08-01",
+        type: "buy",
+        quantity: "2",
+        price: "2000",
+        totalValue: "4000",
+      }),
+    ];
+    ledger.assetTransfers = [
+      fictionalTransfer("ETH", {
+        id: "eth-external-out",
+        occurredAt: "2026-08-02",
+        category: "external-out",
+        reason: "withdrawal",
+        quantity: "1",
+        fromLocation: "exchange",
+      }),
+    ];
+    ledger.priceSnapshots = [fictionalPrice("ETH", "2400")];
+    const positions = getPositionsFromLedger(ledger, {
+      todayKey: TODAY,
+      mode: "auto",
+    });
+    const eth = positions.find((item) => item.assetSymbol === "ETH");
+
+    expect(eth?.realizedPnl).toBe("-2000");
+    render(
+      <HoldingsOverview
+        cashBalance="0"
+        onShowAll={vi.fn()}
+        positions={positions}
+      />,
+    );
+    const cells = screen
+      .getByRole("row", { name: /ETH/ })
+      .querySelectorAll("th, td");
+    expect(cells[4]?.textContent).toBe("400.00 USDT");
+    expect(cells[6]?.textContent).toBe("2,000.00 USDT");
+    expect(cells[7]?.textContent).toBe("2,400.00 USDT");
+  });
+
+  it("T-07 keeps SOL gift cost separate from cumulative buy outflow", () => {
+    const ledger = createInitialLedgerData();
+    ledger.assets.push({
+      id: "fictional-sol",
+      symbol: "SOL",
+      name: "Fictional Solana",
+      quoteCurrency: "USDT",
+      binanceMapping: null,
+      createdAt: TIMESTAMP,
+      updatedAt: TIMESTAMP,
+    });
+    ledger.assetTransfers = [
+      fictionalTransfer("SOL", {
+        id: "sol-gift",
+        occurredAt: "2026-08-01",
+        category: "gain",
+        reason: "airdrop",
+        quantity: "10",
+        unitPrice: "20",
+        toLocation: "exchange",
+      }),
+    ];
+    ledger.trades = [
+      fictionalTrade("SOL", {
+        id: "sol-buy",
+        occurredAt: "2026-08-02",
+        type: "buy",
+        quantity: "5",
+        price: "24",
+        totalValue: "120",
+      }),
+    ];
+    ledger.priceSnapshots = [fictionalPrice("SOL", "18")];
+    const options = { todayKey: TODAY, mode: "auto" as const };
+    const positions = getPositionsFromLedger(ledger, options);
+    const summary = buildLedgerPnlSummary(ledger, options);
+
+    expect(summary.buyOutflowByAsset.SOL?.value).toBe("120");
+    render(
+      <HoldingsOverview
+        cashBalance="0"
+        onShowAll={vi.fn()}
+        positions={positions}
+      />,
+    );
+    const row = screen.getByRole("row", { name: /SOL/ });
+    const cells = row.querySelectorAll("th, td");
+    expect(cells[4]?.textContent).toBe("-50.00 USDT");
+    expect(cells[6]?.textContent).toBe("320.00 USDT");
+    expect(cells[7]?.textContent).toBe("270.00 USDT");
+    expect(row.textContent).not.toContain("120.00");
+  });
+
+  it("T-09 preserves both current-price and ranking missing-price fallbacks", () => {
+    const missingCurrentPrice: Position = {
+      ...position("NO-LATEST", "9"),
+      latestPrice: undefined,
+    };
+    render(
+      <HoldingsOverview
+        cashBalance="0"
+        onShowAll={vi.fn()}
+        positions={[missingCurrentPrice, position("NO-MARKET-VALUE")]}
+      />,
+    );
+
+    const cells = screen
+      .getByRole("row", { name: /NO-LATEST/ })
+      .querySelectorAll("th, td");
+    expect(cells[1]?.textContent).toBe("缺少合法价格");
+    expect(
+      screen.queryByRole("rowheader", { name: "NO-MARKET-VALUE" }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/NO-MARKET-VALUE 缺少合法当前价格/),
+    ).toBeTruthy();
+  });
+
+  it("T-11 shows incomplete unrealized profit without replacing the cost", () => {
+    const incomplete: Position = {
+      ...position("INCOMPLETE", "10"),
+      unrealizedPnl: undefined,
+    };
+    render(
+      <HoldingsOverview
+        cashBalance="0"
+        onShowAll={vi.fn()}
+        positions={[incomplete]}
+      />,
+    );
+
+    const cells = screen
+      .getByRole("row", { name: /INCOMPLETE/ })
+      .querySelectorAll("th, td");
+    expect(cells[4]?.textContent).toBe("不可完整计算");
+    expect(cells[6]?.textContent).toBe("1.00 USDT");
+  });
+
+  it("T-20 keeps equal market values ordered by asset symbol", () => {
+    expect(
+      getTopMarketValuePositions([
+        position("SOL", "10"),
+        position("BTC", "10"),
+        position("ETH", "10"),
+      ]).map((item) => item.assetSymbol),
+    ).toEqual(["BTC", "ETH", "SOL"]);
+  });
+
   it("T3-04 shows only the top five market values and leaves missing-price assets out", () => {
     const positions = [
       position("A", "10"),
@@ -301,7 +565,6 @@ describe("holdings workspace views", () => {
 
     render(
       <HoldingsOverview
-        buyOutflowByAsset={{}}
         cashBalance="0"
         onShowAll={vi.fn()}
         positions={positions}
@@ -343,7 +606,6 @@ describe("holdings workspace views", () => {
     expect(calculatePriceChangeRatio(unreliable)).toBeUndefined();
     render(
       <HoldingsOverview
-        buyOutflowByAsset={{}}
         cashBalance="0"
         onShowAll={vi.fn()}
         positions={[unreliable]}
@@ -356,6 +618,7 @@ describe("holdings workspace views", () => {
     expect(cells[2]?.textContent).toBe("不可可靠计算");
     expect(cells[3]?.textContent).toBe("不可可靠计算");
     expect(cells[4]?.textContent).toBe("不可可靠计算");
+    expect(cells[6]?.textContent).toBe("不可可靠计算");
     expect(cells[3]?.className).not.toMatch(/text-(?:emerald|red)-700/);
     expect(cells[4]?.className).not.toMatch(/text-(?:emerald|red)-700/);
   });

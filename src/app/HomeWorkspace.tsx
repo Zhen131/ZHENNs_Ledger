@@ -220,7 +220,6 @@ export function HomeWorkspace({
         data-home-row="holdings"
       >
         <HoldingsOverview
-          buyOutflowByAsset={pnlSummary.buyOutflowByAsset}
           cashBalance={cashBalance}
           onShowAll={openDetails}
           positions={positions}
