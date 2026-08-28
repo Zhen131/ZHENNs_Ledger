@@ -213,7 +213,6 @@ describe("holdings workspace views", () => {
     const ledger = fixedLedger();
     const options = { todayKey: TODAY, mode: "auto" as const };
     const positions = getPositionsFromLedger(ledger, options);
-    const summary = buildLedgerPnlSummary(ledger, options);
 
     render(
       <HoldingsOverview
