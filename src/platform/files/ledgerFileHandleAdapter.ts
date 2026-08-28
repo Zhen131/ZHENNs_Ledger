@@ -89,7 +89,7 @@ const FILE_PICKER_TYPES = [
   {
     description: "Zhenn's Ledger",
     accept: {
-      "application/json": [".lftl"],
+      "application/octet-stream": [".lftl"],
     },
   },
 ];

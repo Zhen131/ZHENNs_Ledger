@@ -112,7 +112,7 @@ describe("LedgerFileHandleAdapter", () => {
     const adapter = new LedgerFileHandleAdapter(provider);
     const ledgerFileType = {
       description: "Zhenn's Ledger",
-      accept: { "application/json": [".lftl"] },
+      accept: { "application/octet-stream": [".lftl"] },
     };
 
     await adapter.pickNewLedgerFile();
