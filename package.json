@@ -9,6 +9,8 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
     "bench:test:generator": "vitest run --config vitest.benchmarks.config.ts benchmarks/generator/syntheticLedger.contract.ts",
+    "bench:test:node": "vitest run --config vitest.benchmarks.config.ts benchmarks/measure/nodeMetrics.contract.ts",
+    "bench:node": "node --import tsx benchmarks/measure/nodeMetrics.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },

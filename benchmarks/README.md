@@ -15,6 +15,20 @@ Run the generator contract independently:
 npm run bench:test:generator
 ```
 
+Run the Node ruler contract or one real scale:
+
+```sh
+npm run bench:test:node
+npm run bench:node -- --scale=S-100
+```
+
+`bench:node` measures the five derivations executed by `DashboardShell` as
+M-2, holding-history construction for `1d`, `7d`, `30d`, `365d`, and `all` as
+M-7, and one position-plus-cash replay as M-8. The first execution of every
+metric is discarded. The JSON output includes every retained sample and its
+median, minimum, maximum, and count. `--metric=M-7 --range=365d` can isolate a
+potentially expensive operation so a caller can enforce an external timeout.
+
 The normal `npm test` configuration includes only `src/**/*.test.{ts,tsx}`;
 benchmark contracts use `*.contract.ts` and therefore never join the default
 test suite.
