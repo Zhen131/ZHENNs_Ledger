@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -139,6 +145,37 @@ describe("HomeWorkspace", () => {
     expect(screen.queryByRole("heading", { name: "最近交易" })).toBeNull();
     expect(screen.queryByText(/2026-08-12/)).toBeNull();
     expect(screen.getByTestId("heatmap-chart").dataset.variant).toBe("home");
+  });
+
+  it("T-13 keeps holdings terms consistent across metrics, overview, and details", async () => {
+    renderHome();
+    const overview = screen.getByRole("table", { name: "前五持仓" });
+
+    for (const label of ["剩余持仓成本", "未实现盈亏", "已实现盈亏"]) {
+      expect(screen.getByRole("heading", { name: label })).toBeTruthy();
+    }
+    for (const label of ["持仓均价", "剩余持仓成本", "未实现盈亏"]) {
+      expect(
+        within(overview).getByRole("columnheader", { name: label }),
+      ).toBeTruthy();
+    }
+
+    await userEvent.setup().click(
+      screen.getByRole("button", { name: "查看全部持仓" }),
+    );
+    const details = screen.getByRole("table", {
+      name: "完整持仓与现金明细",
+    });
+    for (const label of [
+      "持仓均价",
+      "剩余持仓成本",
+      "未实现盈亏",
+      "已实现盈亏",
+    ]) {
+      expect(
+        within(details).getByRole("columnheader", { name: label }),
+      ).toBeTruthy();
+    }
   });
 
   it("uses the strict four-row home layout and contains horizontal table overflow", () => {

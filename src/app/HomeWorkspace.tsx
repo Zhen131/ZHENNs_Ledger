@@ -241,6 +241,7 @@ export function HomeWorkspace({
       </div>
 
       <HoldingsDetails
+        buyOutflowByAsset={pnlSummary.buyOutflowByAsset}
         cashBalance={cashBalance}
         onClose={closeDetails}
         open={detailsOpen}

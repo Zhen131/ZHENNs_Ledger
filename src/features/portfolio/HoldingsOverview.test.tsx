@@ -623,10 +623,94 @@ describe("holdings workspace views", () => {
     expect(cells[4]?.className).not.toMatch(/text-(?:emerald|red)-700/);
   });
 
+  it("T-14 and T-15 show the separated cumulative buy outflow column and explanation", () => {
+    render(
+      <HoldingsDetails
+        buyOutflowByAsset={{
+          BTC: { value: "123.45", missingReasons: [] },
+        }}
+        cashBalance="0"
+        onClose={vi.fn()}
+        open
+        positions={[position("BTC", "9")]}
+      />,
+    );
+
+    const aside = screen.getByRole("complementary", {
+      name: "完整持仓详情",
+    });
+    const header = within(aside).getByRole("columnheader", {
+      name: "累计买入流出",
+    });
+    expect(header.className).toContain("border-l");
+    expect(
+      within(aside).getByText(
+        "累计买入流出是历史上买入一共支出的现金，不与本表其他任何列相减。",
+      ),
+    ).toBeTruthy();
+    const cells = within(
+      within(aside).getByRole("row", { name: /BTC/ }),
+    ).getAllByRole("cell");
+    expect(cells).toHaveLength(12);
+    expect(cells[11]?.textContent).toContain("123.45 USDT");
+    expect(cells[11]?.className).toContain("lg:border-l");
+  });
+
+  it("T-16 distinguishes absent and incomplete cumulative buy outflow metrics", () => {
+    render(
+      <HoldingsDetails
+        buyOutflowByAsset={{
+          BTC: {
+            value: undefined,
+            missingReasons: ["虚构买入手续费无法换算", "虚构买入币种不受支持"],
+          },
+        }}
+        cashBalance="0"
+        onClose={vi.fn()}
+        open
+        positions={[position("BTC", "9"), position("ETH", "8")]}
+      />,
+    );
+
+    const btcCells = within(
+      screen.getByRole("row", { name: /BTC/ }),
+    ).getAllByRole("cell");
+    expect(btcCells[11]?.textContent).toContain("不可完整计算");
+    expect(
+      btcCells[11]?.querySelector("[title]")?.getAttribute("title"),
+    ).toBe("虚构买入手续费无法换算；虚构买入币种不受支持");
+
+    const ethCells = within(
+      screen.getByRole("row", { name: /ETH/ }),
+    ).getAllByRole("cell");
+    expect(within(ethCells[11] as HTMLElement).getByTitle("0").textContent).toBe(
+      "0.00",
+    );
+  });
+
+  it("T-17 keeps cumulative buy outflow inapplicable for the cash row", () => {
+    render(
+      <HoldingsDetails
+        buyOutflowByAsset={{}}
+        cashBalance="100"
+        onClose={vi.fn()}
+        open
+        positions={[]}
+      />,
+    );
+
+    const cells = within(
+      screen.getByRole("row", { name: /现金 USDT/ }),
+    ).getAllByRole("cell");
+    expect(cells).toHaveLength(12);
+    expect(cells[11]?.textContent).toContain("—");
+  });
+
   it("closes details with Escape and its named close control", async () => {
     const onClose = vi.fn();
     const { rerender } = render(
       <HoldingsDetails
+        buyOutflowByAsset={{}}
         cashBalance="0"
         onClose={onClose}
         open
@@ -639,6 +723,7 @@ describe("holdings workspace views", () => {
 
     rerender(
       <HoldingsDetails
+        buyOutflowByAsset={{}}
         cashBalance="0"
         onClose={onClose}
         open
@@ -654,6 +739,7 @@ describe("holdings workspace views", () => {
   it("always renders all three custody-location columns and quantities", () => {
     render(
       <HoldingsDetails
+        buyOutflowByAsset={{}}
         cashBalance="0"
         onClose={vi.fn()}
         open
@@ -678,7 +764,13 @@ describe("holdings workspace views", () => {
   it("closes details when the backdrop is pressed", () => {
     const onClose = vi.fn();
     const view = render(
-      <HoldingsDetails cashBalance="0" onClose={onClose} open positions={[]} />,
+      <HoldingsDetails
+        buyOutflowByAsset={{}}
+        cashBalance="0"
+        onClose={onClose}
+        open
+        positions={[]}
+      />,
     );
 
     const backdrop = view.container.firstElementChild;
