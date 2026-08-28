@@ -8,6 +8,9 @@
 
 # testing
 /coverage
+/benchmarks/results/
+/benchmarks/**/*.generated.json
+/benchmarks/**/*.lftl
 
 # next.js
 /.next/
