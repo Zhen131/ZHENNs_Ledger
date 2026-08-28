@@ -29,6 +29,28 @@ metric is discarded. The JSON output includes every retained sample and its
 median, minimum, maximum, and count. `--metric=M-7 --range=365d` can isolate a
 potentially expensive operation so a caller can enforce an external timeout.
 
+Run the browser ruler in development or production mode:
+
+```sh
+npx playwright install chromium
+npm run bench:browser -- --mode=dev --scale=S-100
+npm run build
+npm run bench:browser -- --mode=production --scale=S-100
+```
+
+The current baseline uses installed stable Chrome (`--channel=chrome`). A
+standalone Playwright Chromium can be selected with `--channel=chromium` after
+installing its binary separately. The ruler injects picker replacements before
+page scripts run and returns an OPFS `FileSystemFileHandle` owned by the
+temporary browser profile. Only the operating-system dialog is replaced;
+password checks, KDF, encryption, decryption, file writes, readback, schema
+checks, backup import, and product rendering remain real. The profile and its
+encrypted synthetic ledger are removed after every run.
+
+Element lookup never depends on Chinese UI wording. Existing stable workspace
+attributes, native element roles/types, form structure, and benchmark-only
+attributes injected from navigation order are used instead.
+
 The normal `npm test` configuration includes only `src/**/*.test.{ts,tsx}`;
 benchmark contracts use `*.contract.ts` and therefore never join the default
 test suite.
