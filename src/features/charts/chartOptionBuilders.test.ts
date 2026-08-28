@@ -145,7 +145,7 @@ describe("chart option builders", () => {
       data: [12, "-"],
     });
     expect(series[1]).toMatchObject({
-      name: "剩余含费成本",
+      name: "剩余持仓成本",
       type: "line",
       step: "end",
       smooth: false,
@@ -156,7 +156,7 @@ describe("chart option builders", () => {
     });
     expect((option.yAxis as Record<string, unknown>).name).toBe("USDT");
     expect(tooltip.formatter({ axisValue: "2026-07-24" })).toContain(
-      "剩余含费成本：10.00 USDT",
+      "剩余持仓成本：10.00 USDT",
     );
     expect(tooltip.formatter({ axisValue: "2026-07-24" })).toContain(
       "总资产：12.00 USDT",

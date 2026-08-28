@@ -220,8 +220,8 @@ describe("DashboardShell ledger views", () => {
     expect(html).toContain("未输入价格");
     expect(html.match(/>--</g)).toHaveLength(1);
     expect(html).toContain("缺少合法价格");
-    expect(html).toContain("剩余含费成本");
-    expect(html).toContain("已实现净盈亏");
+    expect(html).toContain("剩余持仓成本");
+    expect(html).toContain("已实现盈亏");
   });
 
   it("renders an eight-column empty state when the ledger has no positions", () => {
@@ -293,7 +293,7 @@ describe("DashboardShell ledger views", () => {
     expect(html).not.toContain(">This Month<");
     expect(html).not.toContain("未来这里显示资产净值曲线和 K 线");
     expect(html).toContain("当前 USDT 资产分配");
-    expect(html).toContain("总资产 / 剩余含费成本");
+    expect(html).toContain("总资产 / 剩余持仓成本");
     expect(html).toContain("最近 365 天交易活跃");
   });
 });

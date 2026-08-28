@@ -150,7 +150,7 @@ export function buildHoldingHistoryChartOption(
             : `${formatMoney(point.totalMarketValue)} ${point.valuation.label}`;
         return [
           `<strong>${date}</strong>`,
-          `剩余含费成本：${
+          `剩余持仓成本：${
             point.totalCostBasis === undefined
               ? `手续费币种问题：${point.unreliableFeeAssets.join("、")}`
               : `${formatMoney(point.totalCostBasis)} ${point.valuation.label}`
@@ -161,7 +161,7 @@ export function buildHoldingHistoryChartOption(
       },
     },
     legend: {
-      data: ["总资产", "剩余含费成本"],
+      data: ["总资产", "剩余持仓成本"],
       top: 0,
     },
     grid: {
@@ -205,7 +205,7 @@ export function buildHoldingHistoryChartOption(
         ),
       },
       {
-        name: "剩余含费成本",
+        name: "剩余持仓成本",
         type: "line",
         step: "end",
         smooth: false,

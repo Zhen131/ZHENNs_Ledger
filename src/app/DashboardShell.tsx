@@ -917,7 +917,7 @@ export function DashboardShell({
             <Section title="净盈亏摘要">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <SummaryMetricCard
-                  label="累计买入总支出"
+                  label="累计买入流出"
                   metric={pnlSummary.buyOutflow}
                   valuationLabel={pnlSummary.valuation.label}
                 />
@@ -927,23 +927,23 @@ export function DashboardShell({
                   valuationLabel={pnlSummary.valuation.label}
                 />
                 <SummaryMetricCard
-                  label="剩余含费成本"
+                  label="剩余持仓成本"
                   metric={pnlSummary.remainingCostBasis}
                   valuationLabel={pnlSummary.valuation.label}
                 />
                 <SummaryMetricCard
-                  label="已实现净盈亏"
+                  label="已实现盈亏"
                   metric={pnlSummary.realizedPnl}
                   valuationLabel={pnlSummary.valuation.label}
                 />
                 <SummaryMetricCard
-                  label="未实现净盈亏"
+                  label="未实现盈亏"
                   metric={pnlSummary.unrealizedPnl}
                   valuationLabel={pnlSummary.valuation.label}
                 />
               </div>
               <p className="mt-3 text-xs leading-5 text-slate-500">
-                买入总支出 = 成交金额 + 实际手续费；卖出净到账 = 成交金额 - 实际手续费。缺价或无法换算的异币手续费不会按 0 补入。
+                累计买入流出 = 成交金额 + 实际手续费；累计卖出净到账 = 成交金额 - 实际手续费。缺价或无法换算的异币手续费不会按 0 补入。
               </p>
               {pnlSummary.valuation.usesApproximation ? (
                 <p className="mt-2 text-sm font-medium text-amber-800">
@@ -960,12 +960,12 @@ export function DashboardShell({
                       <tr>
                         <th className="py-2 font-medium">资产</th>
                         <th className="py-2 font-medium">持仓数量</th>
-                        <th className="py-2 font-medium">含费平均成本</th>
-                        <th className="py-2 font-medium">剩余含费成本</th>
-                        <th className="py-2 font-medium">已实现净盈亏</th>
+                        <th className="py-2 font-medium">持仓均价</th>
+                        <th className="py-2 font-medium">剩余持仓成本</th>
+                        <th className="py-2 font-medium">已实现盈亏</th>
                         <th className="py-2 font-medium">当前价格</th>
                         <th className="py-2 font-medium">当前市值</th>
-                        <th className="py-2 font-medium">未实现净盈亏</th>
+                        <th className="py-2 font-medium">未实现盈亏</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">

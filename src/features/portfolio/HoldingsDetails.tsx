@@ -70,12 +70,12 @@ export function HoldingsDetails({
               "交易所数量",
               "冷钱包数量",
               "冷钱包理财数量",
-              "含费平均成本",
-              "剩余含费成本",
-              "已实现净盈亏",
+              "持仓均价",
+              "剩余持仓成本",
+              "已实现盈亏",
               "当前价格",
               "当前市值",
-              "未实现净盈亏",
+              "未实现盈亏",
             ].map((label) => (
               <span key={label} role="columnheader">{label}</span>
             ))}
@@ -127,12 +127,12 @@ const holdingLabels = [
   "交易所数量",
   "冷钱包数量",
   "冷钱包理财数量",
-  "含费平均成本",
-  "剩余含费成本",
-  "已实现净盈亏",
+  "持仓均价",
+  "剩余持仓成本",
+  "已实现盈亏",
   "当前价格",
   "当前市值",
-  "未实现净盈亏",
+  "未实现盈亏",
 ] as const;
 
 function HoldingDetailRow({ values }: Readonly<{ values: readonly ReactNode[] }>) {

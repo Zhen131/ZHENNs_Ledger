@@ -105,7 +105,7 @@ describe("ChartsOverview", () => {
     ).not.toBeNull();
     expect(
       screen.getByRole("button", {
-        name: "总资产与剩余含费成本阶梯线图",
+        name: "总资产与剩余持仓成本阶梯线图",
       }),
     ).not.toBeNull();
     expect(

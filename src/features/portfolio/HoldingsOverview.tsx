@@ -77,9 +77,9 @@ export function HoldingsOverview({
     <div className="min-w-0">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold">持仓成本</h3>
+          <h3 className="font-semibold">当前持仓</h3>
           <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-            按当前市值展示前五；总花费为历史累计买入现金流出。
+            按当前市值展示前五。本表所有数字都只描述现在还持有的部分；持仓均价与剩余持仓成本均已包含手续费。
           </p>
         </div>
         <button
@@ -101,7 +101,7 @@ export function HoldingsOverview({
         data-holdings-scroll="true"
       >
         <table
-          aria-label="前五持仓成本"
+          aria-label="前五持仓"
           className="w-full min-w-[1120px] border-separate border-spacing-0 text-left text-sm"
         >
           <thead className="text-xs text-[var(--ledger-muted)]">
@@ -109,11 +109,11 @@ export function HoldingsOverview({
               {[
                 "币种",
                 "当前价格",
-                "平均购价",
-                "涨跌幅",
-                "盈亏金额",
+                "持仓均价",
+                "相对均价涨跌",
+                "未实现盈亏",
                 "持仓量",
-                "总花费",
+                "剩余持仓成本",
                 "当前市值",
               ].map((label) => (
                 <th
