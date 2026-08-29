@@ -14,6 +14,9 @@ import {
   ActivityTable,
   buildLedgerActivityItems,
   filterLedgerActivityItems,
+  getActivityPageCount,
+  getActivityPageItems,
+  ACTIVITY_PAGE_SIZE,
   type LedgerActivityItem,
   type LedgerActivityTypeFilter,
 } from "@/features/activity";
@@ -94,6 +97,7 @@ export function TransactionsWorkspace({
   const [assetFilter, setAssetFilter] = useState("all");
   const [typeFilter, setTypeFilter] =
     useState<LedgerActivityTypeFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [armedItemId, setArmedItemId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
@@ -145,6 +149,7 @@ export function TransactionsWorkspace({
     setExactDate("");
     setAssetFilter("all");
     setTypeFilter("all");
+    setCurrentPage(1);
   }, []);
 
   const clearLocationRequest = useCallback(() => {
@@ -154,6 +159,7 @@ export function TransactionsWorkspace({
 
   const resetPageState = useCallback(() => {
     resetFilters();
+    setCurrentPage(1);
     setExpandedItemId(null);
     setArmedItemId(null);
     clearPendingDelete();
@@ -504,6 +510,12 @@ export function TransactionsWorkspace({
       ...(earliestDate ? { earliestDate, latestDate: todayKey } : {}),
     });
   }, [allItems, assetFilter, exactDate, timeFilter, todayKey, typeFilter]);
+  const totalPages = getActivityPageCount(filteredItems.length);
+  const currentPageItems = getActivityPageItems(filteredItems, currentPage);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const assetOptions = ledgerData.assets
     .map((asset) => asset.symbol)
@@ -545,7 +557,10 @@ export function TransactionsWorkspace({
         <div className="grid gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-4">
           <FilterSelect
             label="时间范围"
-            onChange={(value) => setTimeFilter(value as TimeFilter)}
+            onChange={(value) => {
+              setTimeFilter(value as TimeFilter);
+              setCurrentPage(1);
+            }}
             options={[
               ["all", "全部时间"],
               ["today", "今天"],
@@ -558,14 +573,20 @@ export function TransactionsWorkspace({
             准确日期
             <input
               className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 text-sm text-[var(--ledger-ink)]"
-              onChange={(event) => setExactDate(event.target.value)}
+              onChange={(event) => {
+                setExactDate(event.target.value);
+                setCurrentPage(1);
+              }}
               type="date"
               value={exactDate}
             />
           </label>
           <FilterSelect
             label="资产筛选"
-            onChange={setAssetFilter}
+            onChange={(value) => {
+              setAssetFilter(value);
+              setCurrentPage(1);
+            }}
             options={[
               ["all", "全部资产"],
               ["USDT", "现金 USDT"],
@@ -575,9 +596,10 @@ export function TransactionsWorkspace({
           />
           <FilterSelect
             label="类型筛选"
-            onChange={(value) =>
-              setTypeFilter(value as LedgerActivityTypeFilter)
-            }
+            onChange={(value) => {
+              setTypeFilter(value as LedgerActivityTypeFilter);
+              setCurrentPage(1);
+            }}
             options={[
               ["all", "全部类型"],
               ["buy", "买入"],
@@ -637,7 +659,8 @@ export function TransactionsWorkspace({
             remainingMs,
           }}
           expandedItemId={expandedItemId}
-          items={filteredItems}
+          firstItemNumber={(currentPage - 1) * ACTIVITY_PAGE_SIZE + 1}
+          items={currentPageItems}
           locateRequest={locationRequest}
           onArmDelete={armDelete}
           onCancelDelete={() => setArmedItemId(null)}
@@ -650,6 +673,40 @@ export function TransactionsWorkspace({
           }}
           todayKey={todayKey}
         />
+        {filteredItems.length > 0 ? (
+          <div
+            aria-label="流水分页"
+            className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] px-4 py-3 text-sm"
+          >
+            <p className="text-[var(--ledger-muted)]">
+              共 {filteredItems.length} 条，第 {currentPage} / {totalPages} 页
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage === 1}
+                onClick={() => {
+                  setExpandedItemId(null);
+                  setCurrentPage((page) => page - 1);
+                }}
+                type="button"
+              >
+                上一页
+              </button>
+              <button
+                className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={currentPage === totalPages}
+                onClick={() => {
+                  setExpandedItemId(null);
+                  setCurrentPage((page) => page + 1);
+                }}
+                type="button"
+              >
+                下一页
+              </button>
+            </div>
+          </div>
+        ) : null}
       </SurfaceCard>
 
       {pendingNegativeDelete ? (
