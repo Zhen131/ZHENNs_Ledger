@@ -30,7 +30,7 @@ export const LEDGER_FILE_OUTER_V2_CONSTANTS = {
 
 export const SUPPORTED_LEDGER_SCHEMA_VERSION = 4 as const;
 
-export const MAX_LEDGER_FILE_V2_BYTES = 32 * 1024 * 1024;
+export const MAX_LEDGER_FILE_V2_BYTES = 512 * 1024 * 1024;
 
 export type LedgerFileCryptoV2 = {
   cryptoVersion: 1;

@@ -1,12 +1,12 @@
 import type { LedgerData } from "@/core/models";
 
 export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
-  fileBytes: 8 * 1024 * 1024,
+  fileBytes: 128 * 1024 * 1024,
   assets: 500,
-  trades: 25_000,
-  cashEvents: 25_000,
-  assetTransfers: 25_000,
-  priceSnapshots: 5_000,
+  trades: 250_000,
+  cashEvents: 250_000,
+  assetTransfers: 250_000,
+  priceSnapshots: 50_000,
   feeRules: 500,
   id: 128,
   symbol: 32,

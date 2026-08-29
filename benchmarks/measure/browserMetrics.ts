@@ -33,7 +33,7 @@ export type BrowserMetricResult = Readonly<{
   operation: string;
   statistics: DurationStatistics;
   samplesMs: readonly number[];
-  discardedWarmupMs: number;
+  discardedWarmupMs?: number;
 }>;
 
 export type BrowserBenchmarkSuccess = Readonly<{
@@ -74,6 +74,7 @@ export type RunBrowserBenchmarkOptions = Readonly<{
   sampleCount?: number;
   headless?: boolean;
   channel?: "chrome" | "chromium";
+  warmup?: boolean;
 }>;
 
 const PASSPHRASE = "Benchmark-only-passphrase-2026";
@@ -85,6 +86,7 @@ export async function runBrowserBenchmark(
   options: RunBrowserBenchmarkOptions,
 ): Promise<BrowserBenchmarkResult> {
   const sampleCount = options.sampleCount ?? defaultSampleCount(options.scale);
+  const warmup = options.warmup ?? true;
   if (!Number.isInteger(sampleCount) || sampleCount < 1) {
     throw new Error("Browser benchmark sample count must be a positive integer");
   }
@@ -136,7 +138,7 @@ export async function runBrowserBenchmark(
       metrics.push(
         await sampleAsyncMetric("M-1", "open-unlock-home", sampleCount, () =>
           measureColdOpen(page, baseUrl),
-        ),
+        warmup),
       );
       await ensureUnlocked(page);
       await tagBenchmarkSelectors(page);
@@ -144,18 +146,18 @@ export async function runBrowserBenchmark(
       metrics.push(
         await sampleAsyncMetric("M-4", "exact-date-filter", sampleCount, () =>
           measureQuery(page, generated),
-        ),
+        warmup),
       );
       metrics.push(
-        ...(await measureNavigationDirections(page, sampleCount)),
+        ...(await measureNavigationDirections(page, sampleCount, warmup)),
       );
       metrics.push(
-        ...(await measureInputDirections(page, sampleCount)),
+        ...(await measureInputDirections(page, sampleCount, warmup)),
       );
       metrics.push(
         await sampleAsyncMetric("M-3", "save-buy-trade", sampleCount, () =>
           measureWrite(page),
-        ),
+        warmup),
       );
 
       pendingResult = {
@@ -351,6 +353,7 @@ async function measureQuery(
 async function measureNavigationDirections(
   page: Page,
   sampleCount: number,
+  warmup: boolean,
 ): Promise<BrowserMetricResult[]> {
   const directions = [
     ["record", "home"],
@@ -367,7 +370,7 @@ async function measureNavigationDirections(
         await navigate(page, to);
         await settleFrames(page);
         return performance.now() - start;
-      }),
+      }, warmup),
     );
   }
   return results;
@@ -376,6 +379,7 @@ async function measureNavigationDirections(
 async function measureInputDirections(
   page: Page,
   sampleCount: number,
+  warmup: boolean,
 ): Promise<BrowserMetricResult[]> {
   await openTradeForm(page);
   const price = page.locator(
@@ -392,6 +396,7 @@ async function measureInputDirections(
       await settleFrames(page);
       return performance.now() - start;
     },
+    warmup,
   );
   const deleteResult = await sampleAsyncMetric(
     "M-6",
@@ -404,6 +409,7 @@ async function measureInputDirections(
       await settleFrames(page);
       return performance.now() - start;
     },
+    warmup,
   );
   return [typeResult, deleteResult];
 }
@@ -453,8 +459,9 @@ async function sampleAsyncMetric(
   operation: string,
   sampleCount: number,
   action: () => Promise<number>,
+  warmup: boolean,
 ): Promise<BrowserMetricResult> {
-  const discardedWarmupMs = await action();
+  const discardedWarmupMs = warmup ? await action() : undefined;
   const samplesMs: number[] = [];
   for (let index = 0; index < sampleCount; index += 1) {
     samplesMs.push(await action());
@@ -464,7 +471,9 @@ async function sampleAsyncMetric(
     operation,
     statistics: summarizeDurations(samplesMs),
     samplesMs: samplesMs.map(roundDuration),
-    discardedWarmupMs: roundDuration(discardedWarmupMs),
+    ...(discardedWarmupMs === undefined
+      ? {}
+      : { discardedWarmupMs: roundDuration(discardedWarmupMs) }),
   };
 }
 
@@ -666,6 +675,7 @@ function parseArguments(argv: readonly string[]): RunBrowserBenchmarkOptions {
   let sampleCount: number | undefined;
   let headless = true;
   let channel: "chrome" | "chromium" = "chrome";
+  let warmup = true;
 
   for (const argument of argv) {
     const [name, value] = argument.split("=", 2);
@@ -677,13 +687,15 @@ function parseArguments(argv: readonly string[]): RunBrowserBenchmarkOptions {
       sampleCount = Number.parseInt(value, 10);
     } else if (name === "--headed") {
       headless = false;
+    } else if (name === "--no-warmup") {
+      warmup = false;
     } else if (name === "--channel" && (value === "chrome" || value === "chromium")) {
       channel = value;
     } else {
       throw new Error(`Unsupported browser benchmark argument: ${argument}`);
     }
   }
-  return { mode, scale, sampleCount, headless, channel };
+  return { mode, scale, sampleCount, headless, channel, warmup };
 }
 
 class BenchmarkSetupError extends Error {
