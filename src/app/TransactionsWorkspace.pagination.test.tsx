@@ -124,7 +124,7 @@ describe("TransactionsWorkspace activity pagination", () => {
   it("T2-04 renders a one-item result without an invalid page count", () => {
     render(workspace(createPagedLedger(1)));
 
-    expect(screen.getByText(pageLabel(1, 1))).not.toBeNull();
+    expect(screen.getByText("共 1 条，第 1 / 1 页")).not.toBeNull();
     expect(visibleSequences()).toEqual([1]);
     expect(screen.queryByText(/第 1 \/ 0 页/)).toBeNull();
   });
@@ -190,6 +190,9 @@ describe("TransactionsWorkspace activity pagination", () => {
 
     expect(screen.getByText(pageLabel(after.trades.length, 2))).not.toBeNull();
     expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE + 1);
+    expect(
+      document.querySelector("[data-activity-id]")?.getAttribute("data-activity-id"),
+    ).toBe("page-trade-0102");
   });
 
   it("T2-08 returns to the previous page when deletion empties a non-first page", () => {
@@ -261,6 +264,8 @@ describe("TransactionsWorkspace activity pagination", () => {
     expect(screen.getByText("事实 ID")).not.toBeNull();
     nextPage();
 
+    expect(screen.queryByText("事实 ID")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "上一页" }));
     expect(screen.queryByText("事实 ID")).toBeNull();
   });
 
