@@ -30,13 +30,6 @@ import {
   type LedgerStorageKind,
 } from "@/platform/persistence";
 import {
-  buildHoldingAllocation,
-  buildHoldingHistory,
-  buildTradeHeatmap,
-} from "@/features/charts";
-import {
-  buildLedgerProjection,
-  buildLedgerPnlSummary,
   type SummaryMetric,
 } from "@/features/portfolio";
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
@@ -61,6 +54,12 @@ import {
   type FileStatusTone,
   type ConfirmDeleteOutcome,
 } from "@/ui";
+import {
+  buildDashboardDerivations,
+  updateDashboardDerivationsForAppend,
+  type DashboardDerivationOptions,
+  type DashboardDerivations,
+} from "./dashboardDerivations";
 
 const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 const FILE_SAVED_FEEDBACK_MS = 4_000;
@@ -353,26 +352,25 @@ export function DashboardShell({
     !repositorySwitchBlocked &&
     !isReadOnly &&
     isFutureFactCorrectionMode;
-  const projection = buildLedgerProjection(ledgerData, {
-    asOf: todayKey,
-    mode: valuationPriceMode,
-  });
-  const positions = projection.positions;
-  const pnlSummary = buildLedgerPnlSummary(ledgerData, {
-    todayKey,
-    mode: valuationPriceMode,
-  });
-  const allocation = buildHoldingAllocation(ledgerData, {
-    todayKey,
-    mode: valuationPriceMode,
+  const {
     projection,
-  });
-  const history = buildHoldingHistory(ledgerData, {
-    todayKey,
-    mode: valuationPriceMode,
-    range: chartRange,
-  });
-  const heatmap = buildTradeHeatmap(ledgerData, todayKey);
+    pnlSummary,
+    allocation,
+    history,
+    heatmap,
+  } = useWriteCycleDashboardDerivations(
+    ledgerData,
+    {
+      todayKey,
+      valuationPriceMode,
+      chartRange,
+    },
+    mutationVersion,
+    persistedVersion,
+    persistenceStatus,
+    showSavedFeedback,
+  );
+  const positions = projection.positions;
   const displayedTrades = selectedTradeDate
     ? ledgerData.trades.filter(
         (trade) => getLedgerDateKey(trade.occurredAt) === selectedTradeDate,
@@ -1530,5 +1528,97 @@ export function DashboardShell({
         />
       ) : null}
     </LedgerWorkspaceFrame>
+  );
+}
+
+type WriteCycleDerivationCache = {
+  ledgerData: PersistentLedgerState["ledgerData"];
+  options: DashboardDerivationOptions;
+  values: DashboardDerivations;
+  reusableMutationVersion: number | null;
+  savedFeedbackObserved: boolean;
+};
+
+function useWriteCycleDashboardDerivations(
+  ledgerData: PersistentLedgerState["ledgerData"],
+  options: DashboardDerivationOptions,
+  mutationVersion: number,
+  persistedVersion: number,
+  persistenceStatus: PersistentLedgerState["persistenceStatus"],
+  showSavedFeedback: boolean,
+): DashboardDerivations {
+  const cacheRef = useRef<WriteCycleDerivationCache | null>(null);
+  const cached = cacheRef.current;
+  let values: DashboardDerivations;
+  let reusableMutationVersion: number | null = null;
+  let savedFeedbackObserved = false;
+
+  if (
+    cached &&
+    cached.ledgerData === ledgerData &&
+    sameDerivationOptions(cached.options, options) &&
+    cached.reusableMutationVersion === mutationVersion
+  ) {
+    values = cached.values;
+    reusableMutationVersion = cached.reusableMutationVersion;
+    savedFeedbackObserved = cached.savedFeedbackObserved;
+  } else if (
+    cached &&
+    cached.ledgerData !== ledgerData &&
+    sameDerivationOptions(cached.options, options)
+  ) {
+    const updated = updateDashboardDerivationsForAppend(
+      cached.values,
+      cached.ledgerData,
+      ledgerData,
+      options,
+    );
+    values = updated.values;
+    reusableMutationVersion =
+      updated.mode === "incremental" ? mutationVersion : null;
+  } else {
+    values = buildDashboardDerivations(ledgerData, options);
+  }
+
+  cacheRef.current = {
+    ledgerData,
+    options,
+    values,
+    reusableMutationVersion,
+    savedFeedbackObserved,
+  };
+
+  useLayoutEffect(() => {
+    const current = cacheRef.current;
+    if (
+      current?.ledgerData === ledgerData &&
+      current.reusableMutationVersion !== null &&
+      persistedVersion >= current.reusableMutationVersion &&
+      persistenceStatus === "saved"
+    ) {
+      if (showSavedFeedback) {
+        current.savedFeedbackObserved = true;
+      } else if (current.savedFeedbackObserved) {
+        current.reusableMutationVersion = null;
+      }
+    }
+  }, [
+    ledgerData,
+    persistedVersion,
+    persistenceStatus,
+    showSavedFeedback,
+  ]);
+
+  return values;
+}
+
+function sameDerivationOptions(
+  left: DashboardDerivationOptions,
+  right: DashboardDerivationOptions,
+): boolean {
+  return (
+    left.todayKey === right.todayKey &&
+    left.valuationPriceMode === right.valuationPriceMode &&
+    left.chartRange === right.chartRange
   );
 }

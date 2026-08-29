@@ -74,6 +74,7 @@ type ProfilingSession = Readonly<{
 }>;
 
 const DERIVED_FUNCTIONS = new Set([
+  "updateDashboardDerivationsForAppend",
   "buildLedgerProjection",
   "buildLedgerPnlSummary",
   "buildHoldingAllocation",
@@ -84,6 +85,10 @@ const DERIVED_FUNCTIONS = new Set([
 ]);
 
 const DERIVED_MARKERS = new Map<string, readonly string[]>([
+  [
+    "updateDashboardDerivationsForAppend",
+    ['mode:"incremental"', "cashReplay", "positionReplay"],
+  ],
   ["buildLedgerProjection", ["MISSING_CURRENT_PRICE", "pricedAssetMarketValue"]],
   ["buildLedgerPnlSummary", ["存在无法换算的手续费", "buyOutflowByAsset"]],
   ["buildHoldingAllocation", ['assetSymbol:"现金 USDT"', "cashDeficit"]],
