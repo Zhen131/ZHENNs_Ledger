@@ -249,7 +249,7 @@ describe("LedgerFileHandleAdapter", () => {
     expect(occupied.createWritable).not.toHaveBeenCalled();
   });
 
-  it("rejects the declared 32 MiB overflow before arrayBuffer", async () => {
+  it("rejects a declared overflow before arrayBuffer", async () => {
     const adapter = new LedgerFileHandleAdapter();
     const handle = new AtomicFakeHandle("large.lftl");
     handle.declaredSize = MAX_LEDGER_FILE_V2_BYTES + 1;
@@ -261,7 +261,7 @@ describe("LedgerFileHandleAdapter", () => {
   });
 
   it(
-    "accepts exactly 32 MiB for later parsing and rejects an actual byteLength one byte larger",
+    "accepts the configured outer limit and rejects an actual byteLength one byte larger",
     async () => {
       const adapter = new LedgerFileHandleAdapter();
       const exact = new AtomicFakeHandle("exact.lftl");

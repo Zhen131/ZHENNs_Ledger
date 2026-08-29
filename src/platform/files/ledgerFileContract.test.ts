@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
 import { bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
@@ -231,8 +232,8 @@ describe("LedgerFileV2 contract", () => {
     expect(validateLedgerFileV2(createFile()).ok).toBe(true);
   });
 
-  it("accepts exactly 8 MiB of generation plaintext and rejects one extra byte", () => {
-    const exact = "x".repeat(8 * 1024 * 1024);
+  it("accepts the configured generation plaintext limit and rejects one extra byte", () => {
+    const exact = "x".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes);
 
     expect(evaluateLedgerFilePayloadByteLength(exact)).toEqual({
       ok: true,
