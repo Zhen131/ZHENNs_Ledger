@@ -25,6 +25,15 @@ import {
   summarizeDurations,
   type DurationStatistics,
 } from "./report";
+import {
+  armM3BreakdownInstrumentation,
+  installM3BreakdownInstrumentation,
+  markM3Settled,
+  readM3Breakdown,
+  startM3Profiling,
+  stopM3Profiling,
+  type M3BreakdownResult,
+} from "./m3Breakdown";
 
 export type BrowserBenchmarkMode = "dev" | "production";
 
@@ -75,6 +84,20 @@ export type RunBrowserBenchmarkOptions = Readonly<{
   headless?: boolean;
   channel?: "chrome" | "chromium";
   warmup?: boolean;
+}>;
+
+export type M3BreakdownBenchmarkResult = Readonly<{
+  kind: "m3-breakdown";
+  status: "completed";
+  mode: "production";
+  scale: "S-10K";
+  tradeCount: number;
+  samplesPerMetric: 1;
+  browserVersion: string;
+  setupMs: number;
+  breakdown: M3BreakdownResult;
+  consoleErrors: readonly string[];
+  temporaryArtifactsCleaned: true;
 }>;
 
 const PASSPHRASE = "Benchmark-only-passphrase-2026";
@@ -205,6 +228,92 @@ export async function runBrowserBenchmark(
 
   await assertRemoved(profileDirectory);
   return { ...pendingResult!, temporaryArtifactsCleaned: true } as BrowserBenchmarkResult;
+}
+
+export async function runM3BreakdownBenchmark(): Promise<M3BreakdownBenchmarkResult> {
+  const profileDirectory = await mkdtemp(join(tmpdir(), "lftl-m3-breakdown-"));
+  const consoleErrors: string[] = [];
+  let server: ChildProcess | undefined;
+  let context: BrowserContext | undefined;
+  let pendingResult: Omit<M3BreakdownBenchmarkResult, "temporaryArtifactsCleaned">;
+
+  try {
+    const generated = generateSyntheticLedger({ scale: "S-10K" });
+    const port = await reservePort();
+    server = startNextServer("production", port);
+    await waitForServer(`http://127.0.0.1:${port}`);
+    context = await chromium.launchPersistentContext(profileDirectory, {
+      channel: "chrome",
+      headless: true,
+      viewport: { width: 1280, height: 800 },
+    });
+    await installFilePickerStub(context);
+    const page = context.pages()[0] ?? (await context.newPage());
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => consoleErrors.push(error.message));
+    const baseUrl = `http://127.0.0.1:${port}`;
+    const setupStart = performance.now();
+    await createAndImport(page, baseUrl, generated);
+    const setupMs = roundDuration(performance.now() - setupStart);
+    await ensureUnlocked(page);
+    await tagBenchmarkSelectors(page);
+    await openTradeForm(page);
+    const form = page.locator('[data-benchmark-form="trade"]');
+    const decimalInputs = form.locator('input[inputmode="decimal"]');
+    await decimalInputs.nth(0).fill("1");
+    await decimalInputs.nth(1).fill("30");
+    await installM3BreakdownInstrumentation(page);
+    await armM3BreakdownInstrumentation(page);
+    const profiling = await startM3Profiling(context, page);
+    const start = performance.now();
+    await form.locator('button[type="submit"]').click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-benchmark-form="trade"]')
+          ?.getAttribute("aria-busy") === "true",
+      undefined,
+      { timeout: 30_000 },
+    );
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[data-benchmark-form="trade"]')
+          ?.getAttribute("aria-busy") === "false",
+      undefined,
+      { timeout: 120_000 },
+    );
+    await markM3Settled(page);
+    const totalMs = performance.now() - start;
+    const recorded = await stopM3Profiling(profiling);
+    const breakdown = await readM3Breakdown(
+      page,
+      totalMs,
+      recorded.profile,
+      recorded.traceEvents,
+    );
+    pendingResult = {
+      kind: "m3-breakdown",
+      status: "completed",
+      mode: "production",
+      scale: "S-10K",
+      tradeCount: SYNTHETIC_SCALE_TRADE_COUNTS["S-10K"],
+      samplesPerMetric: 1,
+      browserVersion: context.browser()?.version() ?? "unknown",
+      setupMs,
+      breakdown,
+      consoleErrors,
+    };
+  } finally {
+    await context?.close().catch(() => undefined);
+    await stopServer(server);
+    await rm(profileDirectory, { recursive: true, force: true });
+  }
+
+  await assertRemoved(profileDirectory);
+  return { ...pendingResult!, temporaryArtifactsCleaned: true };
 }
 
 async function createAndImport(

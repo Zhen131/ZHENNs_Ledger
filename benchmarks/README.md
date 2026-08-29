@@ -38,6 +38,21 @@ npm run build
 npm run bench:browser -- --mode=production --scale=S-100
 ```
 
+Break down one production S-10K M-3 write without changing `src/`:
+
+```sh
+npm run build
+npm run bench:m3-breakdown
+```
+
+The breakdown is deliberately `n=1`. It combines a Chrome CPU profile with
+benchmark-only wrappers around large JSON serialization, Web Crypto, and OPFS
+read/write operations. Production-minified derivation functions are identified
+from semantic markers in the built chunk and CDP call-frame positions. Rendering
+time comes from Chrome timeline events. The persistence wall-clock interval can
+overlap derivation work, so the report preserves the signed difference between
+the three segment totals and the outer M-3 duration instead of allocating it.
+
 The current baseline uses installed stable Chrome (`--channel=chrome`). A
 standalone Playwright Chromium can be selected with `--channel=chromium` after
 installing its binary separately. The ruler injects picker replacements before

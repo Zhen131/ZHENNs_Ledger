@@ -13,6 +13,7 @@
     "bench:node": "node --import tsx benchmarks/measure/nodeMetrics.ts",
     "bench:test:browser": "vitest run --config vitest.benchmarks.config.ts benchmarks/measure/browserMetrics.contract.ts",
     "bench:browser": "node --import tsx benchmarks/measure/browserMetrics.ts",
+    "bench:m3-breakdown": "node --import tsx benchmarks/measure/runM3Breakdown.ts",
     "bench:probe": "node --import tsx benchmarks/measure/scaleProbe.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
