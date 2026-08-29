@@ -82,6 +82,33 @@ describe("RecordWorkspace target routing", () => {
     );
   });
 
+  it("discards drafts and resets the record target when the ledger epoch changes", async () => {
+    const onDraftStatusChange = vi.fn();
+    const view = renderWorkspace(onDraftStatusChange);
+    const user = userEvent.setup();
+
+    await user.selectOptions(screen.getByLabelText("记账对象"), "trade:BTC");
+    await user.type(screen.getByLabelText("数量"), "2");
+    await user.type(screen.getByLabelText("成交均价"), "30");
+    expect(onDraftStatusChange).toHaveBeenLastCalledWith(true);
+
+    view.rerender(
+      <RecordWorkspace {...workspaceProps(onDraftStatusChange, 2)} />,
+    );
+
+    expect(
+      (screen.getByLabelText("记账对象") as HTMLSelectElement).value,
+    ).toBe("cash:USDT");
+    expect(onDraftStatusChange).toHaveBeenLastCalledWith(false);
+
+    await user.selectOptions(screen.getByLabelText("记账对象"), "trade:BTC");
+
+    expect((screen.getByLabelText("数量") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("成交均价") as HTMLInputElement).value).toBe(
+      "",
+    );
+  });
+
   it("does not rerender its parent while a trade input is edited", async () => {
     const replaySpy = vi.spyOn(calculations, "replayUsdtCash");
     let parentRenderCount = 0;
@@ -103,11 +130,16 @@ describe("RecordWorkspace target routing", () => {
   });
 });
 
-function renderWorkspace(onDraftStatusChange = vi.fn()) {
-  return render(<RecordWorkspace {...workspaceProps(onDraftStatusChange)} />);
+function renderWorkspace(onDraftStatusChange = vi.fn(), ledgerEpoch = 1) {
+  return render(
+    <RecordWorkspace {...workspaceProps(onDraftStatusChange, ledgerEpoch)} />,
+  );
 }
 
-function workspaceProps(onDraftStatusChange: (hasDrafts: boolean) => void) {
+function workspaceProps(
+  onDraftStatusChange: (hasDrafts: boolean) => void,
+  ledgerEpoch = 1,
+) {
   const ledgerData = createInitialLedgerData();
   return {
     active: true,
@@ -115,7 +147,7 @@ function workspaceProps(onDraftStatusChange: (hasDrafts: boolean) => void) {
     focusIntent: null,
     isWritable: true,
     ledgerData,
-    ledgerEpoch: 1,
+    ledgerEpoch,
     marketDataPanel: null,
     mutationVersion: 0,
     onCashEventCreated: vi.fn(() => "applied" as const),
