@@ -74,11 +74,13 @@ function projectCashEvent(cashEvent: CashEvent): CashReplayCandidate {
     kind: "cash-event",
     occurredAt: cashEvent.occurredAt,
     createdAt: cashEvent.createdAt,
-    delta: cashEventDelta(cashEvent),
+    delta: calculateCashEventUsdtDelta(cashEvent),
   };
 }
 
-function cashEventDelta(cashEvent: CashEvent): DecimalString {
+export function calculateCashEventUsdtDelta(
+  cashEvent: CashEvent,
+): DecimalString {
   switch (cashEvent.type) {
     case "deposit":
       return cashEvent.amount;
