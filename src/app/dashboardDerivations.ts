@@ -34,6 +34,24 @@ export type DashboardDerivationUpdate = Readonly<{
   positionReplay?: "unchanged" | "affected-asset" | "full-fallback";
 }>;
 
+export type DashboardDerivationCache = Readonly<{
+  ledgerEpoch: number;
+  ledgerData: LedgerData;
+  entries: ReadonlyMap<string, DashboardDerivations>;
+  generation: number;
+}>;
+
+export type DashboardDerivationCacheResolution = Readonly<{
+  cache: DashboardDerivationCache;
+  values: DashboardDerivations;
+  mode:
+    | "cache-hit"
+    | "query-miss"
+    | "fact-change-incremental"
+    | "fact-change-full"
+    | "session-reset";
+}>;
+
 export function buildDashboardDerivations(
   ledgerData: LedgerData,
   options: DashboardDerivationOptions,
@@ -59,6 +77,71 @@ export function buildDashboardDerivations(
       range: options.chartRange,
     }),
     heatmap: buildTradeHeatmap(ledgerData, options.todayKey),
+  };
+}
+
+export function resolveDashboardDerivations(
+  previousCache: DashboardDerivationCache | null,
+  ledgerData: LedgerData,
+  options: DashboardDerivationOptions,
+  ledgerEpoch: number,
+): DashboardDerivationCacheResolution {
+  const key = dashboardDerivationOptionsKey(options);
+  if (!previousCache || previousCache.ledgerEpoch !== ledgerEpoch) {
+    const values = buildDashboardDerivations(ledgerData, options);
+    return {
+      cache: createDashboardDerivationCache(
+        ledgerEpoch,
+        ledgerData,
+        key,
+        values,
+        (previousCache?.generation ?? 0) + 1,
+      ),
+      values,
+      mode: "session-reset",
+    };
+  }
+
+  if (previousCache.ledgerData === ledgerData) {
+    const hit = previousCache.entries.get(key);
+    if (hit) {
+      return { cache: previousCache, values: hit, mode: "cache-hit" };
+    }
+    const values = buildDashboardDerivations(ledgerData, options);
+    return {
+      cache: {
+        ...previousCache,
+        entries: new Map(previousCache.entries).set(key, values),
+      },
+      values,
+      mode: "query-miss",
+    };
+  }
+
+  const previousValues = previousCache.entries.get(key);
+  const update = previousValues
+    ? updateDashboardDerivationsForAppend(
+        previousValues,
+        previousCache.ledgerData,
+        ledgerData,
+        options,
+      )
+    : null;
+  const values =
+    update?.values ?? buildDashboardDerivations(ledgerData, options);
+  return {
+    cache: createDashboardDerivationCache(
+      ledgerEpoch,
+      ledgerData,
+      key,
+      values,
+      previousCache.generation + 1,
+    ),
+    values,
+    mode:
+      update?.mode === "incremental"
+        ? "fact-change-incremental"
+        : "fact-change-full",
   };
 }
 
@@ -178,4 +261,29 @@ function samePrefix<T>(
   next: readonly T[],
 ): boolean {
   return previous.every((value, index) => next[index] === value);
+}
+
+function createDashboardDerivationCache(
+  ledgerEpoch: number,
+  ledgerData: LedgerData,
+  key: string,
+  values: DashboardDerivations,
+  generation: number,
+): DashboardDerivationCache {
+  return {
+    ledgerEpoch,
+    ledgerData,
+    entries: new Map([[key, values]]),
+    generation,
+  };
+}
+
+function dashboardDerivationOptionsKey(
+  options: DashboardDerivationOptions,
+): string {
+  return [
+    options.todayKey,
+    options.valuationPriceMode,
+    options.chartRange,
+  ].join("\u0000");
 }

@@ -11,6 +11,7 @@ import { createInitialLedgerData } from "@/core/state";
 import { createPriceSnapshot, createUsdtSimpleTrade } from "@/test-support";
 import {
   buildDashboardDerivations,
+  resolveDashboardDerivations,
   updateDashboardDerivationsForAppend,
   type DashboardDerivationOptions,
 } from "./dashboardDerivations";
@@ -138,6 +139,105 @@ describe("updateDashboardDerivationsForAppend", () => {
 
     expect(update.mode).toBe("full-fallback");
     expect(update.values).toEqual(buildDashboardDerivations(nextLedger, OPTIONS));
+  });
+});
+
+describe("resolveDashboardDerivations", () => {
+  it("reuses one in-memory result for the same facts and query", () => {
+    const ledger = createBaseLedger();
+    const initial = resolveDashboardDerivations(null, ledger, OPTIONS, 1);
+    const hit = resolveDashboardDerivations(initial.cache, ledger, OPTIONS, 1);
+
+    expect(initial.mode).toBe("session-reset");
+    expect(hit.mode).toBe("cache-hit");
+    expect(hit.values).toBe(initial.values);
+    expect(hit.cache).toBe(initial.cache);
+  });
+
+  it("keys view options without invalidating the fact generation", () => {
+    const ledger = createBaseLedger();
+    const initial = resolveDashboardDerivations(null, ledger, OPTIONS, 1);
+    const otherRange = resolveDashboardDerivations(
+      initial.cache,
+      ledger,
+      { ...OPTIONS, chartRange: "30d" },
+      1,
+    );
+
+    expect(otherRange.mode).toBe("query-miss");
+    expect(otherRange.cache.generation).toBe(initial.cache.generation);
+    expect(otherRange.cache.entries.size).toBe(2);
+  });
+
+  it("invalidates the prior generation after adding one fact", () => {
+    const ledger = createBaseLedger();
+    const initial = resolveDashboardDerivations(null, ledger, OPTIONS, 1);
+    const nextLedger = appendTrade(ledger, currentTrade());
+    const added = resolveDashboardDerivations(
+      initial.cache,
+      nextLedger,
+      OPTIONS,
+      1,
+    );
+
+    expect(added.mode).toBe("fact-change-incremental");
+    expect(added.cache.generation).toBe(initial.cache.generation + 1);
+    expect(added.values).not.toBe(initial.values);
+    expect(added.values).toEqual(buildDashboardDerivations(nextLedger, OPTIONS));
+  });
+
+  it("invalidates after deletion and again after undoing that deletion", () => {
+    const base = createBaseLedger();
+    const withAddedTrade = appendTrade(base, currentTrade());
+    const initial = resolveDashboardDerivations(
+      null,
+      withAddedTrade,
+      OPTIONS,
+      1,
+    );
+    const deletedLedger = { ...withAddedTrade, trades: base.trades };
+    const deleted = resolveDashboardDerivations(
+      initial.cache,
+      deletedLedger,
+      OPTIONS,
+      1,
+    );
+    const restoredLedger = appendTrade(deletedLedger, currentTrade());
+    const restored = resolveDashboardDerivations(
+      deleted.cache,
+      restoredLedger,
+      OPTIONS,
+      1,
+    );
+
+    expect(deleted.mode).toBe("fact-change-full");
+    expect(restored.mode).toBe("fact-change-incremental");
+    expect(deleted.cache.generation).toBe(initial.cache.generation + 1);
+    expect(restored.cache.generation).toBe(deleted.cache.generation + 1);
+    expect(restored.values).not.toBe(deleted.values);
+    expect(restored.values).toEqual(
+      buildDashboardDerivations(restoredLedger, OPTIONS),
+    );
+  });
+
+  it("drops every cached query when the ledger session changes", () => {
+    const ledger = createBaseLedger();
+    const initial = resolveDashboardDerivations(null, ledger, OPTIONS, 1);
+    const alternateLedger = appendCashEvent(ledger, currentCashEvent());
+    const switched = resolveDashboardDerivations(
+      initial.cache,
+      alternateLedger,
+      OPTIONS,
+      2,
+    );
+
+    expect(switched.mode).toBe("session-reset");
+    expect(switched.cache.generation).toBe(initial.cache.generation + 1);
+    expect(switched.cache.entries.size).toBe(1);
+    expect(switched.values).not.toBe(initial.values);
+    expect(switched.values).toEqual(
+      buildDashboardDerivations(alternateLedger, OPTIONS),
+    );
   });
 });
 

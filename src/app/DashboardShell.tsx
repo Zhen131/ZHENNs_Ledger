@@ -55,8 +55,8 @@ import {
   type ConfirmDeleteOutcome,
 } from "@/ui";
 import {
-  buildDashboardDerivations,
-  updateDashboardDerivationsForAppend,
+  resolveDashboardDerivations,
+  type DashboardDerivationCache,
   type DashboardDerivationOptions,
   type DashboardDerivations,
 } from "./dashboardDerivations";
@@ -371,10 +371,7 @@ export function DashboardShell({
       valuationPriceMode,
       chartRange,
     },
-    mutationVersion,
-    persistedVersion,
-    persistenceStatus,
-    showSavedFeedback,
+    ledgerEpoch,
   );
   const positions = projection.positions;
   const displayedTrades = selectedTradeDate
@@ -1539,94 +1536,18 @@ export function DashboardShell({
   );
 }
 
-type WriteCycleDerivationCache = {
-  ledgerData: PersistentLedgerState["ledgerData"];
-  options: DashboardDerivationOptions;
-  values: DashboardDerivations;
-  reusableMutationVersion: number | null;
-  savedFeedbackObserved: boolean;
-};
-
 function useWriteCycleDashboardDerivations(
   ledgerData: PersistentLedgerState["ledgerData"],
   options: DashboardDerivationOptions,
-  mutationVersion: number,
-  persistedVersion: number,
-  persistenceStatus: PersistentLedgerState["persistenceStatus"],
-  showSavedFeedback: boolean,
+  ledgerEpoch: number,
 ): DashboardDerivations {
-  const cacheRef = useRef<WriteCycleDerivationCache | null>(null);
-  const cached = cacheRef.current;
-  let values: DashboardDerivations;
-  let reusableMutationVersion: number | null = null;
-  let savedFeedbackObserved = false;
-
-  if (
-    cached &&
-    cached.ledgerData === ledgerData &&
-    sameDerivationOptions(cached.options, options) &&
-    cached.reusableMutationVersion === mutationVersion
-  ) {
-    values = cached.values;
-    reusableMutationVersion = cached.reusableMutationVersion;
-    savedFeedbackObserved = cached.savedFeedbackObserved;
-  } else if (
-    cached &&
-    cached.ledgerData !== ledgerData &&
-    sameDerivationOptions(cached.options, options)
-  ) {
-    const updated = updateDashboardDerivationsForAppend(
-      cached.values,
-      cached.ledgerData,
-      ledgerData,
-      options,
-    );
-    values = updated.values;
-    reusableMutationVersion =
-      updated.mode === "incremental" ? mutationVersion : null;
-  } else {
-    values = buildDashboardDerivations(ledgerData, options);
-  }
-
-  cacheRef.current = {
+  const cacheRef = useRef<DashboardDerivationCache | null>(null);
+  const resolution = resolveDashboardDerivations(
+    cacheRef.current,
     ledgerData,
     options,
-    values,
-    reusableMutationVersion,
-    savedFeedbackObserved,
-  };
-
-  useLayoutEffect(() => {
-    const current = cacheRef.current;
-    if (
-      current?.ledgerData === ledgerData &&
-      current.reusableMutationVersion !== null &&
-      persistedVersion >= current.reusableMutationVersion &&
-      persistenceStatus === "saved"
-    ) {
-      if (showSavedFeedback) {
-        current.savedFeedbackObserved = true;
-      } else if (current.savedFeedbackObserved) {
-        current.reusableMutationVersion = null;
-      }
-    }
-  }, [
-    ledgerData,
-    persistedVersion,
-    persistenceStatus,
-    showSavedFeedback,
-  ]);
-
-  return values;
-}
-
-function sameDerivationOptions(
-  left: DashboardDerivationOptions,
-  right: DashboardDerivationOptions,
-): boolean {
-  return (
-    left.todayKey === right.todayKey &&
-    left.valuationPriceMode === right.valuationPriceMode &&
-    left.chartRange === right.chartRange
+    ledgerEpoch,
   );
+  cacheRef.current = resolution.cache;
+  return resolution.values;
 }
