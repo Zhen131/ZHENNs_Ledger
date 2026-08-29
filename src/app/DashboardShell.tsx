@@ -234,8 +234,6 @@ export function DashboardShell({
   );
   const workspace = useLedgerWorkspaceSession({
     ledgerEpoch,
-    defaultAssetSymbol: ledgerData.assets[0]?.symbol ?? "",
-    todayKey,
   });
   const {
     valuationPriceMode,
@@ -255,8 +253,11 @@ export function DashboardShell({
   const [clearSuccessMessage, setClearSuccessMessage] = useState("");
   const [showLockConfirmation, setShowLockConfirmation] =
     useState(false);
+  const [lockConfirmationHasDrafts, setLockConfirmationHasDrafts] =
+    useState(false);
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
   const mountedRef = useRef(true);
+  const workspaceDraftsPresentRef = useRef(false);
   const deliveredFatalSignalRef = useRef<LedgerSessionFatalSignal | null>(null);
   const currentRepositoryRef = useRef(repository);
   currentRepositoryRef.current = repository;
@@ -268,6 +269,11 @@ export function DashboardShell({
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    workspaceDraftsPresentRef.current = false;
+    setLockConfirmationHasDrafts(false);
+  }, [ledgerEpoch]);
 
   useEffect(() => {
     if (persistenceStatus !== "saved") {
@@ -288,15 +294,15 @@ export function DashboardShell({
       showLockConfirmation &&
       persistenceStatus === "saved" &&
       !isDirty &&
-      !workspace.hasDrafts
+      !lockConfirmationHasDrafts
     ) {
       setShowLockConfirmation(false);
     }
   }, [
     isDirty,
+    lockConfirmationHasDrafts,
     persistenceStatus,
     showLockConfirmation,
-    workspace.hasDrafts,
   ]);
 
   useLayoutEffect(() => {
@@ -567,12 +573,14 @@ export function DashboardShell({
     if (!session || !onFinalLock || lifecycleStatus !== "active") {
       return;
     }
+    const hasDrafts = workspaceDraftsPresentRef.current;
     if (
       isDirty ||
-      workspace.hasDrafts ||
+      hasDrafts ||
       persistenceStatus === "saving" ||
       persistenceStatus === "error"
     ) {
+      setLockConfirmationHasDrafts(hasDrafts);
       setShowLockConfirmation(true);
       return;
     }
@@ -658,7 +666,7 @@ export function DashboardShell({
             >
               <p className="font-medium">还有内容没保存</p>
               <p className="mt-1 leading-6">
-                {workspace.hasDrafts
+                {lockConfirmationHasDrafts
                   ? "还有未提交的表单草稿。锁定会丢弃草稿；已经进入底层写入的操作仍会安全收尾，不会被强行打断。"
                   : "你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。"}
               </p>
@@ -1367,9 +1375,13 @@ export function DashboardShell({
             />
         }
         mutationVersion={mutationVersion}
+        onDraftStatusChange={(hasDrafts) => {
+          workspaceDraftsPresentRef.current = hasDrafts;
+          if (showLockConfirmation) {
+            setLockConfirmationHasDrafts(hasDrafts);
+          }
+        }}
         onIntentConsumed={workspace.consumeIntent}
-        onPriceDraftChange={workspace.setPriceDraft}
-        onPriceReset={workspace.resetPriceDraft}
         onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
           applyLedgerAction(
             { type: "priceSnapshot/add", priceSnapshot },
@@ -1400,12 +1412,8 @@ export function DashboardShell({
         onTradeCreated={(trade, timeSnapshot) =>
           applyLedgerAction({ type: "trade/add", trade }, timeSnapshot)
         }
-        onTradeDraftChange={workspace.setTradeDraft}
-        onTradeReset={workspace.resetTradeDraft}
         persistedVersion={persistedVersion}
         persistenceStatus={persistenceStatus}
-        priceDraft={workspace.priceDraft}
-        tradeDraft={workspace.tradeDraft}
       />
       ) : null}
       {session ? (

@@ -542,6 +542,37 @@ describe("DashboardShell persistent workspace navigation", () => {
 });
 
 describe("DashboardShell immediate lock decision B", () => {
+  it("keeps a local form draft in the discard decision", async () => {
+    const repository = createMemoryRepository();
+    const session = createLedgerSession({
+      storageKind: "ledger-file",
+      repository,
+      capabilities: LEDGER_FILE_CAPABILITIES,
+      createSessionId: () => "dashboard-draft-lock",
+    });
+    const onFinalLock = vi.fn<
+      (
+        drain: PersistentLedgerState["drainForSessionQuiesce"],
+        reason: SessionQuiesceReason,
+      ) => Promise<void>
+    >(async () => undefined);
+    render(<DashboardShell onFinalLock={onFinalLock} session={session} />);
+    await waitFor(() => {
+      expect(
+        screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
+      ).toBeNull();
+    });
+    const user = await fillBuyTrade();
+
+    await user.click(screen.getByRole("button", { name: "锁定账本" }));
+
+    expect(
+      screen.getByRole("region", { name: "未保存修改锁定确认" }),
+    ).toBeTruthy();
+    expect(screen.getByText(/还有未提交的表单草稿/)).toBeTruthy();
+    expect(onFinalLock).not.toHaveBeenCalled();
+  });
+
   it("does not begin locking on the first dirty click and uses the same final action only after explicit discard", async () => {
     const saveDeferred = createDeferred<void>();
     const repository = createMemoryRepository();

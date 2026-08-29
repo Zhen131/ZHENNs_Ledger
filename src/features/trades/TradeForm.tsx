@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type Ref } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type Ref,
+} from "react";
 
 import type {
   ApplyLedgerActionResult,
@@ -307,12 +314,15 @@ export function TradeForm({
     ledgerData.assets[0];
   const currency = selectedAsset?.quoteCurrency ?? "";
   const feeCurrency = form.feeCurrency || "USDT";
+  const cashAsOf = captureLedgerTime(clock).todayKey;
+  const cashBalance = useMemo(
+    () => replayUsdtCash(ledgerData, { asOf: cashAsOf }).balance,
+    [cashAsOf, ledgerData],
+  );
   const cashImpactPreview = getCashImpactPreview(
     form,
     feeCurrency,
-    replayUsdtCash(ledgerData, {
-      asOf: captureLedgerTime(clock).todayKey,
-    }).balance,
+    cashBalance,
   );
   const feeRuleMatch = matchFeeRules(
     {

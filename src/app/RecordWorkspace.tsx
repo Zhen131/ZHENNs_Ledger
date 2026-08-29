@@ -13,7 +13,11 @@ import type {
   PriceSnapshot,
   Trade,
 } from "@/core/models";
-import type { LedgerClock, LedgerTimeSnapshot } from "@/core/shared";
+import {
+  captureLedgerTime,
+  type LedgerClock,
+  type LedgerTimeSnapshot,
+} from "@/core/shared";
 import { AssetTransferPanel } from "@/features/asset-transfers/ui";
 import { PriceForm } from "@/features/prices/ui";
 import { TradeForm } from "@/features/trades/ui";
@@ -22,7 +26,12 @@ import { SurfaceCard } from "@/ui";
 import type {
   PriceWorkspaceDraft,
   TradeWorkspaceDraft,
-} from "./useLedgerWorkspaceSession";
+} from "./workspaceDrafts";
+import {
+  createPriceWorkspaceDraft,
+  createTradeWorkspaceDraft,
+  workspaceDraftsHaveUserInput,
+} from "./workspaceDrafts";
 
 type RecordTarget =
   | { kind: "cash"; currency: "USDT" }
@@ -40,12 +49,7 @@ export function RecordWorkspace({
   persistedVersion,
   persistenceStatus,
   isWritable,
-  tradeDraft,
-  onTradeDraftChange,
-  onTradeReset,
-  priceDraft,
-  onPriceDraftChange,
-  onPriceReset,
+  onDraftStatusChange,
   onTradeCreated,
   onCashEventCreated,
   onCashEventDeleted,
@@ -64,16 +68,7 @@ export function RecordWorkspace({
   persistedVersion: number;
   persistenceStatus: PersistenceStatus;
   isWritable: boolean;
-  tradeDraft: TradeWorkspaceDraft;
-  onTradeDraftChange: (draft: TradeWorkspaceDraft) => void;
-  onTradeReset: (
-    preserve: Pick<TradeWorkspaceDraft, "assetSymbol" | "platform">,
-  ) => void;
-  priceDraft: PriceWorkspaceDraft;
-  onPriceDraftChange: (draft: PriceWorkspaceDraft) => void;
-  onPriceReset: (
-    preserve: Pick<PriceWorkspaceDraft, "assetSymbol" | "recordedAt">,
-  ) => void;
+  onDraftStatusChange: (hasDrafts: boolean) => void;
   onTradeCreated: (
     trade: Trade,
     timeSnapshot: LedgerTimeSnapshot,
@@ -102,13 +97,66 @@ export function RecordWorkspace({
 }>) {
   const tradeFocusRef = useRef<HTMLSelectElement>(null);
   const priceFocusRef = useRef<HTMLSelectElement>(null);
+  const defaultAssetSymbol = ledgerData.assets[0]?.symbol ?? "";
+  const todayKey = captureLedgerTime(clock).todayKey;
   const [recordTarget, setRecordTarget] = useState<RecordTarget>({
     kind: "cash",
     currency: "USDT",
   });
+  const [tradeDraft, setTradeDraft] = useState<TradeWorkspaceDraft>(() =>
+    createTradeWorkspaceDraft(defaultAssetSymbol, todayKey),
+  );
+  const [priceDraft, setPriceDraft] = useState<PriceWorkspaceDraft>(() =>
+    createPriceWorkspaceDraft(defaultAssetSymbol, todayKey),
+  );
+
+  function commitTradeDraft(nextDraft: TradeWorkspaceDraft) {
+    setTradeDraft(nextDraft);
+    onDraftStatusChange(
+      workspaceDraftsHaveUserInput(nextDraft, priceDraft),
+    );
+  }
+
+  function commitPriceDraft(nextDraft: PriceWorkspaceDraft) {
+    setPriceDraft(nextDraft);
+    onDraftStatusChange(
+      workspaceDraftsHaveUserInput(tradeDraft, nextDraft),
+    );
+  }
+
+  function resetTradeDraft(
+    preserve: Pick<TradeWorkspaceDraft, "assetSymbol" | "platform">,
+  ) {
+    const nextDraft = {
+      ...createTradeWorkspaceDraft(preserve.assetSymbol, todayKey),
+      platform: preserve.platform,
+    };
+    setTradeDraft(nextDraft);
+    onDraftStatusChange(
+      workspaceDraftsHaveUserInput(nextDraft, priceDraft),
+    );
+  }
+
+  function resetPriceDraft(
+    preserve: Pick<PriceWorkspaceDraft, "assetSymbol" | "recordedAt">,
+  ) {
+    const nextDraft = createPriceWorkspaceDraft(
+      preserve.assetSymbol,
+      preserve.recordedAt,
+    );
+    setPriceDraft(nextDraft);
+    onDraftStatusChange(
+      workspaceDraftsHaveUserInput(tradeDraft, nextDraft),
+    );
+  }
 
   useEffect(() => {
     setRecordTarget({ kind: "cash", currency: "USDT" });
+    setTradeDraft(createTradeWorkspaceDraft(defaultAssetSymbol, todayKey));
+    setPriceDraft(createPriceWorkspaceDraft(defaultAssetSymbol, todayKey));
+    onDraftStatusChange(false);
+    // A ledger epoch is the only event that clears session-local drafts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledgerEpoch]);
 
   useEffect(() => {
@@ -186,7 +234,7 @@ export function RecordWorkspace({
               }
               const assetSymbol = event.target.value.slice("trade:".length);
               setRecordTarget({ kind: "trade", assetSymbol });
-              onTradeDraftChange({ ...tradeDraft, assetSymbol });
+              commitTradeDraft({ ...tradeDraft, assetSymbol });
             }}
             value={
               recordTarget.kind === "cash"
@@ -262,14 +310,14 @@ export function RecordWorkspace({
                       kind: "trade",
                       assetSymbol: nextDraft.assetSymbol,
                     });
-                    onTradeDraftChange(nextDraft);
+                    commitTradeDraft(nextDraft);
                   }}
                   onReset={(preserve) => {
                     setRecordTarget({
                       kind: "trade",
                       assetSymbol: preserve.assetSymbol,
                     });
-                    onTradeReset(preserve);
+                    resetTradeDraft(preserve);
                   }}
                   onTradeCreated={onTradeCreated}
                   persistedVersion={persistedVersion}
@@ -299,9 +347,9 @@ export function RecordWorkspace({
                 ledgerData={ledgerData}
                 ledgerEpoch={ledgerEpoch}
                 mutationVersion={mutationVersion}
-                onDraftChange={onPriceDraftChange}
+                onDraftChange={commitPriceDraft}
                 onPriceSnapshotCreated={onPriceSnapshotCreated}
-                onReset={onPriceReset}
+                onReset={resetPriceDraft}
                 persistedVersion={persistedVersion}
                 persistenceStatus={persistenceStatus}
               />

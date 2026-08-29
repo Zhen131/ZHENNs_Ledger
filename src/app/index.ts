@@ -8,4 +8,4 @@ export type { HydrationStatus } from "./hydrationState";
 export type {
   PriceWorkspaceDraft,
   TradeWorkspaceDraft,
-} from "./useLedgerWorkspaceSession";
+} from "./workspaceDrafts";
