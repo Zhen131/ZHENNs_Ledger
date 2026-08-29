@@ -79,12 +79,6 @@ function visibleSequences(): number[] {
   );
 }
 
-function visibleActivityIds(): string[] {
-  return Array.from(document.querySelectorAll("[data-activity-id]")).map(
-    (node) => node.getAttribute("data-activity-id") ?? "",
-  );
-}
-
 function pageLabel(itemCount: number, page: number): string {
   return `共 ${itemCount} 条，第 ${page} / ${getActivityPageCount(itemCount)} 页`;
 }
@@ -211,6 +205,53 @@ describe("TransactionsWorkspace activity pagination", () => {
     view.rerender(workspace(after, { mutationVersion: 1 }));
 
     expect(screen.getByText(pageLabel(after.trades.length, 1))).not.toBeNull();
+  });
+
+  it("T2-09 moves to the target date page before locating and highlighting it", () => {
+    const ledgerData = createPagedLedger();
+    const targetIndex = ACTIVITY_PAGE_SIZE * 2;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: false })),
+    );
+    const view = render(workspace(ledgerData));
+
+    view.rerender(
+      workspace(ledgerData, {
+        intent: { page: "transactions", locateDate: dateAt(targetIndex) },
+      }),
+    );
+
+    expect(screen.getByText(pageLabel(ledgerData.trades.length, 3))).not.toBeNull();
+    expect(visibleSequences()).toEqual([
+      ACTIVITY_PAGE_SIZE * 2 + 1,
+      ACTIVITY_PAGE_SIZE * 2 + 2,
+      ACTIVITY_PAGE_SIZE * 2 + 3,
+    ]);
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    });
+    act(() => document.dispatchEvent(new Event("scrollend")));
+    expect(document.querySelector('[data-locate-highlight="flashing"]')).not.toBeNull();
+  });
+
+  it("T2-10 preserves the missing-location path", () => {
+    const ledgerData = createPagedLedger();
+    render(
+      workspace(ledgerData, {
+        intent: { page: "transactions", locateDate: "2000-01-01" },
+      }),
+    );
+
+    expect(
+      screen.getByText("该日期的交易已发生变化，已显示完整交易列表"),
+    ).not.toBeNull();
   });
 
   it("T2-11 closes expanded details when the page changes", () => {

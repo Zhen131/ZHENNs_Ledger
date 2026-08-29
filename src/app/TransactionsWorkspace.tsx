@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import type { LedgerData } from "@/core/models";
-import { addLedgerDays } from "@/core/shared";
+import { addLedgerDays, getLedgerDateKey } from "@/core/shared";
 import {
   ActivityTable,
   buildLedgerActivityItems,
@@ -512,10 +512,32 @@ export function TransactionsWorkspace({
   }, [allItems, assetFilter, exactDate, timeFilter, todayKey, typeFilter]);
   const totalPages = getActivityPageCount(filteredItems.length);
   const currentPageItems = getActivityPageItems(filteredItems, currentPage);
+  const locateTargetIndex = useMemo(
+    () =>
+      locationRequest
+        ? filteredItems.findIndex(
+            (item) => getLedgerDateKey(item.occurredAt) === locationRequest.date,
+          )
+        : -1,
+    [filteredItems, locationRequest],
+  );
+  const locateTargetPage =
+    locateTargetIndex < 0
+      ? null
+      : Math.floor(locateTargetIndex / ACTIVITY_PAGE_SIZE) + 1;
+  const locateRequestForCurrentPage =
+    locationRequest &&
+    (locateTargetPage === null || locateTargetPage === currentPage)
+      ? locationRequest
+      : null;
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
+
+  useEffect(() => {
+    if (locateTargetPage !== null) setCurrentPage(locateTargetPage);
+  }, [locateTargetPage]);
 
   const assetOptions = ledgerData.assets
     .map((asset) => asset.symbol)
@@ -661,7 +683,7 @@ export function TransactionsWorkspace({
           expandedItemId={expandedItemId}
           firstItemNumber={(currentPage - 1) * ACTIVITY_PAGE_SIZE + 1}
           items={currentPageItems}
-          locateRequest={locationRequest}
+          locateRequest={locateRequestForCurrentPage}
           onArmDelete={armDelete}
           onCancelDelete={() => setArmedItemId(null)}
           onConfirmDelete={confirmDelete}
