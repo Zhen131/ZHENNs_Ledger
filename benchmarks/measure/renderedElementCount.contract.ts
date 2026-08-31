@@ -16,10 +16,10 @@ describe("M-9 rendered element count contract", () => {
       expect(result.measurementsMatch).toBe(true);
       expect(result.first.documentElements).toBeGreaterThan(0);
       expect(result.first.transactionsWorkspaceElements).toBeGreaterThan(0);
-      expect(result.first.homeWorkspaceElements).toBeGreaterThanOrEqual(0);
-      expect(result.first.recordWorkspaceElements).toBeGreaterThan(0);
-      expect(result.first.transferWorkspaceElements).toBeGreaterThan(0);
-      expect(result.first.settingsWorkspaceElements).toBeGreaterThan(0);
+      expect(result.first.homeWorkspaceElements).toBe(0);
+      expect(result.first.recordWorkspaceElements).toBe(0);
+      expect(result.first.transferWorkspaceElements).toBe(0);
+      expect(result.first.settingsWorkspaceElements).toBe(0);
       expect(result.first).toEqual(result.second);
       expect(result.temporaryArtifactsCleaned).toBe(true);
     },
