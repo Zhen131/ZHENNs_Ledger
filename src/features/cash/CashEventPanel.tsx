@@ -14,6 +14,10 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
+import {
+  getActivityPageCount,
+  getActivityPageItems,
+} from "@/features/activity";
 import { createValidatedCashEvent } from "./cashEventService";
 import {
   projectLedgerCashMutation,
@@ -81,10 +85,17 @@ export function CashEventPanel({
     number | null
   >(null);
   const [pendingOperation, setPendingOperation] = useState<"add" | "delete" | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const lastRiskTriggerRef = useRef<HTMLElement | null>(null);
   const todayKey = captureLedgerTime(clock).todayKey;
   const currentBalance = replayUsdtCash(ledgerData, { asOf: todayKey }).balance;
+  const orderedCashEvents = [...ledgerData.cashEvents].reverse();
+  const totalPages = getActivityPageCount(orderedCashEvents.length);
+  const currentPageCashEvents = getActivityPageItems(
+    orderedCashEvents,
+    currentPage,
+  );
 
   useEffect(() => {
     setType("deposit");
@@ -97,7 +108,12 @@ export function CashEventPanel({
     setArmedDelete(null);
     setPendingMutationVersion(null);
     setPendingOperation(null);
+    setCurrentPage(1);
   }, [clock, ledgerEpoch]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   useEffect(() => {
     if (pendingMutationVersion === null) return;
@@ -374,41 +390,69 @@ export function CashEventPanel({
         {ledgerData.cashEvents.length === 0 ? (
           <p className="mt-2 text-sm text-[var(--ledger-muted)]">暂无现金事实。</p>
         ) : (
-          <ul className="mt-2 grid gap-2">
-            {[...ledgerData.cashEvents].reverse().map((cashEvent) => (
-              <li
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm"
-                key={cashEvent.id}
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {cashTypeLabel(cashEvent.type)} · {cashEvent.occurredAt.slice(0, 10)}
-                  </p>
-                  <p className="mt-1 break-words text-xs text-slate-600">
-                    {cashEvent.type === "balance-adjustment" ? (
-                      <>
-                        before <LedgerNumber kind="money" value={cashEvent.balanceBefore} />{" "}
-                        → target <LedgerNumber kind="money" value={cashEvent.targetBalance} />；
-                        adjustment{" "}
-                        <LedgerNumber kind="money" value={cashEvent.adjustmentAmount} /> USDT
-                      </>
-                    ) : (
-                      <><LedgerNumber kind="money" value={cashEvent.amount} /> USDT</>
-                    )}
-                    {cashEvent.note ? ` · ${cashEvent.note}` : ""}
-                  </p>
-                </div>
+          <>
+            <ul className="mt-2 grid gap-2">
+              {currentPageCashEvents.map((cashEvent) => (
+                <li
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm"
+                  key={cashEvent.id}
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {cashTypeLabel(cashEvent.type)} · {cashEvent.occurredAt.slice(0, 10)}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-slate-600">
+                      {cashEvent.type === "balance-adjustment" ? (
+                        <>
+                          before <LedgerNumber kind="money" value={cashEvent.balanceBefore} />{" "}
+                          → target <LedgerNumber kind="money" value={cashEvent.targetBalance} />；
+                          adjustment{" "}
+                          <LedgerNumber kind="money" value={cashEvent.adjustmentAmount} /> USDT
+                        </>
+                      ) : (
+                        <><LedgerNumber kind="money" value={cashEvent.amount} /> USDT</>
+                      )}
+                      {cashEvent.note ? ` · ${cashEvent.note}` : ""}
+                    </p>
+                  </div>
+                  <button
+                    className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"
+                    disabled={!isWritable || pendingMutationVersion !== null}
+                    onClick={(event) => requestDelete(cashEvent, event.currentTarget)}
+                    type="button"
+                  >
+                    {armedDelete?.cashEventId === cashEvent.id ? "确认删除" : "删除"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div
+              aria-label="现金事实分页"
+              className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] pt-3 text-sm"
+            >
+              <p className="text-[var(--ledger-muted)]">
+                共 {orderedCashEvents.length} 条，第 {currentPage} / {totalPages} 页
+              </p>
+              <div className="flex items-center gap-2">
                 <button
-                  className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 disabled:opacity-50"
-                  disabled={!isWritable || pendingMutationVersion !== null}
-                  onClick={(event) => requestDelete(cashEvent, event.currentTarget)}
+                  className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => page - 1)}
                   type="button"
                 >
-                  {armedDelete?.cashEventId === cashEvent.id ? "确认删除" : "删除"}
+                  上一页
                 </button>
-              </li>
-            ))}
-          </ul>
+                <button
+                  className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => page + 1)}
+                  type="button"
+                >
+                  下一页
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
