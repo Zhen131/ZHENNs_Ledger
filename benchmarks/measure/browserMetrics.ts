@@ -88,7 +88,11 @@ export type RunBrowserBenchmarkOptions = Readonly<{
 
 export type RenderedElementCount = Readonly<{
   documentElements: number;
+  homeWorkspaceElements: number;
+  recordWorkspaceElements: number;
   transactionsWorkspaceElements: number;
+  transferWorkspaceElements: number;
+  settingsWorkspaceElements: number;
 }>;
 
 export type RenderedElementCountBenchmarkSuccess = Readonly<{
@@ -194,7 +198,11 @@ export async function runRenderedElementCountBenchmark(
         second,
         measurementsMatch:
           first.documentElements === second.documentElements &&
-          first.transactionsWorkspaceElements === second.transactionsWorkspaceElements,
+          first.homeWorkspaceElements === second.homeWorkspaceElements &&
+          first.recordWorkspaceElements === second.recordWorkspaceElements &&
+          first.transactionsWorkspaceElements === second.transactionsWorkspaceElements &&
+          first.transferWorkspaceElements === second.transferWorkspaceElements &&
+          first.settingsWorkspaceElements === second.settingsWorkspaceElements,
         consoleErrors,
       };
     } catch (error) {
@@ -828,11 +836,38 @@ async function settleFrames(page: Page): Promise<void> {
 
 async function readRenderedElementCount(page: Page): Promise<RenderedElementCount> {
   return page.evaluate(() => {
-    const workspace = document.querySelector('[data-workspace-page="transactions"]');
-    if (!workspace) throw new Error("Transactions workspace was not rendered");
+    const homeWorkspace = document.querySelector('[data-workspace-page="home"]');
+    const recordWorkspace = document.querySelector(
+      '[data-workspace-page="record"]',
+    );
+    const transactionsWorkspace = document.querySelector(
+      '[data-workspace-page="transactions"]',
+    );
+    const transferWorkspace = document.querySelector(
+      '[data-workspace-page="transfer"]',
+    );
+    const settingsWorkspace = document.querySelector(
+      '[data-workspace-page="settings"]',
+    );
+    if (!transactionsWorkspace) {
+      throw new Error("Transactions workspace was not rendered");
+    }
     return {
       documentElements: document.getElementsByTagName("*").length,
-      transactionsWorkspaceElements: workspace.querySelectorAll("*").length + 1,
+      homeWorkspaceElements:
+        homeWorkspace === null ? 0 : homeWorkspace.querySelectorAll("*").length + 1,
+      recordWorkspaceElements:
+        recordWorkspace === null ? 0 : recordWorkspace.querySelectorAll("*").length + 1,
+      transactionsWorkspaceElements:
+        transactionsWorkspace.querySelectorAll("*").length + 1,
+      transferWorkspaceElements:
+        transferWorkspace === null
+          ? 0
+          : transferWorkspace.querySelectorAll("*").length + 1,
+      settingsWorkspaceElements:
+        settingsWorkspace === null
+          ? 0
+          : settingsWorkspace.querySelectorAll("*").length + 1,
     };
   });
 }
