@@ -33,13 +33,17 @@ function dateAt(index: number): string {
     .slice(0, 10);
 }
 
+function tradeId(number: number): string {
+  return `page-trade-${String(number).padStart(4, "0")}`;
+}
+
 function createPagedLedger(
   count = ACTIVITY_PAGE_SIZE * 2 + 3,
 ): LedgerData {
   const ledgerData = createInitialLedgerData();
   ledgerData.trades = Array.from({ length: count }, (_, index) =>
     createUsdtSimpleTrade(
-      `page-trade-${String(index + 1).padStart(4, "0")}`,
+      tradeId(index + 1),
       index % 2 === 0 ? "buy" : "sell",
       index % 2 === 0 ? "BTC" : "ETH",
       "1",
@@ -180,7 +184,7 @@ describe("TransactionsWorkspace activity pagination", () => {
     const before = createPagedLedger();
     const after = {
       ...before,
-      trades: before.trades.filter((trade) => trade.id !== "page-trade-0101"),
+      trades: before.trades.filter((trade) => trade.id !== tradeId(ACTIVITY_PAGE_SIZE + 1)),
     };
     const view = render(workspace(before));
 
@@ -192,14 +196,14 @@ describe("TransactionsWorkspace activity pagination", () => {
     expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE + 1);
     expect(
       document.querySelector("[data-activity-id]")?.getAttribute("data-activity-id"),
-    ).toBe("page-trade-0102");
+    ).toBe(tradeId(ACTIVITY_PAGE_SIZE + 2));
   });
 
   it("T2-08 returns to the previous page when deletion empties a non-first page", () => {
     const before = createPagedLedger(ACTIVITY_PAGE_SIZE + 1);
     const after = {
       ...before,
-      trades: before.trades.filter((trade) => trade.id !== "page-trade-0101"),
+      trades: before.trades.filter((trade) => trade.id !== tradeId(ACTIVITY_PAGE_SIZE + 1)),
     };
     const view = render(workspace(before));
 

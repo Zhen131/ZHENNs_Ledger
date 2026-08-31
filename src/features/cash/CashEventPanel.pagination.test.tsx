@@ -22,14 +22,22 @@ const clock: LedgerClock = {
 
 afterEach(() => cleanup());
 
+function pageLabel(total: number, page: number, pages: number): string {
+  return `共 ${total} 条，第 ${page} / ${pages} 页`;
+}
+
+function idToken(number: number): string {
+  return `cash-${String(number).padStart(4, "0")}`;
+}
+
 describe("CashEventPanel pagination", () => {
   it("T-C1 renders one page of cash events with the newest event first", () => {
     renderPanel({ ledgerData: cashLedger(ACTIVITY_PAGE_SIZE + 3) });
 
     const rows = screen.getAllByRole("listitem");
     expect(rows).toHaveLength(ACTIVITY_PAGE_SIZE);
-    expect(rows[0]?.textContent).toContain("cash-0103");
-    expect(screen.getByText(`共 103 条，第 1 / 2 页`)).not.toBeNull();
+    expect(rows[0]?.textContent).toContain(idToken(ACTIVITY_PAGE_SIZE + 3));
+    expect(screen.getByText(pageLabel(ACTIVITY_PAGE_SIZE + 3, 1, 2))).not.toBeNull();
   });
 
   it("T-C2 preserves the complete reverse-order collection without duplicates", async () => {
@@ -76,7 +84,7 @@ describe("CashEventPanel pagination", () => {
         persistedVersion: 1,
       }),
     );
-    expect(screen.getByText("共 101 条，第 2 / 2 页")).not.toBeNull();
+    expect(screen.getByText(pageLabel(ACTIVITY_PAGE_SIZE + 1, 2, 2))).not.toBeNull();
 
     await waitFor(() =>
       expect(
@@ -97,7 +105,7 @@ describe("CashEventPanel pagination", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByText("共 100 条，第 1 / 1 页")).not.toBeNull(),
+      expect(screen.getByText(pageLabel(ACTIVITY_PAGE_SIZE, 1, 1))).not.toBeNull(),
     );
   });
 
@@ -109,19 +117,19 @@ describe("CashEventPanel pagination", () => {
 
     const single = renderPanel({ ledgerData: cashLedger(1) });
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByText("共 1 条，第 1 / 1 页")).not.toBeNull();
+    expect(screen.getByText(pageLabel(1, 1, 1))).not.toBeNull();
     single.unmount();
 
     const full = renderPanel({ ledgerData: cashLedger(ACTIVITY_PAGE_SIZE) });
     expect(screen.getAllByRole("listitem")).toHaveLength(ACTIVITY_PAGE_SIZE);
-    expect(screen.getByText("共 100 条，第 1 / 1 页")).not.toBeNull();
+    expect(screen.getByText(pageLabel(ACTIVITY_PAGE_SIZE, 1, 1))).not.toBeNull();
     full.unmount();
 
     renderPanel({ ledgerData: cashLedger(ACTIVITY_PAGE_SIZE + 1) });
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "下一页" }));
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByText("共 101 条，第 2 / 2 页")).not.toBeNull();
+    expect(screen.getByText(pageLabel(ACTIVITY_PAGE_SIZE + 1, 2, 2))).not.toBeNull();
   });
 });
 
