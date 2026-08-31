@@ -11,7 +11,6 @@ import {
 import type { LedgerData } from "@/core/models";
 import { addLedgerDays, getLedgerDateKey } from "@/core/shared";
 import {
-  ActivityTable,
   buildLedgerActivityItems,
   filterLedgerActivityItems,
   getActivityPageCount,
@@ -20,6 +19,7 @@ import {
   type LedgerActivityItem,
   type LedgerActivityTypeFilter,
 } from "@/features/activity";
+import { ActivityTable } from "@/features/activity/ui";
 import { projectLedgerCashMutation } from "@/features/cash";
 import { NegativeCashConfirmationDialog } from "@/features/cash/ui";
 import { validateTradeRemoval } from "@/features/trades";
