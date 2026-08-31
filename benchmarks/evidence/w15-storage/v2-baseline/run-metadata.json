@@ -1,0 +1,58 @@
+{
+  "evidenceFormatVersion": 1,
+  "batch": "W15-storage-cost",
+  "phase": "V2-baseline-before-S1",
+  "sourceCommit": "4a66905",
+  "sourceBranch": "zhennn/w15-main-chunked-storage",
+  "mode": "production",
+  "browserVersion": "151.0.7922.171",
+  "dataClassification": "synthetic-only",
+  "browserRuns": [
+    {
+      "sequence": 1,
+      "scale": "S-100",
+      "startedAt": "2026-08-31T21:20:08+02:00",
+      "resultFile": "01-v2-S-100.json",
+      "cooldownBeforeNextRunSecondsAtLeast": 300
+    },
+    {
+      "sequence": 2,
+      "scale": "S-1K",
+      "startedAt": "2026-08-31T21:25:34+02:00",
+      "resultFile": "02-v2-S-1K.json",
+      "cooldownCompletedAt": "2026-08-31T21:31:39+02:00"
+    },
+    {
+      "sequence": 3,
+      "scale": "S-10K",
+      "startedAt": "2026-08-31T21:43:24+02:00",
+      "resultFile": "03-v2-S-10K.json",
+      "completionRecordedBy": "2026-08-31T21:44:43+02:00",
+      "nextRunStartedAt": "2026-08-31T21:49:49+02:00"
+    },
+    {
+      "sequence": 4,
+      "scale": "S-100K",
+      "startedAt": "2026-08-31T21:49:49+02:00",
+      "resultFile": "04-v2-S-100K.json",
+      "completionRecordedBy": "2026-08-31T21:52:29+02:00",
+      "cooldownCompletedAt": "2026-08-31T21:57:36+02:00"
+    }
+  ],
+  "excludedRuns": [
+    {
+      "scale": "S-10K",
+      "reason": "Start time was not recorded before execution; excluded from the numbered data set and rerun after cooldown."
+    }
+  ],
+  "fileByteMeasurements": {
+    "method": "Create an empty fictional ledger through LedgerFileRepository, save a deterministic synthetic ledger, then save one additional fictional buy through the same repository.",
+    "resultFiles": [
+      "v2-file-bytes-S-100.json",
+      "v2-file-bytes-S-1K.json",
+      "v2-file-bytes-S-10K.json",
+      "v2-file-bytes-S-100K.json"
+    ],
+    "browserMetricSubstitute": false
+  }
+}
