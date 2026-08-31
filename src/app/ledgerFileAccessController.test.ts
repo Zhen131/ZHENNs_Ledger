@@ -18,13 +18,15 @@ import type {
   LedgerFileSessionLease,
 } from "@/platform/coordination";
 import { bytesToBase64Url } from "@/platform/encryption";
-import type { LedgerFileV2 } from "@/platform/files";
 import { LedgerFileRepository } from "@/platform/files";
 import {
   claimLedgerSessionPersistencePort,
 } from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
-import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
+import {
+  createUsdtSimpleTrade as createSimpleTrade,
+  readLedgerFileForTest,
+} from "@/test-support";
 import {
   DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,
@@ -279,9 +281,7 @@ async function createRecoverableLedgerHandle(): Promise<{
     },
   );
   await repository.save(currentLedger);
-  const file = JSON.parse(
-    new TextDecoder().decode(handle.bytes),
-  ) as LedgerFileV2;
+  const file = readLedgerFileForTest(handle.bytes);
   handle.bytes = new TextEncoder().encode(
     JSON.stringify({
       ...file,

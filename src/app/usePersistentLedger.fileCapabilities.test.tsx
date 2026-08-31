@@ -10,7 +10,6 @@ import {
 } from "@/platform/files";
 import type { LedgerFileSessionLease } from "@/platform/coordination";
 import { bytesToBase64Url } from "@/platform/encryption";
-import type { LedgerFileV2 } from "@/platform/files";
 import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,
@@ -18,7 +17,10 @@ import {
 } from "@/platform/persistence";
 import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
-import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
+import {
+  createUsdtSimpleTrade as createSimpleTrade,
+  readLedgerFileForTest,
+} from "@/test-support";
 import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger } from "./usePersistentLedger";
 
@@ -185,7 +187,7 @@ class GatedHookSessionLease implements LedgerFileSessionLease {
 }
 
 function replaceLedgerFileSalt(serialized: string): string {
-  const file = JSON.parse(serialized) as LedgerFileV2;
+  const file = readLedgerFileForTest(serialized);
   return JSON.stringify({
     ...file,
     crypto: {
@@ -305,9 +307,7 @@ describe("usePersistentLedger file session capabilities", () => {
       createInitialLedgerData(),
     );
     expect(handle.writeCount).toBe(2);
-    const file = JSON.parse(
-      new TextDecoder().decode(handle.bytes),
-    ) as LedgerFileV2;
+    const file = readLedgerFileForTest(handle.bytes);
     expect(file.current.revisionId).toBe(
       "revision-after-clear",
     );
@@ -392,9 +392,7 @@ describe("usePersistentLedger file session capabilities", () => {
     await clearPromise;
 
     expect(clearResult).toEqual({ ok: true });
-    const file = JSON.parse(
-      new TextDecoder().decode(handle.bytes),
-    ) as LedgerFileV2;
+    const file = readLedgerFileForTest(handle.bytes);
     expect(file.current.revisionId).toBe("revision-cleared");
     expect(file.previous?.revisionId).toBe("revision-saved");
     expect(result.current.ledgerData).toEqual(

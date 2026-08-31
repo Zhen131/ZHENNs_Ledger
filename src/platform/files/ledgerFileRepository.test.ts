@@ -38,6 +38,7 @@ import {
   LedgerFileRepository,
 } from "./ledgerFileRepository";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
+import { readLedgerFileForTest } from "@/test-support";
 
 const PASSPHRASE = "correct horse battery staple";
 const TEST_SESSION_LEASE: LedgerFileSessionLease = {
@@ -308,7 +309,7 @@ function replaceLedgerFileSalt(
   serialized: string,
   saltByte = 9,
 ): string {
-  const file = JSON.parse(serialized) as LedgerFileV2;
+  const file = readLedgerFileForTest(serialized);
   return JSON.stringify({
     ...file,
     crypto: {
@@ -409,7 +410,7 @@ class GatedSessionLease implements LedgerFileSessionLease {
 }
 
 function corruptCurrentCiphertext(serialized: string): string {
-  const file = JSON.parse(serialized) as LedgerFileV2;
+  const file = readLedgerFileForTest(serialized);
   return JSON.stringify({
     ...file,
     current: {
@@ -422,7 +423,7 @@ function corruptCurrentCiphertext(serialized: string): string {
 }
 
 function corruptPreviousCiphertext(serialized: string): string {
-  const file = JSON.parse(serialized) as LedgerFileV2;
+  const file = readLedgerFileForTest(serialized);
   return JSON.stringify({
     ...file,
     previous: file.previous
@@ -440,7 +441,7 @@ async function replaceCurrentPlaintext(
   serialized: string,
   plaintext: string,
 ): Promise<string> {
-  const file = JSON.parse(serialized) as LedgerFileV2;
+  const file = readLedgerFileForTest(serialized);
   const crypto = await LedgerFileCrypto.createForUnlock(
     PASSPHRASE,
     file.crypto,
@@ -461,7 +462,7 @@ async function replacePreviousPlaintext(
   serialized: string,
   plaintext: string,
 ): Promise<string> {
-  const file = JSON.parse(serialized) as LedgerFileV2;
+  const file = readLedgerFileForTest(serialized);
   if (!file.previous) {
     throw new Error("test fixture requires a previous generation");
   }
@@ -484,7 +485,7 @@ async function replacePreviousPlaintext(
 async function reencryptCurrentWithSamePlaintext(
   serialized: string,
 ): Promise<string> {
-  const file = JSON.parse(serialized) as LedgerFileV2;
+  const file = readLedgerFileForTest(serialized);
   const crypto = await LedgerFileCrypto.createForUnlock(
     PASSPHRASE,
     file.crypto,
@@ -512,7 +513,7 @@ async function readVerifiedFile(
   current: DecryptedLedgerPayloadV4;
   previous: DecryptedLedgerPayloadV4 | null;
 }> {
-  const parsed: unknown = JSON.parse(handle.text());
+  const parsed: unknown = readLedgerFileForTest(handle.text());
   const validated = validateLedgerFileV2(parsed);
   expect(validated.ok).toBe(true);
   if (!validated.ok) throw new Error("invalid test ledger file");
@@ -1255,7 +1256,7 @@ describe("LedgerFileRepository", () => {
     });
     await expect(repository.load()).resolves.toEqual(ledger);
 
-    const diskFile = JSON.parse(handle.text()) as LedgerFileV2;
+    const diskFile = readLedgerFileForTest(handle.text());
     expect(diskFile.current.revisionId).toBe("revision-b");
     expect(handle.writeCount).toBe(2);
   });
@@ -1302,7 +1303,7 @@ describe("LedgerFileRepository", () => {
     await expect(repository.load()).resolves.toEqual(ledger);
     expect(handle.writeCount).toBe(2);
     expect(
-      (JSON.parse(handle.text()) as LedgerFileV2).current.revisionId,
+      readLedgerFileForTest(handle.text()).current.revisionId,
     ).toBe("revision-b");
 
     replacePublishedLedgerFile(handle, committedBeforeDrift);
@@ -1366,14 +1367,14 @@ describe("LedgerFileRepository", () => {
     [
       "fileId",
       (serialized: string) => {
-        const file = JSON.parse(serialized) as LedgerFileV2;
+        const file = readLedgerFileForTest(serialized);
         return JSON.stringify({ ...file, fileId: "different-file" });
       },
     ],
     [
       "revision chain",
       (serialized: string) => {
-        const file = JSON.parse(serialized) as LedgerFileV2;
+        const file = readLedgerFileForTest(serialized);
         return JSON.stringify({
           ...file,
           current: {
@@ -1386,7 +1387,7 @@ describe("LedgerFileRepository", () => {
     [
       "current authentication",
       (serialized: string) => {
-        const file = JSON.parse(serialized) as LedgerFileV2;
+        const file = readLedgerFileForTest(serialized);
         return JSON.stringify({
           ...file,
           current: {
@@ -1401,7 +1402,7 @@ describe("LedgerFileRepository", () => {
     [
       "previous authentication",
       (serialized: string) => {
-        const file = JSON.parse(serialized) as LedgerFileV2;
+        const file = readLedgerFileForTest(serialized);
         return JSON.stringify({
           ...file,
           previous: file.previous
@@ -1500,7 +1501,7 @@ describe("LedgerFileRepository", () => {
     async () => {
       const { handle, ledger301, published302 } =
         await createTwoGenerationLedgerFile();
-      const publishedFile = JSON.parse(published302) as LedgerFileV2;
+      const publishedFile = readLedgerFileForTest(published302);
       replacePublishedLedgerFile(
         handle,
         corruptCurrentCiphertext(published302),
@@ -1686,7 +1687,7 @@ describe("LedgerFileRepository", () => {
           ],
         },
       });
-      const publishedFile = JSON.parse(published302) as LedgerFileV2;
+      const publishedFile = readLedgerFileForTest(published302);
       const ineligibleCases: Array<{
         name: string;
         serialized: string;
@@ -2038,7 +2039,7 @@ describe("LedgerFileRepository", () => {
         sessionLease: TEST_SESSION_LEASE,
       },
     );
-    const before = JSON.parse(handle.text()) as LedgerFileV2;
+    const before = readLedgerFileForTest(handle.text());
     expect(
       repository.authorizeReadyClear({
         sessionId: "forged-direct-call",
@@ -2086,7 +2087,7 @@ describe("LedgerFileRepository", () => {
     expect(handle.writeCount).toBe(writesBeforeClear);
     await session.readyClearPort.clearReadyLedger(authorization);
 
-    const after = JSON.parse(handle.text()) as LedgerFileV2;
+    const after = readLedgerFileForTest(handle.text());
     expect(after.fileId).toBe(before.fileId);
     expect(after.crypto).toEqual(before.crypto);
     expect(after.current.revisionId).toBe(
@@ -2387,7 +2388,7 @@ describe("LedgerFileRepository", () => {
 
     expect(handle.writeCount).toBe(writesAfterUncertainReadback);
     expect(handle.text()).toBe(committedButUnconfirmed);
-    const file = JSON.parse(handle.text()) as LedgerFileV2;
+    const file = readLedgerFileForTest(handle.text());
     expect(file.current.revisionId).toBe("revision-clear-intent");
     expect(file.previous?.revisionId).toBe(
       "revision-before-clear",
