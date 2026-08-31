@@ -1,3 +1,8 @@
+export type RecordTarget =
+  | { kind: "cash"; currency: "USDT" }
+  | { kind: "asset-transfer" }
+  | { kind: "trade"; assetSymbol: string };
+
 export type TradeWorkspaceDraft = {
   type: "buy" | "sell";
   assetSymbol: string;

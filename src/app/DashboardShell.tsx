@@ -233,7 +233,9 @@ export function DashboardShell({
     session,
   );
   const workspace = useLedgerWorkspaceSession({
+    defaultAssetSymbol: ledgerData.assets[0]?.symbol ?? "",
     ledgerEpoch,
+    todayKey,
   });
   const {
     valuationPriceMode,
@@ -1311,50 +1313,56 @@ export function DashboardShell({
             </Section>
           </div>
           ) : null}
-      <HomeWorkspace
-        active={session !== undefined && workspace.currentPage === "home"}
-        allocation={allocation}
-        cashBalance={projection.cash.balance}
-        heatmap={heatmap}
-        history={history}
-        ledgerData={ledgerData}
-        onNavigateToPrice={() =>
-          workspace.navigate({ page: "record", focus: "price" })
-        }
-        onNavigateToTrade={() =>
-          workspace.navigate({ page: "record", focus: "trade" })
-        }
-        onNavigateToTransactions={(intent) => {
-          if ("clearFilters" in intent) {
-            workspace.navigate({
-              page: "transactions",
-              clearFilters: true,
-            });
-          } else {
-            workspace.navigate({
-              page: "transactions",
-              locateDate: intent.locateDate,
-            });
+      {session && workspace.currentPage === "home" ? (
+        <HomeWorkspace
+          active
+          allocation={allocation}
+          cashBalance={projection.cash.balance}
+          detailsOpen={workspace.homeDetailsOpen}
+          heatmap={heatmap}
+          history={history}
+          ledgerData={ledgerData}
+          onNavigateToPrice={() =>
+            workspace.navigate({ page: "record", focus: "price" })
           }
-        }}
-        onRangeChange={setChartRange}
-        onValuationPriceModeChange={setValuationPriceMode}
-        pnlSummary={pnlSummary}
-        positions={positions}
-        range={chartRange}
-        valuationPriceMode={valuationPriceMode}
-      />
-      {session ? (
-      <RecordWorkspace
-        active={workspace.currentPage === "record"}
-        clock={clock}
-        focusIntent={
-          workspace.intent?.page === "record" ? workspace.intent.focus : null
-        }
-        isWritable={isWritable}
-        ledgerData={ledgerData}
-        ledgerEpoch={ledgerEpoch}
-        marketDataPanel={
+          onNavigateToTrade={() =>
+            workspace.navigate({ page: "record", focus: "trade" })
+          }
+          onNavigateToTransactions={(intent) => {
+            if ("clearFilters" in intent) {
+              workspace.navigate({
+                page: "transactions",
+                clearFilters: true,
+              });
+            } else {
+              workspace.navigate({
+                page: "transactions",
+                locateDate: intent.locateDate,
+              });
+            }
+          }}
+          onDetailsOpenChange={workspace.setHomeDetailsOpen}
+          onRangeChange={setChartRange}
+          onValuationPriceModeChange={setValuationPriceMode}
+          pnlSummary={pnlSummary}
+          positions={positions}
+          range={chartRange}
+          valuationPriceMode={valuationPriceMode}
+        />
+      ) : null}
+      {session && workspace.currentPage === "record" ? (
+        <RecordWorkspace
+          active
+          clock={clock}
+          focusIntent={
+            workspace.intent?.page === "record" ? workspace.intent.focus : null
+          }
+          initialPriceDraft={workspace.priceDraftRef.current}
+          initialTradeDraft={workspace.tradeDraftRef.current}
+          isWritable={isWritable}
+          ledgerData={ledgerData}
+          ledgerEpoch={ledgerEpoch}
+          marketDataPanel={
             <MarketDataControls
               applyLedgerMutation={applyLedgerMutation}
               clock={clock}
@@ -1370,52 +1378,63 @@ export function DashboardShell({
               showMappings={false}
               todayKey={todayKey}
             />
-        }
-        mutationVersion={mutationVersion}
-        onDraftStatusChange={(hasDrafts) => {
-          workspaceDraftsPresentRef.current = hasDrafts;
-          if (showLockConfirmation) {
-            setLockConfirmationHasDrafts(hasDrafts);
           }
-        }}
-        onIntentConsumed={workspace.consumeIntent}
-        onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
-          applyLedgerAction(
-            { type: "priceSnapshot/add", priceSnapshot },
-            timeSnapshot,
-          )
-        }
-        onCashEventCreated={(cashEvent, timeSnapshot) =>
-          applyLedgerAction({ type: "cashEvent/add", cashEvent }, timeSnapshot)
-        }
-        onCashEventDeleted={(cashEventId, timeSnapshot) =>
-          applyLedgerAction(
-            { type: "cashEvent/delete", cashEventId },
-            timeSnapshot,
-          )
-        }
-        onAssetTransferCreated={(assetTransfer, timeSnapshot) =>
-          applyLedgerAction(
-            { type: "assetTransfer/add", assetTransfer },
-            timeSnapshot,
-          )
-        }
-        onAssetTransferDeleted={(assetTransferId, timeSnapshot) =>
-          applyLedgerAction(
-            { type: "assetTransfer/delete", assetTransferId },
-            timeSnapshot,
-          )
-        }
-        onTradeCreated={(trade, timeSnapshot) =>
-          applyLedgerAction({ type: "trade/add", trade }, timeSnapshot)
-        }
-        persistedVersion={persistedVersion}
-        persistenceStatus={persistenceStatus}
-      />
+          mutationVersion={mutationVersion}
+          onAssetTransferCreated={(assetTransfer, timeSnapshot) =>
+            applyLedgerAction(
+              { type: "assetTransfer/add", assetTransfer },
+              timeSnapshot,
+            )
+          }
+          onAssetTransferDeleted={(assetTransferId, timeSnapshot) =>
+            applyLedgerAction(
+              { type: "assetTransfer/delete", assetTransferId },
+              timeSnapshot,
+            )
+          }
+          onCashEventCreated={(cashEvent, timeSnapshot) =>
+            applyLedgerAction(
+              { type: "cashEvent/add", cashEvent },
+              timeSnapshot,
+            )
+          }
+          onCashEventDeleted={(cashEventId, timeSnapshot) =>
+            applyLedgerAction(
+              { type: "cashEvent/delete", cashEventId },
+              timeSnapshot,
+            )
+          }
+          onDraftStatusChange={(hasDrafts) => {
+            workspaceDraftsPresentRef.current = hasDrafts;
+            if (showLockConfirmation) {
+              setLockConfirmationHasDrafts(hasDrafts);
+            }
+          }}
+          onIntentConsumed={workspace.consumeIntent}
+          onPriceDraftChange={(draft) => {
+            workspace.priceDraftRef.current = draft;
+          }}
+          onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
+            applyLedgerAction(
+              { type: "priceSnapshot/add", priceSnapshot },
+              timeSnapshot,
+            )
+          }
+          onRecordTargetChange={workspace.setRecordTarget}
+          onTradeCreated={(trade, timeSnapshot) =>
+            applyLedgerAction({ type: "trade/add", trade }, timeSnapshot)
+          }
+          onTradeDraftChange={(draft) => {
+            workspace.tradeDraftRef.current = draft;
+          }}
+          persistedVersion={persistedVersion}
+          persistenceStatus={persistenceStatus}
+          recordTarget={workspace.recordTarget}
+        />
       ) : null}
-      {session ? (
+      {session && workspace.currentPage === "transactions" ? (
         <TransactionsWorkspace
-          active={workspace.currentPage === "transactions"}
+          active
           intent={
             workspace.intent?.page === "transactions"
               ? workspace.intent
@@ -1437,9 +1456,9 @@ export function DashboardShell({
           todayKey={todayKey}
         />
       ) : null}
-      {session ? (
+      {session && workspace.currentPage === "transfer" ? (
         <TransferWorkspace
-          active={workspace.currentPage === "transfer"}
+          active
           backupPanel={
             <BackupControls
               applyLedgerMutation={applyLedgerMutation}
@@ -1464,9 +1483,9 @@ export function DashboardShell({
           storageKind={storageKind}
         />
       ) : null}
-      {session ? (
+      {session && workspace.currentPage === "settings" ? (
         <SettingsWorkspace
-          active={workspace.currentPage === "settings"}
+          active
           canClearHydrationError={capabilities.canClearHydrationError}
           canClearReadyLedger={capabilities.canClearReadyLedger}
           feePanel={
