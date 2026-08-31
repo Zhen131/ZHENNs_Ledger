@@ -1353,6 +1353,7 @@ export function DashboardShell({
       {session && workspace.currentPage === "record" ? (
         <RecordWorkspace
           active
+          cashBalance={projection.cash.balance}
           clock={clock}
           focusIntent={
             workspace.intent?.page === "record" ? workspace.intent.focus : null
@@ -1374,6 +1375,7 @@ export function DashboardShell({
               onModeChange={setValuationPriceMode}
               persistedVersion={persistedVersion}
               persistenceStatus={persistenceStatus}
+              positions={positions}
               sessionGeneration={session.generation}
               showMappings={false}
               todayKey={todayKey}
@@ -1538,6 +1540,7 @@ export function DashboardShell({
                   onModeChange={setValuationPriceMode}
                   persistedVersion={persistedVersion}
                   persistenceStatus={persistenceStatus}
+                  positions={positions}
                   sessionGeneration={session.generation}
                   showRefresh={false}
                   todayKey={todayKey}

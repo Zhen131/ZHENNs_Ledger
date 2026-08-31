@@ -10,6 +10,7 @@ import type {
   Asset,
   BinanceMarketMapping,
   LedgerData,
+  Position,
   ValuationPriceMode,
 } from "@/core/models";
 import { resolveAssetBinanceMappingForRuntime } from "@/core/policies";
@@ -50,6 +51,7 @@ const defaultClient = createBinanceMarketDataClient();
 
 type MarketDataControlsProps = {
   ledgerData: LedgerData;
+  positions?: readonly Position[];
   ledgerEpoch: number;
   sessionGeneration?: number;
   mutationVersion?: number;
@@ -130,6 +132,7 @@ const INITIAL_REFRESH_STATE: GlobalRefreshState = {
 
 export function MarketDataControls({
   ledgerData,
+  positions,
   ledgerEpoch,
   sessionGeneration = ledgerEpoch,
   mutationVersion = 0,
@@ -193,11 +196,14 @@ export function MarketDataControls({
 
   const currentPositions = useMemo(
     () =>
-      getPositionsFromLedger(ledgerData, {
-        todayKey: activeTodayKey,
-        mode,
-      }).filter((position) => !isZero(position.quantity)),
-    [activeTodayKey, ledgerData, mode],
+      (
+        positions ??
+        getPositionsFromLedger(ledgerData, {
+          todayKey: activeTodayKey,
+          mode,
+        })
+      ).filter((position) => !isZero(position.quantity)),
+    [activeTodayKey, ledgerData, mode, positions],
   );
   const hasRefreshableHolding = currentPositions.some((position) => {
     const asset = assets.find(

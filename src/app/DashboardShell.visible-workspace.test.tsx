@@ -4,7 +4,9 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as calculations from "@/core/calculations";
 import type { LedgerClock } from "@/core/shared";
+import * as portfolio from "@/features/portfolio";
 import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,
@@ -27,10 +29,15 @@ vi.mock("echarts/core", () => ({
   use: vi.fn(),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("DashboardShell visible workspace mounting", () => {
   it("mounts exactly the active workspace and discards settings confirmation state", async () => {
+    const cashReplaySpy = vi.spyOn(calculations, "replayUsdtCash");
+    const positionReplaySpy = vi.spyOn(portfolio, "getPositionsFromLedger");
     const repository: LedgerRepository = {
       load: vi.fn(async () => null),
       save: vi.fn(async () => undefined),
@@ -60,8 +67,14 @@ describe("DashboardShell visible workspace mounting", () => {
     );
 
     expectVisibleWorkspace("home");
+    cashReplaySpy.mockClear();
+    positionReplaySpy.mockClear();
+    await user.click(screen.getByRole("button", { name: "记账" }));
+    expectVisibleWorkspace("record");
+    expect(cashReplaySpy).not.toHaveBeenCalled();
+    expect(positionReplaySpy).not.toHaveBeenCalled();
+
     for (const [pageLabel, workspacePage] of [
-      ["记账", "record"],
       ["交易", "transactions"],
       ["导入与导出", "transfer"],
       ["设置", "settings"],

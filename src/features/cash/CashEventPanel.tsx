@@ -47,6 +47,7 @@ const SUCCESS_FEEDBACK_MS = 4_000;
 
 export function CashEventPanel({
   clock = systemLedgerClock,
+  cashBalance,
   ledgerData,
   ledgerEpoch,
   mutationVersion,
@@ -57,6 +58,7 @@ export function CashEventPanel({
   onCashEventDeleted,
 }: Readonly<{
   clock?: LedgerClock;
+  cashBalance?: string;
   ledgerData: LedgerData;
   ledgerEpoch: number;
   mutationVersion: number;
@@ -89,7 +91,8 @@ export function CashEventPanel({
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const lastRiskTriggerRef = useRef<HTMLElement | null>(null);
   const todayKey = captureLedgerTime(clock).todayKey;
-  const currentBalance = replayUsdtCash(ledgerData, { asOf: todayKey }).balance;
+  const currentBalance =
+    cashBalance ?? replayUsdtCash(ledgerData, { asOf: todayKey }).balance;
   const orderedCashEvents = [...ledgerData.cashEvents].reverse();
   const totalPages = getActivityPageCount(orderedCashEvents.length);
   const currentPageCashEvents = getActivityPageItems(

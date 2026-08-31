@@ -39,6 +39,7 @@ export function RecordWorkspace({
   focusIntent,
   onIntentConsumed,
   clock,
+  cashBalance,
   ledgerData,
   ledgerEpoch,
   mutationVersion,
@@ -64,6 +65,7 @@ export function RecordWorkspace({
   focusIntent: "trade" | "price" | null;
   onIntentConsumed: () => void;
   clock: LedgerClock;
+  cashBalance?: string;
   ledgerData: LedgerData;
   ledgerEpoch: number;
   mutationVersion: number;
@@ -300,6 +302,7 @@ export function RecordWorkspace({
         <SurfaceCard className="min-w-0 p-5">
           {recordTarget.kind === "cash" ? (
             <CashEventPanel
+              cashBalance={cashBalance}
               clock={clock}
               isWritable={isWritable}
               ledgerData={ledgerData}
