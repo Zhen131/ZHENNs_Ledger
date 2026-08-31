@@ -35,6 +35,8 @@ export function HomeWorkspace({
   onNavigateToTrade,
   onNavigateToPrice,
   onNavigateToTransactions,
+  detailsOpen: controlledDetailsOpen,
+  onDetailsOpenChange,
 }: Readonly<{
   active: boolean;
   ledgerData: LedgerData;
@@ -53,14 +55,18 @@ export function HomeWorkspace({
   onNavigateToTransactions: (
     intent: { locateDate: string } | { clearFilters: true },
   ) => void;
+  detailsOpen?: boolean;
+  onDetailsOpenChange?: (open: boolean) => void;
 }>) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [localDetailsOpen, setLocalDetailsOpen] = useState(false);
+  const detailsOpen = controlledDetailsOpen ?? localDetailsOpen;
+  const setDetailsOpen = onDetailsOpenChange ?? setLocalDetailsOpen;
   const holdingsTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (active) return;
     setDetailsOpen(false);
-  }, [active]);
+  }, [active, setDetailsOpen]);
 
   function closeDetails() {
     setDetailsOpen(false);

@@ -31,6 +31,7 @@ export type ActivityDeleteState = Readonly<{
 
 export function ActivityTable({
   items,
+  firstItemNumber = 1,
   todayKey,
   deleteDisabled = false,
   expandedItemId,
@@ -44,6 +45,7 @@ export function ActivityTable({
   onLocateComplete,
 }: Readonly<{
   items: readonly LedgerActivityItem[];
+  firstItemNumber?: number;
   todayKey: string;
   deleteDisabled?: boolean;
   expandedItemId: string | null;
@@ -148,6 +150,7 @@ export function ActivityTable({
       <table className="block w-full text-left text-sm sm:table">
         <thead className="hidden bg-[var(--ledger-surface-muted)] text-[var(--ledger-muted)] sm:table-header-group">
           <tr>
+            <th className="w-12 px-3 py-3 font-medium">#</th>
             <th className="px-4 py-3 font-medium">日期</th>
             <th className="px-3 py-3 font-medium">类型</th>
             <th className="px-3 py-3 font-medium">资产</th>
@@ -161,13 +164,14 @@ export function ActivityTable({
             <tr className="block sm:table-row">
               <td
                 className="block px-4 py-12 text-center text-[var(--ledger-muted)] sm:table-cell"
-                colSpan={6}
+                colSpan={7}
               >
                 没有符合当前筛选的流水。
               </td>
             </tr>
           ) : (
-            items.map((item) => {
+            items.map((item, pageIndex) => {
+              const sequence = firstItemNumber + pageIndex;
               const expanded = expandedItemId === item.id;
               const isPending = deleteState.pendingItemId === item.id;
               const phase: TradeDeletePhase =
@@ -229,6 +233,9 @@ export function ActivityTable({
                     }}
                     tabIndex={isPending ? -1 : 0}
                   >
+                    <ActivityCell className="sm:w-12" label="序号">
+                      <span data-activity-sequence>{sequence}</span>
+                    </ActivityCell>
                     <ActivityCell label="日期">
                       {item.occurredAt}
                       {isLedgerFactInFuture(item.occurredAt, todayKey) ? (
@@ -296,7 +303,7 @@ export function ActivityTable({
                   </tr>
                   {expanded ? (
                     <tr className="block bg-[#fbfaf7] sm:table-row">
-                      <td className="block px-4 py-4 sm:table-cell" colSpan={6}>
+                      <td className="block px-4 py-4 sm:table-cell" colSpan={7}>
                         <ActivityDetails item={item} />
                       </td>
                     </tr>
@@ -314,9 +321,10 @@ export function ActivityTable({
 function ActivityCell({
   label,
   children,
-}: Readonly<{ label: string; children: ReactNode }>) {
+  className = "",
+}: Readonly<{ label: string; children: ReactNode; className?: string }>) {
   return (
-    <td className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)] gap-2 break-words py-1 text-[var(--ledger-muted)] sm:table-cell sm:px-3 sm:py-3">
+    <td className={`grid min-w-0 grid-cols-[5rem_minmax(0,1fr)] gap-2 break-words py-1 text-[var(--ledger-muted)] sm:table-cell sm:px-3 sm:py-3 ${className}`}>
       <span className="font-medium text-[var(--ledger-muted)] sm:hidden">
         {label}
       </span>

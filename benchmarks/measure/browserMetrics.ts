@@ -86,6 +86,52 @@ export type RunBrowserBenchmarkOptions = Readonly<{
   warmup?: boolean;
 }>;
 
+export type RenderedElementCount = Readonly<{
+  documentElements: number;
+  homeWorkspaceElements: number;
+  recordWorkspaceElements: number;
+  transactionsWorkspaceElements: number;
+  transferWorkspaceElements: number;
+  settingsWorkspaceElements: number;
+}>;
+
+export type RenderedElementCountBenchmarkSuccess = Readonly<{
+  kind: "rendered-element-count-benchmark";
+  status: "completed";
+  mode: BrowserBenchmarkMode;
+  scale: SyntheticScale;
+  tradeCount: number;
+  browserVersion: string;
+  first: RenderedElementCount;
+  second: RenderedElementCount;
+  measurementsMatch: boolean;
+  consoleErrors: readonly string[];
+  temporaryArtifactsCleaned: true;
+}>;
+
+export type RenderedElementCountBenchmarkFailure = Readonly<{
+  kind: "rendered-element-count-benchmark";
+  status: "setup-failed";
+  mode: BrowserBenchmarkMode;
+  scale: SyntheticScale;
+  tradeCount: number;
+  stage: string;
+  reason: string;
+  consoleErrors: readonly string[];
+  temporaryArtifactsCleaned: true;
+}>;
+
+export type RenderedElementCountBenchmarkResult =
+  | RenderedElementCountBenchmarkSuccess
+  | RenderedElementCountBenchmarkFailure;
+
+export type RunRenderedElementCountBenchmarkOptions = Readonly<{
+  mode: BrowserBenchmarkMode;
+  scale: SyntheticScale;
+  headless?: boolean;
+  channel?: "chrome" | "chromium";
+}>;
+
 export type M3BreakdownBenchmarkResult = Readonly<{
   kind: "m3-breakdown";
   status: "completed";
@@ -104,6 +150,96 @@ const PASSPHRASE = "Benchmark-only-passphrase-2026";
 const CONNECTION_DATABASE = "local-first-trading-ledger-file-connections";
 const CONNECTION_STORE = "connections";
 const CONNECTION_KEY = "current:v1";
+
+export async function runRenderedElementCountBenchmark(
+  options: RunRenderedElementCountBenchmarkOptions,
+): Promise<RenderedElementCountBenchmarkResult> {
+  const profileDirectory = await mkdtemp(join(tmpdir(), "lftl-m9-benchmark-"));
+  const consoleErrors: string[] = [];
+  let server: ChildProcess | undefined;
+  let context: BrowserContext | undefined;
+  let pendingResult:
+    | Omit<RenderedElementCountBenchmarkSuccess, "temporaryArtifactsCleaned">
+    | Omit<RenderedElementCountBenchmarkFailure, "temporaryArtifactsCleaned">;
+
+  try {
+    const generated = generateSyntheticLedger({ scale: options.scale });
+    const port = await reservePort();
+    server = startNextServer(options.mode, port);
+    await waitForServer(`http://127.0.0.1:${port}`);
+
+    context = await chromium.launchPersistentContext(profileDirectory, {
+      channel: options.channel === "chromium" ? undefined : "chrome",
+      headless: options.headless ?? true,
+      viewport: { width: 1280, height: 800 },
+    });
+    await installFilePickerStub(context);
+    const page = context.pages()[0] ?? (await context.newPage());
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => consoleErrors.push(error.message));
+
+    try {
+      await createAndImport(page, `http://127.0.0.1:${port}`, generated);
+      await navigate(page, "transactions");
+      await settleFrames(page);
+      const first = await readRenderedElementCount(page);
+      const second = await readRenderedElementCount(page);
+
+      pendingResult = {
+        kind: "rendered-element-count-benchmark",
+        status: "completed",
+        mode: options.mode,
+        scale: options.scale,
+        tradeCount: SYNTHETIC_SCALE_TRADE_COUNTS[options.scale],
+        browserVersion: context.browser()?.version() ?? "unknown",
+        first,
+        second,
+        measurementsMatch:
+          first.documentElements === second.documentElements &&
+          first.homeWorkspaceElements === second.homeWorkspaceElements &&
+          first.recordWorkspaceElements === second.recordWorkspaceElements &&
+          first.transactionsWorkspaceElements === second.transactionsWorkspaceElements &&
+          first.transferWorkspaceElements === second.transferWorkspaceElements &&
+          first.settingsWorkspaceElements === second.settingsWorkspaceElements,
+        consoleErrors,
+      };
+    } catch (error) {
+      pendingResult = {
+        kind: "rendered-element-count-benchmark",
+        status: "setup-failed",
+        mode: options.mode,
+        scale: options.scale,
+        tradeCount: SYNTHETIC_SCALE_TRADE_COUNTS[options.scale],
+        stage: error instanceof BenchmarkSetupError ? error.stage : "unknown",
+        reason: error instanceof Error ? error.message : String(error),
+        consoleErrors,
+      };
+    }
+  } catch (error) {
+    pendingResult = {
+      kind: "rendered-element-count-benchmark",
+      status: "setup-failed",
+      mode: options.mode,
+      scale: options.scale,
+      tradeCount: SYNTHETIC_SCALE_TRADE_COUNTS[options.scale],
+      stage: "infrastructure",
+      reason: error instanceof Error ? error.message : String(error),
+      consoleErrors,
+    };
+  } finally {
+    await context?.close().catch(() => undefined);
+    await stopServer(server);
+    await rm(profileDirectory, { recursive: true, force: true });
+  }
+
+  await assertRemoved(profileDirectory);
+  return {
+    ...pendingResult!,
+    temporaryArtifactsCleaned: true,
+  } as RenderedElementCountBenchmarkResult;
+}
 
 export async function runBrowserBenchmark(
   options: RunBrowserBenchmarkOptions,
@@ -696,6 +832,44 @@ async function settleFrames(page: Page): Promise<void> {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       }),
   );
+}
+
+async function readRenderedElementCount(page: Page): Promise<RenderedElementCount> {
+  return page.evaluate(() => {
+    const homeWorkspace = document.querySelector('[data-workspace-page="home"]');
+    const recordWorkspace = document.querySelector(
+      '[data-workspace-page="record"]',
+    );
+    const transactionsWorkspace = document.querySelector(
+      '[data-workspace-page="transactions"]',
+    );
+    const transferWorkspace = document.querySelector(
+      '[data-workspace-page="transfer"]',
+    );
+    const settingsWorkspace = document.querySelector(
+      '[data-workspace-page="settings"]',
+    );
+    if (!transactionsWorkspace) {
+      throw new Error("Transactions workspace was not rendered");
+    }
+    return {
+      documentElements: document.getElementsByTagName("*").length,
+      homeWorkspaceElements:
+        homeWorkspace === null ? 0 : homeWorkspace.querySelectorAll("*").length + 1,
+      recordWorkspaceElements:
+        recordWorkspace === null ? 0 : recordWorkspace.querySelectorAll("*").length + 1,
+      transactionsWorkspaceElements:
+        transactionsWorkspace.querySelectorAll("*").length + 1,
+      transferWorkspaceElements:
+        transferWorkspace === null
+          ? 0
+          : transferWorkspace.querySelectorAll("*").length + 1,
+      settingsWorkspaceElements:
+        settingsWorkspace === null
+          ? 0
+          : settingsWorkspace.querySelectorAll("*").length + 1,
+    };
+  });
 }
 
 function startNextServer(mode: BrowserBenchmarkMode, port: number): ChildProcess {
