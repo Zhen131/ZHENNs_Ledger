@@ -1,0 +1,153 @@
+{
+  "backupFormatVersion": 3,
+  "appVersion": "0.1.0-golden-rich",
+  "exportedAt": "2026-08-15T09:00:00Z",
+  "ledgerSchemaVersion": 4,
+  "ledgerData": {
+    "schemaVersion": 4,
+    "assets": [
+      {
+        "id": "asset-btc",
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "quoteCurrency": "USDT",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "BTCUSDT",
+          "baseAsset": "BTC",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "asset-eth",
+        "symbol": "ETH",
+        "name": "Ethereum",
+        "quoteCurrency": "USDT",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "ETHUSDT",
+          "baseAsset": "ETH",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      },
+      {
+        "id": "asset-ada",
+        "symbol": "ADA",
+        "name": "Cardano",
+        "quoteCurrency": "USDT",
+        "binanceMapping": {
+          "provider": "binance",
+          "symbol": "ADAUSDT",
+          "baseAsset": "ADA",
+          "quoteAsset": "USDT"
+        },
+        "createdAt": "2026-07-13T00:00:00Z",
+        "updatedAt": "2026-07-13T00:00:00Z"
+      }
+    ],
+    "trades": [
+      {
+        "id": "golden-storage-buy-001",
+        "occurredAt": "2026-08-10T09:00:00Z",
+        "timePrecision": "second",
+        "type": "buy",
+        "assetSymbol": "BTC",
+        "quantity": "5",
+        "price": "10",
+        "totalValue": "50",
+        "currency": "USDT",
+        "fee": "0.5",
+        "feeCurrency": "USDT",
+        "platform": "Fictional Exchange",
+        "note": "Fictional first cost lot.",
+        "rawText": "Fictional golden fixture: buy five BTC at ten USDT.",
+        "createdAt": "2026-08-10T09:00:00Z",
+        "updatedAt": "2026-08-10T09:00:00Z"
+      },
+      {
+        "id": "golden-storage-buy-002",
+        "occurredAt": "2026-08-11T09:00:00Z",
+        "timePrecision": "second",
+        "type": "buy",
+        "assetSymbol": "BTC",
+        "quantity": "7",
+        "price": "20",
+        "totalValue": "140",
+        "currency": "USDT",
+        "fee": "0.7",
+        "feeCurrency": "USDT",
+        "platform": "Fictional Exchange",
+        "note": "Fictional second cost lot.",
+        "rawText": "Fictional golden fixture: buy seven BTC at twenty USDT.",
+        "createdAt": "2026-08-11T09:00:00Z",
+        "updatedAt": "2026-08-11T09:00:00Z"
+      },
+      {
+        "id": "golden-storage-sell-001",
+        "occurredAt": "2026-08-12T09:00:00Z",
+        "timePrecision": "second",
+        "type": "sell",
+        "assetSymbol": "BTC",
+        "quantity": "6",
+        "price": "30",
+        "totalValue": "180",
+        "currency": "USDT",
+        "fee": "0.9",
+        "feeCurrency": "USDT",
+        "platform": "Fictional Exchange",
+        "note": "Fictional sale consuming both cost lots.",
+        "rawText": "Fictional golden fixture: sell six BTC at thirty USDT.",
+        "createdAt": "2026-08-12T09:00:00Z",
+        "updatedAt": "2026-08-12T09:00:00Z"
+      }
+    ],
+    "cashEvents": [
+      {
+        "id": "golden-storage-cash-deposit",
+        "occurredAt": "2026-08-09T09:00:00Z",
+        "timePrecision": "second",
+        "type": "deposit",
+        "currency": "USDT",
+        "amount": "500",
+        "note": "Fictional cash funding for the golden fixture.",
+        "createdAt": "2026-08-09T09:00:00Z",
+        "updatedAt": "2026-08-09T09:00:00Z"
+      }
+    ],
+    "assetTransfers": [
+      {
+        "id": "golden-storage-internal-transfer",
+        "occurredAt": "2026-08-13T09:00:00Z",
+        "timePrecision": "second",
+        "assetSymbol": "BTC",
+        "quantity": "2",
+        "category": "internal",
+        "reason": "internal-move",
+        "networkFee": "0.1",
+        "fromLocation": "exchange",
+        "toLocation": "cold-wallet",
+        "note": "Fictional transfer retaining BTC in two locations.",
+        "createdAt": "2026-08-13T09:00:00Z",
+        "updatedAt": "2026-08-13T09:00:00Z"
+      }
+    ],
+    "priceSnapshots": [
+      {
+        "assetSymbol": "BTC",
+        "price": "31.25",
+        "currency": "USDT",
+        "recordedAt": "2026-08-14T09:00:00Z",
+        "source": "manual",
+        "note": "Fictional BTC price for the golden fixture.",
+        "id": "golden-storage-price-btc",
+        "createdAt": "2026-08-14T09:00:00Z",
+        "updatedAt": "2026-08-14T09:00:00Z"
+      }
+    ],
+    "feeRules": []
+  }
+}
