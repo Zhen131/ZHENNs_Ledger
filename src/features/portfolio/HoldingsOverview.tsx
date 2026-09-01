@@ -1,6 +1,6 @@
 import type { DecimalString, Position } from "@/core/models";
 import { compare, divide, isZero, subtract } from "@/core/shared";
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, useLanguage } from "@/ui";
 import type { Ref } from "react";
 
 export function getTopMarketValuePositions(
@@ -59,6 +59,7 @@ export function HoldingsOverview({
   onShowAll: () => void;
   triggerRef?: Ref<HTMLButtonElement>;
 }>) {
+  const { t } = useLanguage();
   const topPositions = getTopMarketValuePositions(positions);
   const missingPriceAssets = positions
     .filter(
@@ -72,9 +73,9 @@ export function HoldingsOverview({
     <div className="min-w-0">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold">当前持仓</h3>
+          <h3 className="font-semibold">{t("portfolio.overview.heading")}</h3>
           <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-            按当前市值展示前五。本表所有数字都只描述现在还持有的部分；持仓均价与剩余持仓成本均已包含手续费。
+            {t("portfolio.overview.description")}
           </p>
         </div>
         <button
@@ -83,12 +84,12 @@ export function HoldingsOverview({
           ref={triggerRef}
           type="button"
         >
-          查看全部持仓
+          {t("portfolio.overview.showAll")}
         </button>
       </div>
       {topPositions.length === 0 && cashBalance === "0" ? (
         <p className="mt-3 text-sm text-[var(--ledger-muted)]">
-          暂无非零资产；现金 USDT 仍显示为 0。
+          {t("portfolio.overview.empty")}
         </p>
       ) : null}
       <div
@@ -96,20 +97,20 @@ export function HoldingsOverview({
         data-holdings-scroll="true"
       >
         <table
-          aria-label="前五持仓"
+          aria-label={t("portfolio.overview.tableAriaLabel")}
           className="w-full min-w-[1120px] border-separate border-spacing-0 text-left text-sm"
         >
           <thead className="text-xs text-[var(--ledger-muted)]">
             <tr>
               {[
-                "币种",
-                "当前价格",
-                "持仓均价",
-                "相对均价涨跌",
-                "未实现盈亏",
-                "持仓量",
-                "剩余持仓成本",
-                "当前市值",
+                t("portfolio.overview.column.asset"),
+                t("portfolio.overview.column.latestPrice"),
+                t("portfolio.overview.column.averageCost"),
+                t("portfolio.overview.column.priceChange"),
+                t("portfolio.overview.column.unrealizedPnl"),
+                t("portfolio.overview.column.quantity"),
+                t("portfolio.overview.column.costBasis"),
+                t("portfolio.overview.column.marketValue"),
               ].map((label) => (
                 <th
                   className="whitespace-nowrap border-b border-[var(--ledger-border)] px-3 py-2 font-medium first:pl-0 last:pr-0"
@@ -127,13 +128,13 @@ export function HoldingsOverview({
                 className="whitespace-nowrap rounded-l-xl px-3 py-3 font-semibold first:pl-3"
                 scope="row"
               >
-                现金 USDT
+                {t("portfolio.overview.cash")}
               </th>
               <td
                 className="rounded-r-xl px-3 py-3 font-semibold"
                 colSpan={7}
               >
-                余额 <LedgerNumber kind="money" value={cashBalance} /> USDT
+                {t("portfolio.overview.balance")} <LedgerNumber kind="money" value={cashBalance} /> USDT
               </td>
             </tr>
             {topPositions.map((position) => {
@@ -154,7 +155,7 @@ export function HoldingsOverview({
                   </th>
                   <td className="whitespace-nowrap px-3 py-3">
                     {position.latestPrice === undefined ? (
-                      "缺少合法价格"
+                      t("portfolio.overview.missingPrice")
                     ) : (
                       <>
                         <LedgerNumber
@@ -167,7 +168,7 @@ export function HoldingsOverview({
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     {hasUnreliableCost ? (
-                      "不可可靠计算"
+                      t("portfolio.overview.unreliable")
                     ) : (
                       <>
                         <LedgerNumber
@@ -182,9 +183,9 @@ export function HoldingsOverview({
                     className={`whitespace-nowrap px-3 py-3 font-semibold ${toneClass}`}
                   >
                     {hasUnreliableCost ? (
-                      "不可可靠计算"
+                      t("portfolio.overview.unreliable")
                     ) : changeRatio === undefined ? (
-                      "不可计算"
+                      t("portfolio.overview.unavailable")
                     ) : (
                       <LedgerNumber kind="percent" value={changeRatio} />
                     )}
@@ -193,9 +194,9 @@ export function HoldingsOverview({
                     className={`whitespace-nowrap px-3 py-3 font-semibold ${toneClass}`}
                   >
                     {hasUnreliableCost ? (
-                      "不可可靠计算"
+                      t("portfolio.overview.unreliable")
                     ) : position.unrealizedPnl === undefined ? (
-                      "不可完整计算"
+                      t("portfolio.overview.incomplete")
                     ) : (
                       <>
                         <LedgerNumber
@@ -211,7 +212,7 @@ export function HoldingsOverview({
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
                     {hasUnreliableCost ? (
-                      "不可可靠计算"
+                      t("portfolio.overview.unreliable")
                     ) : (
                       <>
                         <LedgerNumber
@@ -224,7 +225,7 @@ export function HoldingsOverview({
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 last:pr-0">
                     {position.marketValue === undefined ? (
-                      "缺少合法价格"
+                      t("portfolio.overview.missingPrice")
                     ) : (
                       <>
                         <LedgerNumber
@@ -243,7 +244,7 @@ export function HoldingsOverview({
       </div>
       {missingPriceAssets.length > 0 ? (
         <p className="mt-2 text-xs font-medium text-amber-800">
-          未参与排名：{missingPriceAssets.join("、")} 缺少合法当前价格。
+          {t("portfolio.overview.excludedPrefix")}{missingPriceAssets.join(t("portfolio.overview.joinSeparator"))}{t("portfolio.overview.excludedSuffix")}
         </p>
       ) : null}
     </div>
