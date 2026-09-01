@@ -1,0 +1,93 @@
+{
+  "evidenceFormatVersion": 1,
+  "batch": "W15-storage-cost",
+  "phase": "S3-independent-count-chunks-final",
+  "sourceCommit": "c6d57c4",
+  "sourceBranch": "zhennn/w15-main-chunked-storage",
+  "mode": "production",
+  "browserVersion": "152.0.7977.65",
+  "comparisonSourceCommit": "2723b46",
+  "comparisonPhase": "S2-whole-ledger-rotating-slots",
+  "dataClassification": "synthetic-only",
+  "browserRuns": [
+    {
+      "sequence": 1,
+      "scale": "S-100",
+      "startedAt": "2026-09-01T12:34:09+02:00",
+      "resultObservedAt": "2026-09-01T12:34:29.375+02:00",
+      "resultFile": "01-s3-final-S-100.json",
+      "m3MedianMs": 126.936,
+      "m3SampleCount": 10,
+      "nextRunStartedAt": "2026-09-01T12:40:12+02:00"
+    },
+    {
+      "sequence": 2,
+      "scale": "S-1K",
+      "startedAt": "2026-09-01T12:40:12+02:00",
+      "resultObservedAt": "2026-09-01T12:40:31.061+02:00",
+      "resultFile": "02-s3-final-S-1K.json",
+      "m3MedianMs": 132.813,
+      "m3SampleCount": 10,
+      "nextRunStartedAt": "2026-09-01T12:47:36+02:00",
+      "cooldownNote": "The cooldown was conservatively restarted from zero after the last timer output before context compaction was not retained as verifiable evidence."
+    },
+    {
+      "sequence": 3,
+      "scale": "S-10K",
+      "startedAt": "2026-09-01T12:47:36+02:00",
+      "resultFile": "03-s3-final-S-10K.json",
+      "m3MedianMs": 257.767,
+      "m3SampleCount": 10,
+      "nextRunStartedAt": "2026-09-01T12:53:38+02:00"
+    },
+    {
+      "sequence": 4,
+      "scale": "S-100K",
+      "startedAt": "2026-09-01T12:53:38+02:00",
+      "resultFile": "04-s3-final-S-100K.json",
+      "m3MedianMs": 1556.137,
+      "m3SampleCount": 3,
+      "finalCooldownCompleted": true
+    }
+  ],
+  "cooldownRule": "Each numbered run was followed by at least 300 seconds of idle time before another benchmark, test, or repository operation. Each cooldown was recorded as six completed 50-second waits. The S-1K to S-10K cooldown was restarted from zero because one earlier wait output was lost at context compaction; only the fully repeated 300 seconds is credited. The final S-100K run was followed by the same six-wait cooldown.",
+  "m3Comparison": [
+    {
+      "scale": "S-100",
+      "s2MedianMs": 106.736,
+      "s3MedianMs": 126.936,
+      "deltaMs": 20.2,
+      "percentChange": 18.93
+    },
+    {
+      "scale": "S-1K",
+      "s2MedianMs": 207.85,
+      "s3MedianMs": 132.813,
+      "deltaMs": -75.037,
+      "percentChange": -36.1
+    },
+    {
+      "scale": "S-10K",
+      "s2MedianMs": 1188.917,
+      "s3MedianMs": 257.767,
+      "deltaMs": -931.15,
+      "percentChange": -78.32
+    },
+    {
+      "scale": "S-100K",
+      "s2MedianMs": 11449.299,
+      "s3MedianMs": 1556.137,
+      "deltaMs": -9893.162,
+      "percentChange": -86.41
+    }
+  ],
+  "excludedRuns": [
+    {
+      "directory": "../s3-chunked-blocks",
+      "sourceCommit": "0080724",
+      "classification": "initial-s3-regression-diagnostic",
+      "reason": "These four results expose the first S3 implementation's O(total-ledger) save regression. Their start timestamps were not persisted, so they are retained as raw diagnostic evidence and are not presented as the final numbered measurement series."
+    }
+  ],
+  "interpretation": "S3 stores independently encrypted count-based fact chunks with no inter-chunk hash chain. The ordinary append path rewrites only the open chunk plus a header, while retaining complete readback and exact byte verification. The final data are compared only against the committed S2 baseline; the excluded initial S3 results remain separately attributable regression evidence."
+}
