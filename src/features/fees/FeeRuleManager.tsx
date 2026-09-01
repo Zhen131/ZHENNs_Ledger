@@ -14,7 +14,7 @@ import {
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, useLanguage } from "@/ui";
 
 type FeeRuleManagerProps = Readonly<{
   clock?: LedgerClock;
@@ -45,6 +45,7 @@ const initialForm: FormState = {
 };
 
 const SUCCESS_FEEDBACK_MS = 4_000;
+type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function FeeRuleManager({
   clock = systemLedgerClock,
@@ -57,6 +58,8 @@ export function FeeRuleManager({
   onAction,
   presentation = "legacy",
 }: FeeRuleManagerProps) {
+  const { t } = useLanguage();
+  const certifiedSavedMessage = t("fees.status.certifiedSaved");
   const [form, setForm] = useState<FormState>(() => ({
     ...initialForm,
     assetSymbol: ledgerData.assets[0]?.symbol ?? "",
@@ -91,24 +94,24 @@ export function FeeRuleManager({
       persistenceStatus === "saved"
     ) {
       setPendingVersion(null);
-      setMessage("手续费规则已认证保存");
+      setMessage(certifiedSavedMessage);
       return;
     }
     if (persistenceStatus === "error") {
       setPendingVersion(null);
       setMessage("");
-      setError("手续费规则仍在内存中，但尚未保存；请重试保存");
+      setError(t("fees.status.unsaved"));
     }
-  }, [pendingVersion, persistedVersion, persistenceStatus]);
+  }, [certifiedSavedMessage, pendingVersion, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {
-    if (message !== "手续费规则已认证保存") return;
+    if (message !== certifiedSavedMessage) return;
     const timeout = setTimeout(
       () => setMessage(""),
       SUCCESS_FEEDBACK_MS,
     );
     return () => clearTimeout(timeout);
-  }, [message]);
+  }, [certifiedSavedMessage, message]);
 
   function apply(action: LedgerAction, pendingMessage: string) {
     setError("");
@@ -117,8 +120,8 @@ export function FeeRuleManager({
     if (result !== "applied") {
       setError(
         result === "rejected"
-          ? "账本当前不可写，规则没有变更"
-          : "规则没有变更；请检查 ID、状态或版本关系",
+          ? t("fees.status.ledgerNotWritable")
+          : t("fees.status.unchanged"),
       );
       return;
     }
@@ -128,14 +131,14 @@ export function FeeRuleManager({
 
   function submitNewRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const validation = validateForm(form);
+    const validation = validateForm(form, t);
     if (validation) {
       setError(validation);
       return;
     }
     const id = createUniqueFeeRuleId(ledgerData);
     if (!id) {
-      setError("连续三次未能生成全局唯一的手续费规则 ID");
+      setError(t("fees.error.idGenerationExhausted"));
       return;
     }
     const timestamp = captureLedgerTime(clock).now.toISOString();
@@ -153,18 +156,18 @@ export function FeeRuleManager({
       form.type === "fixed"
         ? { ...common, type: "fixed", amount: form.value }
         : { ...common, type: "percentage", rate: form.value };
-    apply({ type: "feeRule/add", feeRule }, "手续费规则待保存");
+    apply({ type: "feeRule/add", feeRule }, t("fees.status.pendingAdd"));
   }
 
   function replaceRule(rule: FeeRule) {
     const value = revisionValues[rule.id] ?? "";
     if (!isValidNonNegativeDecimal(value)) {
-      setError("新版本金额或费率必须是大于等于 0 的十进制数");
+      setError(t("fees.error.revisionInvalid"));
       return;
     }
     const id = createUniqueFeeRuleId(ledgerData);
     if (!id) {
-      setError("连续三次未能生成全局唯一的手续费规则 ID");
+      setError(t("fees.error.idGenerationExhausted"));
       return;
     }
     const timestamp = captureLedgerTime(clock).now.toISOString();
@@ -190,7 +193,7 @@ export function FeeRuleManager({
         replacement,
         deactivatedAt: timestamp,
       },
-      "新规则版本待保存",
+      t("fees.status.pendingReplace"),
     );
   }
 
@@ -201,7 +204,7 @@ export function FeeRuleManager({
         feeRuleId: rule.id,
         deactivatedAt: captureLedgerTime(clock).now.toISOString(),
       },
-      "规则停用待保存",
+      t("fees.status.pendingDeactivate"),
     );
   }
 
@@ -212,16 +215,15 @@ export function FeeRuleManager({
           className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
           role="status"
         >
-          暂不可修改：当前账本只读或文件操作尚未完成。
+          {t("fees.readOnlyNotice")}
         </p>
       ) : null}
       {conflicts.length > 0 ? (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
-          <p className="font-semibold">存在手续费规则冲突</p>
+          <p className="font-semibold">{t("fees.conflict.heading")}</p>
           {conflicts.map((rules) => (
             <p key={`${rules[0].platform}-${rules[0].assetSymbol}`}>
-              {rules[0].platform} + {rules[0].assetSymbol} 有 {rules.length} 条 active
-              规则；交易录入不会自动选择。
+              {rules[0].platform} + {rules[0].assetSymbol} {t("fees.conflict.countPrefix")} {rules.length} {t("fees.conflict.countSuffix")}
             </p>
           ))}
         </div>
@@ -244,14 +246,14 @@ export function FeeRuleManager({
       >
         {presentation === "settings" ? (
           <div className="md:col-span-2">
-            <h3 className="font-semibold">新增规则版本</h3>
+            <h3 className="font-semibold">{t("fees.newVersion.heading")}</h3>
             <p className="mt-1 text-xs text-slate-500">
-              历史规则不原地改写；调整费率时创建新版本并停用旧版。
+              {t("fees.newVersion.description")}
             </p>
           </div>
         ) : null}
         <label className="grid gap-1 text-sm font-medium">
-          规则名
+          {t("fees.field.name")}
           <input
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable}
@@ -260,7 +262,7 @@ export function FeeRuleManager({
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          平台（精确匹配）
+          {t("fees.field.platform")}
           <input
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable}
@@ -269,7 +271,7 @@ export function FeeRuleManager({
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          规则资产
+          {t("fees.field.asset")}
           <select
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable}
@@ -282,19 +284,19 @@ export function FeeRuleManager({
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          规则类型
+          {t("fees.field.type")}
           <select
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable}
             onChange={(event) => setForm({ ...form, type: event.target.value as FormState["type"] })}
             value={form.type}
           >
-            <option value="fixed">固定费</option>
-            <option value="percentage">成交金额比例</option>
+            <option value="fixed">{t("fees.type.fixed")}</option>
+            <option value="percentage">{t("fees.type.percentage")}</option>
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          {form.type === "fixed" ? "金额（USDT）" : "小数费率"}
+          {form.type === "fixed" ? t("fees.field.fixedAmount") : t("fees.field.rate")}
           <input
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable}
@@ -308,7 +310,7 @@ export function FeeRuleManager({
           disabled={!isWritable}
           type="submit"
         >
-          新增手续费规则
+          {t("fees.action.add")}
         </button>
       </form>
 
@@ -320,10 +322,10 @@ export function FeeRuleManager({
         }
       >
         {presentation === "settings" ? (
-          <h3 className="font-semibold">规则历史</h3>
+          <h3 className="font-semibold">{t("fees.history.heading")}</h3>
         ) : null}
         {ledgerData.feeRules.length === 0 ? (
-          <p className="text-sm text-slate-500">暂无手续费规则。</p>
+          <p className="text-sm text-slate-500">{t("fees.history.empty")}</p>
         ) : ledgerData.feeRules.map((rule) => (
           <article className="min-w-0 break-words rounded-md border border-slate-200 p-3 text-sm" key={rule.id}>
             <p className="font-medium">
@@ -332,25 +334,25 @@ export function FeeRuleManager({
             <p className="mt-1 text-slate-600">
               {rule.type === "fixed" ? (
                 <>
-                  固定 <LedgerNumber kind="money" value={rule.amount} /> USDT
+                  {t("fees.type.fixed")} <LedgerNumber kind="money" value={rule.amount} /> USDT
                 </>
               ) : (
                 <>
-                  成交金额 × <LedgerNumber kind="percent" value={rule.rate} />
+                  {t("fees.history.tradeValue")} × <LedgerNumber kind="percent" value={rule.rate} />
                 </>
               )} · ID {rule.id}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              创建 {rule.createdAt}
-              {rule.replacesFeeRuleId ? ` · 替代 ${rule.replacesFeeRuleId}` : ""}
-              {rule.deactivatedAt ? ` · 停用 ${rule.deactivatedAt}` : ""}
+              {t("fees.history.created")} {rule.createdAt}
+              {rule.replacesFeeRuleId ? ` · ${t("fees.history.replaces")} ${rule.replacesFeeRuleId}` : ""}
+              {rule.deactivatedAt ? ` · ${t("fees.history.deactivated")} ${rule.deactivatedAt}` : ""}
             </p>
             {rule.status === "active" ? (
               <div className="mt-3 flex flex-wrap items-end gap-2">
                 <label className="grid gap-1 text-xs font-medium">
-                  新版本{rule.type === "fixed" ? "金额" : "费率"}
+                  {t("fees.history.newVersion")}{rule.type === "fixed" ? t("fees.field.amount") : t("fees.field.rate")}
                   <input
-                    aria-label={`${rule.name} 新版本${rule.type === "fixed" ? "金额" : "费率"}`}
+                    aria-label={`${rule.name} ${t("fees.history.newVersion")}${rule.type === "fixed" ? t("fees.field.amount") : t("fees.field.rate")}`}
                     className="rounded-md border border-slate-200 px-2 py-1 text-sm font-normal"
                     disabled={!isWritable}
                     inputMode="decimal"
@@ -364,7 +366,7 @@ export function FeeRuleManager({
                   onClick={() => replaceRule(rule)}
                   type="button"
                 >
-                  创建新版本并停用旧版
+                  {t("fees.action.replace")}
                 </button>
                 <button
                   className="rounded-md border border-red-300 px-3 py-1.5 font-medium text-red-700 disabled:opacity-50"
@@ -372,7 +374,7 @@ export function FeeRuleManager({
                   onClick={() => deactivateRule(rule)}
                   type="button"
                 >
-                  停用规则
+                  {t("fees.action.deactivate")}
                 </button>
               </div>
             ) : null}
@@ -429,16 +431,16 @@ function createUniqueFeeRuleId(ledgerData: LedgerData): string | undefined {
   return undefined;
 }
 
-function validateForm(form: FormState): string | null {
+function validateForm(form: FormState, t: Translate): string | null {
   if (!form.name || form.name !== form.name.trim()) {
-    return "规则名必须非空且不能有首尾空白";
+    return t("fees.error.nameInvalid");
   }
   if (!form.platform || form.platform !== form.platform.trim()) {
-    return "平台必须非空且不能有首尾空白";
+    return t("fees.error.platformInvalid");
   }
-  if (!form.assetSymbol) return "请选择资产";
+  if (!form.assetSymbol) return t("fees.error.assetRequired");
   if (!isValidNonNegativeDecimal(form.value)) {
-    return "金额或费率必须是大于等于 0 的十进制数";
+    return t("fees.error.valueInvalid");
   }
   return null;
 }
