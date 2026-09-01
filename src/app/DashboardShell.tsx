@@ -306,8 +306,8 @@ export function DashboardShell({
     if (!result.ok) {
       setError(
         result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
-          ? "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出"
-          : "无法删除：没有找到这笔交易",
+          ? t("dashboard.delete.tradeHasDependents")
+          : t("dashboard.delete.tradeMissing"),
       );
       return "rejected";
     }
@@ -317,7 +317,7 @@ export function DashboardShell({
       tradeId: result.tradeId,
     });
     setError(
-      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
     );
     return outcome;
   }
@@ -347,7 +347,7 @@ export function DashboardShell({
       priceSnapshotId,
     });
     setFutureCorrectionError(
-      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
     );
     return outcome;
   }
@@ -370,7 +370,7 @@ export function DashboardShell({
       assetTransferId: result.assetTransferId,
     });
     setFutureCorrectionError(
-      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
     );
     return outcome;
   }
@@ -384,7 +384,7 @@ export function DashboardShell({
       todayKey,
     });
     setFutureCorrectionError(
-      outcome === "rejected" ? "账本当前不可写，删除未执行" : "",
+      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
     );
     return outcome;
   }
@@ -419,7 +419,7 @@ export function DashboardShell({
   async function handleClearLedger() {
     if (clearConfirmationValue !== clearConfirmationText) {
       setClearConfirmationError(
-        `请输入完整确认文本“${clearConfirmationText}”`,
+        `${t("dashboard.clearConfirmation.errorPrefix")}“${clearConfirmationText}”`,
       );
       return;
     }
@@ -446,8 +446,8 @@ export function DashboardShell({
     setClearConfirmationValue("");
     setClearSuccessMessage(
       storageKind === "ledger-file"
-        ? "当前账本文件内容已清空"
-        : "账本已清空",
+        ? t("dashboard.clearSuccess.file")
+        : t("dashboard.clearSuccess.legacy"),
     );
   }
 
@@ -530,10 +530,10 @@ export function DashboardShell({
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-950">
         <section className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
           <h1 className="text-xl font-semibold text-slate-950">
-            正在自动关闭账本
+            {t("dashboard.session.fatalTitle")}
           </h1>
           <p aria-live="assertive" className="mt-3 text-sm leading-6 text-slate-700">
-            导入后的文件状态无法确认。系统已停止新操作，正在撤销当前会话并释放文件；不会自动修复、覆盖或继续写入。
+            {t("dashboard.session.fatalDescription")}
           </p>
         </section>
       </main>
@@ -544,7 +544,7 @@ export function DashboardShell({
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-950">
         <p aria-live="polite" className="text-sm text-slate-700">
-          正在安全锁定：已停止新操作，正在等待已接受的保存收尾…
+          {t("dashboard.session.quiescing")}
         </p>
       </main>
     );
@@ -567,14 +567,14 @@ export function DashboardShell({
     >
       {showLockConfirmation ? (
             <section
-              aria-label="未保存修改锁定确认"
+              aria-label={t("dashboard.lockConfirmation.ariaLabel")}
               className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-900"
             >
-              <p className="font-medium">还有内容没保存</p>
+              <p className="font-medium">{t("dashboard.lockConfirmation.heading")}</p>
               <p className="mt-1 leading-6">
                 {lockConfirmationHasDrafts
-                  ? "还有未提交的表单草稿。锁定会丢弃草稿；已经进入底层写入的操作仍会安全收尾，不会被强行打断。"
-                  : "你可以重新保存；如果确定这些未保存修改不要了，再继续锁定。已经进入底层写入的操作仍会安全收尾，不会被强行打断。"}
+                  ? t("dashboard.lockConfirmation.withDrafts")
+                  : t("dashboard.lockConfirmation.withoutDrafts")}
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <button
@@ -586,21 +586,21 @@ export function DashboardShell({
                   onClick={() => void retrySaveBeforeLock()}
                   type="button"
                 >
-                  重新保存
+                  {t("dashboard.lockConfirmation.retrySave")}
                 </button>
                 <button
                   className="rounded-md bg-red-700 px-3 py-2 font-medium text-white"
                   onClick={confirmDiscardAndLock}
                   type="button"
                 >
-                  我确定不要了，继续锁定
+                  {t("dashboard.lockConfirmation.discardAndLock")}
                 </button>
                 <button
                   className="rounded-md border border-slate-300 bg-white px-3 py-2 font-medium text-slate-700"
                   onClick={() => setShowLockConfirmation(false)}
                   type="button"
                 >
-                  取消
+                  {t("dashboard.action.cancel")}
                 </button>
               </div>
             </section>
@@ -611,7 +611,7 @@ export function DashboardShell({
               aria-live="polite"
               className="mb-5 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
             >
-              正在读取本地账本，完成前不会写入任何数据。
+              {t("dashboard.hydration.loading")}
             </p>
           ) : null}
           {hydrationStatus === "error" ? (
@@ -628,8 +628,8 @@ export function DashboardShell({
               className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
             >
               {isReadOnly
-                ? `当前账本超过资源上限，已只读加载：${resourcePolicyError.message}`
-                : `操作被资源边界拒绝：${resourcePolicyError.message}`}
+                ? `${t("dashboard.resource.readOnlyPrefix")}${resourcePolicyError.message}`
+                : `${t("dashboard.resource.rejectedPrefix")}${resourcePolicyError.message}`}
             </p>
           ) : null}
           {hydrationStatus === "ready" && persistenceError ? (
@@ -645,7 +645,7 @@ export function DashboardShell({
                   onClick={() => void retryPersistence()}
                   type="button"
                 >
-                  重试保存
+                  {t("dashboard.action.retrySave")}
                 </button>
               ) : null}
             </div>
@@ -656,14 +656,14 @@ export function DashboardShell({
                 aria-live="polite"
                 className="mb-5 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"
               >
-                正在保存到本地
+                {t("dashboard.persistence.saving")}
               </p>
             ) : persistenceStatus === "saved" && showSavedFeedback ? (
               <p
                 aria-live="polite"
                 className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
               >
-                已保存到本地
+                {t("dashboard.persistence.saved")}
               </p>
             ) : null
           ) : null}
@@ -673,14 +673,14 @@ export function DashboardShell({
               className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
             >
               <p>
-                当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。
+                {t("dashboard.repositorySwitchBlocked.description")}
               </p>
               <button
                 className="rounded-md border border-red-300 bg-white px-3 py-1.5 font-medium"
                 onClick={discardDirtyChangesAndSwitchRepository}
                 type="button"
               >
-                放弃未保存更改并切换
+                {t("dashboard.repositorySwitchBlocked.action")}
               </button>
             </div>
           ) : null}
@@ -689,7 +689,7 @@ export function DashboardShell({
               aria-live="assertive"
               className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
             >
-              <p className="font-semibold">旧账本兼容警告</p>
+              <p className="font-semibold">{t("dashboard.compatibility.heading")}</p>
               <ul className="mt-2 grid gap-1">
                 {compatibilityWarnings.slice(0, 8).map((warning, index) => (
                   <li key={`${warning.code}-${warning.path}-${index}`}>
@@ -701,9 +701,9 @@ export function DashboardShell({
           ) : null}
           {isFutureFactCorrectionMode ? (
             <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">
-              <p className="font-semibold">未来事实纠正模式</p>
+              <p className="font-semibold">{t("dashboard.futureFacts.heading")}</p>
               <p>
-                未来交易、价格和资产转入转出不会进入持仓、行情选择或图表。普通新增、正常历史删除和 Binance 刷新已暂停；仍可逐条删除未来事实、救援导出、导入合法整账、清空或删除全部无效未来事实。
+                {t("dashboard.futureFacts.description")}
               </p>
               {futureCorrectionError ? (
                 <p
@@ -720,17 +720,17 @@ export function DashboardShell({
                     key={trade.id}
                   >
                     <span>
-                      未来交易：{trade.type === "buy" ? "买入" : "卖出"} ·{" "}
-                      {trade.assetSymbol} · 数量{" "}
-                      <LedgerNumber kind="quantity" value={trade.quantity} /> · 价格{" "}
+                      {t("dashboard.futureFacts.trade")}：{trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")} ·{" "}
+                      {trade.assetSymbol} · {t("dashboard.futureFacts.quantity")} {" "}
+                      <LedgerNumber kind="quantity" value={trade.quantity} /> · {t("dashboard.futureFacts.price")} {" "}
                       <LedgerNumber kind="money" value={trade.price} />{" "}
                       {trade.currency} · {trade.occurredAt} · ID{" "}
                       {shortLedgerId(trade.id)}
                     </span>
                     <ConfirmDeleteButton
-                      ariaLabel={`删除未来交易 ${trade.assetSymbol} ${trade.occurredAt} ${trade.id}`}
+                      ariaLabel={`${t("dashboard.futureFacts.deleteTrade")} ${trade.assetSymbol} ${trade.occurredAt} ${trade.id}`}
                       disabled={!canCorrectFutureFacts}
-                      label="删除未来交易"
+                      label={t("dashboard.futureFacts.deleteTrade")}
                       onConfirm={() => handleDeleteFutureTrade(trade.id)}
                     />
                   </li>
@@ -741,16 +741,16 @@ export function DashboardShell({
                     key={snapshot.id}
                   >
                     <span>
-                      未来价格：{snapshot.assetSymbol} ·{" "}
+                      {t("dashboard.futureFacts.priceSnapshot")}：{snapshot.assetSymbol} ·{" "}
                       <LedgerNumber kind="money" value={snapshot.price} />{" "}
-                      {snapshot.currency} · 来源{" "}
-                      {snapshot.source === "api" ? "Binance API" : "手动"} ·{" "}
+                      {snapshot.currency} · {t("dashboard.futureFacts.source")} {" "}
+                      {snapshot.source === "api" ? "Binance API" : t("dashboard.futureFacts.manual")} ·{" "}
                       {snapshot.recordedAt} · ID {shortLedgerId(snapshot.id)}
                     </span>
                     <ConfirmDeleteButton
-                      ariaLabel={`删除未来价格 ${snapshot.assetSymbol} ${snapshot.recordedAt} ${snapshot.id}`}
+                      ariaLabel={`${t("dashboard.futureFacts.deletePrice")} ${snapshot.assetSymbol} ${snapshot.recordedAt} ${snapshot.id}`}
                       disabled={!canCorrectFutureFacts}
-                      label="删除未来价格"
+                      label={t("dashboard.futureFacts.deletePrice")}
                       onConfirm={() =>
                         handleDeleteFuturePrice(snapshot.id)
                       }
@@ -763,7 +763,7 @@ export function DashboardShell({
                     key={assetTransfer.id}
                   >
                     <span>
-                      未来资产转移：{assetTransfer.assetSymbol} · 数量{" "}
+                      {t("dashboard.futureFacts.assetTransfer")}：{assetTransfer.assetSymbol} · {t("dashboard.futureFacts.quantity")} {" "}
                       <LedgerNumber
                         kind="quantity"
                         value={assetTransfer.quantity}
@@ -772,9 +772,9 @@ export function DashboardShell({
                       {shortLedgerId(assetTransfer.id)}
                     </span>
                     <ConfirmDeleteButton
-                      ariaLabel={`删除未来资产转移 ${assetTransfer.assetSymbol} ${assetTransfer.occurredAt} ${assetTransfer.id}`}
+                      ariaLabel={`${t("dashboard.futureFacts.deleteAssetTransfer")} ${assetTransfer.assetSymbol} ${assetTransfer.occurredAt} ${assetTransfer.id}`}
                       disabled={!canCorrectFutureFacts}
-                      label="删除未来资产转移"
+                      label={t("dashboard.futureFacts.deleteAssetTransfer")}
                       onConfirm={() =>
                         handleDeleteFutureAssetTransfer(assetTransfer.id)
                       }
@@ -784,9 +784,9 @@ export function DashboardShell({
               </ul>
               <div className="w-fit">
                 <ConfirmDeleteButton
-                  ariaLabel="删除全部无效未来事实"
+                  ariaLabel={t("dashboard.futureFacts.deleteAll")}
                   disabled={!canCorrectFutureFacts}
-                  label="删除全部无效未来事实"
+                  label={t("dashboard.futureFacts.deleteAll")}
                   onConfirm={handleDeleteAllFutureFacts}
                 />
               </div>
@@ -797,7 +797,7 @@ export function DashboardShell({
           <div className="grid gap-5">
             {session === undefined ? (
             <>
-            <Section title="图表总览与 Binance 行情">
+            <Section title={t("dashboard.section.chartAndMarketData")}>
               <MarketDataControls
                 applyLedgerMutation={applyLedgerMutation}
                 clock={clock}
@@ -814,7 +814,7 @@ export function DashboardShell({
               />
             </Section>
 
-            <Section title="账本图表">
+            <Section title={t("dashboard.section.charts")}>
               <ChartsOverview
                 allocation={allocation}
                 heatmap={heatmap}
@@ -826,36 +826,36 @@ export function DashboardShell({
               />
             </Section>
 
-            <Section title="净盈亏摘要">
+            <Section title={t("dashboard.section.pnlSummary")}>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <SummaryMetricCard
-                  label="累计买入流出"
+                  label={t("dashboard.pnl.buyOutflow")}
                   metric={pnlSummary.buyOutflow}
                   valuationLabel={pnlSummary.valuation.label}
                 />
                 <SummaryMetricCard
-                  label="累计卖出净到账"
+                  label={t("dashboard.pnl.sellProceeds")}
                   metric={pnlSummary.sellProceeds}
                   valuationLabel={pnlSummary.valuation.label}
                 />
                 <SummaryMetricCard
-                  label="剩余持仓成本"
+                  label={t("dashboard.pnl.remainingCostBasis")}
                   metric={pnlSummary.remainingCostBasis}
                   valuationLabel={pnlSummary.valuation.label}
                 />
                 <SummaryMetricCard
-                  label="已实现盈亏"
+                  label={t("dashboard.pnl.realized")}
                   metric={pnlSummary.realizedPnl}
                   valuationLabel={pnlSummary.valuation.label}
                 />
                 <SummaryMetricCard
-                  label="未实现盈亏"
+                  label={t("dashboard.pnl.unrealized")}
                   metric={pnlSummary.unrealizedPnl}
                   valuationLabel={pnlSummary.valuation.label}
                 />
               </div>
               <p className="mt-3 text-xs leading-5 text-slate-500">
-                累计买入流出 = 成交金额 + 实际手续费；累计卖出净到账 = 成交金额 - 实际手续费。缺价或无法换算的异币手续费不会按 0 补入。
+                {t("dashboard.pnl.description")}
               </p>
               {pnlSummary.valuation.usesApproximation ? (
                 <p className="mt-2 text-sm font-medium text-amber-800">
@@ -865,19 +865,19 @@ export function DashboardShell({
             </Section>
 
             <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-              <Section title="资产汇总">
+              <Section title={t("dashboard.section.assets")}>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[960px] text-left text-sm">
                     <thead className="border-b border-slate-200 text-slate-500">
                       <tr>
-                        <th className="py-2 font-medium">资产</th>
-                        <th className="py-2 font-medium">持仓数量</th>
-                        <th className="py-2 font-medium">持仓均价</th>
-                        <th className="py-2 font-medium">剩余持仓成本</th>
-                        <th className="py-2 font-medium">已实现盈亏</th>
-                        <th className="py-2 font-medium">当前价格</th>
-                        <th className="py-2 font-medium">当前市值</th>
-                        <th className="py-2 font-medium">未实现盈亏</th>
+                        <th className="py-2 font-medium">{t("dashboard.assets.asset")}</th>
+                        <th className="py-2 font-medium">{t("dashboard.assets.quantity")}</th>
+                        <th className="py-2 font-medium">{t("dashboard.assets.averagePrice")}</th>
+                        <th className="py-2 font-medium">{t("dashboard.pnl.remainingCostBasis")}</th>
+                        <th className="py-2 font-medium">{t("dashboard.pnl.realized")}</th>
+                        <th className="py-2 font-medium">{t("dashboard.assets.currentPrice")}</th>
+                        <th className="py-2 font-medium">{t("dashboard.assets.marketValue")}</th>
+                        <th className="py-2 font-medium">{t("dashboard.pnl.unrealized")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -887,7 +887,7 @@ export function DashboardShell({
                             className="py-8 text-center text-slate-500"
                             colSpan={8}
                           >
-                            暂无持仓。添加交易后，这里会自动汇总。
+                            {t("dashboard.assets.empty")}
                           </td>
                         </tr>
                       ) : (
@@ -902,7 +902,7 @@ export function DashboardShell({
                               <span>{position.assetSymbol}</span>
                               {!feeAccountingReliable ? (
                                 <span className="mt-1 block text-xs font-normal text-amber-800">
-                                  异币手续费未换算
+                                  {t("dashboard.assets.unconvertedFee")}
                                 </span>
                               ) : null}
                             </td>
@@ -922,7 +922,7 @@ export function DashboardShell({
                                   {position.currency}
                                 </>
                               ) : (
-                                "不可可靠计算"
+                                t("dashboard.assets.unreliable")
                               )}
                             </td>
                             <td className="py-3 text-slate-600">
@@ -935,7 +935,7 @@ export function DashboardShell({
                                   {position.currency}
                                 </>
                               ) : (
-                                "不可可靠计算"
+                                t("dashboard.assets.unreliable")
                               )}
                             </td>
                             <td className="py-3 text-slate-600">
@@ -948,12 +948,12 @@ export function DashboardShell({
                                   {position.currency}
                                 </>
                               ) : (
-                                "不可可靠计算"
+                                t("dashboard.assets.unreliable")
                               )}
                             </td>
                             <td className="py-3 text-slate-500">
                               {position.latestPrice === undefined ? (
-                                "未输入价格"
+                                t("dashboard.assets.noEnteredPrice")
                               ) : (
                                 <>
                                   <LedgerNumber
@@ -979,9 +979,9 @@ export function DashboardShell({
                             </td>
                             <td className="py-3 text-slate-500">
                               {!feeAccountingReliable
-                                ? "不可可靠计算"
+                                ? t("dashboard.assets.unreliable")
                                 : position.unrealizedPnl === undefined
-                                  ? "缺少合法价格"
+                                  ? t("dashboard.assets.missingValidPrice")
                                   : (
                                       <>
                                         <LedgerNumber
@@ -1001,7 +1001,7 @@ export function DashboardShell({
                 </div>
               </Section>
 
-              <Section title="价格输入">
+              <Section title={t("dashboard.section.priceInput")}>
                 <fieldset
                   className={
                     session === undefined && isWritable ? "" : "opacity-60"
@@ -1026,7 +1026,7 @@ export function DashboardShell({
               </Section>
             </div>
 
-            <Section title="新增交易">
+            <Section title={t("dashboard.section.addTrade")}>
               <fieldset
                 className={
                   session === undefined && isWritable ? "" : "opacity-60"
@@ -1050,7 +1050,7 @@ export function DashboardShell({
               </fieldset>
             </Section>
 
-            <Section title="手续费规则">
+            <Section title={t("dashboard.section.feeRules")}>
               <FeeRuleManager
                 clock={clock}
                 isWritable={session === undefined && isWritable}
@@ -1066,8 +1066,8 @@ export function DashboardShell({
             <Section
               title={
                 selectedTradeDate
-                  ? `交易列表 · ${selectedTradeDate}`
-                  : "交易列表"
+                  ? `${t("dashboard.section.tradeList")} · ${selectedTradeDate}`
+                  : t("dashboard.section.tradeList")
               }
             >
               {tradeRemovalError ? (
@@ -1091,12 +1091,12 @@ export function DashboardShell({
             </>
             ) : null}
 
-            <Section title="数据管理">
+            <Section title={t("dashboard.section.dataManagement")}>
               <div className="grid gap-4 text-sm text-slate-700">
                 <p>
                   {storageKind === "ledger-file"
-                    ? "当前 .lftl 文件是唯一正式完整账本；IndexedDB 只保存上次选择的文件句柄和少量连接信息。"
-                    : "本区只管理当前浏览器 origin 下的完整本地账本记录。"}
+                    ? t("dashboard.dataManagement.fileDescription")
+                    : t("dashboard.dataManagement.legacyDescription")}
                 </p>
 
                 <BackupControls
@@ -1120,7 +1120,7 @@ export function DashboardShell({
                 {(capabilities.canClearReadyLedger ||
                   capabilities.canClearHydrationError) &&
                 hydrationStatus === "loading" ? (
-                  <p aria-live="polite">本地账本读取完成前不可清空。</p>
+                  <p aria-live="polite">{t("dashboard.dataManagement.clearUnavailable")}</p>
                 ) : null}
 
                 {capabilities.canClearReadyLedger &&
@@ -1136,8 +1136,8 @@ export function DashboardShell({
                     type="button"
                   >
                     {storageKind === "ledger-file"
-                      ? "清空当前账本文件"
-                      : "清空本地账本"}
+                      ? t("dashboard.dataManagement.clearFile")
+                      : t("dashboard.dataManagement.clearLegacy")}
                   </button>
                 ) : null}
 
@@ -1149,7 +1149,7 @@ export function DashboardShell({
                     onClick={() => openClearConfirmation("recovery")}
                     type="button"
                   >
-                    清除损坏或无法读取的本地数据
+                    {t("dashboard.dataManagement.clearDamaged")}
                   </button>
                 ) : null}
 
@@ -1158,14 +1158,14 @@ export function DashboardShell({
                     <p className="font-medium text-red-900">
                       {clearConfirmationMode === "normal"
                         ? storageKind === "ledger-file"
-                          ? "这只会清空当前账本内容，不删除 .lftl 文件，也不影响其他账本文件。文件仍会保留清空前的上一可用版，之后若当前代损坏，恢复可能回到清空前数据。"
-                          : "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。"
-                        : "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。"}
+                          ? t("dashboard.dataManagement.clearFileWarning")
+                          : t("dashboard.dataManagement.clearLegacyWarning")
+                        : t("dashboard.dataManagement.clearRecoveryWarning")}
                     </p>
                     <label className="grid gap-2 font-medium text-red-900">
-                      输入“{clearConfirmationText}”以确认
+                      {t("dashboard.dataManagement.confirmPrefix")}“{clearConfirmationText}”{t("dashboard.dataManagement.confirmSuffix")}
                       <input
-                        aria-label="输入清空确认文本"
+                        aria-label={t("dashboard.dataManagement.confirmAriaLabel")}
                         className="rounded-md border border-red-300 bg-white px-3 py-2 font-normal text-slate-950 outline-none focus:border-red-500"
                         disabled={persistenceOperation !== "idle"}
                         onChange={(event) => {
@@ -1182,7 +1182,7 @@ export function DashboardShell({
                     ) : null}
                     {persistenceOperation === "clearing" ? (
                       <p aria-live="polite" className="font-medium text-red-900">
-                        正在清空本地账本，请勿关闭页面。
+                        {t("dashboard.dataManagement.clearing")}
                       </p>
                     ) : null}
                     <div className="flex flex-wrap gap-3">
@@ -1193,8 +1193,8 @@ export function DashboardShell({
                         type="button"
                       >
                         {storageKind === "ledger-file"
-                          ? "确认清空当前账本内容"
-                          : "确认永久清空"}
+                          ? t("dashboard.dataManagement.confirmClearFile")
+                          : t("dashboard.dataManagement.confirmClearLegacy")}
                       </button>
                       <button
                         className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1202,7 +1202,7 @@ export function DashboardShell({
                         onClick={cancelClearConfirmation}
                         type="button"
                       >
-                        取消
+                        {t("dashboard.action.cancel")}
                       </button>
                     </div>
                   </div>
