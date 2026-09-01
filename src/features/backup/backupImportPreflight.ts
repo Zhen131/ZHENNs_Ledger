@@ -700,7 +700,7 @@ function collectHistoricalRawTextErrors(
       code: "BACKUP_TRADE_RAW_TEXT_REQUIRED",
       path: `trades[${index}].rawText`,
       message:
-        "历史导入要求保留对应原句；rawText 必须是非空字符串，且不会被 trim、摘要或重写。",
+        translateDefault("backup.preflight.rawTextRequired"),
       summary: createTradeSummary(parsed, index),
     });
   });
@@ -743,7 +743,10 @@ function collectDuplicateTradeIdErrors(
       stage: 4,
       code: "LEDGER_DATA_DUPLICATE_IDENTIFIER",
       path,
-      message: `交易 ID 重复；首次出现在 trades[${firstIndex}].id。`,
+      message:
+        translateDefault("backup.preflight.duplicateTradeIdPrefix") +
+        firstIndex +
+        translateDefault("backup.preflight.duplicateTradeIdSuffix"),
       summary: createTradeSummary(parsed, index),
     });
   });
@@ -867,7 +870,10 @@ function collectWarnings(
     ? [
         {
           code: "BACKUP_NEGATIVE_CASH_BALANCE",
-          message: `USDT 现金重放结果为 ${balance}；负余额合法，不会阻止导入。`,
+          message:
+            translateDefault("backup.preflight.negativeCashPrefix") +
+            balance +
+            translateDefault("backup.preflight.negativeCashSuffix"),
         },
       ]
     : [];
