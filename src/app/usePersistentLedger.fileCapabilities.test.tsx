@@ -23,6 +23,7 @@ import {
   ledgerFileTestStringToBytes,
   readLedgerFileForTest,
   serializeLedgerFileForTest,
+  applyLedgerFileWritableDataForTest,
 } from "@/test-support";
 import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger } from "./usePersistentLedger";
@@ -82,15 +83,23 @@ class ControlledLedgerHandle implements LedgerFileHandle {
     };
   }
 
-  async createWritable(): Promise<LedgerFileWritable> {
-    let pending: Uint8Array | null = null;
+  async createWritable(options?: {
+    keepExistingData?: boolean;
+  }): Promise<LedgerFileWritable> {
+    let pending: Uint8Array | null = options?.keepExistingData
+      ? Uint8Array.from(this.bytes)
+      : null;
+    let writeObserved = false;
     return {
       write: async (serialized) => {
-        this.writeCount += 1;
-        pending =
-          typeof serialized === "string"
-            ? new TextEncoder().encode(serialized)
-            : Uint8Array.from(serialized);
+        if (!writeObserved) {
+          this.writeCount += 1;
+          writeObserved = true;
+        }
+        pending = applyLedgerFileWritableDataForTest(
+          pending ?? new Uint8Array(),
+          serialized,
+        );
       },
       close: async () => {
         const closeStarted = this.closeStarted;

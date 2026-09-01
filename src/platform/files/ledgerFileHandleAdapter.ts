@@ -24,10 +24,26 @@ export interface LedgerFileLike {
 }
 
 export interface LedgerFileWritable {
-  write(data: string | Uint8Array): Promise<void>;
+  write(data: LedgerFileWritableData): Promise<void>;
   close(): Promise<void>;
   abort?(reason?: unknown): Promise<void>;
 }
+
+export type LedgerFilePositionedWrite = {
+  type: "write";
+  position: number;
+  data: Uint8Array;
+};
+
+export type LedgerFileBinaryPatch = Omit<
+  LedgerFilePositionedWrite,
+  "type"
+>;
+
+export type LedgerFileWritableData =
+  | string
+  | Uint8Array
+  | LedgerFilePositionedWrite;
 
 export interface LedgerFileHandle {
   readonly name: string;
@@ -499,6 +515,102 @@ export class LedgerFileHandleAdapter {
     }
   }
 
+  async writeBinaryPatchesAndReadBack(
+    handle: LedgerFileHandle,
+    patches: readonly LedgerFileBinaryPatch[],
+    expectedFileByteLength: number,
+    signal?: AbortSignal,
+  ): Promise<LedgerFileBytesReadResult> {
+    this.assertLedgerFileExtension(handle);
+    assertWriteNotAborted(signal);
+    assertValidBinaryPatches(patches, expectedFileByteLength);
+
+    let writable: LedgerFileWritable;
+    try {
+      writable = await handle.createWritable({
+        keepExistingData: true,
+        mode: "exclusive",
+      });
+    } catch (error) {
+      throw new LedgerFileAdapterError(
+        "create-writable",
+        "Could not create a positioned ledger file writable stream",
+        error,
+      );
+    }
+
+    const abortWritable = () => {
+      void bestEffortAbort(writable, signal?.reason);
+    };
+    signal?.addEventListener("abort", abortWritable, { once: true });
+
+    try {
+      for (const patch of patches) {
+        assertWriteNotAborted(signal);
+        await writable.write({
+          type: "write",
+          position: patch.position,
+          data: Uint8Array.from(patch.data),
+        });
+      }
+      assertWriteNotAborted(signal);
+    } catch (error) {
+      signal?.removeEventListener("abort", abortWritable);
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
+      await bestEffortAbort(writable, error);
+      throw new LedgerFileAdapterError(
+        "write",
+        "Could not write the complete ledger file patches",
+        error,
+      );
+    }
+
+    try {
+      assertWriteNotAborted(signal);
+      await writable.close();
+      assertWriteNotAborted(signal);
+    } catch (error) {
+      signal?.removeEventListener("abort", abortWritable);
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
+      await bestEffortAbort(writable, error);
+      throw new LedgerFileAdapterError(
+        "close",
+        "Could not close the positioned ledger file writable stream",
+        error,
+      );
+    }
+
+    try {
+      const readback = await this.readBinary(handle);
+      assertWriteNotAborted(signal);
+      if (readback.byteLength !== expectedFileByteLength) {
+        throw new LedgerFileAdapterError(
+          "readback",
+          "Positioned ledger file readback length changed",
+        );
+      }
+      return readback;
+    } catch (error) {
+      if (error instanceof LedgerFileAdapterError && error.stage === "aborted") {
+        throw error;
+      }
+      if (error instanceof LedgerFileAdapterError && error.stage === "readback") {
+        throw error;
+      }
+      throw new LedgerFileAdapterError(
+        "readback",
+        "Could not read the ledger file after positioned writes",
+        error,
+      );
+    } finally {
+      signal?.removeEventListener("abort", abortWritable);
+    }
+  }
+
   private assertLedgerFileExtension(handle: LedgerFileHandle): void {
     if (!handle.name.toLowerCase().endsWith(".lftl")) {
       throw new LedgerFileAdapterError(
@@ -540,6 +652,43 @@ function assertPermissionState(
     stage,
     "File permission API returned an invalid state",
   );
+}
+
+function assertValidBinaryPatches(
+  patches: readonly LedgerFileBinaryPatch[],
+  expectedFileByteLength: number,
+): void {
+  if (
+    !Number.isSafeInteger(expectedFileByteLength) ||
+    expectedFileByteLength < 1 ||
+    expectedFileByteLength > LEDGER_FILE_OUTER_V3_CONSTANTS.maximumFileBytes ||
+    patches.length === 0
+  ) {
+    throw new LedgerFileAdapterError(
+      "size",
+      "Positioned ledger file write bounds are invalid",
+    );
+  }
+  const ordered = patches
+    .map((patch) => ({
+      start: patch.position,
+      end: patch.position + patch.data.byteLength,
+    }))
+    .sort((left, right) => left.start - right.start);
+  for (const [index, range] of ordered.entries()) {
+    if (
+      !Number.isSafeInteger(range.start) ||
+      range.start < 0 ||
+      range.end <= range.start ||
+      range.end > expectedFileByteLength ||
+      (index > 0 && ordered[index - 1]!.end > range.start)
+    ) {
+      throw new LedgerFileAdapterError(
+        "size",
+        "Positioned ledger file write bounds are invalid",
+      );
+    }
+  }
 }
 
 async function bestEffortAbort(

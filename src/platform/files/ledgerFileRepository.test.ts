@@ -37,6 +37,11 @@ import {
 } from "./ledgerFileRepository";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 import {
+  ledgerFileBodySlotOffsetV3S2,
+  parseLedgerFileV3S2,
+  readLedgerFileBodySlotV3S2,
+} from "./ledgerFileSlotContainerV3";
+import {
   appendLedgerFileJsonWhitespaceForTest,
   decryptLedgerFileGenerationForTest,
   encryptLedgerFileGenerationForTest,
@@ -47,6 +52,7 @@ import {
   serializeLedgerFileForTest,
   type LedgerFileForTest,
   validateLedgerFileForTest,
+  applyLedgerFileWritableDataForTest,
 } from "@/test-support";
 
 const PASSPHRASE = "correct horse battery staple";
@@ -150,6 +156,7 @@ class AtomicLedgerHandle implements LedgerFileHandle {
   failNextRead = false;
   failNextCreateWritable = false;
   failReadAfterClose = false;
+  publishBeforeFailingPositionedWrite = 0;
   blockReadAfterNextClose:
     | {
         started: Deferred<void>;
@@ -167,6 +174,10 @@ class AtomicLedgerHandle implements LedgerFileHandle {
     | null = null;
   private readsBeforeMutation = 0;
   private mutateBeforeRead: (() => void) | null = null;
+  readonly writeOperations: Array<{
+    position: number;
+    byteLength: number;
+  }> = [];
 
   constructor(
     readonly name = "ledger.lftl",
@@ -205,7 +216,9 @@ class AtomicLedgerHandle implements LedgerFileHandle {
     this.mutateBeforeRead = mutate;
   }
 
-  async createWritable(): Promise<LedgerFileWritable> {
+  async createWritable(options?: {
+    keepExistingData?: boolean;
+  }): Promise<LedgerFileWritable> {
     this.events?.push("open-writable");
     if (this.failNextCreateWritable) {
       this.failNextCreateWritable = false;
@@ -214,19 +227,50 @@ class AtomicLedgerHandle implements LedgerFileHandle {
         { name: "NotAllowedError" },
       );
     }
-    let pending: Uint8Array | null = null;
+    let pending: Uint8Array | null = options?.keepExistingData
+      ? Uint8Array.from(this.bytes)
+      : null;
+    let writeObserved = false;
+    let positionedWriteCount = 0;
     return {
       write: async (serialized) => {
-        this.events?.push("write");
-        this.writeCount += 1;
+        if (!writeObserved) {
+          this.events?.push("write");
+          this.writeCount += 1;
+          writeObserved = true;
+        }
         if (this.failNextWrite) {
           this.failNextWrite = false;
           throw new Error("write failed");
         }
-        pending =
+        this.writeOperations.push(
           typeof serialized === "string"
-            ? new TextEncoder().encode(serialized)
-            : Uint8Array.from(serialized);
+            ? {
+                position: 0,
+                byteLength: new TextEncoder().encode(serialized).byteLength,
+              }
+            : serialized instanceof Uint8Array
+              ? { position: 0, byteLength: serialized.byteLength }
+              : {
+                  position: serialized.position,
+                  byteLength: serialized.data.byteLength,
+                },
+        );
+        if (!(typeof serialized === "string") && !(serialized instanceof Uint8Array)) {
+          positionedWriteCount += 1;
+          if (
+            this.publishBeforeFailingPositionedWrite ===
+            positionedWriteCount
+          ) {
+            this.publishBeforeFailingPositionedWrite = 0;
+            if (pending) this.bytes = Uint8Array.from(pending);
+            throw new Error("positioned write failed after earlier bytes published");
+          }
+        }
+        pending = applyLedgerFileWritableDataForTest(
+          pending ?? new Uint8Array(),
+          serialized,
+        );
       },
       close: async () => {
         this.events?.push("close");
@@ -755,6 +799,171 @@ describe("LedgerFileRepository", () => {
     },
     15_000,
   );
+
+  it("leaves the previous whole-ledger body slot byte-identical during an ordinary save", async () => {
+    const handle = new AtomicLedgerHandle();
+    const ledgerBefore = createLedgerWithTrades(3);
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      ledgerBefore,
+      {
+        generateId: createIdGenerator([
+          "file-s2-previous-slot",
+          "revision-s2-before",
+          "revision-s2-after",
+        ]),
+        now: createClock([
+          "2026-09-01T08:00:00.000Z",
+          "2026-09-01T08:01:00.000Z",
+        ]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    const parsedBefore = parseLedgerFileV3S2(handle.bytes);
+    expect(parsedBefore.ok).toBe(true);
+    if (!parsedBefore.ok) return;
+    const sourceSlot = parsedBefore.value.current.bodySlot;
+    const sourceSlotOffset = ledgerFileBodySlotOffsetV3S2(
+      parsedBefore.value.bodySlotBytes,
+      sourceSlot,
+    );
+    const sourceSlotBefore = readLedgerFileBodySlotV3S2(
+      handle.bytes,
+      sourceSlot,
+    );
+    const operationsBeforeSave = handle.writeOperations.length;
+
+    await repository.save({
+      ...ledgerBefore,
+      trades: [...ledgerBefore.trades, createTrade(3)],
+    });
+
+    const parsedAfter = parseLedgerFileV3S2(handle.bytes);
+    expect(parsedAfter.ok).toBe(true);
+    if (!parsedAfter.ok) return;
+    expect(parsedAfter.value.previous?.bodySlot).toBe(sourceSlot);
+    expect(
+      readLedgerFileBodySlotV3S2(handle.bytes, sourceSlot),
+    ).toEqual(sourceSlotBefore);
+    const saveOperations = handle.writeOperations.slice(
+      operationsBeforeSave,
+    );
+    expect(saveOperations).toHaveLength(2);
+    expect(
+      saveOperations.some(
+        ({ position, byteLength }) =>
+          position < sourceSlotOffset + sourceSlotBefore.byteLength &&
+          position + byteLength > sourceSlotOffset,
+      ),
+    ).toBe(false);
+  });
+
+  it("recovers the exact previous ledger after the current whole-ledger slot is corrupted", async () => {
+    const handle = new AtomicLedgerHandle();
+    const ledgerBefore = createLedgerWithTrades(4);
+    const ledgerAfter = {
+      ...ledgerBefore,
+      trades: [...ledgerBefore.trades, createTrade(4)],
+    };
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      ledgerBefore,
+      {
+        generateId: createIdGenerator([
+          "file-s2-recovery",
+          "revision-s2-before",
+          "revision-s2-damaged",
+        ]),
+        now: createClock([
+          "2026-09-01T09:00:00.000Z",
+          "2026-09-01T09:01:00.000Z",
+        ]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    await repository.save(ledgerAfter);
+    const beforeDamage = parseLedgerFileV3S2(handle.bytes);
+    expect(beforeDamage.ok).toBe(true);
+    if (!beforeDamage.ok) return;
+    const currentOffset = ledgerFileBodySlotOffsetV3S2(
+      beforeDamage.value.bodySlotBytes,
+      beforeDamage.value.current.bodySlot,
+    );
+    handle.bytes[currentOffset] ^= 0xff;
+
+    const opened = await LedgerFileRepository.openForAccess(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      {
+        generateId: createIdGenerator(["revision-s2-recovered"]),
+        now: createClock(["2026-09-01T09:02:00.000Z"]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    expect(opened.status).toBe("recovery-required");
+    if (opened.status !== "recovery-required") return;
+    const recovered = await opened.candidate.confirm();
+
+    await expect(recovered.load()).resolves.toEqual(ledgerBefore);
+    const verified = await readVerifiedFile(handle);
+    expect(verified.current.ledgerData).toEqual(ledgerBefore);
+    expect(verified.previous?.ledgerData).toEqual(ledgerBefore);
+  });
+
+  it("keeps the prior header usable and stops blind retries when the new header write is interrupted", async () => {
+    const handle = new AtomicLedgerHandle();
+    const ledgerBefore = createLedgerWithTrades(2);
+    const ledgerAfter = {
+      ...ledgerBefore,
+      trades: [...ledgerBefore.trades, createTrade(2)],
+    };
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      ledgerBefore,
+      {
+        generateId: createIdGenerator([
+          "file-s2-interrupted-header",
+          "revision-s2-stable",
+          "revision-s2-uncommitted",
+        ]),
+        now: createClock([
+          "2026-09-01T10:00:00.000Z",
+          "2026-09-01T10:01:00.000Z",
+        ]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    handle.publishBeforeFailingPositionedWrite = 2;
+
+    await expect(repository.save(ledgerAfter)).rejects.toMatchObject({
+      code: LEDGER_FILE_REPOSITORY_ERROR_CODES.WRITE_FAILED,
+    });
+    await expect(repository.load()).resolves.toEqual(ledgerBefore);
+    const writesAfterInterruption = handle.writeCount;
+    await expect(repository.save(ledgerAfter)).rejects.toMatchObject({
+      code: LEDGER_FILE_REPOSITORY_ERROR_CODES.EXTERNAL_CHANGE,
+    });
+    expect(handle.writeCount).toBe(writesAfterInterruption);
+
+    const reopened = await LedgerFileRepository.open(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      {
+        generateId: createIdGenerator(["unused-recovery-id"]),
+        now: createClock(["2026-09-01T10:02:00.000Z"]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    await expect(reopened.load()).resolves.toEqual(ledgerBefore);
+  });
 
   it("treats the same canonical ledger as a no-op without new time, revision, IV, or write", async () => {
     const handle = new AtomicLedgerHandle();

@@ -1,16 +1,21 @@
 import {
   isLedgerFileV3Bytes,
-  LEDGER_FILE_OUTER_V3_CONSTANTS,
+  isLedgerFileV3S2Bytes,
+  LEDGER_FILE_BODY_SLOT_COUNT,
+  LEDGER_FILE_HEADER_SLOT_BYTES,
   LEDGER_FILE_V3_MAGIC,
-  parseLedgerFileV3S1,
-  type EncryptedLedgerGenerationV3S1,
+  ledgerFileHeaderSlotOffsetV3S2,
+  ledgerFileBodySlotOffsetV3S2,
+  parseLedgerFileV3S2,
+  readLedgerFileHeaderJsonV3S2,
+  type EncryptedLedgerGenerationV3S2,
   type EncryptedLedgerGenerationV4,
   type LedgerFileContractError,
   type LedgerFileCrypto,
   type LedgerFileV2,
-  type LedgerFileV3S1,
+  type LedgerFileV3S2,
   validateLedgerFileV2,
-  validateLedgerFileV3S1,
+  validateLedgerFileV3S2,
 } from "@/platform/files";
 import {
   base64UrlToBytes,
@@ -18,12 +23,17 @@ import {
 } from "@/platform/encryption";
 
 type LedgerFileV3ForTest = Omit<
-  LedgerFileV3S1,
+  LedgerFileV3S2,
   "current" | "previous"
 > & {
-  current: EncryptedLedgerGenerationV4;
-  previous: EncryptedLedgerGenerationV4 | null;
+  current: EncryptedLedgerGenerationV3ForTest;
+  previous: EncryptedLedgerGenerationV3ForTest | null;
 };
+
+type EncryptedLedgerGenerationV3ForTest =
+  EncryptedLedgerGenerationV4 & {
+    bodySlot?: EncryptedLedgerGenerationV3S2["bodySlot"];
+  };
 
 export type LedgerFileForTest = LedgerFileV2 | LedgerFileV3ForTest;
 
@@ -36,8 +46,8 @@ export function readLedgerFileForTest(
   input: string | Uint8Array,
 ): LedgerFileForTest {
   const bytes = ledgerFileTestInputToBytes(input);
-  if (isLedgerFileV3Bytes(bytes)) {
-    const parsed = parseLedgerFileV3S1(bytes);
+  if (isLedgerFileV3S2Bytes(bytes)) {
+    const parsed = parseLedgerFileV3S2(bytes);
     if (!parsed.ok) {
       throw new Error("Test ledger file failed the V3 contract", {
         cause: parsed.errors,
@@ -75,7 +85,7 @@ export function validateLedgerFileForTest(
     input.fileFormatVersion === 3
   ) {
     try {
-      const validated = validateLedgerFileV3S1(
+      const validated = validateLedgerFileV3S2(
         toProductLedgerFileV3(input as LedgerFileV3ForTest),
       );
       return validated.ok
@@ -108,58 +118,76 @@ export function serializeLedgerFileForTest(
 }
 
 function serializeLedgerFileV3ForTest(file: LedgerFileV3ForTest): Uint8Array {
-  const currentCiphertext = base64UrlToBytes(
-    file.current.ciphertextBase64Url,
+  const product = toProductLedgerFileV3(file);
+  const header = {
+    fileFormatVersion: product.fileFormatVersion,
+    cryptoVersion: product.cryptoVersion,
+    ledgerSchemaVersion: product.ledgerSchemaVersion,
+    backupFormatVersion: product.backupFormatVersion,
+    fileId: product.fileId,
+    sequence: product.sequence,
+    crypto: product.crypto,
+    bodySlotBytes: product.bodySlotBytes,
+    bodySlotCount: product.bodySlotCount,
+    current: generationHeaderForTest(product.current),
+    previous: product.previous
+      ? generationHeaderForTest(product.previous)
+      : null,
+  };
+  const headerBytes = new TextEncoder().encode(JSON.stringify(header));
+  const prefixBytes = LEDGER_FILE_V3_MAGIC.byteLength + 8;
+  const bytes = new Uint8Array(
+    prefixBytes +
+      LEDGER_FILE_HEADER_SLOT_BYTES * 2 +
+      product.bodySlotBytes * LEDGER_FILE_BODY_SLOT_COUNT,
   );
-  const previousCiphertext = file.previous
-    ? base64UrlToBytes(file.previous.ciphertextBase64Url)
-    : null;
-  const generationHeader = (
-    generation: LedgerFileV3ForTest["current"],
-    ciphertextByteLength: number,
-  ) => ({
+  bytes.set(LEDGER_FILE_V3_MAGIC);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(
+    LEDGER_FILE_V3_MAGIC.byteLength,
+    LEDGER_FILE_HEADER_SLOT_BYTES,
+    true,
+  );
+  view.setUint32(
+    LEDGER_FILE_V3_MAGIC.byteLength + 4,
+    product.bodySlotBytes,
+    true,
+  );
+  const headerStart = ledgerFileHeaderSlotOffsetV3S2(
+    product.activeHeaderSlot,
+  );
+  view.setUint32(headerStart, headerBytes.byteLength, true);
+  bytes.set(headerBytes, headerStart + 4);
+  bytes.set(
+    product.current.ciphertextBytes,
+    ledgerFileBodySlotOffsetV3S2(
+      product.bodySlotBytes,
+      product.current.bodySlot,
+    ),
+  );
+  if (product.previous) {
+    bytes.set(
+      product.previous.ciphertextBytes,
+      ledgerFileBodySlotOffsetV3S2(
+        product.bodySlotBytes,
+        product.previous.bodySlot,
+      ),
+    );
+  }
+  return bytes;
+}
+
+function generationHeaderForTest(
+  generation: EncryptedLedgerGenerationV3S2,
+) {
+  return {
     revisionId: generation.revisionId,
     parentRevisionId: generation.parentRevisionId,
     ledgerSchemaVersion: generation.ledgerSchemaVersion,
+    bodySlot: generation.bodySlot,
     ivBase64Url: generation.ivBase64Url,
-    ciphertextByteLength,
-  });
-  const header = {
-    fileFormatVersion: file.fileFormatVersion,
-    cryptoVersion: file.cryptoVersion,
-    ledgerSchemaVersion: file.ledgerSchemaVersion,
-    backupFormatVersion: file.backupFormatVersion,
-    fileId: file.fileId,
-    crypto: file.crypto,
-    current: generationHeader(file.current, currentCiphertext.byteLength),
-    previous:
-      file.previous && previousCiphertext
-        ? generationHeader(file.previous, previousCiphertext.byteLength)
-        : null,
+    ciphertextByteLength: generation.ciphertextBytes.byteLength,
   };
-  const headerBytes = new TextEncoder().encode(JSON.stringify(header));
-  const prefixBytes =
-    LEDGER_FILE_V3_MAGIC.byteLength +
-    LEDGER_FILE_OUTER_V3_CONSTANTS.headerLengthBytes;
-  const bytes = new Uint8Array(
-    prefixBytes +
-      headerBytes.byteLength +
-      currentCiphertext.byteLength +
-      (previousCiphertext?.byteLength ?? 0),
-  );
-  bytes.set(LEDGER_FILE_V3_MAGIC, 0);
-  new DataView(bytes.buffer).setUint32(
-    LEDGER_FILE_V3_MAGIC.byteLength,
-    headerBytes.byteLength,
-    true,
-  );
-  let offset = prefixBytes;
-  bytes.set(headerBytes, offset);
-  offset += headerBytes.byteLength;
-  bytes.set(currentCiphertext, offset);
-  offset += currentCiphertext.byteLength;
-  if (previousCiphertext) bytes.set(previousCiphertext, offset);
-  return bytes;
 }
 
 export function encryptLedgerFileGenerationForTest(
@@ -173,9 +201,15 @@ export function encryptLedgerFileGenerationForTest(
   serializedPayload: string,
 ) {
   if (file.fileFormatVersion === 3) {
-    return crypto.encryptGenerationV3S1(
+    const bodySlot =
+      file.current.revisionId === revision.revisionId
+        ? file.current.bodySlot ?? 0
+        : file.previous?.revisionId === revision.revisionId
+          ? file.previous.bodySlot ?? 1
+          : file.current.bodySlot ?? 0;
+    return crypto.encryptGenerationV3S2(
         file.fileId,
-        revision,
+        { ...revision, bodySlot },
         serializedPayload,
       ).then(toTestGenerationV3);
   }
@@ -192,9 +226,14 @@ export function decryptLedgerFileGenerationForTest(
   generation: LedgerFileForTest["current"],
 ) {
   return file.fileFormatVersion === 3
-    ? crypto.decryptGenerationV3S1(
+    ? crypto.decryptGenerationV3S2(
         file.fileId,
-        toProductGenerationV3(generation),
+        toProductGenerationV3(
+          generation as EncryptedLedgerGenerationV3ForTest,
+          generation === file.previous
+            ? file.previous?.bodySlot ?? 1
+            : file.current.bodySlot ?? 0,
+        ),
       )
     : crypto.decryptGeneration(
         file.fileId,
@@ -202,7 +241,7 @@ export function decryptLedgerFileGenerationForTest(
       );
 }
 
-function toTestLedgerFileV3(file: LedgerFileV3S1): LedgerFileV3ForTest {
+function toTestLedgerFileV3(file: LedgerFileV3S2): LedgerFileV3ForTest {
   return {
     ...file,
     current: toTestGenerationV3(file.current),
@@ -210,33 +249,42 @@ function toTestLedgerFileV3(file: LedgerFileV3S1): LedgerFileV3ForTest {
   };
 }
 
-function toProductLedgerFileV3(file: LedgerFileV3ForTest): LedgerFileV3S1 {
+function toProductLedgerFileV3(file: LedgerFileV3ForTest): LedgerFileV3S2 {
+  const currentBodySlot = file.current.bodySlot ?? 0;
   return {
     ...file,
-    current: toProductGenerationV3(file.current),
-    previous: file.previous ? toProductGenerationV3(file.previous) : null,
+    current: toProductGenerationV3(file.current, currentBodySlot),
+    previous: file.previous
+      ? toProductGenerationV3(
+          file.previous,
+          file.previous.bodySlot ?? (currentBodySlot === 0 ? 1 : 0),
+        )
+      : null,
   };
 }
 
 function toTestGenerationV3(
-  generation: EncryptedLedgerGenerationV3S1,
-): EncryptedLedgerGenerationV4 {
+  generation: EncryptedLedgerGenerationV3S2,
+): EncryptedLedgerGenerationV3ForTest {
   return {
     revisionId: generation.revisionId,
     parentRevisionId: generation.parentRevisionId,
     ledgerSchemaVersion: generation.ledgerSchemaVersion,
+    bodySlot: generation.bodySlot,
     ivBase64Url: generation.ivBase64Url,
     ciphertextBase64Url: bytesToBase64Url(generation.ciphertextBytes),
   };
 }
 
 function toProductGenerationV3(
-  generation: EncryptedLedgerGenerationV4,
-): EncryptedLedgerGenerationV3S1 {
+  generation: EncryptedLedgerGenerationV3ForTest,
+  bodySlot: EncryptedLedgerGenerationV3S2["bodySlot"],
+): EncryptedLedgerGenerationV3S2 {
   return {
     revisionId: generation.revisionId,
     parentRevisionId: generation.parentRevisionId,
     ledgerSchemaVersion: generation.ledgerSchemaVersion,
+    bodySlot,
     ivBase64Url: generation.ivBase64Url,
     ciphertextBytes: base64UrlToBytes(generation.ciphertextBase64Url),
   };
@@ -277,17 +325,11 @@ export function readLedgerFileJsonHeaderForTest(
   if (!isLedgerFileV3Bytes(bytes)) {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   }
-  const headerLength = new DataView(
-    bytes.buffer,
-    bytes.byteOffset,
-    bytes.byteLength,
-  ).getUint32(LEDGER_FILE_V3_MAGIC.byteLength, true);
-  const headerStart =
-    LEDGER_FILE_V3_MAGIC.byteLength +
-    LEDGER_FILE_OUTER_V3_CONSTANTS.headerLengthBytes;
-  return new TextDecoder("utf-8", { fatal: true }).decode(
-    bytes.subarray(headerStart, headerStart + headerLength),
-  );
+  const file = readLedgerFileForTest(bytes);
+  if (file.fileFormatVersion !== 3) {
+    throw new Error("Expected a V3 ledger file test header");
+  }
+  return readLedgerFileHeaderJsonV3S2(bytes, file.activeHeaderSlot);
 }
 
 export function appendLedgerFileJsonWhitespaceForTest(
@@ -297,24 +339,30 @@ export function appendLedgerFileJsonWhitespaceForTest(
   if (!isLedgerFileV3Bytes(bytes)) {
     return `${new TextDecoder("utf-8", { fatal: true }).decode(bytes)}\n`;
   }
-  const headerLength = new DataView(
-    bytes.buffer,
-    bytes.byteOffset,
-    bytes.byteLength,
-  ).getUint32(LEDGER_FILE_V3_MAGIC.byteLength, true);
-  const headerStart =
-    LEDGER_FILE_V3_MAGIC.byteLength +
-    LEDGER_FILE_OUTER_V3_CONSTANTS.headerLengthBytes;
-  const bodyStart = headerStart + headerLength;
-  const changed = new Uint8Array(bytes.byteLength + 1);
-  changed.set(bytes.subarray(0, bodyStart), 0);
-  changed[bodyStart] = 0x0a;
-  changed.set(bytes.subarray(bodyStart), bodyStart + 1);
+  const file = readLedgerFileForTest(bytes);
+  if (file.fileFormatVersion !== 3) {
+    throw new Error("Expected a V3 ledger file test header");
+  }
+  const header = readLedgerFileHeaderJsonV3S2(
+    bytes,
+    file.activeHeaderSlot,
+  );
+  const headerBytes = new TextEncoder().encode(`${header}\n`);
+  const headerStart = ledgerFileHeaderSlotOffsetV3S2(
+    file.activeHeaderSlot,
+  );
+  const changed = Uint8Array.from(bytes);
+  changed.fill(
+    0,
+    headerStart,
+    headerStart + LEDGER_FILE_HEADER_SLOT_BYTES,
+  );
   new DataView(changed.buffer).setUint32(
-    LEDGER_FILE_V3_MAGIC.byteLength,
-    headerLength + 1,
+    headerStart,
+    headerBytes.byteLength,
     true,
   );
+  changed.set(headerBytes, headerStart + Uint32Array.BYTES_PER_ELEMENT);
   return ledgerFileBytesToTestString(changed);
 }
 

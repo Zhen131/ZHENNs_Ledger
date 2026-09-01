@@ -11,14 +11,20 @@ import {
   validateDecryptedLedgerPayloadV4,
 } from "./ledgerFileContract";
 import {
-  isLedgerFileV3Bytes,
-  LEDGER_FILE_OUTER_V3_CONSTANTS,
-  parseLedgerFileV3S1,
-  serializeLedgerFileV3S1,
-  type EncryptedLedgerGenerationV3S1,
-  type LedgerFileV3S1,
-  validateLedgerFileV3S1,
-} from "./ledgerFileContainerV3";
+  chooseLedgerFileBodySlotBytesV3S2,
+  isLedgerFileV3S2Bytes,
+  LEDGER_FILE_BODY_SLOT_COUNT,
+  LEDGER_FILE_OUTER_V3_S2_CONSTANTS,
+  nextLedgerFileBodySlotV3S2,
+  parseLedgerFileV3S2,
+  prepareLedgerFileRecoveryV3S2,
+  prepareLedgerFileUpdateV3S2,
+  serializeLedgerFileV3S2,
+  type EncryptedLedgerGenerationV3S2,
+  type LedgerFileBinaryPatchV3S2,
+  type LedgerFileV3S2,
+  validateLedgerFileV3S2,
+} from "./ledgerFileSlotContainerV3";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
@@ -92,14 +98,14 @@ export type LedgerFileRepositorySessionDependencies =
   };
 
 type VerifiedGeneration = {
-  generation: EncryptedLedgerGenerationV3S1;
+  generation: EncryptedLedgerGenerationV3S2;
   payload: DecryptedLedgerPayloadV4;
   serializedPayload: string;
   serializedLedgerData: string;
 };
 
 type VerifiedLedgerFile = {
-  file: LedgerFileV3S1;
+  file: LedgerFileV3S2;
   current: VerifiedGeneration;
   previous: VerifiedGeneration | null;
   serializedFile: Uint8Array;
@@ -107,17 +113,21 @@ type VerifiedLedgerFile = {
 
 type PendingSaveIntent = {
   key: string;
-  baseFile: LedgerFileV3S1;
+  baseFile: LedgerFileV3S2;
   baseSerializedFile: Uint8Array;
   baseCurrent: VerifiedGeneration;
-  file: LedgerFileV3S1;
+  file: LedgerFileV3S2;
   serializedFile: Uint8Array;
+  writeMode: "replace" | "patch";
+  patches: readonly LedgerFileBinaryPatchV3S2[];
   expectedCurrent: CanonicalLedgerPayloadV4;
 };
 
 type PendingRecoveryIntent = {
-  file: LedgerFileV3S1;
+  file: LedgerFileV3S2;
   serializedFile: Uint8Array;
+  writeMode: "replace" | "patch";
+  patches: readonly LedgerFileBinaryPatchV3S2[];
   expectedCurrent: CanonicalLedgerPayloadV4;
 };
 
@@ -232,24 +242,31 @@ export class LedgerFileRepository
         );
       }
 
-      const current = await crypto.encryptGenerationV3S1(
+      const current = await crypto.encryptGenerationV3S2(
         fileId,
         {
           revisionId,
           parentRevisionId: null,
           ledgerSchemaVersion: SUPPORTED_LEDGER_SCHEMA_VERSION,
+          bodySlot: 0,
         },
         payloadResult.value.serializedPayload,
       );
-      const file: LedgerFileV3S1 = {
+      const file: LedgerFileV3S2 = {
         fileFormatVersion:
-          LEDGER_FILE_OUTER_V3_CONSTANTS.fileFormatVersion,
-        cryptoVersion: LEDGER_FILE_OUTER_V3_CONSTANTS.cryptoVersion,
+          LEDGER_FILE_OUTER_V3_S2_CONSTANTS.fileFormatVersion,
+        cryptoVersion: LEDGER_FILE_OUTER_V3_S2_CONSTANTS.cryptoVersion,
         ledgerSchemaVersion:
-          LEDGER_FILE_OUTER_V3_CONSTANTS.ledgerSchemaVersion,
+          LEDGER_FILE_OUTER_V3_S2_CONSTANTS.ledgerSchemaVersion,
         backupFormatVersion:
-          LEDGER_FILE_OUTER_V3_CONSTANTS.backupFormatVersion,
+          LEDGER_FILE_OUTER_V3_S2_CONSTANTS.backupFormatVersion,
         fileId,
+        sequence: 1,
+        activeHeaderSlot: 0,
+        bodySlotBytes: chooseLedgerFileBodySlotBytesV3S2(
+          current.ciphertextBytes.byteLength,
+        ),
+        bodySlotCount: LEDGER_FILE_BODY_SLOT_COUNT,
         crypto: crypto.getCryptoMetadata(),
         current,
         previous: null,
@@ -276,6 +293,7 @@ export class LedgerFileRepository
           currentPayload: payloadResult.value,
           previousGeneration: null,
           previousPayload: null,
+          serializedFile,
         },
       );
 
@@ -522,29 +540,21 @@ export class LedgerFileRepository
       );
     }
 
-    const current = await this.crypto.encryptGenerationV3S1(
+    const current = await this.crypto.encryptGenerationV3S2(
       baseFile.fileId,
       {
         revisionId,
         parentRevisionId: baseFile.current.revisionId,
         ledgerSchemaVersion: SUPPORTED_LEDGER_SCHEMA_VERSION,
+        bodySlot: nextLedgerFileBodySlotV3S2(baseFile),
       },
       payloadResult.value.serializedPayload,
     );
-    const nextFile: LedgerFileV3S1 = {
-      fileFormatVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.fileFormatVersion,
-      cryptoVersion: LEDGER_FILE_OUTER_V3_CONSTANTS.cryptoVersion,
-      ledgerSchemaVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.ledgerSchemaVersion,
-      backupFormatVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.backupFormatVersion,
-      fileId: baseFile.fileId,
-      crypto: baseFile.crypto,
+    const prepared = prepareLedgerFileUpdateV3S2(
+      baseFile,
+      this.verified.serializedFile,
       current,
-      previous: baseFile.current,
-    };
-    assertValidLedgerFile(nextFile);
+    );
     const pendingIntent: PendingSaveIntent = {
       key: createIntentKey(
         baseFile.fileId,
@@ -554,8 +564,10 @@ export class LedgerFileRepository
       baseFile,
       baseSerializedFile: this.verified.serializedFile,
       baseCurrent: this.verified.current,
-      file: nextFile,
-      serializedFile: serializeLedgerFile(nextFile),
+      file: prepared.file,
+      serializedFile: prepared.serializedFile,
+      writeMode: prepared.mode,
+      patches: prepared.patches,
       expectedCurrent: payloadResult.value,
     };
     this.pendingIntent = pendingIntent;
@@ -905,12 +917,13 @@ export class LedgerFileRepository
         "Revision generator returned an existing import revision",
       );
     }
-    const current = await this.crypto.encryptGenerationV3S1(
+    const current = await this.crypto.encryptGenerationV3S2(
       baseFile.fileId,
       {
         revisionId,
         parentRevisionId: baseFile.current.revisionId,
         ledgerSchemaVersion: SUPPORTED_LEDGER_SCHEMA_VERSION,
+        bodySlot: nextLedgerFileBodySlotV3S2(baseFile),
       },
       payloadResult.value.serializedPayload,
     );
@@ -918,20 +931,11 @@ export class LedgerFileRepository
     await this.assertDiskMatchesVerified();
     assertImportActive(signal);
 
-    const nextFile: LedgerFileV3S1 = {
-      fileFormatVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.fileFormatVersion,
-      cryptoVersion: LEDGER_FILE_OUTER_V3_CONSTANTS.cryptoVersion,
-      ledgerSchemaVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.ledgerSchemaVersion,
-      backupFormatVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.backupFormatVersion,
-      fileId: baseFile.fileId,
-      crypto: baseFile.crypto,
+    const prepared = prepareLedgerFileUpdateV3S2(
+      baseFile,
+      this.verified.serializedFile,
       current,
-      previous: baseFile.current,
-    };
-    assertValidLedgerFile(nextFile);
+    );
     const pending: PendingImportIntent = {
       authorization,
       key: createIntentKey(
@@ -942,8 +946,10 @@ export class LedgerFileRepository
       baseFile,
       baseSerializedFile: this.verified.serializedFile,
       baseCurrent,
-      file: nextFile,
-      serializedFile: serializeLedgerFile(nextFile),
+      file: prepared.file,
+      serializedFile: prepared.serializedFile,
+      writeMode: prepared.mode,
+      patches: prepared.patches,
       expectedCurrent: payloadResult.value,
     };
     this.pendingImportIntent = pending;
@@ -952,13 +958,12 @@ export class LedgerFileRepository
     try {
       assertImportActive(signal);
       writeAttempted = true;
-      const readback = (
-        await this.adapter.writeBinaryAndReadBack(
-          this.handle,
-          pending.serializedFile,
-          signal,
-        )
-      ).bytes;
+      const readback = await writePreparedLedgerFile(
+        this.adapter,
+        this.handle,
+        pending,
+        signal,
+      );
       assertImportActive(signal);
       if (!sameBytes(readback, pending.serializedFile)) {
         throw new LedgerFileRepositoryError(
@@ -1199,29 +1204,21 @@ export class LedgerFileRepository
         "Revision generator returned an existing clear revision",
       );
     }
-    const current = await this.crypto.encryptGenerationV3S1(
+    const current = await this.crypto.encryptGenerationV3S2(
       baseFile.fileId,
       {
         revisionId,
         parentRevisionId: baseFile.current.revisionId,
         ledgerSchemaVersion: SUPPORTED_LEDGER_SCHEMA_VERSION,
+        bodySlot: nextLedgerFileBodySlotV3S2(baseFile),
       },
       payloadResult.value.serializedPayload,
     );
-    const nextFile: LedgerFileV3S1 = {
-      fileFormatVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.fileFormatVersion,
-      cryptoVersion: LEDGER_FILE_OUTER_V3_CONSTANTS.cryptoVersion,
-      ledgerSchemaVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.ledgerSchemaVersion,
-      backupFormatVersion:
-        LEDGER_FILE_OUTER_V3_CONSTANTS.backupFormatVersion,
-      fileId: baseFile.fileId,
-      crypto: baseFile.crypto,
+    const prepared = prepareLedgerFileUpdateV3S2(
+      baseFile,
+      this.verified.serializedFile,
       current,
-      previous: baseFile.current,
-    };
-    assertValidLedgerFile(nextFile);
+    );
     const pending: PendingClearIntent = {
       authorization,
       key: createIntentKey(
@@ -1232,8 +1229,10 @@ export class LedgerFileRepository
       baseFile,
       baseSerializedFile: this.verified.serializedFile,
       baseCurrent,
-      file: nextFile,
-      serializedFile: serializeLedgerFile(nextFile),
+      file: prepared.file,
+      serializedFile: prepared.serializedFile,
+      writeMode: prepared.mode,
+      patches: prepared.patches,
       expectedCurrent: payloadResult.value,
     };
     this.pendingClearIntent = pending;
@@ -1286,12 +1285,11 @@ export class LedgerFileRepository
     await this.assertDiskMatchesVerified();
     let readback: Uint8Array;
     try {
-      readback = (
-        await this.adapter.writeBinaryAndReadBack(
-          this.handle,
-          pending.serializedFile,
-        )
-      ).bytes;
+      readback = await writePreparedLedgerFile(
+        this.adapter,
+        this.handle,
+        pending,
+      );
     } catch (error) {
       throw mapAdapterWriteError(error);
     }
@@ -1351,12 +1349,11 @@ export class LedgerFileRepository
   ): Promise<void> {
     let readback: Uint8Array;
     try {
-      readback = (
-        await this.adapter.writeBinaryAndReadBack(
-          this.handle,
-          pending.serializedFile,
-        )
-      ).bytes;
+      readback = await writePreparedLedgerFile(
+        this.adapter,
+        this.handle,
+        pending,
+      );
     } catch (error) {
       throw mapAdapterWriteError(error);
     }
@@ -1430,7 +1427,7 @@ export class LedgerFileRecoveryCandidate {
     private readonly adapter: LedgerFileHandleAdapter,
     private readonly handle: LedgerFileHandle,
     private readonly crypto: LedgerFileCrypto,
-    private readonly damagedFile: LedgerFileV3S1,
+    private readonly damagedFile: LedgerFileV3S2,
     private readonly serializedBaseline: Uint8Array,
     private readonly verifiedPrevious: VerifiedGeneration,
     private readonly sessionLease: LedgerFileSessionLease,
@@ -1525,33 +1522,27 @@ export class LedgerFileRecoveryCandidate {
           "Revision generator returned an existing recovery revision",
         );
       }
-      const current = await this.crypto.encryptGenerationV3S1(
+      const current = await this.crypto.encryptGenerationV3S2(
         this.damagedFile.fileId,
         {
           revisionId,
           parentRevisionId:
             this.damagedFile.previous!.revisionId,
           ledgerSchemaVersion: SUPPORTED_LEDGER_SCHEMA_VERSION,
+          bodySlot: nextLedgerFileBodySlotV3S2(this.damagedFile),
         },
         payloadResult.value.serializedPayload,
       );
-      const recoveredFile: LedgerFileV3S1 = {
-        fileFormatVersion:
-          LEDGER_FILE_OUTER_V3_CONSTANTS.fileFormatVersion,
-        cryptoVersion: LEDGER_FILE_OUTER_V3_CONSTANTS.cryptoVersion,
-        ledgerSchemaVersion:
-          LEDGER_FILE_OUTER_V3_CONSTANTS.ledgerSchemaVersion,
-        backupFormatVersion:
-          LEDGER_FILE_OUTER_V3_CONSTANTS.backupFormatVersion,
-        fileId: this.damagedFile.fileId,
-        crypto: this.damagedFile.crypto,
+      const prepared = prepareLedgerFileRecoveryV3S2(
+        this.damagedFile,
+        this.serializedBaseline,
         current,
-        previous: this.damagedFile.previous,
-      };
-      assertValidLedgerFile(recoveredFile);
+      );
       this.pendingIntent = {
-        file: recoveredFile,
-        serializedFile: serializeLedgerFile(recoveredFile),
+        file: prepared.file,
+        serializedFile: prepared.serializedFile,
+        writeMode: prepared.mode,
+        patches: prepared.patches,
         expectedCurrent: payloadResult.value,
       };
     }
@@ -1565,12 +1556,11 @@ export class LedgerFileRecoveryCandidate {
 
     let readback: Uint8Array;
     try {
-      readback = (
-        await this.adapter.writeBinaryAndReadBack(
-          this.handle,
-          this.pendingIntent.serializedFile,
-        )
-      ).bytes;
+      readback = await writePreparedLedgerFile(
+        this.adapter,
+        this.handle,
+        this.pendingIntent,
+      );
     } catch (error) {
       throw mapAdapterWriteError(error);
     }
@@ -1613,10 +1603,36 @@ export class LedgerFileRecoveryCandidate {
   }
 }
 
+type PreparedLedgerFileWrite = Pick<
+  PendingRecoveryIntent,
+  "serializedFile" | "writeMode" | "patches"
+>;
+
+async function writePreparedLedgerFile(
+  adapter: LedgerFileHandleAdapter,
+  handle: LedgerFileHandle,
+  prepared: PreparedLedgerFileWrite,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  const readback = prepared.writeMode === "patch"
+    ? await adapter.writeBinaryPatchesAndReadBack(
+        handle,
+        prepared.patches,
+        prepared.serializedFile.byteLength,
+        signal,
+      )
+    : await adapter.writeBinaryAndReadBack(
+        handle,
+        prepared.serializedFile,
+        signal,
+      );
+  return readback.bytes;
+}
+
 export async function inspectLedgerFile(
   adapter: LedgerFileHandleAdapter,
   handle: LedgerFileHandle,
-): Promise<LedgerFileV3S1> {
+): Promise<LedgerFileV3S2> {
   const read = await adapter.readBinary(handle);
   return parseAndValidateLedgerFile(read.bytes);
 }
@@ -1631,12 +1647,13 @@ function expectedFromPending(pending: PendingSaveIntent) {
     currentPayload: pending.expectedCurrent,
     previousGeneration: pending.baseFile.current,
     previousPayload: pending.baseCurrent,
+    serializedFile: pending.serializedFile,
   };
 }
 
 function expectedFromRecovery(
   pending: PendingRecoveryIntent,
-  previousGeneration: EncryptedLedgerGenerationV3S1,
+  previousGeneration: EncryptedLedgerGenerationV3S2,
   previousPayload: VerifiedGeneration,
 ): VerificationExpectation {
   return {
@@ -1647,6 +1664,7 @@ function expectedFromRecovery(
     currentPayload: pending.expectedCurrent,
     previousGeneration,
     previousPayload,
+    serializedFile: pending.serializedFile,
   };
 }
 
@@ -1667,17 +1685,18 @@ type VerificationExpectation = {
   fileId: string;
   currentRevisionId: string;
   currentParentRevisionId: string | null;
-  currentGeneration: EncryptedLedgerGenerationV3S1;
+  currentGeneration: EncryptedLedgerGenerationV3S2;
   currentPayload: CanonicalLedgerPayloadV4;
-  previousGeneration: EncryptedLedgerGenerationV3S1 | null;
+  previousGeneration: EncryptedLedgerGenerationV3S2 | null;
   previousPayload: Pick<
     VerifiedGeneration,
     "serializedPayload" | "serializedLedgerData"
   > | null;
+  serializedFile: Uint8Array;
 };
 
 async function verifyLedgerFile(
-  file: LedgerFileV3S1,
+  file: LedgerFileV3S2,
   crypto: LedgerFileCrypto,
   expected?: VerificationExpectation,
   serializedFile = serializeLedgerFile(file),
@@ -1783,13 +1802,20 @@ async function verifyLedgerFile(
         "Readback previous generation is not the unchanged verified base",
       );
     }
+
+    if (!sameBytes(serializedFile, expected.serializedFile)) {
+      throw new LedgerFileRepositoryError(
+        LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+        "Ledger file readback did not match the exact prepared bytes",
+      );
+    }
   }
 
   return { file, current, previous, serializedFile };
 }
 
 async function verifyLedgerFileForOpen(
-  file: LedgerFileV3S1,
+  file: LedgerFileV3S2,
   serializedFile: Uint8Array,
   crypto: LedgerFileCrypto,
 ): Promise<
@@ -1854,11 +1880,11 @@ async function verifyLedgerFileForOpen(
 }
 
 async function verifyGeneration(
-  file: LedgerFileV3S1,
-  generation: EncryptedLedgerGenerationV3S1,
+  file: LedgerFileV3S2,
+  generation: EncryptedLedgerGenerationV3S2,
   crypto: LedgerFileCrypto,
 ): Promise<VerifiedGeneration> {
-  const plaintext = await crypto.decryptGenerationV3S1(
+  const plaintext = await crypto.decryptGenerationV3S2(
     file.fileId,
     generation,
   );
@@ -1901,34 +1927,34 @@ async function verifyGeneration(
 
 function parseAndValidateLedgerFile(
   serialized: Uint8Array,
-): LedgerFileV3S1 {
-  if (!isLedgerFileV3Bytes(serialized)) {
+): LedgerFileV3S2 {
+  if (!isLedgerFileV3S2Bytes(serialized)) {
     rejectUnsupportedJsonLedgerFile(serialized);
   }
-  const validation = parseLedgerFileV3S1(serialized);
+  const validation = parseLedgerFileV3S2(serialized);
   if (!validation.ok) {
     throw new LedgerFileRepositoryError(
       LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
-      "Ledger file failed the strict V3 S-1 container contract",
+      "Ledger file failed the strict V3 S-2 slot container contract",
       validation.errors,
     );
   }
   return validation.value;
 }
 
-function assertValidLedgerFile(file: LedgerFileV3S1): void {
-  const validation = validateLedgerFileV3S1(file);
+function assertValidLedgerFile(file: LedgerFileV3S2): void {
+  const validation = validateLedgerFileV3S2(file);
   if (!validation.ok) {
     throw new LedgerFileRepositoryError(
       LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
-      "Generated ledger file failed its own V3 S-1 contract",
+      "Generated ledger file failed its own V3 S-2 contract",
       validation.errors,
     );
   }
 }
 
-function serializeLedgerFile(file: LedgerFileV3S1): Uint8Array {
-  return serializeLedgerFileV3S1(file);
+function serializeLedgerFile(file: LedgerFileV3S2): Uint8Array {
+  return serializeLedgerFileV3S2(file);
 }
 
 function rejectUnsupportedJsonLedgerFile(bytes: Uint8Array): never {
@@ -2048,13 +2074,14 @@ function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
 }
 
 function sameGeneration(
-  left: EncryptedLedgerGenerationV3S1,
-  right: EncryptedLedgerGenerationV3S1,
+  left: EncryptedLedgerGenerationV3S2,
+  right: EncryptedLedgerGenerationV3S2,
 ): boolean {
   return (
     left.revisionId === right.revisionId &&
     left.parentRevisionId === right.parentRevisionId &&
     left.ledgerSchemaVersion === right.ledgerSchemaVersion &&
+    left.bodySlot === right.bodySlot &&
     left.ivBase64Url === right.ivBase64Url &&
     sameBytes(left.ciphertextBytes, right.ciphertextBytes)
   );

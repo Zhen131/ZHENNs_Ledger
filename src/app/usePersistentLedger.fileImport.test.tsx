@@ -38,6 +38,7 @@ import type { LedgerClock } from "@/core/shared";
 import {
   ledgerFileBytesToTestString,
   ledgerFileTestStringToBytes,
+  applyLedgerFileWritableDataForTest,
 } from "@/test-support";
 import { usePersistentLedger } from "./usePersistentLedger";
 
@@ -103,22 +104,28 @@ class ImportLedgerHandle implements LedgerFileHandle {
     };
   }
 
-  async createWritable(): Promise<LedgerFileWritable> {
+  async createWritable(options?: {
+    keepExistingData?: boolean;
+  }): Promise<LedgerFileWritable> {
     this.createWritableCount += 1;
-    let pending: Uint8Array<ArrayBuffer> | null = null;
+    let pending: Uint8Array | null = options?.keepExistingData
+      ? Uint8Array.from(this.bytes)
+      : null;
+    let writeObserved = false;
     return {
       write: async (serialized) => {
-        this.writeCount += 1;
+        if (!writeObserved) {
+          this.writeCount += 1;
+          writeObserved = true;
+        }
         if (this.failNextWrite) {
           this.failNextWrite = false;
           throw new Error("write failed");
         }
-        const encoded =
-          typeof serialized === "string"
-            ? new TextEncoder().encode(serialized)
-            : Uint8Array.from(serialized);
-        pending = new Uint8Array(new ArrayBuffer(encoded.byteLength));
-        pending.set(encoded);
+        pending = applyLedgerFileWritableDataForTest(
+          pending ?? new Uint8Array(),
+          serialized,
+        );
       },
       close: async () => {
         this.closeCount += 1;

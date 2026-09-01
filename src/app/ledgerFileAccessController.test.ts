@@ -28,6 +28,7 @@ import {
   ledgerFileTestStringToBytes,
   readLedgerFileForTest,
   serializeLedgerFileForTest,
+  applyLedgerFileWritableDataForTest,
 } from "@/test-support";
 import {
   DefaultLedgerFileAccessController,
@@ -85,15 +86,20 @@ class MemoryFileHandle implements LedgerFileHandle {
     };
   }
 
-  async createWritable(): Promise<LedgerFileWritable> {
-    let pending = this.bytes;
+  async createWritable(options?: {
+    keepExistingData?: boolean;
+  }): Promise<LedgerFileWritable> {
+    let pending: Uint8Array = options?.keepExistingData
+      ? Uint8Array.from(this.bytes)
+      : new Uint8Array();
+    let writeObserved = false;
     return {
       write: async (data) => {
-        this.writes += 1;
-        pending =
-          typeof data === "string"
-            ? new TextEncoder().encode(data)
-            : Uint8Array.from(data);
+        if (!writeObserved) {
+          this.writes += 1;
+          writeObserved = true;
+        }
+        pending = applyLedgerFileWritableDataForTest(pending, data);
       },
       close: async () => {
         this.bytes = pending;

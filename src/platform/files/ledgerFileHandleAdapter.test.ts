@@ -8,6 +8,7 @@ import {
   type LedgerFilePickerProvider,
   type LedgerFileWritable,
 } from "./ledgerFileHandleAdapter";
+import { applyLedgerFileWritableDataForTest } from "@/test-support";
 
 class AtomicFakeHandle implements LedgerFileHandle {
   bytes: Uint8Array;
@@ -28,17 +29,21 @@ class AtomicFakeHandle implements LedgerFileHandle {
       },
     };
   });
-  readonly createWritable = vi.fn(async () => {
+  readonly createWritable = vi.fn(async (options?: {
+    keepExistingData?: boolean;
+  }) => {
     this.events.push("createWritable");
-    let pending: Uint8Array | null = null;
+    let pending: Uint8Array | null = options?.keepExistingData
+      ? Uint8Array.from(this.bytes)
+      : null;
     const writable: LedgerFileWritable = {
       write: async (data) => {
         this.events.push("write");
         if (this.writeError) throw this.writeError;
-        pending =
-          typeof data === "string"
-            ? new TextEncoder().encode(data)
-            : Uint8Array.from(data);
+        pending = applyLedgerFileWritableDataForTest(
+          pending ?? new Uint8Array(),
+          data,
+        );
       },
       close: async () => {
         this.events.push("close");
@@ -329,6 +334,55 @@ describe("LedgerFileHandleAdapter", () => {
       "getFile",
       "arrayBuffer",
     ]);
+  });
+
+  it("keeps existing bytes, applies positioned writes in order, and fully reads back", async () => {
+    const adapter = new LedgerFileHandleAdapter();
+    const handle = new AtomicFakeHandle("ledger.lftl");
+    handle.bytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+
+    await expect(
+      adapter.writeBinaryPatchesAndReadBack(
+        handle,
+        [
+          { position: 5, data: new Uint8Array([60, 70]) },
+          { position: 1, data: new Uint8Array([20, 30]) },
+        ],
+        8,
+      ),
+    ).resolves.toEqual({
+      bytes: new Uint8Array([1, 20, 30, 4, 5, 60, 70, 8]),
+      byteLength: 8,
+    });
+    expect(handle.createWritable).toHaveBeenCalledWith({
+      keepExistingData: true,
+      mode: "exclusive",
+    });
+    expect(handle.events).toEqual([
+      "createWritable",
+      "write",
+      "write",
+      "close",
+      "getFile",
+      "arrayBuffer",
+    ]);
+  });
+
+  it("rejects overlapping positioned writes before opening a writable", async () => {
+    const adapter = new LedgerFileHandleAdapter();
+    const handle = new AtomicFakeHandle("ledger.lftl", "old bytes");
+
+    await expect(
+      adapter.writeBinaryPatchesAndReadBack(
+        handle,
+        [
+          { position: 1, data: new Uint8Array([1, 2]) },
+          { position: 2, data: new Uint8Array([3, 4]) },
+        ],
+        handle.bytes.byteLength,
+      ),
+    ).rejects.toMatchObject({ stage: "size" });
+    expect(handle.createWritable).not.toHaveBeenCalled();
   });
 
   it.each([

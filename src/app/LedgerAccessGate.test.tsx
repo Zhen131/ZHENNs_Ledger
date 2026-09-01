@@ -38,6 +38,7 @@ import {
 } from "@/platform/persistence";
 import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
+import { applyLedgerFileWritableDataForTest } from "@/test-support";
 import { LedgerAccessGate } from "./LedgerAccessGate";
 import type {
   LedgerSessionFatalSignal,
@@ -252,7 +253,7 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 class MemoryLedgerFileHandle implements LedgerFileHandle {
-  bytes = new Uint8Array();
+  bytes: Uint8Array = new Uint8Array();
   writes = 0;
   readonly remove = vi.fn(async () => undefined);
 
@@ -271,15 +272,20 @@ class MemoryLedgerFileHandle implements LedgerFileHandle {
     };
   }
 
-  async createWritable(): Promise<LedgerFileWritable> {
-    let pending = this.bytes;
+  async createWritable(options?: {
+    keepExistingData?: boolean;
+  }): Promise<LedgerFileWritable> {
+    let pending: Uint8Array = options?.keepExistingData
+      ? Uint8Array.from(this.bytes)
+      : new Uint8Array();
+    let writeObserved = false;
     return {
       write: async (serialized) => {
-        this.writes += 1;
-        pending =
-          typeof serialized === "string"
-            ? new TextEncoder().encode(serialized)
-            : Uint8Array.from(serialized);
+        if (!writeObserved) {
+          this.writes += 1;
+          writeObserved = true;
+        }
+        pending = applyLedgerFileWritableDataForTest(pending, serialized);
       },
       close: async () => {
         this.bytes = pending;
