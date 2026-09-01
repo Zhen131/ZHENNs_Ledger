@@ -1,4 +1,6 @@
 export * from "./ledgerFileConnectionAdapter";
+export * from "./ledgerFileChunkedContainerV3";
+export * from "./ledgerFileChunkingV3";
 export * from "./ledgerFileContainerV3";
 export * from "./ledgerFileSlotContainerV3";
 export * from "./ledgerFileContract";

@@ -22,6 +22,13 @@ import {
   type EncryptedLedgerGenerationV3S2,
   type LedgerFileBodySlotV3S2,
 } from "./ledgerFileSlotContainerV3";
+import {
+  createLedgerFileBlockAadV3S3,
+  createLedgerFileManifestAadV3S3,
+  LEDGER_FILE_OUTER_V3_S3_CONSTANTS,
+  type EncryptedLedgerBlockV3S3,
+  type LedgerFileV3S3,
+} from "./ledgerFileChunkedContainerV3";
 
 const LEDGER_FILE_V2_KEY_DERIVATION_PARAMETERS = {
   kdfName: LEDGER_FILE_OUTER_V2_CONSTANTS.kdfName,
@@ -335,6 +342,137 @@ export class LedgerFileCrypto {
       toArrayBuffer(generation.ciphertextBytes),
     );
     return new TextDecoder("utf-8", { fatal: true }).decode(decrypted);
+  }
+
+  createIvBase64UrlV3S3(
+    forbidden: ReadonlySet<string> = new Set(),
+  ): string {
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      const candidate = bytesToBase64Url(
+        this.cryptoProvider.getRandomValues(
+          new Uint8Array(LEDGER_FILE_OUTER_V2_CONSTANTS.ivBytes),
+        ),
+      );
+      if (!forbidden.has(candidate)) return candidate;
+    }
+    throw new Error("Could not allocate a unique V3 S-3 IV");
+  }
+
+  async encryptBlockV3S3(
+    fileId: string,
+    metadata: Omit<
+      EncryptedLedgerBlockV3S3,
+      "ivBase64Url" | "ciphertextBytes"
+    >,
+    serializedPayload: string,
+    forbiddenIvBase64Urls: ReadonlySet<string> = new Set(),
+  ): Promise<EncryptedLedgerBlockV3S3> {
+    const plaintext = new TextEncoder().encode(serializedPayload);
+    if (plaintext.byteLength !== metadata.plaintextByteLength) {
+      throw new Error("V3 S-3 block plaintext length changed before encryption");
+    }
+    const ivBase64Url = this.createIvBase64UrlV3S3(
+      forbiddenIvBase64Urls,
+    );
+    const iv = base64UrlToBytes(ivBase64Url);
+    const blockMetadata = { ...metadata, ivBase64Url };
+    const additionalData = createLedgerFileBlockAadV3S3(
+      {
+        fileFormatVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.fileFormatVersion,
+        cryptoVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.cryptoVersion,
+        ledgerSchemaVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.ledgerSchemaVersion,
+        backupFormatVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.backupFormatVersion,
+        fileId,
+        crypto: this.metadata,
+      },
+      blockMetadata,
+    );
+    const encrypted = await this.cryptoProvider.subtle.encrypt(
+      {
+        name: LEDGER_FILE_OUTER_V2_CONSTANTS.cipherName,
+        iv: toArrayBuffer(iv),
+        additionalData: toArrayBuffer(additionalData),
+        tagLength: LEDGER_FILE_OUTER_V2_CONSTANTS.tagLength,
+      },
+      this.key,
+      toArrayBuffer(plaintext),
+    );
+    return {
+      ...blockMetadata,
+      ciphertextBytes: new Uint8Array(encrypted),
+    };
+  }
+
+  async decryptBlockV3S3(
+    fileId: string,
+    block: EncryptedLedgerBlockV3S3,
+  ): Promise<string> {
+    const iv = base64UrlToBytes(block.ivBase64Url);
+    const {
+      ciphertextBytes,
+      ...blockMetadata
+    } = block;
+    const additionalData = createLedgerFileBlockAadV3S3(
+      {
+        fileFormatVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.fileFormatVersion,
+        cryptoVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.cryptoVersion,
+        ledgerSchemaVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.ledgerSchemaVersion,
+        backupFormatVersion:
+          LEDGER_FILE_OUTER_V3_S3_CONSTANTS.backupFormatVersion,
+        fileId,
+        crypto: this.metadata,
+      },
+      blockMetadata,
+    );
+    const decrypted = await this.cryptoProvider.subtle.decrypt(
+      {
+        name: LEDGER_FILE_OUTER_V2_CONSTANTS.cipherName,
+        iv: toArrayBuffer(iv),
+        additionalData: toArrayBuffer(additionalData),
+        tagLength: LEDGER_FILE_OUTER_V2_CONSTANTS.tagLength,
+      },
+      this.key,
+      toArrayBuffer(ciphertextBytes),
+    );
+    return new TextDecoder("utf-8", { fatal: true }).decode(decrypted);
+  }
+
+  async authenticateManifestV3S3(
+    file: LedgerFileV3S3,
+  ): Promise<Uint8Array> {
+    const iv = base64UrlToBytes(file.manifestAuthIvBase64Url);
+    const encrypted = await this.cryptoProvider.subtle.encrypt(
+      {
+        name: LEDGER_FILE_OUTER_V2_CONSTANTS.cipherName,
+        iv: toArrayBuffer(iv),
+        additionalData: toArrayBuffer(createLedgerFileManifestAadV3S3(file)),
+        tagLength: LEDGER_FILE_OUTER_V2_CONSTANTS.tagLength,
+      },
+      this.key,
+      new ArrayBuffer(0),
+    );
+    return new Uint8Array(encrypted);
+  }
+
+  async verifyManifestV3S3(file: LedgerFileV3S3): Promise<void> {
+    const iv = base64UrlToBytes(file.manifestAuthIvBase64Url);
+    await this.cryptoProvider.subtle.decrypt(
+      {
+        name: LEDGER_FILE_OUTER_V2_CONSTANTS.cipherName,
+        iv: toArrayBuffer(iv),
+        additionalData: toArrayBuffer(createLedgerFileManifestAadV3S3(file)),
+        tagLength: LEDGER_FILE_OUTER_V2_CONSTANTS.tagLength,
+      },
+      this.key,
+      toArrayBuffer(file.manifestAuthTagBytes),
+    );
   }
 }
 

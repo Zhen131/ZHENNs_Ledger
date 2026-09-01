@@ -22,7 +22,7 @@ import {
 } from "./ledgerFileContract";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import type { CryptoProvider } from "@/platform/encryption";
-import type { LedgerData, Trade } from "@/core/models";
+import type { CashEvent, LedgerData, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createLedgerSession,
@@ -38,9 +38,15 @@ import {
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 import {
   ledgerFileBodySlotOffsetV3S2,
-  parseLedgerFileV3S2,
-  readLedgerFileBodySlotV3S2,
 } from "./ledgerFileSlotContainerV3";
+import {
+  ledgerFileBodySlotOffsetV3S3,
+  ledgerFileHeaderSlotOffsetV3S3,
+  LEDGER_FILE_V3_S3_BODY_SLOT_BYTES,
+  LEDGER_FILE_V3_S3_HEADER_SLOT_BYTES,
+  parseLedgerFileV3S3Candidates,
+  type LedgerFileV3S3,
+} from "./ledgerFileChunkedContainerV3";
 import {
   appendLedgerFileJsonWhitespaceForTest,
   decryptLedgerFileGenerationForTest,
@@ -48,6 +54,8 @@ import {
   ledgerFileBytesToTestString,
   ledgerFileTestStringToBytes,
   readLedgerFileForTest,
+  readLedgerFileBodySlotForTest,
+  readLedgerFileSlotViewForTest,
   readLedgerFileJsonHeaderForTest,
   serializeLedgerFileForTest,
   type LedgerFileForTest,
@@ -361,6 +369,32 @@ function createLedgerWithTrades(count: number): LedgerData {
   };
 }
 
+function createLedgerWithCashEvents(count: number): LedgerData {
+  const cashEvents: CashEvent[] = Array.from(
+    { length: count },
+    (_, index) => ({
+      id: `fixture-cash-${index}`,
+      occurredAt: "2026-01-01",
+      timePrecision: "day",
+      type: "deposit",
+      currency: "USDT",
+      amount: "1",
+      note: `虚构现金事实 ${index + 1}`,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }),
+  );
+  return {
+    schemaVersion: 4,
+    assets: [],
+    trades: [],
+    cashEvents,
+    assetTransfers: [],
+    priceSnapshots: [],
+    feeRules: [],
+  };
+}
+
 function replaceLedgerFileSalt(
   serialized: string,
   saltByte = 9,
@@ -573,7 +607,7 @@ async function readVerifiedFile(
   current: DecryptedLedgerPayloadV4;
   previous: DecryptedLedgerPayloadV4 | null;
 }> {
-  const parsed: unknown = readLedgerFileForTest(handle.text());
+  const parsed: unknown = readLedgerFileForTest(handle.bytes);
   const validated = validateLedgerFileForTest(parsed);
   expect(validated.ok).toBe(true);
   if (!validated.ok) throw new Error("invalid test ledger file");
@@ -598,6 +632,37 @@ async function readVerifiedFile(
       )
     : null;
   return { file: validated.value, current, previous };
+}
+
+function readLatestChunkedFile(handle: AtomicLedgerHandle): LedgerFileV3S3 {
+  const parsed = parseLedgerFileV3S3Candidates(handle.bytes);
+  if (!parsed.ok) {
+    throw new Error("invalid chunked test ledger file", {
+      cause: parsed.errors,
+    });
+  }
+  const latest = parsed.value.candidates
+    .filter(({ referencedPaddingIsZero }) => referencedPaddingIsZero)
+    .sort((left, right) => right.file.sequence - left.file.sequence)[0];
+  if (!latest) throw new Error("missing chunked test header");
+  return latest.file;
+}
+
+function readChunkedBodySlots(
+  bytes: Uint8Array,
+  slots: readonly number[],
+): Uint8Array {
+  const result = new Uint8Array(
+    slots.length * LEDGER_FILE_V3_S3_BODY_SLOT_BYTES,
+  );
+  for (let index = 0; index < slots.length; index += 1) {
+    const offset = ledgerFileBodySlotOffsetV3S3(slots[index]!);
+    result.set(
+      bytes.subarray(offset, offset + LEDGER_FILE_V3_S3_BODY_SLOT_BYTES),
+      index * LEDGER_FILE_V3_S3_BODY_SLOT_BYTES,
+    );
+  }
+  return result;
 }
 
 function parsePayload(serialized: string): DecryptedLedgerPayloadV4 {
@@ -724,6 +789,192 @@ describe("LedgerFileRepository", () => {
     ).toEqual(ledger.priceSnapshots);
   });
 
+  it.each([
+    { name: "empty", count: 0, blockCounts: [] },
+    { name: "single", count: 1, blockCounts: [1] },
+    { name: "under one full block", count: 1_999, blockCounts: [1_999] },
+    { name: "exactly one full block", count: 2_000, blockCounts: [2_000] },
+    { name: "across multiple blocks", count: 2_001, blockCounts: [2_000, 1] },
+  ])(
+    "round-trips every field for the Q-2 $name ledger",
+    async ({ name, count, blockCounts }) => {
+      const handle = new AtomicLedgerHandle(`q2-${name}.lftl`);
+      const ledger = createLedgerWithCashEvents(count);
+      await LedgerFileRepository.create(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        ledger,
+        {
+          generateId: createIdGenerator([
+            `file-q2-${name}`,
+            `revision-q2-${name}`,
+          ]),
+          now: createClock(["2026-09-01T11:00:00.000Z"]),
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      const physical = readLatestChunkedFile(handle);
+      const reopened = await LedgerFileRepository.open(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        {
+          expectedFileId: `file-q2-${name}`,
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+
+      expect(
+        physical.current.factBlocks.map(({ recordCount }) => recordCount),
+      ).toEqual(blockCounts);
+      await expect(reopened.load()).resolves.toEqual(ledger);
+    },
+    15_000,
+  );
+
+  it(
+    "rewrites only the control block and one edited historical fact block",
+    async () => {
+      const handle = new AtomicLedgerHandle("chunk-local-edit.lftl");
+      const beforeLedger = createLedgerWithTrades(4_001);
+      const repository = await LedgerFileRepository.create(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        beforeLedger,
+        {
+          generateId: createIdGenerator([
+            "file-chunk-local-edit",
+            "revision-chunk-local-before",
+            "revision-chunk-local-after",
+          ]),
+          now: createClock([
+            "2026-09-01T11:10:00.000Z",
+            "2026-09-01T11:11:00.000Z",
+          ]),
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      const beforeFile = readLatestChunkedFile(handle);
+      const beforeBytes = Uint8Array.from(handle.bytes);
+      const writesBefore = handle.writeOperations.length;
+      const editedLedger = structuredClone(beforeLedger);
+      editedLedger.trades[17] = {
+        ...editedLedger.trades[17]!,
+        note: "只编辑第一个历史块的虚构备注",
+        updatedAt: "2026-09-01T11:11:00.000Z",
+      };
+
+      await repository.save(editedLedger);
+
+      const afterFile = readLatestChunkedFile(handle);
+      expect(afterFile.previous).toEqual(beforeFile.current);
+      expect(afterFile.current.factBlocks).toHaveLength(3);
+      expect(afterFile.current.controlBlock.ivBase64Url).not.toBe(
+        beforeFile.current.controlBlock.ivBase64Url,
+      );
+      expect(afterFile.current.factBlocks[0]!.ivBase64Url).not.toBe(
+        beforeFile.current.factBlocks[0]!.ivBase64Url,
+      );
+      for (const index of [1, 2]) {
+        expect(afterFile.current.factBlocks[index]).toEqual(
+          beforeFile.current.factBlocks[index],
+        );
+        expect(
+          readChunkedBodySlots(
+            handle.bytes,
+            afterFile.current.factBlocks[index]!.bodySlots,
+          ),
+        ).toEqual(
+          readChunkedBodySlots(
+            beforeBytes,
+            beforeFile.current.factBlocks[index]!.bodySlots,
+          ),
+        );
+      }
+      expect(handle.writeOperations.slice(writesBefore)).toHaveLength(2);
+      await expect(repository.load()).resolves.toEqual(editedLedger);
+    },
+    20_000,
+  );
+
+  it(
+    "uses a fresh IV for every rewritten block and every reachable manifest",
+    async () => {
+      const handle = new AtomicLedgerHandle("chunk-iv-uniqueness.lftl");
+      const beforeLedger = createLedgerWithTrades(2_001);
+      const repository = await LedgerFileRepository.create(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        beforeLedger,
+        {
+          generateId: createIdGenerator([
+            "file-chunk-iv",
+            "revision-chunk-iv-before",
+            "revision-chunk-iv-after",
+          ]),
+          now: createClock([
+            "2026-09-01T11:20:00.000Z",
+            "2026-09-01T11:21:00.000Z",
+          ]),
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      const before = readLatestChunkedFile(handle);
+      const edited = structuredClone(beforeLedger);
+      edited.trades[0] = {
+        ...edited.trades[0]!,
+        note: "IV 不重用的虚构编辑",
+        updatedAt: "2026-09-01T11:21:00.000Z",
+      };
+
+      await repository.save(edited);
+
+      const parsed = parseLedgerFileV3S3Candidates(handle.bytes);
+      expect(parsed.ok).toBe(true);
+      if (!parsed.ok) return;
+      const latest = [...parsed.value.candidates].sort(
+        (left, right) => right.file.sequence - left.file.sequence,
+      )[0]!.file;
+      expect(latest.previous).not.toBeNull();
+      if (!latest.previous) return;
+      expect(latest.current.controlBlock.ivBase64Url).not.toBe(
+        before.current.controlBlock.ivBase64Url,
+      );
+      expect(latest.current.factBlocks[0]!.ivBase64Url).not.toBe(
+        before.current.factBlocks[0]!.ivBase64Url,
+      );
+      expect(latest.current.factBlocks[1]).toEqual(
+        before.current.factBlocks[1],
+      );
+      const currentById = new Map(
+        [latest.current.controlBlock, ...latest.current.factBlocks].map(
+          (block) => [block.blockId, block],
+        ),
+      );
+      const previousChanged = [
+        latest.previous.controlBlock,
+        ...latest.previous.factBlocks,
+      ].filter((block) => {
+        const current = currentById.get(block.blockId);
+        return !current || current.ivBase64Url !== block.ivBase64Url;
+      });
+      const reachableIvs = [
+        latest.current.controlBlock.ivBase64Url,
+        ...latest.current.factBlocks.map(({ ivBase64Url }) => ivBase64Url),
+        ...previousChanged.map(({ ivBase64Url }) => ivBase64Url),
+        ...parsed.value.candidates.map(
+          ({ file }) => file.manifestAuthIvBase64Url,
+        ),
+      ];
+
+      expect(new Set(reachableIvs).size).toBe(reachableIvs.length);
+    },
+    15_000,
+  );
+
   it(
     "creates 300 then saves 301 and 302 as two adjacent independently decryptable full generations",
     async () => {
@@ -821,7 +1072,7 @@ describe("LedgerFileRepository", () => {
         sessionLease: TEST_SESSION_LEASE,
       },
     );
-    const parsedBefore = parseLedgerFileV3S2(handle.bytes);
+    const parsedBefore = readLedgerFileSlotViewForTest(handle.bytes);
     expect(parsedBefore.ok).toBe(true);
     if (!parsedBefore.ok) return;
     const sourceSlot = parsedBefore.value.current.bodySlot;
@@ -829,7 +1080,7 @@ describe("LedgerFileRepository", () => {
       parsedBefore.value.bodySlotBytes,
       sourceSlot,
     );
-    const sourceSlotBefore = readLedgerFileBodySlotV3S2(
+    const sourceSlotBefore = readLedgerFileBodySlotForTest(
       handle.bytes,
       sourceSlot,
     );
@@ -840,12 +1091,12 @@ describe("LedgerFileRepository", () => {
       trades: [...ledgerBefore.trades, createTrade(3)],
     });
 
-    const parsedAfter = parseLedgerFileV3S2(handle.bytes);
+    const parsedAfter = readLedgerFileSlotViewForTest(handle.bytes);
     expect(parsedAfter.ok).toBe(true);
     if (!parsedAfter.ok) return;
     expect(parsedAfter.value.previous?.bodySlot).toBe(sourceSlot);
     expect(
-      readLedgerFileBodySlotV3S2(handle.bytes, sourceSlot),
+      readLedgerFileBodySlotForTest(handle.bytes, sourceSlot),
     ).toEqual(sourceSlotBefore);
     const saveOperations = handle.writeOperations.slice(
       operationsBeforeSave,
@@ -886,7 +1137,7 @@ describe("LedgerFileRepository", () => {
       },
     );
     await repository.save(ledgerAfter);
-    const beforeDamage = parseLedgerFileV3S2(handle.bytes);
+    const beforeDamage = readLedgerFileSlotViewForTest(handle.bytes);
     expect(beforeDamage.ok).toBe(true);
     if (!beforeDamage.ok) return;
     const currentOffset = ledgerFileBodySlotOffsetV3S2(
@@ -913,6 +1164,119 @@ describe("LedgerFileRepository", () => {
     const verified = await readVerifiedFile(handle);
     expect(verified.current.ledgerData).toEqual(ledgerBefore);
     expect(verified.previous?.ledgerData).toEqual(ledgerBefore);
+  });
+
+  it(
+    "recovers every field from the previous chunked generation when one current fact block is corrupted",
+    async () => {
+      const handle = new AtomicLedgerHandle("chunk-recovery.lftl");
+      const ledgerBefore = createLedgerWithTrades(4_001);
+      const ledgerAfter = structuredClone(ledgerBefore);
+      ledgerAfter.trades[17] = {
+        ...ledgerAfter.trades[17]!,
+        note: "随后会被破坏的虚构当前块",
+        updatedAt: "2026-09-01T11:31:00.000Z",
+      };
+      const repository = await LedgerFileRepository.create(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        ledgerBefore,
+        {
+          generateId: createIdGenerator([
+            "file-chunk-recovery",
+            "revision-chunk-recovery-before",
+            "revision-chunk-recovery-damaged",
+            "revision-chunk-recovery-confirmed",
+          ]),
+          now: createClock([
+            "2026-09-01T11:30:00.000Z",
+            "2026-09-01T11:31:00.000Z",
+            "2026-09-01T11:32:00.000Z",
+          ]),
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      await repository.save(ledgerAfter);
+      const damaged = readLatestChunkedFile(handle);
+      const currentTarget = damaged.current.factBlocks[0]!;
+      handle.bytes[ledgerFileBodySlotOffsetV3S3(currentTarget.bodySlots[0]!)]
+        ^= 0xff;
+
+      const opened = await LedgerFileRepository.openForAccess(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        {
+          generateId: createIdGenerator([
+            "revision-chunk-recovery-confirmed",
+          ]),
+          now: createClock(["2026-09-01T11:32:00.000Z"]),
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      expect(opened.status).toBe("recovery-required");
+      if (opened.status !== "recovery-required") return;
+      const recovered = await opened.candidate.confirm();
+
+      await expect(recovered.load()).resolves.toEqual(ledgerBefore);
+      const verified = await readVerifiedFile(handle);
+      expect(verified.current.ledgerData).toEqual(ledgerBefore);
+      expect(verified.previous?.ledgerData).toEqual(ledgerBefore);
+    },
+    20_000,
+  );
+
+  it("offers explicit recovery from the older header when the latest manifest is corrupted", async () => {
+    const handle = new AtomicLedgerHandle("chunk-manifest-recovery.lftl");
+    const ledgerBefore = createLedgerWithTrades(3);
+    const ledgerAfter = {
+      ...ledgerBefore,
+      trades: [...ledgerBefore.trades, createTrade(3)],
+    };
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      ledgerBefore,
+      {
+        generateId: createIdGenerator([
+          "file-chunk-manifest-recovery",
+          "revision-chunk-manifest-before",
+          "revision-chunk-manifest-damaged",
+        ]),
+        now: createClock([
+          "2026-09-01T11:40:00.000Z",
+          "2026-09-01T11:41:00.000Z",
+        ]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    await repository.save(ledgerAfter);
+    const latest = readLatestChunkedFile(handle);
+    const manifestTagLastByte =
+      ledgerFileHeaderSlotOffsetV3S3(latest.activeHeaderSlot) +
+      LEDGER_FILE_V3_S3_HEADER_SLOT_BYTES -
+      1;
+    handle.bytes[manifestTagLastByte] ^= 0xff;
+
+    const opened = await LedgerFileRepository.openForAccess(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      {
+        generateId: createIdGenerator([
+          "revision-chunk-manifest-recovered",
+        ]),
+        now: createClock(["2026-09-01T11:42:00.000Z"]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    expect(opened.status).toBe("recovery-required");
+    if (opened.status !== "recovery-required") return;
+    const recovered = await opened.candidate.confirm();
+
+    await expect(recovered.load()).resolves.toEqual(ledgerBefore);
   });
 
   it("keeps the prior header usable and stops blind retries when the new header write is interrupted", async () => {
@@ -3310,6 +3674,10 @@ describe("LedgerFileRepository", () => {
         globalThis.crypto.subtle,
       );
     decrypt
+      .mockImplementationOnce(nativeDecrypt)
+      .mockImplementationOnce(nativeDecrypt)
+      .mockImplementationOnce(nativeDecrypt)
+      .mockImplementationOnce(nativeDecrypt)
       .mockImplementationOnce(nativeDecrypt)
       .mockImplementationOnce(nativeDecrypt)
       .mockRejectedValueOnce(
