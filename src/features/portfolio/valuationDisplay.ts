@@ -1,10 +1,13 @@
+import { translateDefault } from "@/ui";
+
 export type ValuationDisplay = {
-  label: "USD" | "USDT" | "USD/USDT 近似等值";
+  label: string;
   usesApproximation: boolean;
 };
 
-export const USDT_USD_APPROXIMATION_DISCLOSURE =
-  "1 USDT ≈ 1 USD，未接实时汇率";
+export const USDT_USD_APPROXIMATION_DISCLOSURE = translateDefault(
+  "portfolio.valuation.approximationDisclosure",
+);
 
 export function createValuationDisplay(
   currencies: Iterable<string>,
@@ -23,5 +26,8 @@ export function createValuationDisplay(
     const label = supported.has("USDT") ? "USDT" : "USD";
     return { label, usesApproximation: false };
   }
-  return { label: "USD/USDT 近似等值", usesApproximation: true };
+  return {
+    label: translateDefault("portfolio.valuation.approximationLabel"),
+    usesApproximation: true,
+  };
 }

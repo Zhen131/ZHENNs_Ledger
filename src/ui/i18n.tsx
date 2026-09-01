@@ -304,6 +304,8 @@ const chineseMessages = {
   "assetTransfer.validation.externalOutToForbidden": "外部转出不能填写目的位置",
   "assetTransfer.validation.externalOutUnitPriceForbidden": "外部转出不能填写到账单价",
   "assetTransfer.validation.positiveDecimalSuffix": "必须大于 0，且是最多 40 位有效数字、18 位小数的规范十进制",
+  "portfolio.valuation.approximationLabel": "USD/USDT 近似等值",
+  "portfolio.valuation.approximationDisclosure": "1 USDT ≈ 1 USD，未接实时汇率",
   "shared.i18n.fallbackExample": "中文回退文案",
   "settings.language.heading": "界面语言",
   "settings.language.description": "语言偏好只保存在这台浏览器中，不写入账本文件。",
