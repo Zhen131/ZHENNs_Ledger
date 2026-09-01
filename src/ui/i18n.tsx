@@ -338,6 +338,8 @@ const chineseMessages = {
   "backup.preflight.duplicateTradeIdSuffix": "].id。",
   "backup.preflight.negativeCashPrefix": "USDT 现金重放结果为 ",
   "backup.preflight.negativeCashSuffix": "；负余额合法，不会阻止导入。",
+  "portfolio.issue.unsupportedCurrencyMiddle": " 使用不支持的计价币种 ",
+  "portfolio.issue.missingCurrentPrice": " 缺少合法当前价格",
   "shared.i18n.fallbackExample": "中文回退文案",
   "settings.language.heading": "界面语言",
   "settings.language.description": "语言偏好只保存在这台浏览器中，不写入账本文件。",

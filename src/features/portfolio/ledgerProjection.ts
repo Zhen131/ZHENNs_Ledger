@@ -26,6 +26,7 @@ import {
   multiply,
   subtract,
 } from "@/core/shared";
+import { translateDefault } from "@/ui";
 import { getValuedPositionsFromLedger } from "./positionService";
 import { selectPriceAsOf } from "./priceSelectionService";
 
@@ -160,7 +161,10 @@ function createLedgerProjection(
       issues.push({
         code: "UNSUPPORTED_VALUATION_CURRENCY",
         assetSymbol: position.assetSymbol,
-        message: `${position.assetSymbol} 使用不支持的计价币种 ${position.currency}`,
+        message:
+          position.assetSymbol +
+          translateDefault("portfolio.issue.unsupportedCurrencyMiddle") +
+          position.currency,
       });
       continue;
     }
@@ -169,7 +173,9 @@ function createLedgerProjection(
       issues.push({
         code: "MISSING_CURRENT_PRICE",
         assetSymbol: position.assetSymbol,
-        message: `${position.assetSymbol} 缺少合法当前价格`,
+        message:
+          position.assetSymbol +
+          translateDefault("portfolio.issue.missingCurrentPrice"),
       });
       continue;
     }
