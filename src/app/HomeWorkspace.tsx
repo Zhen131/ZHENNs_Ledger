@@ -220,8 +220,8 @@ export function HomeWorkspace({
               onClick={onNavigateToPrice}
               type="button"
             >
-              {t("home.missingPrices.action")}：
-              {allocation.missingPriceAssets.join("、")}
+              {t("home.missingPrices.action")}{t("home.missingPrices.separator")}
+              {allocation.missingPriceAssets.join(t("home.missingPrices.joinSeparator"))}
             </button>
           ) : null}
         </div>
@@ -293,7 +293,7 @@ function MetricCard({
       </p>
       {missingReasons.length > 0 ? (
         <p className="mt-1 truncate text-xs font-medium text-amber-800">
-          {t("home.metrics.excluded")}：{missingReasons.join("、")}
+          {t("home.metrics.excluded")}{t("home.metrics.excludedSeparator")}{missingReasons.join(t("home.metrics.joinSeparator"))}
         </p>
       ) : null}
     </SurfaceCard>

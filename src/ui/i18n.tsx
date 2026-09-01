@@ -31,6 +31,8 @@ const chineseMessages = {
   "home.metrics.realizedPnl": "已实现盈亏",
   "home.metrics.unavailable": "不可完整计算",
   "home.metrics.excluded": "未计入",
+  "home.metrics.excludedSeparator": "：",
+  "home.metrics.joinSeparator": "、",
   "home.trend.heading": "资产趋势",
   "home.trend.description":
     "总资产逐日重放现金与可得行情；成本线仍只读取交易。",
@@ -48,6 +50,8 @@ const chineseMessages = {
   "home.quickTrade.heading": "记一笔交易",
   "home.quickTrade.description": "新增真实买入或卖出事实",
   "home.missingPrices.action": "更新缺价资产",
+  "home.missingPrices.separator": "：",
+  "home.missingPrices.joinSeparator": "、",
   "transfer.workspace.ariaLabel": "导入与导出工作区",
   "transfer.heading": "导入与导出",
   "transfer.description.file":
