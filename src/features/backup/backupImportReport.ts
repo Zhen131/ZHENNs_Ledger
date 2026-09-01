@@ -145,8 +145,10 @@ function appendSuspiciousGroup(
 ): void {
   lines.push(
     `### ${number}. ${
-      detail.group.level === "high" ? "高度可疑" : "一般可疑"
-    }重复组`,
+      detail.group.level === "high"
+        ? translateDefault("backup.markdown.highSuspicion")
+        : translateDefault("backup.markdown.normalSuspicion")
+    }${translateDefault("backup.markdown.duplicateGroupSuffix")}`,
     "",
     `- 原始路径：${detail.group.tradeIndices
       .map((index) => `\`trades[${index}]\``)
@@ -159,8 +161,8 @@ function appendSuspiciousGroup(
         (edge) =>
           `\`trades[${edge.leftIndex}]\` ↔ \`trades[${edge.rightIndex}]\`（${
             edge.relation === "same-exact-time"
-              ? "精确时间相同"
-              : "同日且至少一笔为 day 精度"
+              ? translateDefault("backup.markdown.exactTime")
+              : translateDefault("backup.markdown.sameDay")
           }）`,
       )
       .join("；")}`,
