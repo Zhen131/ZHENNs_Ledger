@@ -34,6 +34,7 @@ import type {
   PersistentLedgerState,
 } from "./usePersistentLedger";
 import { DashboardShell } from "./DashboardShell";
+import { useLanguage } from "@/ui";
 
 type AccessState =
   | { status: "checking" }
@@ -73,6 +74,7 @@ export function LedgerAccessGate({
   accessController?: LedgerAccessController;
   fileAccessController?: LedgerFileAccessController;
 }> = {}) {
+  const { t } = useLanguage();
   const [accessState, setAccessState] = useState<AccessState>({
     status: "checking",
   });
@@ -278,11 +280,11 @@ export function LedgerAccessGate({
       return;
     }
     if (passphrase !== confirmation) {
-      setFormError("两次输入的密码不一致");
+      setFormError(t("access.error.passphraseMismatch"));
       return;
     }
     if (!validatePassphrase(passphrase).ok) {
-      setFormError("密码必须为 8 至 128 个 Unicode 字符");
+      setFormError(t("access.error.passphraseLength"));
       return;
     }
 
@@ -302,7 +304,7 @@ export function LedgerAccessGate({
       ) {
         setAccessPath("choice");
       } else if (result.status === "error") {
-        setFormError(getFileAccessErrorMessage(result.code));
+        setFormError(getFileAccessErrorMessage(result.code, t));
       }
     }
     finishOperation(operation);
@@ -323,7 +325,7 @@ export function LedgerAccessGate({
       } else if (
         result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
       ) {
-        setFormError(getFileAccessErrorMessage(result.code));
+        setFormError(getFileAccessErrorMessage(result.code, t));
       }
     }
     finishOperation(operation);
@@ -396,7 +398,7 @@ export function LedgerAccessGate({
     } catch {
       if (isCurrentOperation(operation)) {
         setFormError(
-          "无法忘记这条失效连接；没有创建或改绑任何账本，请重试。",
+          t("access.error.forgetConnection"),
         );
       }
     }
@@ -425,7 +427,7 @@ export function LedgerAccessGate({
         setRecoveryId(result.recoveryId);
         setAccessPath("file-recovery");
       } else {
-        setFormError(getFileAccessErrorMessage(result.code));
+        setFormError(getFileAccessErrorMessage(result.code, t));
       }
     }
     finishOperation(operation);
@@ -447,7 +449,7 @@ export function LedgerAccessGate({
           setRecoveryId(null);
           enterUnlockedSession(result.session);
         } else if (result.status === "error") {
-          setFormError(getFileAccessErrorMessage(result.code));
+          setFormError(getFileAccessErrorMessage(result.code, t));
         }
       }
     } catch {
@@ -455,6 +457,7 @@ export function LedgerAccessGate({
         setFormError(
           getFileAccessErrorMessage(
             LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_FAILED,
+            t,
           ),
         );
       }
@@ -479,7 +482,7 @@ export function LedgerAccessGate({
     } catch {
       if (isCurrentOperation(operation)) {
         setFormError(
-          "无法确认恢复候选的文件锁已经释放。账本仍保持关闭，请重试取消恢复。",
+          t("access.error.recoveryRelease"),
         );
       }
     } finally {
@@ -703,15 +706,15 @@ export function LedgerAccessGate({
       <AccessPanel
         description={
           accessState.fatal
-            ? "导入后的文件状态无法确认。已停止全部新操作，正在等待已接受工作结束并撤销当前会话。"
-            : "已停止接收新操作，正在等待已经接受的保存或清空安全收尾。"
+            ? t("access.locking.fatalDescription")
+            : t("access.locking.description")
         }
-        title={accessState.fatal ? "正在安全关闭账本" : "正在安全锁定"}
+        title={accessState.fatal ? t("access.locking.fatalTitle") : t("access.locking.title")}
       >
         <p aria-live="polite" className="text-sm text-[var(--ledger-muted)]">
           {accessState.fatal
-            ? "完成后会释放文件并进入恢复阻断关闭页；不会自动修复、覆盖或重连。"
-            : "完成后会释放当前文件并回到密码入口，请稍候…"}
+            ? t("access.locking.fatalHint")
+            : t("access.locking.hint")}
         </p>
       </AccessPanel>
     );
@@ -722,13 +725,13 @@ export function LedgerAccessGate({
       <AccessPanel
         description={
           accessState.fatal
-            ? "旧 Repository 已撤销，Dashboard 不会恢复；但文件释放或连接清理尚未全部确认。"
-            : "账本会话已经关闭且不能继续读取或写入，但浏览器尚未确认文件占用已释放。"
+            ? t("access.lockError.fatalDescription")
+            : t("access.lockError.description")
         }
         title={
           accessState.fatal
-            ? "恢复阻断后的安全关闭尚未完成"
-            : "安全释放尚未完成"
+            ? t("access.lockError.fatalTitle")
+            : t("access.lockError.title")
         }
       >
         <button
@@ -736,7 +739,7 @@ export function LedgerAccessGate({
           onClick={() => void retryFailedSessionRelease()}
           type="button"
         >
-          {accessState.fatal ? "重试安全关闭" : "重试安全释放"}
+          {accessState.fatal ? t("access.lockError.retryFatal") : t("access.lockError.retry")}
         </button>
       </AccessPanel>
     );
@@ -745,8 +748,8 @@ export function LedgerAccessGate({
   if (accessState.status === "fatal-closed") {
     return (
       <AccessPanel
-        description="导入后的磁盘结果无法确认。系统已经停止操作、撤销当前会话、释放文件并清除旧连接；没有自动修复、覆盖或继续写入。请保留原文件用于恢复。"
-        title="账本已因恢复阻断自动关闭"
+        description={t("access.fatalClosed.description")}
+        title={t("access.fatalClosed.title")}
       >
         <button
           className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
@@ -757,10 +760,10 @@ export function LedgerAccessGate({
           }}
           type="button"
         >
-          重新选择账本
+          {t("access.action.reselectLedger")}
         </button>
         <p className="mt-3 text-sm leading-6 text-[var(--ledger-muted)]">
-          重新进入必须经过系统文件选择器、密码认证和完整文件校验；旧会话不会恢复。
+          {t("access.fatalClosed.hint")}
         </p>
       </AccessPanel>
     );
@@ -769,11 +772,11 @@ export function LedgerAccessGate({
   if (accessState.status === "checking") {
     return (
       <AccessPanel
-        description="正在检查此浏览器中的本地账本。"
-        title="正在检查本地账本"
+        description={t("access.checking.description")}
+        title={t("access.checking.title")}
       >
         <p aria-live="polite" className="text-sm text-[var(--ledger-muted)]">
-          请稍候…
+          {t("access.action.wait")}
         </p>
       </AccessPanel>
     );
@@ -782,11 +785,11 @@ export function LedgerAccessGate({
   if (accessPath === "legacy-retired") {
     return (
       <AccessPanel
-        description="检测到旧版浏览器整账。版本 2 不支持解锁、迁移或删除这条旧记录；它会原样保留。请新建版本 2 账本。"
-        title="旧版账本已退役"
+        description={t("access.legacy.description")}
+        title={t("access.legacy.title")}
       >
         <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-          系统没有读取旧账本业务数据，也不会用空账本覆盖它。
+          {t("access.legacy.hint")}
         </p>
       </AccessPanel>
     );
@@ -795,8 +798,8 @@ export function LedgerAccessGate({
   if (accessPath === "file-reconnect-prompt") {
     return (
       <AccessPanel
-        description="浏览器记得上次使用的账本，但需要你明确重新授权。点击前不会请求权限，也不会创建空账本。"
-        title="重新连接上次的账本"
+        description={t("access.reconnectPrompt.description")}
+        title={t("access.reconnectPrompt.title")}
       >
         <div className="grid gap-3">
           <button
@@ -805,7 +808,7 @@ export function LedgerAccessGate({
             onClick={() => void requestRememberedConnection()}
             type="button"
           >
-            {isSubmitting ? "正在重新连接…" : "重新连接"}
+            {isSubmitting ? t("access.reconnectPrompt.connecting") : t("access.reconnectPrompt.connect")}
           </button>
           <button
             className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)] disabled:opacity-60"
@@ -813,7 +816,7 @@ export function LedgerAccessGate({
             onClick={() => void reselectRememberedConnection()}
             type="button"
           >
-            重新选择原来的账本
+            {t("access.reconnectPrompt.reselect")}
           </button>
           <button
             className="w-full text-sm font-medium text-red-700 disabled:opacity-60"
@@ -821,7 +824,7 @@ export function LedgerAccessGate({
             onClick={() => void forgetRememberedConnection()}
             type="button"
           >
-            忘记这条连接并选择另一本账
+            {t("access.reconnectPrompt.forget")}
           </button>
           <FormError message={formError} />
         </div>
@@ -834,10 +837,10 @@ export function LedgerAccessGate({
       <AccessPanel
         description={
           reconnectError
-            ? getFileAccessErrorMessage(reconnectError)
-            : "无法安全重新连接上次的账本。"
+            ? getFileAccessErrorMessage(reconnectError, t)
+            : t("access.reconnectError.defaultDescription")
         }
-        title="上次的账本暂时不可用"
+        title={t("access.reconnectError.title")}
       >
         <div className="grid gap-3">
           <button
@@ -846,10 +849,10 @@ export function LedgerAccessGate({
             onClick={() => void reselectRememberedConnection()}
             type="button"
           >
-            {isSubmitting ? "正在核对…" : "重新选择原来的账本"}
+            {isSubmitting ? t("access.reconnectError.checking") : t("access.reconnectPrompt.reselect")}
           </button>
           <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-            只有浏览器确认是同一个实际文件，并且文件内的账本身份也一致，才会继续。名字相同或 fileId 相同的复制件都不算。
+            {t("access.reconnectError.hint")}
           </p>
           <button
             className="w-full text-sm font-medium text-red-700 disabled:opacity-60"
@@ -857,7 +860,7 @@ export function LedgerAccessGate({
             onClick={() => void forgetRememberedConnection()}
             type="button"
           >
-            忘记这条连接并选择另一本账
+            {t("access.reconnectPrompt.forget")}
           </button>
           <FormError message={formError} />
         </div>
@@ -868,8 +871,8 @@ export function LedgerAccessGate({
   if (accessPath === "choice") {
     return (
       <AccessPanel
-        description="完整账本只保存在你选择的加密 .lftl 文件中。浏览器只记住上次选择的文件和少量连接信息，不会另存一份完整账本。"
-        title="选择账本"
+        description={t("access.choice.description")}
+        title={t("access.choice.title")}
       >
         <div className="grid gap-3">
           <button
@@ -878,7 +881,7 @@ export function LedgerAccessGate({
             onClick={() => void selectFileToOpen()}
             type="button"
           >
-            {isSubmitting ? "正在选择…" : "选择账本"}
+            {isSubmitting ? t("access.choice.selecting") : t("access.choice.select")}
           </button>
           <button
             className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-3 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)]"
@@ -888,7 +891,7 @@ export function LedgerAccessGate({
             }}
             type="button"
           >
-            新建账本
+            {t("access.choice.create")}
           </button>
           <FormError message={formError} />
         </div>
@@ -899,21 +902,21 @@ export function LedgerAccessGate({
   if (accessPath === "file-create") {
     return (
       <AccessPanel
-        description="账本使用一个核心密码加密。没有恢复码或后门；忘记密码将永久失去对此账本的访问。密码长度为 8 至 128 个 Unicode 字符。"
-        title="新建加密账本"
+        description={t("access.create.description")}
+        title={t("access.create.title")}
       >
         <form className="space-y-4" onSubmit={submitFileCreate}>
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="设置账本核心密码"
+            label={t("access.create.password")}
             onChange={setPassphrase}
             value={passphrase}
           />
           <PasswordField
             autoComplete="new-password"
             disabled={isSubmitting}
-            label="再次输入账本核心密码"
+            label={t("access.create.confirmPassword")}
             onChange={setConfirmation}
             value={confirmation}
           />
@@ -923,7 +926,7 @@ export function LedgerAccessGate({
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "正在创建并复读…" : "选择位置并创建"}
+            {isSubmitting ? t("access.create.creating") : t("access.create.action")}
           </button>
           <button
             className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)]"
@@ -931,7 +934,7 @@ export function LedgerAccessGate({
             onClick={returnToChoice}
             type="button"
           >
-            返回
+            {t("access.action.back")}
           </button>
         </form>
       </AccessPanel>
@@ -941,14 +944,14 @@ export function LedgerAccessGate({
   if (accessPath === "file-open-unlock") {
     return (
       <AccessPanel
-        description="只会打开刚才明确选择的一个账本。密码错误或文件认证失败不会写入该文件。"
-        title="解锁所选账本"
+        description={t("access.unlock.description")}
+        title={t("access.unlock.title")}
       >
         <form className="space-y-4" onSubmit={submitFileUnlock}>
           <PasswordField
             autoComplete="current-password"
             disabled={isSubmitting}
-            label="账本核心密码"
+            label={t("access.unlock.password")}
             onChange={setPassphrase}
             value={passphrase}
           />
@@ -958,7 +961,7 @@ export function LedgerAccessGate({
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "正在认证…" : "解锁所选账本"}
+            {isSubmitting ? t("access.unlock.authenticating") : t("access.unlock.action")}
           </button>
           <button
             className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)]"
@@ -966,7 +969,7 @@ export function LedgerAccessGate({
             onClick={returnToChoice}
             type="button"
           >
-            返回
+            {t("access.action.back")}
           </button>
         </form>
       </AccessPanel>
@@ -976,12 +979,12 @@ export function LedgerAccessGate({
   if (accessPath === "file-recovery" && recoveryId !== null) {
     return (
       <AccessPanel
-        description="最新一次保存没有恢复，现在恢复的是上一版"
-        title="确认恢复上一版"
+        description={t("access.recovery.description")}
+        title={t("access.recovery.title")}
       >
         <div className="space-y-4">
           <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-            当前版本没有通过完整认证与账本校验；上一版已独立验证。确认后只会用上一版内容生成一个新的当前版本，不会把损坏版本中的新增内容伪装成已恢复。
+            {t("access.recovery.hint")}
           </p>
           <FormError message={formError} />
           <button
@@ -990,7 +993,7 @@ export function LedgerAccessGate({
             onClick={() => void confirmFileRecovery()}
             type="button"
           >
-            {isSubmitting ? "正在恢复并复读…" : "确认恢复上一版"}
+            {isSubmitting ? t("access.recovery.restoring") : t("access.recovery.confirm")}
           </button>
           <button
             className="w-full rounded-xl border border-[var(--ledger-border-strong)] px-4 py-2.5 text-sm font-semibold text-[var(--ledger-ink)] hover:bg-[var(--ledger-surface-muted)] disabled:opacity-60"
@@ -998,7 +1001,7 @@ export function LedgerAccessGate({
             onClick={() => void cancelFileRecovery()}
             type="button"
           >
-            取消恢复
+            {t("access.recovery.cancel")}
           </button>
         </div>
       </AccessPanel>
@@ -1008,17 +1011,15 @@ export function LedgerAccessGate({
   if (accessState.status === "error") {
     return (
       <AccessPanel
-        description={`${getAccessErrorMessage(
-          accessState.code,
-        )} 系统不会盲删旧记录，也不会创建空账本来代替它。`}
-        title="无法打开本地账本"
+        description={`${getAccessErrorMessage(accessState.code, t)} ${t("access.error.legacySuffix")}`}
+        title={t("access.error.legacyTitle")}
       >
         <button
           className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
           onClick={() => void initialize()}
           type="button"
         >
-          重新检查
+          {t("access.action.recheck")}
         </button>
       </AccessPanel>
     );
@@ -1026,15 +1027,15 @@ export function LedgerAccessGate({
 
   return (
     <AccessPanel
-      description="没有进入任何完整账本写入链。请重新检查账本连接状态。"
-      title="账本入口已安全停止"
+      description={t("access.stopped.description")}
+      title={t("access.stopped.title")}
     >
       <button
         className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
         onClick={() => void initialize()}
         type="button"
       >
-        重新检查
+        {t("access.action.recheck")}
       </button>
     </AccessPanel>
   );
@@ -1078,6 +1079,7 @@ function PasswordField({
   disabled: boolean;
   autoComplete: "new-password" | "current-password";
 }>) {
+  const { t } = useLanguage();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -1148,7 +1150,7 @@ function PasswordField({
           value={value}
         />
         <button
-          aria-label={`按住查看${label}`}
+          aria-label={`${t("access.password.revealPrefix")}${label}`}
           className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500 hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-300"
           disabled={disabled}
           onBlur={hide}
@@ -1209,68 +1211,72 @@ function FormError({ message }: Readonly<{ message: string }>) {
   ) : null;
 }
 
-function getAccessErrorMessage(code: LedgerAccessErrorCode): string {
+function getAccessErrorMessage(
+  code: LedgerAccessErrorCode,
+  t: ReturnType<typeof useLanguage>["t"],
+): string {
   switch (code) {
     case LEDGER_ACCESS_ERROR_CODES.READ_FAILED:
-      return "无法读取此浏览器中的 IndexedDB。未写入或覆盖任何数据。";
+      return t("access.legacyError.readFailed");
     case LEDGER_ACCESS_ERROR_CODES.UNSUPPORTED_FORMAT:
-      return "检测到不受支持的旧版或未知格式。系统不会自动迁移或覆盖。";
+      return t("access.legacyError.unsupportedFormat");
     case LEDGER_ACCESS_ERROR_CODES.INVALID_ENVELOPE:
-      return "本地加密记录结构无效或已损坏。系统不会尝试覆盖。";
+      return t("access.legacyError.invalidEnvelope");
     default:
-      return "本地加密账本暂时无法打开。";
+      return t("access.legacyError.default");
   }
 }
 
 function getFileAccessErrorMessage(
   code: LedgerFileAccessErrorCode,
+  t: ReturnType<typeof useLanguage>["t"],
 ): string {
   switch (code) {
     case LEDGER_FILE_ACCESS_ERROR_CODES.PICKER_UNAVAILABLE:
-      return "当前浏览器不支持账本文件选择，请使用受支持的 Chrome。";
+      return t("access.fileError.pickerUnavailable");
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_EXTENSION:
-      return "请选择扩展名为 .lftl 的账本文件。";
+      return t("access.fileError.invalidExtension");
     case LEDGER_FILE_ACCESS_ERROR_CODES.NON_EMPTY_CREATE_TARGET:
-      return "为防止覆盖已有文件，本次未创建；请选择新文件名，或使用“选择账本”打开已有文件。";
+      return t("access.fileError.nonEmptyCreateTarget");
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION:
-      return "检测到旧版或未知 .lftl 容器格式。当前版本不支持解锁或迁移；未写入所选文件。";
+      return t("access.fileError.unsupportedFileVersion");
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA:
-      return "该文件承载 V3、其他旧版或未知 schema 的账本；当前 V4 不兼容且不提供迁移。已在密码、KDF 和解密前停止；原文件未被写入、删除或覆盖。你仍可新建 V4 账本。";
+      return t("access.fileError.unsupportedLedgerSchema");
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:
-      return "所选文件不是合法账本，或文件结构已经损坏；未写入任何内容。";
+      return t("access.fileError.invalidFile");
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED:
-      return "密码错误或文件认证失败；未写入所选账本。";
+      return t("access.fileError.unlockFailed");
     case LEDGER_FILE_ACCESS_ERROR_CODES.NO_SELECTION:
-      return "请重新选择要打开的账本。";
+      return t("access.fileError.noSelection");
     case LEDGER_FILE_ACCESS_ERROR_CODES.FILE_IN_USE:
-      return "这个实际账本已被另一个页面或尚未完成释放的会话占用。请先安全退出或完成释放，再主动重试。";
+      return t("access.fileError.fileInUse");
     case LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_UNSUPPORTED:
-      return "当前浏览器缺少安全的多页面文件协调能力，已关闭账本写入入口。";
+      return t("access.fileError.coordinationUnsupported");
     case LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_FAILED:
-      return "无法确认这个账本是否已被其他页面使用，已按安全规则停止打开。请关闭其他页面后主动重试。";
+      return t("access.fileError.coordinationFailed");
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_NOT_FOUND:
-      return "恢复请求已经失效，请重新选择并解锁账本。";
+      return t("access.fileError.recoveryNotFound");
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_FAILED:
-      return "上一版恢复写入、关闭或复读验证失败，尚未进入账本；可以重试或取消。";
+      return t("access.fileError.recoveryFailed");
     case LEDGER_FILE_ACCESS_ERROR_CODES.EXTERNAL_CHANGE:
-      return "账本在本页面之外发生了变化。为避免覆盖新版本，请取消并重新打开该账本。";
+      return t("access.fileError.externalChange");
     case LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_INVALID:
-      return "保存的账本连接记录已损坏或版本不受支持。系统没有清空、覆盖或改绑任何账本。";
+      return t("access.fileError.connectionInvalid");
     case LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_SAVE_FAILED:
-      return "账本已完成文件验证，但浏览器没能保存下次重连所需的最小连接记录，因此没有进入账本，也没有伪装成功。请保留该账本并重试当前操作。";
+      return t("access.fileError.connectionSaveFailed");
     case LEDGER_FILE_ACCESS_ERROR_CODES.PERMISSION_DENIED:
-      return "浏览器没有获得这个账本的读写权限。系统不会创建空账本或退回另一份账本冒充它。";
+      return t("access.fileError.permissionDenied");
     case LEDGER_FILE_ACCESS_ERROR_CODES.PERMISSION_REQUIRED:
-      return "这个账本仍需要明确授权；只有点击“重新连接”后才会请求权限。";
+      return t("access.fileError.permissionRequired");
     case LEDGER_FILE_ACCESS_ERROR_CODES.RECONNECT_FAILED:
-      return "上次的账本可能已移动、删除或不可读取。系统没有创建空账本，也没有静默切换到浏览器账本。";
+      return t("access.fileError.reconnectFailed");
     case LEDGER_FILE_ACCESS_ERROR_CODES.WRONG_RECONNECT_FILE:
-      return "所选文件不是上次连接的同一个实际账本；即使名字或 fileId 相同也不会改绑或写入。";
+      return t("access.fileError.wrongReconnectFile");
     case LEDGER_FILE_ACCESS_ERROR_CODES.CREATE_FAILED:
-      return "账本创建、关闭或复读验证失败，不能进入账本。";
+      return t("access.fileError.createFailed");
     case LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED:
       return "";
     default:
-      return "账本文件操作失败，未报告保存成功。";
+      return t("access.fileError.default");
   }
 }
