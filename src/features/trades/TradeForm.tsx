@@ -42,7 +42,12 @@ import {
   projectLedgerCashMutation,
   type CashMutationProjection,
 } from "@/features/cash";
-import { formatMoney, LedgerNumber } from "@/ui";
+import {
+  formatMoney,
+  LedgerNumber,
+  type TranslationKey,
+  useLanguage,
+} from "@/ui";
 
 const SUCCESS_FEEDBACK_MS = 4_000;
 
@@ -78,21 +83,21 @@ type TradeFormState = TradeWorkspaceDraft;
 
 type TradeFormField = keyof TradeFormState | "form";
 
-const fieldLabels: Record<keyof TradeDraft, string> = {
-  occurredAt: "日期",
-  timePrecision: "时间精度",
-  type: "类型",
-  assetSymbol: "资产",
-  quantity: "数量",
-  price: "成交均价",
-  totalValue: "成交金额（不含手续费）",
-  currency: "计价货币",
-  fee: "实际手续费",
-  feeCurrency: "手续费币种",
-  platform: "平台",
-  feeRuleId: "手续费规则",
-  note: "备注",
-  rawText: "原始文本",
+const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
+  occurredAt: "trades.form.field.date",
+  timePrecision: "trades.form.field.timePrecision",
+  type: "trades.form.field.type",
+  assetSymbol: "trades.form.field.asset",
+  quantity: "trades.form.field.quantity",
+  price: "trades.form.field.averagePrice",
+  totalValue: "trades.form.field.totalValue",
+  currency: "trades.form.field.currency",
+  fee: "trades.form.field.actualFee",
+  feeCurrency: "trades.form.field.feeCurrency",
+  platform: "trades.form.field.platform",
+  feeRuleId: "trades.form.field.feeRule",
+  note: "trades.form.field.note",
+  rawText: "trades.form.field.rawText",
 };
 
 function createInitialFormState(
@@ -115,41 +120,44 @@ function createInitialFormState(
   };
 }
 
-function formatValidationError(error: TradeValidationError): string {
+function formatValidationError(
+  error: TradeValidationError,
+  t: ReturnType<typeof useLanguage>["t"],
+): string {
   const label =
     error.field === "input" || error.field === "totalValueTolerance"
-      ? "交易"
-      : fieldLabels[error.field];
+      ? t("trades.form.field.trade")
+      : t(fieldLabelKeys[error.field]);
 
   switch (error.code) {
     case "INVALID_TRADE_TYPE":
-      return "请选择买入或卖出";
+      return t("trades.form.error.invalidType");
     case "ASSET_NOT_FOUND":
-      return "请选择账本中已有的资产";
+      return t("trades.form.error.assetNotFound");
     case "INVALID_DECIMAL":
-      return `${label}必须是有效数字`;
+      return `${label}${t("trades.form.error.mustBeNumber")}`;
     case "VALUE_MUST_BE_POSITIVE":
-      return `${label}必须大于 0`;
+      return `${label}${t("trades.form.error.mustBePositive")}`;
     case "FEE_MUST_BE_NON_NEGATIVE":
-      return "实际手续费不能小于 0";
+      return t("trades.form.error.feeNonNegative");
     case "ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY":
-      return "以交易资产支付买入手续费时，手续费必须小于买入数量";
+      return t("trades.form.error.assetFeeLessThanQuantity");
     case "TOTAL_VALUE_MISMATCH":
-      return "成交金额与数量 × 成交均价不一致";
+      return t("trades.form.error.totalValueMismatch");
     case "INSUFFICIENT_HOLDINGS":
-      return "卖出数量超过该时间点的可用持仓";
+      return t("trades.form.error.insufficientHoldings");
     case "CURRENCY_MISMATCH":
-      return "计价货币与资产或已有交易不一致";
+      return t("trades.form.error.currencyMismatch");
     case "FEE_CURRENCY_MISMATCH":
-      return "非零实际手续费必须使用 USDT 或账本中已有的本地资产";
+      return t("trades.form.error.feeCurrencyMismatch");
     case "NEW_FACT_REQUIRES_USDT":
-      return "旧 USD 账本只兼容读取；请新建 USDT 账本后再录入";
+      return t("trades.form.error.newFactRequiresUsdt");
     case "FUTURE_FACT":
-      return "交易日期不能晚于今天";
+      return t("trades.form.error.futureFact");
     case "UNSUPPORTED_VALUATION_CURRENCY":
-      return "当前仅支持 USD/USDT 估值";
+      return t("trades.form.error.unsupportedValuationCurrency");
     case "INVALID_INPUT":
-      return `${label}不能为空或格式不正确`;
+      return `${label}${t("trades.form.error.invalidInput")}`;
   }
 }
 
@@ -189,6 +197,7 @@ export function TradeForm({
   onReset,
   focusTargetRef,
 }: TradeFormProps) {
+  const { t } = useLanguage();
   const defaultAssetSymbol = ledgerData.assets[0]?.symbol ?? "";
   const [localForm, setLocalForm] = useState<TradeFormState>(() =>
     createInitialFormState(
@@ -200,7 +209,7 @@ export function TradeForm({
   const [errors, setErrors] = useState<
     Partial<Record<TradeFormField, string>>
   >({});
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successState, setSuccessState] = useState<"" | "certified" | "saving">("");
   const [selectedFeeRuleId, setSelectedFeeRuleId] = useState("");
   const [sourceChangedMessage, setSourceChangedMessage] = useState("");
   const [pendingRisk, setPendingRisk] = useState<PendingTradeRisk | null>(null);
@@ -239,7 +248,7 @@ export function TradeForm({
 
   useEffect(() => {
     setPendingMutationVersion(null);
-    setSuccessMessage("");
+    setSuccessState("");
     setSelectedFeeRuleId("");
     setSourceChangedMessage("");
     setPendingRisk(null);
@@ -281,14 +290,14 @@ export function TradeForm({
       setSelectedFeeRuleId("");
       setSourceChangedMessage("");
       setErrors({});
-      setSuccessMessage("交易已认证保存");
+      setSuccessState("certified");
       return;
     }
     if (persistenceStatus === "error") {
-      setSuccessMessage("");
+      setSuccessState("");
       setErrors((current) => ({
         ...current,
-        form: "交易仍在内存中，但尚未保存；请重试保存",
+        form: t("trades.form.error.notPersisted"),
       }));
     }
   }, [
@@ -298,16 +307,17 @@ export function TradeForm({
     pendingMutationVersion,
     persistedVersion,
     persistenceStatus,
+    t,
   ]);
 
   useEffect(() => {
-    if (successMessage !== "交易已认证保存") return;
+    if (successState !== "certified") return;
     const timeout = setTimeout(
-      () => setSuccessMessage(""),
+      () => setSuccessState(""),
       SUCCESS_FEEDBACK_MS,
     );
     return () => clearTimeout(timeout);
-  }, [successMessage]);
+  }, [successState]);
 
   const selectedAsset =
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
@@ -375,11 +385,11 @@ export function TradeForm({
     ) {
       setSelectedFeeRuleId("");
       setSourceChangedMessage(
-        "平台或资产已变化：保留实际手续费，来源已转为手填。",
+        t("trades.form.sourceChanged"),
       );
     }
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
-    setSuccessMessage("");
+    setSuccessState("");
     setPendingRisk(null);
   }
 
@@ -389,7 +399,7 @@ export function TradeForm({
     setSelectedFeeRuleId(candidate.rule.id);
     setSourceChangedMessage("");
     setErrors((current) => ({ ...current, fee: undefined, form: undefined }));
-    setSuccessMessage("");
+    setSuccessState("");
   }
 
   function applyTrade(
@@ -402,10 +412,10 @@ export function TradeForm({
       setErrors({
         form:
           mutationResult === "rejected"
-            ? "账本当前不可写，请稍后重试"
-            : "账本未发生变化，请检查输入",
+            ? t("trades.form.error.ledgerNotWritable")
+            : t("trades.form.error.ledgerUnchanged"),
       });
-      setSuccessMessage("");
+      setSuccessState("");
       return;
     }
 
@@ -415,7 +425,7 @@ export function TradeForm({
     };
     setErrors({});
     setPendingMutationVersion(mutationVersion + 1);
-    setSuccessMessage("正在保存…");
+    setSuccessState("saving");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -451,17 +461,17 @@ export function TradeForm({
 
     if (!result.ok) {
       if (result.kind === "service") {
-        setErrors({ form: "系统暂时无法生成交易，请稍后重试" });
+        setErrors({ form: t("trades.form.error.serviceUnavailable") });
         return;
       }
 
       const nextErrors: Partial<Record<TradeFormField, string>> = {};
       for (const error of result.errors) {
         const field = toTradeFormField(error.field);
-        nextErrors[field] ??= formatValidationError(error);
+        nextErrors[field] ??= formatValidationError(error, t);
       }
       setErrors(nextErrors);
-      setSuccessMessage("");
+      setSuccessState("");
       return;
     }
 
@@ -498,7 +508,7 @@ export function TradeForm({
       pending.persistedVersion !== persistedVersion
     ) {
       setPendingRisk(null);
-      setErrors({ form: "账本版本已变化，旧确认已失效；请重新提交" });
+      setErrors({ form: t("trades.form.error.ledgerVersionChanged") });
       return;
     }
     const nextLedger = {
@@ -515,7 +525,7 @@ export function TradeForm({
       latest.nextBalance !== pending.projection.nextBalance
     ) {
       setPendingRisk(null);
-      setErrors({ form: "现金结果已变化，旧确认已失效；请重新提交" });
+      setErrors({ form: t("trades.form.error.cashResultChanged") });
       return;
     }
     setPendingRisk(null);
@@ -526,7 +536,7 @@ export function TradeForm({
     <form
       aria-busy={pendingMutationVersion !== null}
       className={`grid gap-4 md:grid-cols-2 ${
-        successMessage === "交易已认证保存"
+        successState === "certified"
           ? "motion-safe:animate-[ledger-save-pop_200ms_ease-out]"
           : ""
       }`}
@@ -541,20 +551,20 @@ export function TradeForm({
         }
       >
       <label className="grid gap-2 text-sm font-medium">
-        类型
+        {t("trades.form.field.type")}
         <select
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("type", event.target.value as "buy" | "sell")}
           ref={focusTargetRef}
           value={form.type}
         >
-          <option value="buy">买入</option>
-          <option value="sell">卖出</option>
+          <option value="buy">{t("trades.type.buy")}</option>
+          <option value="sell">{t("trades.type.sell")}</option>
         </select>
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        资产
+        {t("trades.form.field.asset")}
         <select
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("assetSymbol", event.target.value)}
@@ -572,7 +582,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        数量
+        {t("trades.form.field.quantity")}
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -586,7 +596,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        成交均价
+        {t("trades.form.field.averagePrice")}
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -601,14 +611,14 @@ export function TradeForm({
 
       <label className="grid gap-2 text-sm font-medium">
         <span className="flex items-center justify-between gap-2">
-          成交金额（不含手续费）
+          {t("trades.form.field.totalValue")}
           <span className="text-xs font-normal text-[var(--ledger-muted)]">
-            {form.totalValueMode === "auto" ? "自动" : "手动"}
+            {form.totalValueMode === "auto" ? t("trades.form.totalValue.auto") : t("trades.form.totalValue.manual")}
           </span>
         </span>
         <div className="flex gap-2">
           <input
-            aria-label="成交金额（不含手续费）"
+            aria-label={t("trades.form.field.totalValue")}
             className="min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
             inputMode="decimal"
             onChange={(event) => updateField("totalValue", event.target.value)}
@@ -634,11 +644,11 @@ export function TradeForm({
                 totalValue: undefined,
                 form: undefined,
               }));
-              setSuccessMessage("");
+              setSuccessState("");
             }}
             type="button"
           >
-            重新计算
+            {t("trades.form.totalValue.recalculate")}
           </button>
         </div>
         {errors.totalValue ? (
@@ -647,7 +657,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        日期
+        {t("trades.form.field.date")}
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("occurredAt", event.target.value)}
@@ -660,12 +670,12 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        平台（可选，精确匹配）
+        {t("trades.form.field.platformOptional")}
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           list="ledger-platform-suggestions"
           onChange={(event) => updateField("platform", event.target.value)}
-          placeholder="例如 OKX"
+          placeholder={t("trades.form.platform.placeholder")}
           value={form.platform}
         />
         <datalist id="ledger-platform-suggestions">
@@ -676,7 +686,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        实际手续费
+        {t("trades.form.field.actualFee")}
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           inputMode="decimal"
@@ -689,7 +699,7 @@ export function TradeForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        手续费币种
+        {t("trades.form.field.feeCurrency")}
         <select
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("feeCurrency", event.target.value)}
@@ -705,26 +715,26 @@ export function TradeForm({
       </label>
 
       <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm md:col-span-2">
-        <p className="font-medium">手续费来源</p>
+        <p className="font-medium">{t("trades.form.feeSource.heading")}</p>
         {feeRuleMatch.status === "missing-platform" ? (
-          <p className="mt-1 text-slate-600">未填写平台：不猜测规则，实际手续费为手填。</p>
+          <p className="mt-1 text-slate-600">{t("trades.form.feeSource.missingPlatform")}</p>
         ) : feeRuleMatch.status === "invalid-total-value" ? (
-          <p className="mt-1 text-slate-600">成交金额通过十进制校验后才计算候选。</p>
+          <p className="mt-1 text-slate-600">{t("trades.form.feeSource.invalidTotalValue")}</p>
         ) : feeRuleMatch.status === "no-match" ? (
-          <p className="mt-1 text-slate-600">无精确匹配规则：实际手续费为手填。</p>
+          <p className="mt-1 text-slate-600">{t("trades.form.feeSource.noMatch")}</p>
         ) : feeRuleMatch.status === "conflict" ? (
           <div className="mt-2 grid gap-2">
             <p className="font-medium text-red-700">
-              多条 active 规则冲突，系统不会自动选择。
+              {t("trades.form.feeSource.conflict")}
             </p>
             <label className="grid gap-1 font-medium">
-              显式选择来源规则
+              {t("trades.form.feeSource.selectRule")}
               <select
                 className="rounded-md border border-red-200 bg-white px-3 py-2 font-normal"
                 onChange={(event) => setSelectedFeeRuleId(event.target.value)}
                 value={selectedFeeRuleId}
               >
-                <option value="">保持手填</option>
+                <option value="">{t("trades.form.feeSource.keepManual")}</option>
                 {feeRuleMatch.candidates.map((candidate) => (
                   <option key={candidate.rule.id} value={candidate.rule.id}>
                     {candidate.rule.name} · {candidate.rule.id} ·{" "}
@@ -735,19 +745,19 @@ export function TradeForm({
             </label>
           </div>
         ) : (
-          <p className="mt-1 text-slate-600">找到一条精确规则。</p>
+          <p className="mt-1 text-slate-600">{t("trades.form.feeSource.matched")}</p>
         )}
 
         {defaultCandidate ? (
           <div className="mt-2 rounded-md border border-sky-200 bg-white p-3">
             <p>
-              候选：
+              {t("trades.form.feeSource.candidate")}
               <LedgerNumber kind="money" value={defaultCandidate.fee} />{" "}
               {defaultCandidate.currency} · {defaultCandidate.rule.name}
               （{defaultCandidate.rule.id}）
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              {defaultCandidate.rule.type} · 公式{" "}
+              {defaultCandidate.rule.type} · {t("trades.form.feeSource.formula")} {" "}
               {defaultCandidate.rule.type === "fixed" ? (
                 <>
                   <LedgerNumber kind="money" value={defaultCandidate.rule.amount} />{" "}
@@ -765,14 +775,14 @@ export function TradeForm({
               onClick={() => adoptCandidate(defaultCandidate)}
               type="button"
             >
-              {selectedCandidate ? "重新采用当前候选" : "采用此规则候选"}
+              {selectedCandidate ? t("trades.form.feeSource.readopt") : t("trades.form.feeSource.adopt")}
             </button>
           </div>
         ) : null}
 
         {candidateWasModified ? (
           <p className="mt-2 font-medium text-amber-800">
-            实际手续费已由用户修改；规则仅保留为来源追踪。
+            {t("trades.form.feeSource.modified")}
           </p>
         ) : null}
         {sourceChangedMessage ? (
@@ -781,7 +791,7 @@ export function TradeForm({
       </div>
 
       <label className="grid gap-2 text-sm font-medium">
-        计价货币
+        {t("trades.form.field.currency")}
         <input
           className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-normal text-slate-600"
           readOnly
@@ -792,11 +802,11 @@ export function TradeForm({
       <div className="md:col-span-2">
         {form.noteExpanded || form.note !== "" ? (
           <label className="grid gap-2 text-sm font-medium">
-            备注
+            {t("trades.form.field.note")}
             <input
               className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
               onChange={(event) => updateField("note", event.target.value)}
-              placeholder="可选"
+              placeholder={t("trades.form.note.placeholder")}
               value={form.note}
             />
           </label>
@@ -806,7 +816,7 @@ export function TradeForm({
             onClick={() => updateField("noteExpanded", true)}
             type="button"
           >
-            ＋ 添加备注
+            {t("trades.form.note.add")}
           </button>
         )}
       </div>
@@ -815,11 +825,11 @@ export function TradeForm({
         {cashImpactPreview ? (
           <div className="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
             <p>
-              成交金额（不含手续费）：
+              {t("trades.form.preview.totalValue")}
               <LedgerNumber kind="money" value={form.totalValue} /> {currency}
             </p>
             <p>
-              实际手续费：
+              {t("trades.form.preview.actualFee")}
               <LedgerNumber
                 kind={feeCurrency === "USDT" ? "money" : "quantity"}
                 value={form.fee}
@@ -827,21 +837,21 @@ export function TradeForm({
               {feeCurrency}
             </p>
             <p>
-              当前现金：
+              {t("trades.form.preview.currentCash")}
               <LedgerNumber kind="money" value={cashImpactPreview.currentBalance} /> USDT
             </p>
             <p>
-              本次现金变化：
+              {t("trades.form.preview.cashDelta")}
               <LedgerNumber kind="money" value={cashImpactPreview.delta} /> USDT
             </p>
             <p>
-              保存后现金：
+              {t("trades.form.preview.nextCash")}
               <LedgerNumber kind="money" value={cashImpactPreview.nextBalance} /> USDT
             </p>
             <p>
-              来源：{selectedCandidate
+              {t("trades.form.preview.source")}{selectedCandidate
                 ? `${selectedCandidate.rule.name} · ${selectedCandidate.rule.id}`
-                : "手填"}
+                : t("trades.form.feeSource.manual")}
             </p>
           </div>
         ) : null}
@@ -851,12 +861,12 @@ export function TradeForm({
           ref={submitButtonRef}
           type="submit"
         >
-          {pendingMutationVersion === null ? "保存交易" : "正在保存…"}
+          {pendingMutationVersion === null ? t("trades.form.action.save") : t("trades.form.action.saving")}
         </button>
         <div aria-live="polite" className="mt-2 min-h-5 text-sm">
           {errors.form ? (
             <p className="text-red-700">{errors.form}</p>
-          ) : successMessage ? (
+          ) : successState ? (
             <p
               className={
                 pendingMutationVersion
@@ -864,7 +874,7 @@ export function TradeForm({
                   : "text-emerald-700 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
               }
             >
-              {successMessage}
+              {successState === "certified" ? t("trades.form.success.certified") : t("trades.form.action.saving")}
             </p>
           ) : null}
         </div>
@@ -875,7 +885,7 @@ export function TradeForm({
           onCancel={() => setPendingRisk(null)}
           onConfirm={confirmNegativeBalance}
           projection={pendingRisk.projection}
-          title="确认交易后的负现金"
+          title={t("trades.form.negativeCash.title")}
           triggerRef={submitButtonRef}
         />
       ) : null}
