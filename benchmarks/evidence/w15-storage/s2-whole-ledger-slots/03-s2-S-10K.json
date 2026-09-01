@@ -1,0 +1,79 @@
+{
+  "kind": "browser-benchmark",
+  "status": "completed",
+  "mode": "production",
+  "scale": "S-10K",
+  "tradeCount": 10000,
+  "samplesPerMetric": 10,
+  "browserVersion": "152.0.7977.65",
+  "setupMs": 1686.092,
+  "wrongPasswordRejected": true,
+  "pickerCalls": { "save": 1, "open": 12 },
+  "metrics": [
+    {
+      "metric": "M-1",
+      "operation": "open-unlock-home",
+      "statistics": { "medianMs": 682.027, "minimumMs": 668.445, "maximumMs": 699.9, "sampleCount": 10 },
+      "samplesMs": [687.128, 680.649, 677.81, 699.9, 679.958, 685.855, 671.146, 697.555, 668.445, 683.405],
+      "discardedWarmupMs": 668.682
+    },
+    {
+      "metric": "M-4",
+      "operation": "exact-date-filter",
+      "statistics": { "medianMs": 29.786, "minimumMs": 28.151, "maximumMs": 30.48, "sampleCount": 10 },
+      "samplesMs": [29.925, 29.832, 30.48, 29.929, 29.932, 29.688, 28.151, 29.662, 29.74, 29.68],
+      "discardedWarmupMs": 28.362
+    },
+    {
+      "metric": "M-5",
+      "operation": "record->home",
+      "statistics": { "medianMs": 78.64, "minimumMs": 54.72, "maximumMs": 86.545, "sampleCount": 10 },
+      "samplesMs": [70.279, 69.681, 70.204, 54.72, 71.684, 85.597, 86.305, 86.31, 86.256, 86.545],
+      "discardedWarmupMs": 79.093
+    },
+    {
+      "metric": "M-5",
+      "operation": "home->record",
+      "statistics": { "medianMs": 62.711, "minimumMs": 60.063, "maximumMs": 63.311, "sampleCount": 10 },
+      "samplesMs": [60.063, 62.747, 61.737, 63.158, 61.041, 63.02, 62.616, 63.311, 62.91, 62.675],
+      "discardedWarmupMs": 61.587
+    },
+    {
+      "metric": "M-5",
+      "operation": "record->transactions",
+      "statistics": { "medianMs": 70.154, "minimumMs": 69.98, "maximumMs": 86.437, "sampleCount": 10 },
+      "samplesMs": [85.861, 86.437, 70.164, 69.98, 70.545, 70.004, 70.144, 70.044, 70.117, 86.267],
+      "discardedWarmupMs": 80.607
+    },
+    {
+      "metric": "M-5",
+      "operation": "transactions->record",
+      "statistics": { "medianMs": 60.154, "minimumMs": 55.819, "maximumMs": 63.907, "sampleCount": 10 },
+      "samplesMs": [55.819, 63.907, 62.874, 60.773, 60.663, 60.113, 58.889, 58.991, 59.972, 60.195],
+      "discardedWarmupMs": 78.014
+    },
+    {
+      "metric": "M-6",
+      "operation": "price-type-character",
+      "statistics": { "medianMs": 30.33, "minimumMs": 28.761, "maximumMs": 31.846, "sampleCount": 10 },
+      "samplesMs": [30.759, 30.785, 30.79, 30.318, 30.092, 30.342, 29.681, 29.081, 31.846, 28.761],
+      "discardedWarmupMs": 21.679
+    },
+    {
+      "metric": "M-6",
+      "operation": "price-delete-character",
+      "statistics": { "medianMs": 29.002, "minimumMs": 28.421, "maximumMs": 30.317, "sampleCount": 10 },
+      "samplesMs": [29.785, 30.317, 29.338, 29.119, 28.847, 28.87, 29.08, 28.795, 28.923, 28.421],
+      "discardedWarmupMs": 30.207
+    },
+    {
+      "metric": "M-3",
+      "operation": "save-buy-trade",
+      "statistics": { "medianMs": 1188.917, "minimumMs": 1187.495, "maximumMs": 1223.127, "sampleCount": 10 },
+      "samplesMs": [1223.127, 1204.573, 1188.476, 1187.495, 1188.925, 1187.85, 1205.237, 1188.908, 1189.089, 1188.265],
+      "discardedWarmupMs": 1177.486
+    }
+  ],
+  "consoleErrors": [],
+  "temporaryArtifactsCleaned": true
+}

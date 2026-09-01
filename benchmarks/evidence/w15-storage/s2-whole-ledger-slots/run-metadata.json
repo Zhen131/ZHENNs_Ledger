@@ -1,0 +1,86 @@
+{
+  "evidenceFormatVersion": 1,
+  "batch": "W15-storage-cost",
+  "phase": "S2-whole-ledger-rotating-slots",
+  "sourceCommit": "2723b46",
+  "sourceBranch": "zhennn/w15-main-chunked-storage",
+  "mode": "production",
+  "browserVersion": "152.0.7977.65",
+  "comparisonSourceCommit": "2b87216",
+  "comparisonPhase": "S1-raw-binary-container",
+  "dataClassification": "synthetic-only",
+  "browserRuns": [
+    {
+      "sequence": 1,
+      "scale": "S-100",
+      "startedAt": "2026-09-01T09:17:23+02:00",
+      "completionRecordedBy": "2026-09-01T09:18:37+02:00",
+      "resultFile": "01-s2-S-100.json",
+      "nextRunStartedAt": "2026-09-01T09:23:56+02:00"
+    },
+    {
+      "sequence": 2,
+      "scale": "S-1K",
+      "startedAt": "2026-09-01T09:23:56+02:00",
+      "completionRecordedBy": "2026-09-01T09:25:07+02:00",
+      "resultFile": "02-s2-S-1K.json",
+      "nextRunStartedAt": "2026-09-01T09:30:29+02:00"
+    },
+    {
+      "sequence": 3,
+      "scale": "S-10K",
+      "startedAt": "2026-09-01T09:30:29+02:00",
+      "completionRecordedBy": "2026-09-01T09:31:52+02:00",
+      "resultFile": "03-s2-S-10K.json",
+      "nextRunStartedAt": "2026-09-01T09:37:07+02:00"
+    },
+    {
+      "sequence": 4,
+      "scale": "S-100K",
+      "startedAt": "2026-09-01T09:37:07+02:00",
+      "completionRecordedBy": "2026-09-01T09:39:15+02:00",
+      "resultFile": "04-s2-S-100K.json",
+      "cooldownRecordedBy": "2026-09-01T09:44:33+02:00"
+    }
+  ],
+  "excludedRuns": [
+    {
+      "startedAt": "2026-09-01T09:10:25+02:00",
+      "scale": "S-100",
+      "stage": "infrastructure",
+      "reason": "The prior dev browser contract had removed the production .next build; next start never became ready, so no browser metric was produced. The production build was recreated before the numbered runs."
+    }
+  ],
+  "cooldownRule": "Each numbered run started at least 300 seconds after the preceding run completion was recorded; the final run was followed by the same cooldown. No benchmark, test, or file-size probe ran during those intervals.",
+  "m3Comparison": [
+    {
+      "scale": "S-100",
+      "s1MedianMs": 90.53,
+      "s2MedianMs": 106.736,
+      "deltaMs": 16.206,
+      "percentChange": 17.9
+    },
+    {
+      "scale": "S-1K",
+      "s1MedianMs": 175.043,
+      "s2MedianMs": 207.85,
+      "deltaMs": 32.807,
+      "percentChange": 18.74
+    },
+    {
+      "scale": "S-10K",
+      "s1MedianMs": 1014.023,
+      "s2MedianMs": 1188.917,
+      "deltaMs": 174.894,
+      "percentChange": 17.25
+    },
+    {
+      "scale": "S-100K",
+      "s1MedianMs": 9630.737,
+      "s2MedianMs": 11449.299,
+      "deltaMs": 1818.562,
+      "percentChange": 18.88
+    }
+  ],
+  "interpretation": "S2 removed the rewrite of the previous ciphertext slot but increased the fixed file to three whole-ledger body slots so an interrupted header write always leaves the active header's current and previous slots intact. The required full-file readback therefore outweighed the saved write bytes at all four measured scales. This negative total-latency result is retained as the independent S2 attribution baseline for S3."
+}
