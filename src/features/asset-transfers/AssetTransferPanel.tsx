@@ -23,7 +23,7 @@ import {
   getActivityPageCount,
   getActivityPageItems,
 } from "@/features/activity";
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, useLanguage } from "@/ui";
 import {
   ASSET_TRANSFER_REASONS_BY_CATEGORY,
   createValidatedAssetTransfer,
@@ -35,6 +35,7 @@ const SUCCESS_FEEDBACK_MS = 4_000;
 const DEFAULT_CATEGORY: AssetTransferCategory = "internal";
 const DEFAULT_FROM_LOCATION: CustodyLocation = "exchange";
 const DEFAULT_TO_LOCATION: CustodyLocation = "cold-wallet";
+type Translate = ReturnType<typeof useLanguage>["t"];
 
 type ArmedDelete = Readonly<{
   assetTransferId: string;
@@ -70,6 +71,9 @@ export function AssetTransferPanel({
     timeSnapshot: LedgerTimeSnapshot,
   ) => ApplyLedgerActionResult;
 }>) {
+  const { t } = useLanguage();
+  const savedFeedback = t("assetTransfers.status.certifiedSaved");
+  const deletedFeedback = t("assetTransfers.status.deleted");
   const initialTodayKey = captureLedgerTime(clock).todayKey;
   const [category, setCategory] =
     useState<AssetTransferCategory>(DEFAULT_CATEGORY);
@@ -147,7 +151,7 @@ export function AssetTransferPanel({
       setError({
         code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
         field: "form",
-        message: "资产转移仍在内存中，但尚未保存；请重试保存",
+        message: t("assetTransfers.status.unsaved"),
       });
       return;
     }
@@ -160,21 +164,21 @@ export function AssetTransferPanel({
         setUnitPrice("");
         setNetworkFee("");
         setNote("");
-        setFeedback("资产转移已认证保存");
+        setFeedback(savedFeedback);
       } else {
-        setFeedback("资产转移已删除");
+        setFeedback(deletedFeedback);
       }
       setError(null);
       setPendingMutationVersion(null);
       setPendingOperation(null);
     }
-  }, [pendingMutationVersion, pendingOperation, persistedVersion, persistenceStatus]);
+  }, [deletedFeedback, pendingMutationVersion, pendingOperation, persistedVersion, persistenceStatus, savedFeedback, t]);
 
   useEffect(() => {
-    if (!feedback.includes("已")) return;
+    if (feedback !== savedFeedback && feedback !== deletedFeedback) return;
     const timeout = setTimeout(() => setFeedback(""), SUCCESS_FEEDBACK_MS);
     return () => clearTimeout(timeout);
-  }, [feedback]);
+  }, [deletedFeedback, feedback, savedFeedback]);
 
   function handleCategoryChange(nextCategory: AssetTransferCategory) {
     setCategory(nextCategory);
@@ -231,14 +235,14 @@ export function AssetTransferPanel({
       setError({
         code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
         field: "form",
-        message: outcome === "rejected" ? "账本当前不可写" : "账本未发生变化",
+        message: outcome === "rejected" ? t("assetTransfers.status.ledgerNotWritable") : t("assetTransfers.status.unchanged"),
       });
       setFeedback("");
       return;
     }
     setPendingMutationVersion(mutationVersion + 1);
     setPendingOperation("add");
-    setFeedback("正在保存资产转移…");
+    setFeedback(t("assetTransfers.status.savingAdd"));
     setError(null);
   }
 
@@ -251,7 +255,7 @@ export function AssetTransferPanel({
         mutationVersion,
         persistedVersion,
       });
-      setFeedback("再次点击以确认删除该资产转移");
+      setFeedback(t("assetTransfers.status.deleteArmed"));
       setError(null);
       return;
     }
@@ -264,7 +268,7 @@ export function AssetTransferPanel({
       setError({
         code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
         field: "form",
-        message: "账本已变化，请重新检查后再删除",
+        message: t("assetTransfers.status.deleteStale"),
       });
       return;
     }
@@ -287,28 +291,28 @@ export function AssetTransferPanel({
         field: "form",
         message:
           outcome === "rejected"
-            ? "账本当前不可写"
-            : "资产转移已不存在",
+            ? t("assetTransfers.status.ledgerNotWritable")
+            : t("assetTransfers.status.notFound"),
       });
       return;
     }
     setPendingMutationVersion(mutationVersion + 1);
     setPendingOperation("delete");
-    setFeedback("正在保存删除…");
+    setFeedback(t("assetTransfers.status.savingDelete"));
     setError(null);
   }
 
   return (
     <div className="grid gap-5">
       <div>
-        <h3 className="font-semibold">资产转入转出</h3>
+        <h3 className="font-semibold">{t("assetTransfers.heading")}</h3>
         <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-          转移与交易合并成同一时间线重放；四类转移都不改变 USDT 现金。
+          {t("assetTransfers.description")}
         </p>
       </div>
 
       <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
-        <Field label="转移类别" error={error} field="category">
+        <Field label={t("assetTransfers.field.category")} error={error} field="category">
           <select
             aria-describedby={describedBy(error, "category")}
             className={controlClassName}
@@ -318,13 +322,13 @@ export function AssetTransferPanel({
             }
             value={category}
           >
-            <option value="internal">内部转移</option>
-            <option value="external-in">外部转入</option>
-            <option value="external-out">外部转出</option>
-            <option value="gain">白拿</option>
+            <option value="internal">{t("assetTransfers.category.internal")}</option>
+            <option value="external-in">{t("assetTransfers.category.externalIn")}</option>
+            <option value="external-out">{t("assetTransfers.category.externalOut")}</option>
+            <option value="gain">{t("assetTransfers.category.gain")}</option>
           </select>
         </Field>
-        <Field label="资产" error={error} field="assetSymbol">
+        <Field label={t("assetTransfers.field.asset")} error={error} field="assetSymbol">
           <select
             aria-describedby={describedBy(error, "assetSymbol")}
             className={controlClassName}
@@ -342,7 +346,7 @@ export function AssetTransferPanel({
             ))}
           </select>
         </Field>
-        <Field label="原因" error={error} field="reason">
+        <Field label={t("assetTransfers.field.reason")} error={error} field="reason">
           <select
             aria-describedby={describedBy(error, "reason")}
             className={controlClassName}
@@ -355,12 +359,12 @@ export function AssetTransferPanel({
           >
             {ASSET_TRANSFER_REASONS_BY_CATEGORY[category].map((value) => (
               <option key={value} value={value}>
-                {reasonLabel(value)}
+                {reasonLabel(value, t)}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="数量" error={error} field="quantity">
+        <Field label={t("assetTransfers.field.quantity")} error={error} field="quantity">
           <input
             aria-describedby={describedBy(error, "quantity")}
             className={controlClassName}
@@ -376,7 +380,7 @@ export function AssetTransferPanel({
         </Field>
 
         {category === "internal" || category === "external-out" ? (
-          <Field label="来源位置" error={error} field="fromLocation">
+          <Field label={t("assetTransfers.field.fromLocation")} error={error} field="fromLocation">
             <LocationSelect
               describedBy={describedBy(error, "fromLocation")}
               disabled={disabled}
@@ -384,14 +388,14 @@ export function AssetTransferPanel({
                 setFromLocation(value);
                 setError(null);
               }}
-              value={fromLocation}
+              value={fromLocation} t={t}
             />
           </Field>
         ) : null}
         {category === "internal" ||
         category === "external-in" ||
         category === "gain" ? (
-          <Field label="目的位置" error={error} field="toLocation">
+          <Field label={t("assetTransfers.field.toLocation")} error={error} field="toLocation">
             <LocationSelect
               describedBy={describedBy(error, "toLocation")}
               disabled={disabled}
@@ -399,13 +403,13 @@ export function AssetTransferPanel({
                 setToLocation(value);
                 setError(null);
               }}
-              value={toLocation}
+              value={toLocation} t={t}
             />
           </Field>
         ) : null}
         {category === "external-in" || category === "gain" ? (
           <Field
-            label="到账单价（USDT）"
+            label={t("assetTransfers.field.unitPrice")}
             error={error}
             field="unitPrice"
           >
@@ -425,7 +429,7 @@ export function AssetTransferPanel({
         ) : null}
         {category === "internal" || category === "external-out" ? (
           <Field
-            label="链上手续费（资产计价，可选）"
+            label={t("assetTransfers.field.networkFee")}
             error={error}
             field="networkFee"
           >
@@ -443,7 +447,7 @@ export function AssetTransferPanel({
             />
           </Field>
         ) : null}
-        <Field label="日期" error={error} field="occurredAt">
+        <Field label={t("assetTransfers.field.date")} error={error} field="occurredAt">
           <input
             aria-describedby={describedBy(error, "occurredAt")}
             className={controlClassName}
@@ -456,7 +460,7 @@ export function AssetTransferPanel({
             value={occurredAt}
           />
         </Field>
-        <Field label="备注（可选）" error={error} field="note">
+        <Field label={t("assetTransfers.field.note")} error={error} field="note">
           <input
             aria-describedby={describedBy(error, "note")}
             className={controlClassName}
@@ -475,8 +479,8 @@ export function AssetTransferPanel({
             type="submit"
           >
             {pendingOperation === "add"
-              ? "正在保存…"
-              : "保存资产转入转出"}
+              ? t("assetTransfers.status.saving")
+              : t("assetTransfers.action.save")}
           </button>
           <div aria-live="polite" className="mt-2 min-h-5 text-sm">
             {error?.field === "form" ? (
@@ -492,10 +496,10 @@ export function AssetTransferPanel({
       </form>
 
       <div>
-        <h4 className="text-sm font-semibold">资产转移事实</h4>
+        <h4 className="text-sm font-semibold">{t("assetTransfers.events.heading")}</h4>
         {ledgerData.assetTransfers.length === 0 ? (
           <p className="mt-2 text-sm text-[var(--ledger-muted)]">
-            暂无资产转移。
+            {t("assetTransfers.events.empty")}
           </p>
         ) : (
           <>
@@ -507,23 +511,23 @@ export function AssetTransferPanel({
                 >
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {categoryLabel(assetTransfer.category)} ·{" "}
+                      {categoryLabel(assetTransfer.category, t)} ·{" "}
                       {assetTransfer.assetSymbol} ·{" "}
                       {assetTransfer.occurredAt.slice(0, 10)}
                     </p>
                     <p className="mt-1 break-words text-xs text-slate-600">
-                      数量 <LedgerNumber kind="quantity" value={assetTransfer.quantity} /> ·{" "}
-                      {transferLocationSummary(assetTransfer)}
+                      {t("assetTransfers.field.quantity")} <LedgerNumber kind="quantity" value={assetTransfer.quantity} /> ·{" "}
+                      {transferLocationSummary(assetTransfer, t)}
                       {assetTransfer.networkFee !== undefined ? (
                         <>
-                          {" "}· 链上手续费{" "}
+                          {" "}· {t("assetTransfers.networkFeeShort")}{" "}
                           <LedgerNumber kind="quantity" value={assetTransfer.networkFee} />{" "}
                           {assetTransfer.assetSymbol}
                         </>
                       ) : null}
                       {assetTransfer.unitPrice !== undefined ? (
                         <>
-                          {" "}· 到账单价{" "}
+                          {" "}· {t("assetTransfers.unitPriceShort")}{" "}
                           <LedgerNumber kind="money" value={assetTransfer.unitPrice} /> USDT
                         </>
                       ) : null}
@@ -537,18 +541,18 @@ export function AssetTransferPanel({
                     type="button"
                   >
                     {armedDelete?.assetTransferId === assetTransfer.id
-                      ? "确认删除"
-                      : "删除"}
+                      ? t("assetTransfers.action.confirmDelete")
+                      : t("assetTransfers.action.delete")}
                   </button>
                 </li>
               ))}
             </ul>
             <div
-              aria-label="资产转移事实分页"
+              aria-label={t("assetTransfers.pagination.ariaLabel")}
               className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] pt-3 text-sm"
             >
               <p className="text-[var(--ledger-muted)]">
-                共 {orderedAssetTransfers.length} 条，第 {currentPage} / {totalPages} 页
+                {t("assetTransfers.pagination.totalPrefix")} {orderedAssetTransfers.length} {t("assetTransfers.pagination.totalSuffix")}，{t("assetTransfers.pagination.pagePrefix")} {currentPage} / {totalPages} {t("assetTransfers.pagination.pageSuffix")}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -557,7 +561,7 @@ export function AssetTransferPanel({
                   onClick={() => setCurrentPage((page) => page - 1)}
                   type="button"
                 >
-                  上一页
+                  {t("assetTransfers.pagination.previous")}
                 </button>
                 <button
                   className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -565,7 +569,7 @@ export function AssetTransferPanel({
                   onClick={() => setCurrentPage((page) => page + 1)}
                   type="button"
                 >
-                  下一页
+                  {t("assetTransfers.pagination.next")}
                 </button>
               </div>
             </div>
@@ -610,11 +614,13 @@ function LocationSelect({
   disabled,
   onChange,
   value,
+  t,
 }: Readonly<{
   describedBy?: string;
   disabled: boolean;
   onChange: (value: CustodyLocation) => void;
   value: CustodyLocation;
+  t: Translate;
 }>) {
   return (
     <select
@@ -624,9 +630,9 @@ function LocationSelect({
       onChange={(event) => onChange(event.target.value as CustodyLocation)}
       value={value}
     >
-      <option value="exchange">交易所</option>
-      <option value="cold-wallet">冷钱包</option>
-      <option value="cold-wallet-earn">冷钱包理财</option>
+      <option value="exchange">{t("assetTransfers.location.exchange")}</option>
+      <option value="cold-wallet">{t("assetTransfers.location.coldWallet")}</option>
+      <option value="cold-wallet-earn">{t("assetTransfers.location.coldWalletEarn")}</option>
     </select>
   );
 }
@@ -642,40 +648,33 @@ function describedBy(
   return error?.field === field ? `asset-transfer-error-${field}` : undefined;
 }
 
-function categoryLabel(category: AssetTransferCategory): string {
+function categoryLabel(category: AssetTransferCategory, t: Translate): string {
   return {
-    internal: "内部转移",
-    "external-in": "外部转入",
-    "external-out": "外部转出",
-    gain: "白拿",
+    internal: t("assetTransfers.category.internal"),
+    "external-in": t("assetTransfers.category.externalIn"),
+    "external-out": t("assetTransfers.category.externalOut"),
+    gain: t("assetTransfers.category.gain"),
   }[category];
 }
 
-function reasonLabel(reason: AssetTransferReason): string {
+function reasonLabel(reason: AssetTransferReason, t: Translate): string {
   return {
-    deposit: "存入",
-    withdrawal: "提取",
-    "internal-move": "内部迁移",
-    airdrop: "空投",
-    interest: "利息",
-    "platform-gift": "平台赠送",
+    deposit: t("assetTransfers.reason.deposit"), withdrawal: t("assetTransfers.reason.withdrawal"), "internal-move": t("assetTransfers.reason.internalMove"), airdrop: t("assetTransfers.reason.airdrop"), interest: t("assetTransfers.reason.interest"), "platform-gift": t("assetTransfers.reason.platformGift"),
   }[reason];
 }
 
-function locationLabel(location: CustodyLocation): string {
+function locationLabel(location: CustodyLocation, t: Translate): string {
   return {
-    exchange: "交易所",
-    "cold-wallet": "冷钱包",
-    "cold-wallet-earn": "冷钱包理财",
+    exchange: t("assetTransfers.location.exchange"), "cold-wallet": t("assetTransfers.location.coldWallet"), "cold-wallet-earn": t("assetTransfers.location.coldWalletEarn"),
   }[location];
 }
 
-function transferLocationSummary(assetTransfer: AssetTransfer): string {
+function transferLocationSummary(assetTransfer: AssetTransfer, t: Translate): string {
   if (assetTransfer.category === "internal") {
-    return `${locationLabel(assetTransfer.fromLocation!)} → ${locationLabel(assetTransfer.toLocation!)}`;
+    return `${locationLabel(assetTransfer.fromLocation!, t)} → ${locationLabel(assetTransfer.toLocation!, t)}`;
   }
   if (assetTransfer.category === "external-out") {
-    return `${locationLabel(assetTransfer.fromLocation!)} → 账本外`;
+    return `${locationLabel(assetTransfer.fromLocation!, t)} → ${t("assetTransfers.location.outsideLedger")}`;
   }
-  return `账本外 → ${locationLabel(assetTransfer.toLocation!)}`;
+  return `${t("assetTransfers.location.outsideLedger")} → ${locationLabel(assetTransfer.toLocation!, t)}`;
 }

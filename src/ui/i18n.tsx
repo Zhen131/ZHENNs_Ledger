@@ -391,6 +391,16 @@ const chineseMessages = {
   "fees.history.replaces": "替代",
   "fees.history.deactivated": "停用",
   "fees.history.newVersion": "新版本",
+  "assetTransfers.heading": "资产转入转出",
+  "assetTransfers.description": "转移与交易合并成同一时间线重放；四类转移都不改变 USDT 现金。",
+  "assetTransfers.field.category": "转移类别", "assetTransfers.field.asset": "资产", "assetTransfers.field.reason": "原因", "assetTransfers.field.quantity": "数量", "assetTransfers.field.fromLocation": "来源位置", "assetTransfers.field.toLocation": "目的位置", "assetTransfers.field.unitPrice": "到账单价（USDT）", "assetTransfers.field.networkFee": "链上手续费（资产计价，可选）", "assetTransfers.field.date": "日期", "assetTransfers.field.note": "备注（可选）",
+  "assetTransfers.category.internal": "内部转移", "assetTransfers.category.externalIn": "外部转入", "assetTransfers.category.externalOut": "外部转出", "assetTransfers.category.gain": "白拿",
+  "assetTransfers.reason.deposit": "存入", "assetTransfers.reason.withdrawal": "提取", "assetTransfers.reason.internalMove": "内部迁移", "assetTransfers.reason.airdrop": "空投", "assetTransfers.reason.interest": "利息", "assetTransfers.reason.platformGift": "平台赠送",
+  "assetTransfers.location.exchange": "交易所", "assetTransfers.location.coldWallet": "冷钱包", "assetTransfers.location.coldWalletEarn": "冷钱包理财", "assetTransfers.location.outsideLedger": "账本外",
+  "assetTransfers.status.unsaved": "资产转移仍在内存中，但尚未保存；请重试保存", "assetTransfers.status.certifiedSaved": "资产转移已认证保存", "assetTransfers.status.deleted": "资产转移已删除", "assetTransfers.status.ledgerNotWritable": "账本当前不可写", "assetTransfers.status.unchanged": "账本未发生变化", "assetTransfers.status.savingAdd": "正在保存资产转移…", "assetTransfers.status.deleteArmed": "再次点击以确认删除该资产转移", "assetTransfers.status.deleteStale": "账本已变化，请重新检查后再删除", "assetTransfers.status.notFound": "资产转移已不存在", "assetTransfers.status.savingDelete": "正在保存删除…", "assetTransfers.status.saving": "正在保存…",
+  "assetTransfers.action.save": "保存资产转入转出", "assetTransfers.action.confirmDelete": "确认删除", "assetTransfers.action.delete": "删除",
+  "assetTransfers.events.heading": "资产转移事实", "assetTransfers.events.empty": "暂无资产转移。", "assetTransfers.networkFeeShort": "链上手续费", "assetTransfers.unitPriceShort": "到账单价",
+  "assetTransfers.pagination.ariaLabel": "资产转移事实分页", "assetTransfers.pagination.totalPrefix": "共", "assetTransfers.pagination.totalSuffix": "条", "assetTransfers.pagination.pagePrefix": "第", "assetTransfers.pagination.pageSuffix": "页", "assetTransfers.pagination.previous": "上一页", "assetTransfers.pagination.next": "下一页",
 } as const;
 
 export type TranslationKey = keyof typeof chineseMessages;
