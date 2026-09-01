@@ -16,6 +16,7 @@ import {
   isValidISODateOrDateTime,
   validateLedgerData,
 } from "@/core/validation";
+import { translateDefault } from "@/ui";
 
 const MAX_ID_ATTEMPTS = 3;
 const DECIMAL_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
@@ -107,27 +108,27 @@ export function createValidatedAssetTransfer(
   providedDependencies?: AssetTransferServiceDependencies,
 ): CreateAssetTransferResult {
   if (!isRecord(input)) {
-    return failure("INVALID_INPUT", "form", "资产转入转出必须是对象");
+    return failure("INVALID_INPUT", "form", translateDefault("assetTransfer.validation.invalidInput"));
   }
   if (!isAssetTransferCategory(input.category)) {
-    return failure("INVALID_CATEGORY", "category", "请选择有效的转移类别");
+    return failure("INVALID_CATEGORY", "category", translateDefault("assetTransfer.validation.invalidCategory"));
   }
   const category = input.category;
   if (
     typeof input.assetSymbol !== "string" ||
     !ledgerData.assets.some((asset) => asset.symbol === input.assetSymbol)
   ) {
-    return failure("INVALID_ASSET", "assetSymbol", "请选择账本中已存在的资产");
+    return failure("INVALID_ASSET", "assetSymbol", translateDefault("assetTransfer.validation.invalidAsset"));
   }
   if (!isAssetTransferReason(input.reason)) {
-    return failure("INVALID_REASON", "reason", "请选择有效的原因");
+    return failure("INVALID_REASON", "reason", translateDefault("assetTransfer.validation.invalidReason"));
   }
   if (
     !ASSET_TRANSFER_REASONS_BY_CATEGORY[category].some(
       (reason) => reason === input.reason,
     )
   ) {
-    return failure("INVALID_REASON", "reason", "原因与转移类别不匹配");
+    return failure("INVALID_REASON", "reason", translateDefault("assetTransfer.validation.reasonCategoryMismatch"));
   }
   if (
     typeof input.quantity !== "string" ||
@@ -137,14 +138,14 @@ export function createValidatedAssetTransfer(
     return failure(
       "INVALID_QUANTITY",
       "quantity",
-      "数量必须大于 0，且是最多 40 位有效数字、18 位小数的规范十进制",
+      translateDefault("assetTransfer.validation.invalidQuantity"),
     );
   }
   if (
     typeof input.occurredAt !== "string" ||
     !isValidISODateOrDateTime(input.occurredAt)
   ) {
-    return failure("INVALID_DATE", "occurredAt", "请输入有效日期");
+    return failure("INVALID_DATE", "occurredAt", translateDefault("assetTransfer.validation.invalidDate"));
   }
 
   const defaultSnapshot = providedDependencies
@@ -159,31 +160,31 @@ export function createValidatedAssetTransfer(
   try {
     todayKey = dependencies.todayKey();
   } catch {
-    return failure("DEPENDENCY_FAILURE", "form", "无法读取当前账本日期");
+    return failure("DEPENDENCY_FAILURE", "form", translateDefault("assetTransfer.validation.readTodayFailed"));
   }
   if (input.occurredAt.slice(0, 10) > todayKey) {
-    return failure("FUTURE_FACT", "occurredAt", "转移日期不能晚于今天");
+    return failure("FUTURE_FACT", "occurredAt", translateDefault("assetTransfer.validation.futureFact"));
   }
 
   const unitPriceResult = readOptionalPositiveDecimal(
     input.unitPrice,
     "unitPrice",
-    "到账单价",
+    translateDefault("assetTransfer.validation.unitPrice"),
   );
   if (!unitPriceResult.ok) return unitPriceResult.result;
   const networkFeeResult = readOptionalPositiveDecimal(
     input.networkFee,
     "networkFee",
-    "链上手续费",
+    translateDefault("assetTransfer.validation.networkFee"),
   );
   if (!networkFeeResult.ok) return networkFeeResult.result;
   const fromLocation = readOptionalLocation(input.fromLocation);
   if (fromLocation === "invalid") {
-    return failure("INVALID_FROM_LOCATION", "fromLocation", "请选择有效的来源位置");
+    return failure("INVALID_FROM_LOCATION", "fromLocation", translateDefault("assetTransfer.validation.invalidFromLocation"));
   }
   const toLocation = readOptionalLocation(input.toLocation);
   if (toLocation === "invalid") {
-    return failure("INVALID_TO_LOCATION", "toLocation", "请选择有效的目的位置");
+    return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.invalidToLocation"));
   }
 
   const combinationError = validateCombination({
@@ -196,14 +197,14 @@ export function createValidatedAssetTransfer(
   if (combinationError) return combinationError;
 
   if (input.note !== undefined && typeof input.note !== "string") {
-    return failure("INVALID_NOTE", "note", "备注必须是文本");
+    return failure("INVALID_NOTE", "note", translateDefault("assetTransfer.validation.invalidNote"));
   }
   const note =
     typeof input.note === "string" && input.note.trim() !== ""
       ? input.note.trim()
       : undefined;
   if (note !== undefined && note.length > 4_096) {
-    return failure("NOTE_TOO_LONG", "note", "备注不能超过 4096 个字符");
+    return failure("NOTE_TOO_LONG", "note", translateDefault("assetTransfer.validation.noteTooLong"));
   }
 
   const existingIds = collectLedgerIds(ledgerData);
@@ -213,7 +214,7 @@ export function createValidatedAssetTransfer(
     try {
       candidate = dependencies.generateId();
     } catch {
-      return failure("DEPENDENCY_FAILURE", "form", "无法生成资产转移 ID");
+      return failure("DEPENDENCY_FAILURE", "form", translateDefault("assetTransfer.validation.generateIdFailed"));
     }
     if (isTechnicalId(candidate) && !existingIds.has(candidate)) {
       id = candidate;
@@ -224,7 +225,7 @@ export function createValidatedAssetTransfer(
     return failure(
       "ID_GENERATION_EXHAUSTED",
       "form",
-      "连续三次未能生成唯一资产转移 ID",
+      translateDefault("assetTransfer.validation.generateIdExhausted"),
     );
   }
 
@@ -232,7 +233,7 @@ export function createValidatedAssetTransfer(
   try {
     timestamp = dependencies.now();
   } catch {
-    return failure("DEPENDENCY_FAILURE", "form", "无法读取保存时间");
+    return failure("DEPENDENCY_FAILURE", "form", translateDefault("assetTransfer.validation.readSaveTimeFailed"));
   }
 
   const common = {
@@ -288,7 +289,7 @@ export function createValidatedAssetTransfer(
     return failure(
       "INSUFFICIENT_HOLDING",
       "quantity",
-      "数量与链上手续费之和不能超过总持仓或来源位置持仓",
+      translateDefault("assetTransfer.validation.insufficientHolding"),
     );
   }
 
@@ -297,7 +298,7 @@ export function createValidatedAssetTransfer(
     return failure(
       "LEDGER_VALIDATION_FAILED",
       "form",
-      validation.errors[0]?.message ?? "资产转移未通过账本校验",
+      validation.errors[0]?.message ?? translateDefault("assetTransfer.validation.ledgerInvalid"),
     );
   }
 
@@ -311,7 +312,7 @@ export function validateAssetTransferRemoval(
   if (!ledgerData.assetTransfers.some(({ id }) => id === assetTransferId)) {
     return removalFailure(
       "TRANSFER_NOT_FOUND",
-      "没有找到该资产转移",
+      translateDefault("assetTransfer.validation.notFound"),
     );
   }
   const nextLedger: LedgerData = {
@@ -325,14 +326,14 @@ export function validateAssetTransferRemoval(
   } catch {
     return removalFailure(
       "REMOVAL_BREAKS_TIMELINE",
-      "无法删除：该转移支撑了后续交易或转移，请先删除依赖它的后续事实",
+      translateDefault("assetTransfer.validation.removalBreaksTimeline"),
     );
   }
   const validation = validateLedgerData(nextLedger);
   if (!validation.ok) {
     return removalFailure(
       "LEDGER_VALIDATION_FAILED",
-      validation.errors[0]?.message ?? "删除后的账本未通过校验",
+      validation.errors[0]?.message ?? translateDefault("assetTransfer.validation.removalLedgerInvalid"),
     );
   }
   return { ok: true, assetTransferId };
@@ -353,42 +354,42 @@ function validateCombination({
 }>): CreateAssetTransferResult | undefined {
   if (category === "internal") {
     if (fromLocation === undefined) {
-      return failure("INVALID_FROM_LOCATION", "fromLocation", "内部转移必须选择来源位置");
+      return failure("INVALID_FROM_LOCATION", "fromLocation", translateDefault("assetTransfer.validation.internalFromRequired"));
     }
     if (toLocation === undefined) {
-      return failure("INVALID_TO_LOCATION", "toLocation", "内部转移必须选择目的位置");
+      return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.internalToRequired"));
     }
     if (fromLocation === toLocation) {
-      return failure("INVALID_TO_LOCATION", "toLocation", "目的位置必须与来源位置不同");
+      return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.locationsMustDiffer"));
     }
     if (unitPrice !== undefined) {
-      return failure("INVALID_COMBINATION", "unitPrice", "内部转移不能填写到账单价");
+      return failure("INVALID_COMBINATION", "unitPrice", translateDefault("assetTransfer.validation.internalUnitPriceForbidden"));
     }
     return undefined;
   }
   if (category === "external-in" || category === "gain") {
     if (fromLocation !== undefined) {
-      return failure("INVALID_COMBINATION", "fromLocation", "该类别不能填写来源位置");
+      return failure("INVALID_COMBINATION", "fromLocation", translateDefault("assetTransfer.validation.categoryFromForbidden"));
     }
     if (toLocation === undefined) {
-      return failure("INVALID_TO_LOCATION", "toLocation", "该类别必须选择目的位置");
+      return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.categoryToRequired"));
     }
     if (unitPrice === undefined) {
-      return failure("INVALID_UNIT_PRICE", "unitPrice", "该类别必须填写大于 0 的到账单价");
+      return failure("INVALID_UNIT_PRICE", "unitPrice", translateDefault("assetTransfer.validation.categoryUnitPriceRequired"));
     }
     if (networkFee !== undefined) {
-      return failure("INVALID_COMBINATION", "networkFee", "该类别不能填写链上手续费");
+      return failure("INVALID_COMBINATION", "networkFee", translateDefault("assetTransfer.validation.categoryNetworkFeeForbidden"));
     }
     return undefined;
   }
   if (fromLocation === undefined) {
-    return failure("INVALID_FROM_LOCATION", "fromLocation", "外部转出必须选择来源位置");
+    return failure("INVALID_FROM_LOCATION", "fromLocation", translateDefault("assetTransfer.validation.externalOutFromRequired"));
   }
   if (toLocation !== undefined) {
-    return failure("INVALID_COMBINATION", "toLocation", "外部转出不能填写目的位置");
+    return failure("INVALID_COMBINATION", "toLocation", translateDefault("assetTransfer.validation.externalOutToForbidden"));
   }
   if (unitPrice !== undefined) {
-    return failure("INVALID_COMBINATION", "unitPrice", "外部转出不能填写到账单价");
+    return failure("INVALID_COMBINATION", "unitPrice", translateDefault("assetTransfer.validation.externalOutUnitPriceForbidden"));
   }
   return undefined;
 }
@@ -411,7 +412,7 @@ function readOptionalPositiveDecimal(
       result: failure(
         field === "unitPrice" ? "INVALID_UNIT_PRICE" : "INVALID_NETWORK_FEE",
         field,
-        `${label}必须大于 0，且是最多 40 位有效数字、18 位小数的规范十进制`,
+        `${label}${translateDefault("assetTransfer.validation.positiveDecimalSuffix")}`,
       ),
     };
   }
