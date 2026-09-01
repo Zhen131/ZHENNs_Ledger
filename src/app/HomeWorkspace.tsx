@@ -17,7 +17,7 @@ import {
   TradeHeatmapChart,
 } from "@/features/charts/ui";
 import { HoldingsDetails, HoldingsOverview } from "@/features/portfolio/ui";
-import { LedgerIcon, LedgerNumber, SurfaceCard } from "@/ui";
+import { LedgerIcon, LedgerNumber, SurfaceCard, useLanguage } from "@/ui";
 
 export function HomeWorkspace({
   active,
@@ -58,6 +58,7 @@ export function HomeWorkspace({
   detailsOpen?: boolean;
   onDetailsOpenChange?: (open: boolean) => void;
 }>) {
+  const { t } = useLanguage();
   const [localDetailsOpen, setLocalDetailsOpen] = useState(false);
   const detailsOpen = controlledDetailsOpen ?? localDetailsOpen;
   const setDetailsOpen = onDetailsOpenChange ?? setLocalDetailsOpen;
@@ -85,16 +86,16 @@ export function HomeWorkspace({
 
   return (
     <section
-      aria-label="首页工作区"
+      aria-label={t("home.workspace.ariaLabel")}
       className="grid max-w-full min-w-0 gap-4 overflow-x-hidden min-[1100px]:gap-3"
       data-workspace-page="home"
     >
       {ledgerData.trades.length === 0 ? (
         <SurfaceCard className="flex flex-col items-start justify-between gap-4 border-[var(--ledger-border-strong)] bg-[var(--ledger-accent-soft)] p-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="font-semibold">还没有交易记录</h2>
+            <h2 className="font-semibold">{t("home.empty.heading")}</h2>
             <p className="mt-1 text-sm text-[var(--ledger-muted)]">
-              记录第一笔交易后，持仓、盈亏和图表会由同一份账本自动推导。
+              {t("home.empty.description")}
             </p>
           </div>
           <button
@@ -102,7 +103,7 @@ export function HomeWorkspace({
             onClick={onNavigateToTrade}
             type="button"
           >
-            记录第一笔交易
+            {t("home.empty.action")}
           </button>
         </SurfaceCard>
       ) : null}
@@ -112,23 +113,23 @@ export function HomeWorkspace({
         data-home-row="metrics"
       >
         <MetricCard
-          label="当前总资产"
+          label={t("home.metrics.totalAssets")}
           metric={allocation.totalMarketValue}
           missing={allocation.missingPriceAssets}
           valuationLabel={allocation.valuation.label}
         />
         <MetricCard
-          label="剩余持仓成本"
+          label={t("home.metrics.remainingCostBasis")}
           metric={pnlSummary.remainingCostBasis}
           valuationLabel={pnlSummary.valuation.label}
         />
         <MetricCard
-          label="未实现盈亏"
+          label={t("home.metrics.unrealizedPnl")}
           metric={pnlSummary.unrealizedPnl}
           valuationLabel={pnlSummary.valuation.label}
         />
         <MetricCard
-          label="已实现盈亏"
+          label={t("home.metrics.realizedPnl")}
           metric={pnlSummary.realizedPnl}
           valuationLabel={pnlSummary.valuation.label}
         />
@@ -141,16 +142,16 @@ export function HomeWorkspace({
         <SurfaceCard className="min-w-0 p-4 min-[1100px]:p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-semibold">资产趋势</h2>
+              <h2 className="font-semibold">{t("home.trend.heading")}</h2>
               <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-                总资产逐日重放现金与可得行情；成本线仍只读取交易。
+                {t("home.trend.description")}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <label className="grid gap-1 text-xs font-medium text-[var(--ledger-muted)]">
-                价格来源
+                {t("home.trend.priceSource")}
                 <select
-                  aria-label="估值价格模式"
+                  aria-label={t("home.trend.priceModeAriaLabel")}
                   className="rounded-lg border border-[var(--ledger-border)] bg-white px-2.5 py-1.5 text-sm text-[var(--ledger-ink)]"
                   onChange={(event) =>
                     onValuationPriceModeChange(
@@ -159,25 +160,27 @@ export function HomeWorkspace({
                   }
                   value={valuationPriceMode}
                 >
-                  <option value="auto">自动选择</option>
-                  <option value="manual">优先手动</option>
+                  <option value="auto">{t("home.trend.priceModeAuto")}</option>
+                  <option value="manual">
+                    {t("home.trend.priceModeManual")}
+                  </option>
                 </select>
               </label>
               <label className="grid gap-1 text-xs font-medium text-[var(--ledger-muted)]">
-                范围
+                {t("home.trend.range")}
                 <select
-                  aria-label="持仓历史范围"
+                  aria-label={t("home.trend.rangeAriaLabel")}
                   className="rounded-lg border border-[var(--ledger-border)] bg-white px-2.5 py-1.5 text-sm text-[var(--ledger-ink)]"
                   onChange={(event) =>
                     onRangeChange(event.target.value as ChartRange)
                   }
                   value={range}
                 >
-                  <option value="1d">1 日</option>
-                  <option value="7d">7 日</option>
-                  <option value="30d">30 日</option>
-                  <option value="365d">365 日</option>
-                  <option value="all">全部</option>
+                  <option value="1d">{t("home.trend.range1d")}</option>
+                  <option value="7d">{t("home.trend.range7d")}</option>
+                  <option value="30d">{t("home.trend.range30d")}</option>
+                  <option value="365d">{t("home.trend.range365d")}</option>
+                  <option value="all">{t("home.trend.rangeAll")}</option>
                 </select>
               </label>
             </div>
@@ -198,9 +201,11 @@ export function HomeWorkspace({
             type="button"
           >
             <span>
-              <strong className="block text-lg">记一笔交易</strong>
+              <strong className="block text-lg">
+                {t("home.quickTrade.heading")}
+              </strong>
               <span className="mt-1 block text-sm text-[var(--ledger-muted)]">
-                新增真实买入或卖出事实
+                {t("home.quickTrade.description")}
               </span>
             </span>
             <LedgerIcon
@@ -215,7 +220,8 @@ export function HomeWorkspace({
               onClick={onNavigateToPrice}
               type="button"
             >
-              更新缺价资产：{allocation.missingPriceAssets.join("、")}
+              {t("home.missingPrices.action")}：
+              {allocation.missingPriceAssets.join("、")}
             </button>
           ) : null}
         </div>
@@ -268,6 +274,7 @@ function MetricCard({
   valuationLabel: string;
   missing?: readonly string[];
 }>) {
+  const { t } = useLanguage();
   const metricValue =
     typeof metric === "string" || metric === undefined ? metric : metric.value;
   const missingReasons =
@@ -277,7 +284,7 @@ function MetricCard({
       <h2 className="text-xs font-medium text-[var(--ledger-muted)]">{label}</h2>
       <p className="mt-2 truncate text-xl font-semibold">
         {metricValue === undefined ? (
-          "不可完整计算"
+          t("home.metrics.unavailable")
         ) : (
           <>
             <LedgerNumber kind="money" value={metricValue} /> {valuationLabel}
@@ -286,7 +293,7 @@ function MetricCard({
       </p>
       {missingReasons.length > 0 ? (
         <p className="mt-1 truncate text-xs font-medium text-amber-800">
-          未计入：{missingReasons.join("、")}
+          {t("home.metrics.excluded")}：{missingReasons.join("、")}
         </p>
       ) : null}
     </SurfaceCard>
