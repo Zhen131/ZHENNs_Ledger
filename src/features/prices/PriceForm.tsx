@@ -23,6 +23,7 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
+import { useLanguage } from "@/ui";
 
 const SUCCESS_FEEDBACK_MS = 4_000;
 
@@ -49,15 +50,7 @@ type PriceFormState = PriceWorkspaceDraft;
 
 type PriceFormField = keyof PriceFormState | "form";
 
-const fieldLabels: Record<keyof PriceSnapshotDraft, string> = {
-  assetSymbol: "资产",
-  price: "当前价格",
-  currency: "计价货币",
-  recordedAt: "价格日期",
-  source: "价格来源",
-  binanceProvenance: "Binance 来源证据",
-  note: "价格备注",
-};
+type Translate = ReturnType<typeof useLanguage>["t"];
 
 function createInitialFormState(
   assetSymbol: string,
@@ -90,31 +83,41 @@ function toPriceFormField(
 
 function formatValidationError(
   error: PriceSnapshotValidationError,
+  t: Translate,
 ): string {
-  const label = error.field === "input" ? "价格" : fieldLabels[error.field];
+  const fieldLabels: Record<keyof PriceSnapshotDraft, string> = {
+    assetSymbol: t("prices.field.asset"),
+    price: t("prices.field.currentPrice"),
+    currency: t("prices.field.currency"),
+    recordedAt: t("prices.field.date"),
+    source: t("prices.field.source"),
+    binanceProvenance: t("prices.field.binanceProvenance"),
+    note: t("prices.field.note"),
+  };
+  const label = error.field === "input" ? t("prices.field.price") : fieldLabels[error.field];
 
   switch (error.code) {
     case "PRICE_SNAPSHOT_ASSET_NOT_FOUND":
-      return "请选择账本中已有的资产";
+      return t("prices.validation.assetNotFound");
     case "PRICE_SNAPSHOT_INVALID_DECIMAL":
-      return "当前价格必须是有效数字";
+      return t("prices.validation.invalidDecimal");
     case "PRICE_SNAPSHOT_VALUE_MUST_BE_POSITIVE":
-      return "当前价格必须大于 0";
+      return t("prices.validation.positive");
     case "PRICE_SNAPSHOT_CURRENCY_MISMATCH":
-      return "计价货币与资产设置不一致";
+      return t("prices.validation.currencyMismatch");
     case "PRICE_SNAPSHOT_INVALID_SOURCE":
-      return "价格来源不受支持";
+      return t("prices.validation.invalidSource");
     case "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE":
     case "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED":
-      return "Binance 价格来源证据无效";
+      return t("prices.validation.invalidBinanceProvenance");
     case "PRICE_SNAPSHOT_FUTURE_FACT":
-      return "价格日期不能晚于今天";
+      return t("prices.validation.futureFact");
     case "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY":
-      return "当前仅支持 USD/USDT 估值";
+      return t("prices.validation.unsupportedCurrency");
     case "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT":
-      return "旧 USD 账本只兼容读取；请新建 USDT 账本后再录入";
+      return t("prices.validation.newFactRequiresUsdt");
     case "PRICE_SNAPSHOT_INVALID_INPUT":
-      return `${label}不能为空或格式不正确`;
+      return `${label}${t("prices.validation.invalidInputSuffix")}`;
   }
 }
 
@@ -131,6 +134,9 @@ export function PriceForm({
   onReset,
   focusTargetRef,
 }: PriceFormProps) {
+  const { t } = useLanguage();
+  const certifiedSavedMessage = t("prices.status.certifiedSaved");
+  const savingMessage = t("prices.status.saving");
   const defaultAssetSymbol = ledgerData.assets[0]?.symbol ?? "";
   const [localForm, setLocalForm] = useState<PriceFormState>(() =>
     createInitialFormState(
@@ -217,18 +223,19 @@ export function PriceForm({
         }
       }
       setErrors({});
-      setSuccessMessage("价格已认证保存");
+      setSuccessMessage(certifiedSavedMessage);
       return;
     }
     if (persistenceStatus === "error") {
       setSuccessMessage("");
       setErrors((current) => ({
         ...current,
-        form: "价格仍在内存中，但尚未保存；请重试保存",
+        form: t("prices.status.unsaved"),
       }));
     }
   }, [
     clock,
+    certifiedSavedMessage,
     draft,
     onReset,
     pendingMutationVersion,
@@ -237,13 +244,13 @@ export function PriceForm({
   ]);
 
   useEffect(() => {
-    if (!successMessage || successMessage === "正在保存…") return;
+    if (!successMessage || successMessage === savingMessage) return;
     const timeout = setTimeout(
       () => setSuccessMessage(""),
       SUCCESS_FEEDBACK_MS,
     );
     return () => clearTimeout(timeout);
-  }, [successMessage]);
+  }, [savingMessage, successMessage]);
 
   const selectedAsset =
     ledgerData.assets.find((asset) => asset.symbol === form.assetSymbol) ??
@@ -284,14 +291,14 @@ export function PriceForm({
 
     if (!result.ok) {
       if (result.kind === "service") {
-        setErrors({ form: "系统暂时无法生成价格记录，请稍后重试" });
+        setErrors({ form: t("prices.status.serviceError") });
         return;
       }
 
       const nextErrors: Partial<Record<PriceFormField, string>> = {};
       for (const error of result.errors) {
         const field = toPriceFormField(error.field);
-        nextErrors[field] ??= formatValidationError(error);
+        nextErrors[field] ??= formatValidationError(error, t);
       }
       setErrors(nextErrors);
       setSuccessMessage("");
@@ -307,8 +314,8 @@ export function PriceForm({
       setErrors({
         form:
           mutationResult === "rejected"
-            ? "账本当前不可写，请稍后重试"
-            : "账本未发生变化，请检查输入",
+            ? t("prices.status.ledgerNotWritable")
+            : t("prices.status.unchanged"),
       });
       setSuccessMessage("");
       return;
@@ -327,7 +334,7 @@ export function PriceForm({
         recordedAt: form.recordedAt,
       });
       setErrors({});
-      setSuccessMessage("价格已加入账本");
+      setSuccessMessage(t("prices.status.added"));
       return;
     }
 
@@ -337,14 +344,14 @@ export function PriceForm({
     };
     setErrors({});
     setPendingMutationVersion(mutationVersion + 1);
-    setSuccessMessage("正在保存…");
+    setSuccessMessage(savingMessage);
   }
 
   return (
     <form
       aria-busy={pendingMutationVersion !== null}
       className={`grid gap-4 ${
-        successMessage === "价格已认证保存"
+        successMessage === certifiedSavedMessage
           ? "motion-safe:animate-[ledger-save-pop_200ms_ease-out]"
           : ""
       }`}
@@ -359,7 +366,7 @@ export function PriceForm({
         }
       >
       <label className="grid gap-2 text-sm font-medium">
-        价格资产
+        {t("prices.field.asset")}
         <select
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("assetSymbol", event.target.value)}
@@ -380,10 +387,10 @@ export function PriceForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        当前价格
+        {t("prices.field.currentPrice")}
         <span className="flex overflow-hidden rounded-md border border-slate-200 bg-white focus-within:border-slate-400">
           <input
-            aria-label="当前价格"
+            aria-label={t("prices.field.currentPrice")}
             className="min-w-0 flex-1 px-3 py-2 font-normal outline-none"
             inputMode="decimal"
             onChange={(event) => updateField("price", event.target.value)}
@@ -391,7 +398,7 @@ export function PriceForm({
             value={form.price}
           />
           <span
-            aria-label={`价格计价货币 ${currency}`}
+            aria-label={`${t("prices.field.currencyAriaPrefix")} ${currency}`}
             className="border-l border-slate-200 bg-slate-50 px-3 py-2 font-normal text-slate-600"
           >
             {currency}
@@ -403,7 +410,7 @@ export function PriceForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        价格日期
+        {t("prices.field.date")}
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("recordedAt", event.target.value)}
@@ -418,11 +425,11 @@ export function PriceForm({
       </label>
 
       <label className="grid gap-2 text-sm font-medium">
-        价格备注
+        {t("prices.field.note")}
         <input
           className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
           onChange={(event) => updateField("note", event.target.value)}
-          placeholder="可选"
+          placeholder={t("prices.field.optional")}
           value={form.note}
         />
       </label>
@@ -432,7 +439,7 @@ export function PriceForm({
         disabled={pendingMutationVersion !== null}
         type="submit"
       >
-        {pendingMutationVersion === null ? "保存价格" : "正在保存…"}
+        {pendingMutationVersion === null ? t("prices.action.save") : savingMessage}
       </button>
       <div aria-live="polite" className="min-h-5 text-sm">
         {errors.form ? (
