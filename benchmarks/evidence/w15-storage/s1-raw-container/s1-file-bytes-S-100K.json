@@ -1,0 +1,9 @@
+{
+  "kind": "repository-file-size-probe",
+  "scale": "S-100K",
+  "tradeCount": 100000,
+  "afterImportBytes": 48166174,
+  "afterM3Bytes": 96330240,
+  "repositorySaveMs": 7301.36,
+  "timingRole": "diagnostic-only-not-browser-M-3"
+}

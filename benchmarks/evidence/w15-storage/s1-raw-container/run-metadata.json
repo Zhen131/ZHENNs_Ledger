@@ -1,0 +1,68 @@
+{
+  "evidenceFormatVersion": 1,
+  "batch": "W15-storage-cost",
+  "phase": "S1-raw-binary-container",
+  "sourceCommit": "2b87216",
+  "sourceBranch": "zhennn/w15-main-chunked-storage",
+  "mode": "production",
+  "browserVersion": "152.0.7977.65",
+  "baselineBrowserVersion": "151.0.7922.171",
+  "dataClassification": "synthetic-only",
+  "browserRuns": [
+    {
+      "sequence": 1,
+      "scale": "S-100",
+      "startedAt": "2026-09-01T07:33:17+02:00",
+      "completionRecordedBy": "2026-09-01T07:33:33+02:00",
+      "resultFile": "01-s1-S-100.json",
+      "nextRunStartedAt": "2026-09-01T07:39:11+02:00"
+    },
+    {
+      "sequence": 2,
+      "scale": "S-1K",
+      "startedAt": "2026-09-01T07:39:11+02:00",
+      "completionRecordedBy": "2026-09-01T07:39:28+02:00",
+      "resultFile": "02-s1-S-1K.json",
+      "nextRunStartedAt": "2026-09-01T07:44:47+02:00"
+    },
+    {
+      "sequence": 3,
+      "scale": "S-10K",
+      "startedAt": "2026-09-01T07:44:47+02:00",
+      "completionRecordedBy": "2026-09-01T07:45:27+02:00",
+      "resultFile": "03-s1-S-10K.json",
+      "nextRunStartedAt": "2026-09-01T07:50:43+02:00"
+    },
+    {
+      "sequence": 4,
+      "scale": "S-100K",
+      "startedAt": "2026-09-01T07:50:43+02:00",
+      "completionRecordedBy": "2026-09-01T07:52:11+02:00",
+      "resultFile": "04-s1-S-100K.json",
+      "cooldownRecordedBy": "2026-09-01T07:58:48+02:00"
+    }
+  ],
+  "excludedRuns": [
+    {
+      "recordedAt": "2026-09-01T07:27:01+02:00",
+      "reason": "Sandboxed infrastructure attempt could not bind 127.0.0.1 and returned listen EPERM; no browser metric was produced."
+    },
+    {
+      "completionRecordedBy": "2026-09-01T07:27:37+02:00",
+      "samplesPerMetric": 1,
+      "reason": "Escalated infrastructure probe succeeded, but its start time was not recorded; excluded from the numbered data set."
+    }
+  ],
+  "cooldownRule": "Each numbered run started at least 300 seconds after the preceding run completion was recorded; no benchmark, test, or file-size probe ran during those intervals.",
+  "fileByteMeasurements": {
+    "method": "Create an empty fictional ledger through LedgerFileRepository, save a deterministic synthetic ledger, then save one additional fictional buy through the same repository using an in-memory binary handle.",
+    "resultFiles": [
+      "s1-file-bytes-S-100.json",
+      "s1-file-bytes-S-1K.json",
+      "s1-file-bytes-S-10K.json",
+      "s1-file-bytes-S-100K.json"
+    ],
+    "browserMetricSubstitute": false,
+    "repositorySaveMsRole": "Diagnostic only; not a browser M-3 sample or substitute."
+  }
+}

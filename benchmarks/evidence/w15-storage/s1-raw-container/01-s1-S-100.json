@@ -1,0 +1,226 @@
+{
+  "kind": "browser-benchmark",
+  "status": "completed",
+  "mode": "production",
+  "scale": "S-100",
+  "tradeCount": 100,
+  "samplesPerMetric": 10,
+  "browserVersion": "152.0.7977.65",
+  "setupMs": 536.036,
+  "wrongPasswordRejected": true,
+  "pickerCalls": {
+    "save": 1,
+    "open": 12
+  },
+  "metrics": [
+    {
+      "metric": "M-1",
+      "operation": "open-unlock-home",
+      "statistics": {
+        "medianMs": 198.052,
+        "minimumMs": 196.192,
+        "maximumMs": 200.213,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        196.864,
+        196.273,
+        200.213,
+        197.606,
+        199.628,
+        196.192,
+        197.641,
+        198.463,
+        199.669,
+        199.308
+      ],
+      "discardedWarmupMs": 195.882
+    },
+    {
+      "metric": "M-4",
+      "operation": "exact-date-filter",
+      "statistics": {
+        "medianMs": 28.441,
+        "minimumMs": 27.139,
+        "maximumMs": 31.309,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        31.309,
+        30.518,
+        30.035,
+        28.436,
+        28.445,
+        27.75,
+        27.139,
+        28.188,
+        28.009,
+        29.046
+      ],
+      "discardedWarmupMs": 34.616
+    },
+    {
+      "metric": "M-5",
+      "operation": "record->home",
+      "statistics": {
+        "medianMs": 59.505,
+        "minimumMs": 58.798,
+        "maximumMs": 60.597,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        58.941,
+        59.18,
+        59.111,
+        60.336,
+        59.038,
+        59.83,
+        60.597,
+        58.798,
+        59.911,
+        60.512
+      ],
+      "discardedWarmupMs": 86.492
+    },
+    {
+      "metric": "M-5",
+      "operation": "home->record",
+      "statistics": {
+        "medianMs": 67.813,
+        "minimumMs": 52.017,
+        "maximumMs": 68.982,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        66.972,
+        67.911,
+        52.017,
+        68.078,
+        68.164,
+        67.706,
+        68.291,
+        67.714,
+        67.044,
+        68.982
+      ],
+      "discardedWarmupMs": 64.988
+    },
+    {
+      "metric": "M-5",
+      "operation": "record->transactions",
+      "statistics": {
+        "medianMs": 73.627,
+        "minimumMs": 58.757,
+        "maximumMs": 74.614,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        73.514,
+        59.029,
+        58.757,
+        74.391,
+        74.614,
+        71.113,
+        73.811,
+        73.714,
+        73.54,
+        73.971
+      ],
+      "discardedWarmupMs": 80.161
+    },
+    {
+      "metric": "M-5",
+      "operation": "transactions->record",
+      "statistics": {
+        "medianMs": 62.777,
+        "minimumMs": 61.029,
+        "maximumMs": 67.525,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        62.092,
+        61.029,
+        63.703,
+        63.619,
+        63.462,
+        61.525,
+        64.081,
+        61.601,
+        61.214,
+        67.525
+      ],
+      "discardedWarmupMs": 64
+    },
+    {
+      "metric": "M-6",
+      "operation": "price-type-character",
+      "statistics": {
+        "medianMs": 29.812,
+        "minimumMs": 29.242,
+        "maximumMs": 31.543,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        29.427,
+        31.111,
+        29.629,
+        31.543,
+        29.242,
+        29.612,
+        30.27,
+        29.246,
+        30.455,
+        29.996
+      ],
+      "discardedWarmupMs": 21.582
+    },
+    {
+      "metric": "M-6",
+      "operation": "price-delete-character",
+      "statistics": {
+        "medianMs": 30.154,
+        "minimumMs": 28.776,
+        "maximumMs": 31.051,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        30.213,
+        31.051,
+        30.116,
+        30.192,
+        30.887,
+        28.776,
+        30.399,
+        29.645,
+        29.189,
+        29.735
+      ],
+      "discardedWarmupMs": 31.918
+    },
+    {
+      "metric": "M-3",
+      "operation": "save-buy-trade",
+      "statistics": {
+        "medianMs": 90.53,
+        "minimumMs": 89.267,
+        "maximumMs": 102.107,
+        "sampleCount": 10
+      },
+      "samplesMs": [
+        102.107,
+        90.009,
+        89.643,
+        90.682,
+        90.74,
+        90.49,
+        90.718,
+        90.033,
+        89.267,
+        90.571
+      ],
+      "discardedWarmupMs": 104.473
+    }
+  ],
+  "consoleErrors": [],
+  "temporaryArtifactsCleaned": true
+}
