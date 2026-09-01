@@ -68,6 +68,7 @@ textarea {
 .ledger-numeric {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+  white-space: nowrap;
 }
 
 @keyframes ledger-slide-in {

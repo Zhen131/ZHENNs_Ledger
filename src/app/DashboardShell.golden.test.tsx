@@ -111,7 +111,7 @@ function expectPositionDecimal(
   const actual = getPositionCellValue(assetSymbol, columnIndex).replace(
     /\s+(?:USD|USDT)$/,
     "",
-  ).replaceAll(",", "");
+  ).replaceAll(" ", "");
 
   expect(isWithinTolerance(actual, expected, "0.0000000001")).toBe(true);
 }

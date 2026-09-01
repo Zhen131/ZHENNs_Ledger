@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -63,5 +65,25 @@ describe("LedgerNumber", () => {
     const number = screen.getByTitle("12.5");
     expect(number.classList.contains("font-semibold")).toBe(true);
     expect(number.parentElement?.textContent).toBe("12.50 USDT");
+  });
+
+  it("keeps ordinary thousands spaces unbroken through ledger-numeric", () => {
+    render(<LedgerNumber kind="money" value="1234567.89" />);
+
+    const number = screen.getByTitle("1234567.89");
+    const separatorCodePoints = [...(number.textContent ?? "")]
+      .filter((character) => character === " ")
+      .map((character) => character.codePointAt(0));
+    const globalStyles = readFileSync(
+      join(process.cwd(), "src/app/globals.css"),
+      "utf8",
+    );
+
+    expect(number.textContent).toBe("1 234 567.89");
+    expect(separatorCodePoints).toEqual([0x20, 0x20]);
+    expect(number.classList.contains("ledger-numeric")).toBe(true);
+    expect(globalStyles).toMatch(
+      /\.ledger-numeric\s*\{[^}]*white-space:\s*nowrap;/,
+    );
   });
 });
