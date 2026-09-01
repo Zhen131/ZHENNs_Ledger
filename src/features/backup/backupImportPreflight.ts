@@ -945,7 +945,7 @@ function compareHardErrors(
   return (
     left.stage - right.stage ||
     left.path.localeCompare(right.path, "en", { numeric: true }) ||
-    left.code.localeCompare(right.code)
+    (left.code < right.code ? -1 : left.code > right.code ? 1 : 0)
   );
 }
 

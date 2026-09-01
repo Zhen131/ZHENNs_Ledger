@@ -216,7 +216,7 @@ export function updateLedgerPnlSummaryForAppendedTrade(
     buyOutflow: metric(buyOutflow, []),
     buyOutflowByAsset: Object.fromEntries(
       Object.entries(buyOutflowByAsset).sort(([left], [right]) =>
-        left.localeCompare(right),
+        left < right ? -1 : left > right ? 1 : 0,
       ),
     ),
     sellProceeds: metric(sellProceeds, []),

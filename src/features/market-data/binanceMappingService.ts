@@ -92,7 +92,7 @@ export function listAssetsMissingBinanceMapping(
   return ledgerData.assets
     .filter((asset) => asset.binanceMapping === null)
     .map((asset) => asset.symbol)
-    .sort((left, right) => left.localeCompare(right));
+    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
 }
 
 export async function autoPairMissingBinanceMappings(
@@ -103,7 +103,7 @@ export async function autoPairMissingBinanceMappings(
   const successes: BinanceAutoPairSuccess[] = [];
   const failures: BinanceAutoPairFailure[] = [];
   const orderedSymbols = Array.from(new Set(frozenAssetSymbols)).sort(
-    (left, right) => left.localeCompare(right),
+    (left, right) => (left < right ? -1 : left > right ? 1 : 0),
   );
 
   for (const assetSymbol of orderedSymbols) {

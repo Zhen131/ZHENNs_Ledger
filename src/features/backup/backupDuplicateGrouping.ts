@@ -288,7 +288,11 @@ function compareEdges(
   return (
     left.leftIndex - right.leftIndex ||
     left.rightIndex - right.rightIndex ||
-    left.relation.localeCompare(right.relation)
+    (left.relation < right.relation
+      ? -1
+      : left.relation > right.relation
+        ? 1
+        : 0)
   );
 }
 

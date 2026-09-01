@@ -99,7 +99,7 @@ export function compareCashReplayCandidates(
   const leftDate = getLedgerDateKey(left.occurredAt);
   const rightDate = getLedgerDateKey(right.occurredAt);
   if (leftDate !== rightDate) {
-    return leftDate.localeCompare(rightDate);
+    return leftDate < rightDate ? -1 : 1;
   }
 
   if (left.occurredAt.length > 10 && right.occurredAt.length > 10) {

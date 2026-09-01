@@ -348,7 +348,7 @@ export function TradeForm({
         .map((rule) => rule.platform.trim())
         .filter((platform) => platform !== ""),
     ),
-  ).sort((left, right) => left.localeCompare(right));
+  ).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
 
   function updateField<Field extends keyof TradeFormState>(
     field: Field,

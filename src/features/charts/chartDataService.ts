@@ -193,7 +193,11 @@ function compareAllocationMarketValue(
 ): number {
   if (isGreaterThan(left.marketValue, right.marketValue)) return -1;
   if (isGreaterThan(right.marketValue, left.marketValue)) return 1;
-  return left.assetSymbol.localeCompare(right.assetSymbol);
+  return left.assetSymbol < right.assetSymbol
+    ? -1
+    : left.assetSymbol > right.assetSymbol
+      ? 1
+      : 0;
 }
 
 function groupHoldingAllocationSlices(
@@ -567,7 +571,12 @@ function compareHeatmapActivityGroups(
   if (left.count !== right.count) {
     return right.count - left.count;
   }
-  const assetOrder = left.assetSymbol.localeCompare(right.assetSymbol);
+  const assetOrder =
+    left.assetSymbol < right.assetSymbol
+      ? -1
+      : left.assetSymbol > right.assetSymbol
+        ? 1
+        : 0;
   if (assetOrder !== 0) {
     return assetOrder;
   }
@@ -740,7 +749,9 @@ function getHistoryStartDate(
     return occurredAtValues.length > 0
       ? occurredAtValues
           .map(getLedgerDateKey)
-          .sort((left, right) => left.localeCompare(right))[0]
+          .sort((left, right) =>
+            left < right ? -1 : left > right ? 1 : 0,
+          )[0]
       : todayKey;
   }
   const days = range === "1d" ? 1 : Number.parseInt(range, 10);

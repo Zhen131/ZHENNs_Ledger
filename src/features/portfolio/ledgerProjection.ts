@@ -441,6 +441,6 @@ function valuePosition(
 
 function uniqueSorted(values: readonly string[]): string[] {
   return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
+    left < right ? -1 : left > right ? 1 : 0,
   );
 }

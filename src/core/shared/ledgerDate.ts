@@ -80,7 +80,7 @@ export function compareLedgerFactOrder(
   const rightDate = getLedgerDateKey(right);
 
   if (leftDate !== rightDate) {
-    return leftDate.localeCompare(rightDate);
+    return leftDate < rightDate ? -1 : 1;
   }
 
   const leftHasTime = left.length > 10;

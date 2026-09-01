@@ -19,7 +19,11 @@ export function getTopMarketValuePositions(
         left.marketValue ?? "0",
       );
       return valueOrder === 0
-        ? left.assetSymbol.localeCompare(right.assetSymbol)
+        ? left.assetSymbol < right.assetSymbol
+          ? -1
+          : left.assetSymbol > right.assetSymbol
+            ? 1
+            : 0
         : valueOrder;
     })
     .slice(0, limit);
