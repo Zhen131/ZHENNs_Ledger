@@ -19,7 +19,7 @@ import {
   TradeDeleteControl,
   type TradeDeletePhase,
 } from "@/features/trades/ui";
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, useLanguage } from "@/ui";
 import type { LedgerActivityItem } from "./activityService";
 
 export type ActivityDeleteState = Readonly<{
@@ -61,6 +61,7 @@ export function ActivityTable({
     result: "found" | "missing",
   ) => void;
 }>) {
+  const { t } = useLanguage();
   const detailButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
   const [locatedDate, setLocatedDate] = useState<string | null>(null);
@@ -151,12 +152,12 @@ export function ActivityTable({
         <thead className="hidden bg-[var(--ledger-surface-muted)] text-[var(--ledger-muted)] sm:table-header-group">
           <tr>
             <th className="w-12 px-3 py-3 font-medium">#</th>
-            <th className="px-4 py-3 font-medium">日期</th>
-            <th className="px-3 py-3 font-medium">类型</th>
-            <th className="px-3 py-3 font-medium">资产</th>
-            <th className="px-3 py-3 font-medium">金额</th>
-            <th className="px-3 py-3 font-medium">手续费</th>
-            <th className="w-56 px-4 py-3 font-medium">操作</th>
+            <th className="px-4 py-3 font-medium">{t("activity.table.date")}</th>
+            <th className="px-3 py-3 font-medium">{t("activity.table.type")}</th>
+            <th className="px-3 py-3 font-medium">{t("activity.table.asset")}</th>
+            <th className="px-3 py-3 font-medium">{t("activity.table.amount")}</th>
+            <th className="px-3 py-3 font-medium">{t("activity.table.fee")}</th>
+            <th className="w-56 px-4 py-3 font-medium">{t("activity.table.actions")}</th>
           </tr>
         </thead>
         <tbody className="block divide-y divide-[var(--ledger-border)] bg-white sm:table-row-group">
@@ -166,7 +167,7 @@ export function ActivityTable({
                 className="block px-4 py-12 text-center text-[var(--ledger-muted)] sm:table-cell"
                 colSpan={7}
               >
-                没有符合当前筛选的流水。
+                {t("activity.table.empty")}
               </td>
             </tr>
           ) : (
@@ -233,29 +234,29 @@ export function ActivityTable({
                     }}
                     tabIndex={isPending ? -1 : 0}
                   >
-                    <ActivityCell className="sm:w-12" label="序号">
+                    <ActivityCell className="sm:w-12" label={t("activity.table.sequence")}>
                       <span data-activity-sequence>{sequence}</span>
                     </ActivityCell>
-                    <ActivityCell label="日期">
+                    <ActivityCell label={t("activity.table.date")}>
                       {item.occurredAt}
                       {isLedgerFactInFuture(item.occurredAt, todayKey) ? (
                         <span className="ml-2 font-medium text-red-700">
-                          未来事实
+                          {t("activity.table.futureFact")}
                         </span>
                       ) : null}
                     </ActivityCell>
-                    <ActivityCell label="类型">
+                    <ActivityCell label={t("activity.table.type")}>
                       <span className={activityBadgeClass(item)}>
-                        {activityTypeLabel(item)}
+                        {activityTypeLabel(item, t)}
                       </span>
                     </ActivityCell>
-                    <ActivityCell label="资产">
-                      <strong>{activityAssetLabel(item)}</strong>
+                    <ActivityCell label={t("activity.table.asset")}>
+                      <strong>{activityAssetLabel(item, t)}</strong>
                     </ActivityCell>
-                    <ActivityCell label="金额">
+                    <ActivityCell label={t("activity.table.amount")}>
                       {activityAmountLabel(item)}
                     </ActivityCell>
-                    <ActivityCell label="手续费">
+                    <ActivityCell label={t("activity.table.fee")}>
                       {item.kind === "trade" ? (
                         <>
                           <LedgerNumber
@@ -264,7 +265,7 @@ export function ActivityTable({
                           />{" "}
                           {item.trade.feeCurrency}
                         </>
-                      ) : "—"}
+                      ) : t("activity.table.dash")}
                     </ActivityCell>
                     <td className="block min-w-0 py-1 sm:table-cell sm:px-4 sm:py-2.5">
                       <div className="grid grid-cols-2 gap-2">
@@ -281,11 +282,11 @@ export function ActivityTable({
                             }}
                             type="button"
                           >
-                            详情
+                            {t("activity.table.details")}
                           </button>
                         ) : null}
                         <TradeDeleteControl
-                          ariaLabel={activityDeleteLabel(item)}
+                          ariaLabel={activityDeleteLabel(item, t)}
                           className={phase === "idle" ? "" : "col-span-2"}
                           disabled={rowDeleteDisabled}
                           onActivate={() =>
@@ -334,17 +335,18 @@ function ActivityCell({
 }
 
 function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
+  const { t } = useLanguage();
   if (item.kind === "trade") {
     const cashImpact = calculateTradeCashImpact(item.trade);
     return (
       <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-        <Detail label="事实 ID" value={item.trade.id} />
+        <Detail label={t("activity.details.factId")} value={item.trade.id} />
         <Detail
-          label="数量"
+          label={t("activity.details.quantity")}
           value={<LedgerNumber kind="quantity" value={item.trade.quantity} />}
         />
         <Detail
-          label="成交均价"
+          label={t("activity.details.averagePrice")}
           value={
             <>
               <LedgerNumber kind="money" value={item.trade.price} />{" "}
@@ -353,7 +355,7 @@ function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
           }
         />
         <Detail
-          label="成交金额"
+          label={t("activity.details.totalValue")}
           value={
             <>
               <LedgerNumber kind="money" value={item.trade.totalValue} />{" "}
@@ -362,7 +364,7 @@ function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
           }
         />
         <Detail
-          label="实际手续费"
+          label={t("activity.details.actualFee")}
           value={
             <>
               <LedgerNumber
@@ -373,61 +375,61 @@ function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
             </>
           }
         />
-        <Detail label="平台" value={item.trade.platform ?? "未填写"} />
+        <Detail label={t("activity.details.platform")} value={item.trade.platform ?? t("activity.details.notFilled")} />
         <Detail
-          label="手续费来源"
+          label={t("activity.details.feeSource")}
           value={
-            item.trade.feeRuleId ? `FeeRule ${item.trade.feeRuleId}` : "手填"
+            item.trade.feeRuleId ? `FeeRule ${item.trade.feeRuleId}` : t("activity.details.manual")
           }
         />
         <Detail
-          label="现金影响与可靠性"
+          label={t("activity.details.cashImpact")}
           value={cashImpact.ok ? (
             <>
               <LedgerNumber kind="money" value={cashImpact.amount} />{" "}
               {cashImpact.currency} · {cashImpact.kind === "buy-outflow"
-                ? "买入总支出"
-                : "卖出净到账"}
+                ? t("activity.details.buyOutflow")
+                : t("activity.details.sellProceeds")}
             </>
-          ) : `不可可靠计算：${cashImpact.feeCurrency} 手续费未换算`}
+          ) : `${t("activity.details.unreliablePrefix")}：${cashImpact.feeCurrency} ${t("activity.details.unconvertedFee")}`}
         />
-        <Detail label="备注" value={item.trade.note ?? "未填写"} />
-        <Detail label="时间精度" value={item.trade.timePrecision} />
-        <Detail label="创建时间" value={item.trade.createdAt} />
-        <Detail label="更新时间" value={item.trade.updatedAt} />
+        <Detail label={t("activity.details.note")} value={item.trade.note ?? t("activity.details.notFilled")} />
+        <Detail label={t("activity.details.timePrecision")} value={item.trade.timePrecision} />
+        <Detail label={t("activity.details.createdAt")} value={item.trade.createdAt} />
+        <Detail label={t("activity.details.updatedAt")} value={item.trade.updatedAt} />
       </div>
     );
   }
 
   const event = item.cashEvent;
   const details: Array<{ label: string; value: ReactNode }> = [
-    { label: "事实 ID", value: event.id },
-    { label: "类型", value: cashEventTypeLabel(event) },
-    { label: "币种", value: event.currency },
-    { label: "发生时间", value: event.occurredAt },
-    { label: "时间精度", value: event.timePrecision },
+    { label: t("activity.details.factId"), value: event.id },
+    { label: t("activity.details.type"), value: cashEventTypeLabel(event, t) },
+    { label: t("activity.details.currency"), value: event.currency },
+    { label: t("activity.details.occurredAt"), value: event.occurredAt },
+    { label: t("activity.details.timePrecision"), value: event.timePrecision },
     ...(event.type === "balance-adjustment"
       ? [
           {
-            label: "校准前余额",
+            label: t("activity.details.balanceBefore"),
             value: <><LedgerNumber kind="money" value={event.balanceBefore} /> USDT</>,
           },
           {
-            label: "目标余额",
+            label: t("activity.details.targetBalance"),
             value: <><LedgerNumber kind="money" value={event.targetBalance} /> USDT</>,
           },
           {
-            label: "本次差额",
+            label: t("activity.details.adjustmentAmount"),
             value: <><LedgerNumber kind="money" value={event.adjustmentAmount} /> USDT</>,
           },
         ]
       : [{
-          label: "金额",
+          label: t("activity.table.amount"),
           value: <><LedgerNumber kind="money" value={event.amount} /> USDT</>,
         }]),
-    { label: "备注", value: event.note ?? "未填写" },
-    { label: "创建时间", value: event.createdAt },
-    { label: "更新时间", value: event.updatedAt },
+    { label: t("activity.details.note"), value: event.note ?? t("activity.details.notFilled") },
+    { label: t("activity.details.createdAt"), value: event.createdAt },
+    { label: t("activity.details.updatedAt"), value: event.updatedAt },
   ];
   return (
     <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -447,25 +449,22 @@ function Detail({ label, value }: Readonly<{ label: string; value: ReactNode }>)
   );
 }
 
-function activityTypeLabel(item: LedgerActivityItem): string {
+function activityTypeLabel(item: LedgerActivityItem, t: ReturnType<typeof useLanguage>["t"]): string {
   return item.kind === "trade"
     ? item.trade.type === "buy"
-      ? "买入"
-      : "卖出"
-    : cashEventTypeLabel(item.cashEvent);
+      ? t("trades.type.buy")
+      : t("trades.type.sell")
+    : cashEventTypeLabel(item.cashEvent, t);
 }
 
-function cashEventTypeLabel(event: CashEvent): string {
+function cashEventTypeLabel(event: CashEvent, t: ReturnType<typeof useLanguage>["t"]): string {
   return {
-    deposit: "入金",
-    withdrawal: "出金",
-    "external-expense": "外部支出",
-    "balance-adjustment": "余额校准",
+    deposit: t("cash.type.deposit"), withdrawal: t("cash.type.withdrawal"), "external-expense": t("cash.type.externalExpense"), "balance-adjustment": t("cash.type.balanceAdjustment"),
   }[event.type];
 }
 
-function activityAssetLabel(item: LedgerActivityItem): string {
-  return item.kind === "trade" ? item.trade.assetSymbol : "现金 USDT";
+function activityAssetLabel(item: LedgerActivityItem, t: ReturnType<typeof useLanguage>["t"]): string {
+  return item.kind === "trade" ? item.trade.assetSymbol : t("activity.table.cashUsdt");
 }
 
 function activityAmountLabel(item: LedgerActivityItem): ReactNode {
@@ -487,8 +486,8 @@ function activityAmountLabel(item: LedgerActivityItem): ReactNode {
   return <><LedgerNumber kind="money" value={delta} /> USDT</>;
 }
 
-function activityDeleteLabel(item: LedgerActivityItem): string {
-  return `删除 ${activityTypeLabel(item)} ${activityAssetLabel(item)} ${item.occurredAt}`;
+function activityDeleteLabel(item: LedgerActivityItem, t: ReturnType<typeof useLanguage>["t"]): string {
+  return `${t("activity.table.deletePrefix")} ${activityTypeLabel(item, t)} ${activityAssetLabel(item, t)} ${item.occurredAt}`;
 }
 
 function activityBadgeClass(item: LedgerActivityItem): string {
