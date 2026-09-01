@@ -14,6 +14,7 @@ import {
   isValidISODateOrDateTime,
   validateLedgerData,
 } from "@/core/validation";
+import { translateDefault } from "@/ui";
 import {
   projectLedgerCashMutation,
   type CashMutationProjection,
@@ -67,16 +68,16 @@ export function createValidatedCashEvent(
   providedDependencies?: CashEventServiceDependencies,
 ): CreateCashEventResult {
   if (!isRecord(input)) {
-    return failure("INVALID_INPUT", "form", "现金事实必须是对象");
+    return failure("INVALID_INPUT", "form", translateDefault("cash.validation.invalidInput"));
   }
   if (!isCashEventType(input.type)) {
-    return failure("INVALID_TYPE", "type", "请选择有效的现金类型");
+    return failure("INVALID_TYPE", "type", translateDefault("cash.validation.invalidType"));
   }
   if (
     typeof input.occurredAt !== "string" ||
     !isValidISODateOrDateTime(input.occurredAt)
   ) {
-    return failure("INVALID_DATE", "occurredAt", "请输入有效日期");
+    return failure("INVALID_DATE", "occurredAt", translateDefault("cash.validation.invalidDate"));
   }
 
   const defaultSnapshot = providedDependencies
@@ -95,11 +96,11 @@ export function createValidatedCashEvent(
     return failure(
       "DEPENDENCY_FAILURE",
       "form",
-      "无法读取当前账本日期",
+      translateDefault("cash.validation.readTodayFailed"),
     );
   }
   if (input.occurredAt.slice(0, 10) > todayKey) {
-    return failure("FUTURE_FACT", "occurredAt", "现金日期不能晚于今天");
+    return failure("FUTURE_FACT", "occurredAt", translateDefault("cash.validation.futureFact"));
   }
   if (
     typeof input.amountOrTarget !== "string" ||
@@ -108,7 +109,7 @@ export function createValidatedCashEvent(
     return failure(
       "INVALID_AMOUNT",
       "amountOrTarget",
-      "金额必须是最多 40 位有效数字、18 位小数的规范十进制",
+      translateDefault("cash.validation.invalidDecimal"),
     );
   }
   if (
@@ -118,7 +119,7 @@ export function createValidatedCashEvent(
     return failure(
       "INVALID_AMOUNT",
       "amountOrTarget",
-      "入金、出金和外部支出金额必须大于 0",
+      translateDefault("cash.validation.positiveAmount"),
     );
   }
   const note =
@@ -126,7 +127,7 @@ export function createValidatedCashEvent(
       ? input.note.trim()
       : undefined;
   if (note !== undefined && note.length > 4_096) {
-    return failure("NOTE_TOO_LONG", "note", "备注不能超过 4096 个字符");
+    return failure("NOTE_TOO_LONG", "note", translateDefault("cash.validation.noteTooLong"));
   }
 
   const existingIds = collectLedgerIds(ledgerData);
@@ -136,7 +137,7 @@ export function createValidatedCashEvent(
     try {
       candidate = dependencies.generateId();
     } catch {
-      return failure("DEPENDENCY_FAILURE", "form", "无法生成现金事实 ID");
+      return failure("DEPENDENCY_FAILURE", "form", translateDefault("cash.validation.generateIdFailed"));
     }
     if (isTechnicalId(candidate) && !existingIds.has(candidate)) {
       id = candidate;
@@ -147,7 +148,7 @@ export function createValidatedCashEvent(
     return failure(
       "ID_GENERATION_EXHAUSTED",
       "form",
-      "连续三次未能生成唯一现金事实 ID",
+      translateDefault("cash.validation.generateIdExhausted"),
     );
   }
 
@@ -155,7 +156,7 @@ export function createValidatedCashEvent(
   try {
     timestamp = dependencies.now();
   } catch {
-    return failure("DEPENDENCY_FAILURE", "form", "无法读取保存时间");
+    return failure("DEPENDENCY_FAILURE", "form", translateDefault("cash.validation.readSaveTimeFailed"));
   }
 
   const currentBalance = projectLedgerCashMutation(
@@ -197,7 +198,7 @@ export function createValidatedCashEvent(
     return failure(
       "LEDGER_VALIDATION_FAILED",
       "form",
-      validation.errors[0]?.message ?? "现金事实未通过账本校验",
+      validation.errors[0]?.message ?? translateDefault("cash.validation.ledgerInvalid"),
     );
   }
 
