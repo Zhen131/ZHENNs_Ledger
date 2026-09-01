@@ -36,7 +36,6 @@ import {
   useLanguage,
 } from "@/ui";
 import {
-  BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
   getBinanceMappingSignature,
   setAssetBinanceMapping,
   validateBinanceMapping,
@@ -1178,8 +1177,7 @@ function formatBinanceFailure(
     BINANCE_INVALID_SYMBOL_INPUT: t("marketData.failure.invalidSymbolInput"),
     BINANCE_ABORTED: t("marketData.failure.aborted"),
     BINANCE_TIMEOUT: t("marketData.failure.timeout"),
-    BINANCE_VALIDATION_UNAVAILABLE:
-      BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
+    BINANCE_VALIDATION_UNAVAILABLE: t("marketData.failure.validationUnavailable"),
     BINANCE_NETWORK_ERROR: t("marketData.failure.network"),
     BINANCE_HTTP_ERROR: `${t("marketData.failure.http")}${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
     BINANCE_RATE_LIMITED: `${t("marketData.failure.rateLimited")}${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,

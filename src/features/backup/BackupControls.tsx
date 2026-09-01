@@ -44,7 +44,6 @@ import {
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
 import {
-  BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
   autoPairMissingBinanceMappings,
   getBinanceMappingSignature,
   listAssetsMissingBinanceMapping,
@@ -61,6 +60,7 @@ import {
 import { LedgerNumber, useLanguage } from "@/ui";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
+type Translate = ReturnType<typeof useLanguage>["t"];
 
 type ImportState =
   | "idle"
@@ -413,7 +413,9 @@ export function BackupControls({
     }
     if (!pairingOperationIsCurrent(operation)) return;
 
-    operation.mappingFailures = result.failures.map(normalizePairingFailure);
+    operation.mappingFailures = result.failures.map((failure) =>
+      normalizePairingFailure(failure, t),
+    );
     if (result.successes.length === 0) {
       finishPostImportPairing(
         operation,
@@ -1264,13 +1266,14 @@ export function BackupControls({
 
 function normalizePairingFailure(
   failure: BinanceAutoPairFailure,
+  t: Translate,
 ): PostImportPairingFailure {
   return {
     assetSymbol: failure.assetSymbol,
     code: failure.code,
     message:
       failure.code === "BINANCE_VALIDATION_UNAVAILABLE"
-        ? BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE
+        ? t("marketData.failure.validationUnavailable")
         : failure.message,
   };
 }
