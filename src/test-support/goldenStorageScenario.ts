@@ -3,6 +3,8 @@ import { createInitialLedgerData } from "@/core/state";
 
 export const GOLDEN_LEDGER_FILE_V2_PASSPHRASE =
   "W15-Golden-V2-Fictional-Ledger";
+export const GOLDEN_LEDGER_FILE_V3_PASSPHRASE =
+  "W15-Golden-V3-Fictional-Ledger";
 
 export function createGoldenStorageScenario(): LedgerData {
   return {

@@ -7,6 +7,7 @@ import { parseBackupJson, serializeBackupEnvelope } from "@/features/backup";
 import {
   createGoldenStorageScenario,
   GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
+  GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
 } from "@/test-support";
 import {
   LedgerFileHandleAdapter,
@@ -27,10 +28,16 @@ const GOLDEN_LEDGER_FILE_URL = new URL(
   "../../../test-fixtures/golden/golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl",
   import.meta.url,
 );
+const GOLDEN_LEDGER_FILE_V3_URL = new URL(
+  "../../../test-fixtures/golden/golden-ledger-file-format-v3-crypto-v1-ledger-schema-v4.lftl",
+  import.meta.url,
+);
 const GOLDEN_BACKUP_SHA256 =
   "b8ffaedf8b4d74b1636aac17401a30fe4c7011d7db5179f2bfbc9bee8060aa3c";
 const GOLDEN_LEDGER_FILE_SHA256 =
   "d143d621cb2dbb4404d254114294132a54213c70fbd445c6bc0fb49b42447427";
+const GOLDEN_LEDGER_FILE_V3_SHA256 =
+  "116bbeab8d8a9c610bd2946319dbcc1d243264601a772d0f8c78dd15704f0668";
 
 const TEST_SESSION_LEASE: LedgerFileSessionLease = {
   sessionId: "golden-storage-fixture-test",
@@ -39,10 +46,12 @@ const TEST_SESSION_LEASE: LedgerFileSessionLease = {
 };
 
 class ReadOnlyGoldenLedgerHandle implements LedgerFileHandle {
-  readonly name = "golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl";
   writeAttempts = 0;
 
-  constructor(private readonly bytes: Uint8Array) {}
+  constructor(
+    private readonly bytes: Uint8Array,
+    readonly name = "golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl",
+  ) {}
 
   async getFile() {
     const snapshot = this.bytes.slice();
@@ -124,6 +133,45 @@ describe("storage golden fixtures", () => {
     expect(after.byteLength).toBe(before.byteLength);
     expect(createHash("sha256").update(after).digest("hex")).toBe(
       GOLDEN_LEDGER_FILE_SHA256,
+    );
+    expect(after).toEqual(before);
+  });
+
+  it("freezes and opens the product-path file format V3 fixture without mutation", async () => {
+    const bytes = new Uint8Array(readFileSync(GOLDEN_LEDGER_FILE_V3_URL));
+
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+      GOLDEN_LEDGER_FILE_V3_SHA256,
+    );
+    const handle = new ReadOnlyGoldenLedgerHandle(
+      bytes,
+      "golden-ledger-file-format-v3-crypto-v1-ledger-schema-v4.lftl",
+    );
+    const before = handle.snapshot();
+    const adapter = new LedgerFileHandleAdapter();
+    const inspected = await inspectLedgerFile(adapter, handle);
+
+    expect(inspected.fileFormatVersion).toBe(3);
+    expect(inspected.cryptoVersion).toBe(1);
+    expect(inspected.ledgerSchemaVersion).toBe(4);
+    expect(inspected.backupFormatVersion).toBe(3);
+    expect(inspected.previous).not.toBeNull();
+
+    const repository = await LedgerFileRepository.open(
+      adapter,
+      handle,
+      GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
+      { sessionLease: TEST_SESSION_LEASE },
+    );
+    await expect(repository.load()).resolves.toEqual(
+      createGoldenStorageScenario(),
+    );
+
+    expect(handle.writeAttempts).toBe(0);
+    const after = handle.snapshot();
+    expect(after.byteLength).toBe(before.byteLength);
+    expect(createHash("sha256").update(after).digest("hex")).toBe(
+      GOLDEN_LEDGER_FILE_V3_SHA256,
     );
     expect(after).toEqual(before);
   });

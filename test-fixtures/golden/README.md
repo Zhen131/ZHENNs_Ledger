@@ -8,6 +8,7 @@ Golden fixtures are immutable after their first commit. Every fixture contains f
 | `golden-backup-format-v3-ledger-schema-v4.json` | backup format 3; ledger schema 4 | 2026-08-28 | Minimal schema 4 envelope with one asset, no trades, and one cash event, asset transfer, manual price, and fee rule. | — |
 | `golden-backup-format-v3-ledger-schema-v4-rich.json` | backup format 3; ledger schema 4 | 2026-08-31 | Rich schema 4 relationships: two buy cost lots, one sale consuming both lots, one asset retained across exchange and cold-wallet locations, one internal transfer with a network fee, one cash event, and one manual price. | — |
 | `golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl` | file format 2; crypto 1; ledger schema 4 | 2026-08-31 | Frozen evidence retained for a future migration project. It contains adjacent `current` and `previous` generations, is currently referenced only by the product-path rejection test, and will regain decoding coverage when migration is implemented. | `W15-Golden-V2-Fictional-Ledger` |
+| `golden-ledger-file-format-v3-crypto-v1-ledger-schema-v4.lftl` | file format 3; crypto 1; ledger schema 4; backup format 3 | 2026-09-01 | Current chunked C-file format created through the real repository create-and-save path. It contains a rich fictional current generation and an empty previous generation. | `W15-Golden-V3-Fictional-Ledger` |
 
 ## Known gaps
 
