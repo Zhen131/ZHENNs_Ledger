@@ -138,7 +138,7 @@ export function SettingsWorkspace({
     if (!clearMode || clearDisabled) return;
     if (confirmationValue !== PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT) {
       setError(
-        `请输入完整确认文本“${PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT}”`,
+        `${t("settings.clear.error.confirmationPrefix")}“${PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT}”`,
       );
       return;
     }
@@ -146,38 +146,38 @@ export function SettingsWorkspace({
     setSuccess("");
     const cleared = await onClear(clearMode);
     if (!cleared) {
-      setError("清空未完成；当前文件与页面状态以顶部错误提示为准");
+      setError(t("settings.clear.error.failed"));
       return;
     }
     setDangerExpanded(false);
     setConfirmationValue("");
     setSuccess(
       storageKind === "ledger-file"
-        ? "当前账本内容已清空，.lftl 文件仍然存在"
-        : "当前浏览器账本已清空",
+        ? t("settings.clear.success.file")
+        : t("settings.clear.success.browser"),
     );
   }
 
   const clearDisabledReason = !clearMode
-    ? "当前文件状态不允许清空"
+    ? t("settings.clear.disabled.notAllowed")
     : isReadOnly
-      ? "当前账本处于只读保护，不能清空"
+      ? t("settings.clear.disabled.readOnly")
       : repositorySwitchBlocked
-        ? "文件切换尚未完成，暂不能清空"
+        ? t("settings.clear.disabled.switching")
         : persistenceOperation !== "idle"
-          ? "当前文件操作完成前暂不能清空"
+          ? t("settings.clear.disabled.operating")
           : "";
 
   return (
     <section
-      aria-label="设置工作区"
+      aria-label={t("settings.workspace.ariaLabel")}
       className={active ? "grid min-w-0 gap-4" : "hidden"}
       data-workspace-page="settings"
     >
       <SurfaceCard className="p-5">
-        <h2 className="text-lg font-semibold">账本设置</h2>
+        <h2 className="text-lg font-semibold">{t("settings.heading")}</h2>
         <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
-          配置只作用于当前账本；历史经济规则通过新版本替换，不原地改写。
+          {t("settings.description")}
         </p>
       </SurfaceCard>
 
@@ -210,15 +210,15 @@ export function SettingsWorkspace({
       </SurfaceCard>
 
       <div
-        aria-label="设置分类"
+        aria-label={t("settings.tabs.ariaLabel")}
         className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--ledger-border)] bg-[var(--ledger-surface-muted)] p-2 sm:grid-cols-3"
         role="tablist"
       >
         {(
           [
-            ["market", "本地资产与行情"],
-            ["fees", "手续费规则"],
-            ["danger", "危险操作"],
+            ["market", t("settings.tabs.market")],
+            ["fees", t("settings.tabs.fees")],
+            ["danger", t("settings.tabs.danger")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -286,20 +286,20 @@ export function SettingsWorkspace({
                 ref={dangerTriggerRef}
                 type="button"
               >
-                打开清空账本操作
+                {t("settings.clear.open")}
               </button>
               {clearDisabledReason ? (
                 <p
                   className="text-sm text-[var(--ledger-muted)]"
                   id="clear-ledger-disabled-reason"
                 >
-                  暂不可用：{clearDisabledReason}。
+                  {t("settings.clear.unavailablePrefix")}：{clearDisabledReason}{t("settings.period")}
                 </p>
               ) : null}
             </div>
           ) : (
             <div
-              aria-label="清空账本确认"
+              aria-label={t("settings.clear.confirmation.ariaLabel")}
               className="grid gap-4"
               id="clear-ledger-confirmation"
               onKeyDown={(event) => {
@@ -329,20 +329,20 @@ export function SettingsWorkspace({
               role="region"
             >
               <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-900">
-                <p className="font-semibold">这会清空当前账本内容</p>
+                <p className="font-semibold">{t("settings.clear.confirmation.heading")}</p>
                 <p>
-                  自定义资产、交易、价格和手续费规则都会清空；不会删除
+                  {t("settings.clear.confirmation.descriptionPrefix")}
                   {storageKind === "ledger-file"
-                    ? "当前 .lftl 文件"
-                    : "浏览器或应用本身"}
-                  ，也不会增加“删除账本文件”能力。
+                    ? t("settings.clear.confirmation.file")
+                    : t("settings.clear.confirmation.browser")}
+                  {t("settings.clear.confirmation.descriptionSuffix")}
                 </p>
-                <p>建议先到“导入与导出”导出一份明文备份并安全保管。</p>
+                <p>{t("settings.clear.confirmation.backupAdvice")}</p>
               </div>
               <label className="grid gap-2 text-sm font-medium text-red-900">
-                输入“{PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT}”以确认
+                {t("settings.clear.confirmation.inputPrefix")}“{PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT}”{t("settings.clear.confirmation.inputSuffix")}
                 <input
-                  aria-label="输入清空确认文本"
+                  aria-label={t("settings.clear.confirmation.inputAriaLabel")}
                   className="rounded-md border border-red-300 bg-white px-3 py-2 font-normal text-slate-950"
                   disabled={persistenceOperation !== "idle"}
                   onChange={(event) => {
@@ -356,7 +356,7 @@ export function SettingsWorkspace({
               {error ? <p aria-live="polite" className="text-sm text-red-800">{error}</p> : null}
               {persistenceOperation === "clearing" ? (
                 <p aria-live="polite" className="text-sm font-medium text-red-900">
-                  正在清空并复读验证，请勿关闭页面。
+                  {t("settings.clear.confirmation.clearing")}
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-3">
@@ -367,7 +367,7 @@ export function SettingsWorkspace({
                   ref={confirmClearRef}
                   type="button"
                 >
-                  确认清空账本内容
+                  {t("settings.clear.confirmation.confirm")}
                 </button>
                 <button
                   className="rounded-md border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 disabled:opacity-50"
@@ -376,7 +376,7 @@ export function SettingsWorkspace({
                   ref={cancelClearRef}
                   type="button"
                 >
-                  取消
+                  {t("settings.clear.confirmation.cancel")}
                 </button>
               </div>
             </div>
