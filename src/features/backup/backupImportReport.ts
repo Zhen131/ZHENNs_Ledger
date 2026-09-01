@@ -150,13 +150,13 @@ function appendSuspiciousGroup(
         : translateDefault("backup.markdown.normalSuspicion")
     }${translateDefault("backup.markdown.duplicateGroupSuffix")}`,
     "",
-    `- 原始路径：${detail.group.tradeIndices
+    `${translateDefault("backup.markdown.sourcePaths")}${detail.group.tradeIndices
       .map((index) => `\`trades[${index}]\``)
       .join("、")}`,
-    `- 交易 ID：${detail.group.tradeIds
+    `${translateDefault("backup.markdown.tradeIds")}${detail.group.tradeIds
       .map((id) => `\`${inline(id)}\``)
       .join("、")}`,
-    `- 真实触发关系：${detail.group.triggerEdges
+    `${translateDefault("backup.markdown.triggerRelations")}${detail.group.triggerEdges
       .map(
         (edge) =>
           `\`trades[${edge.leftIndex}]\` ↔ \`trades[${edge.rightIndex}]\`（${
@@ -169,12 +169,15 @@ function appendSuspiciousGroup(
   );
   detail.summaries.forEach((summary, index) => {
     lines.push(
-      `- trades[${detail.group.tradeIndices[index]}] 摘要：${formatTradeSummary(
+      `- trades[${detail.group.tradeIndices[index]}]${translateDefault("backup.markdown.summarySuffix")}${formatTradeSummary(
         summary,
       )}`,
     );
   });
-  lines.push(`- 说明：${singleLine(detail.message)}`, "");
+  lines.push(
+    translateDefault("backup.markdown.description") + singleLine(detail.message),
+    "",
+  );
 }
 
 function formatConclusion(result: BackupImportPreflightResult): string {
@@ -212,9 +215,9 @@ function formatTradeSummary(summary: BackupTradeSummary): string {
         singleLine(summary.price)
       : undefined,
     summary.totalValue
-      ? `总额 ${singleLine(summary.totalValue)}${
-          summary.currency ? ` ${singleLine(summary.currency)}` : ""
-        }`
+      ? translateDefault("backup.markdown.totalPrefix") +
+        singleLine(summary.totalValue) +
+        (summary.currency ? ` ${singleLine(summary.currency)}` : "")
       : undefined,
   ].filter((value): value is string => value !== undefined);
   return values.length > 0
