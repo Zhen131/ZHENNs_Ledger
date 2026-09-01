@@ -14,7 +14,7 @@ import {
   type LedgerTimeSnapshot,
 } from "@/core/shared";
 import { selectPriceAsOf } from "@/features/portfolio";
-import { ConfirmDeleteButton, LedgerNumber } from "@/ui";
+import { ConfirmDeleteButton, LedgerNumber, useLanguage } from "@/ui";
 import {
   ASSET_ERROR_CODES,
   createLocalAsset,
@@ -30,6 +30,7 @@ type PendingAssetMutation = Readonly<{
 }>;
 
 const SUCCESS_FEEDBACK_MS = 4_000;
+type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function LocalAssetManager({
   clock = systemLedgerClock,
@@ -58,6 +59,7 @@ export function LocalAssetManager({
     timeSnapshot: LedgerTimeSnapshot,
   ) => ApplyLedgerActionResult;
 }>) {
+  const { t } = useLanguage();
   const [symbolInput, setSymbolInput] = useState("");
   const [error, setError] = useState<{
     code: AssetErrorCode;
@@ -81,7 +83,7 @@ export function LocalAssetManager({
     if (persistenceStatus === "error") {
       setError({
         code: ASSET_ERROR_CODES.DEPENDENCY_FAILURE,
-        message: `${pending.symbol} 变更已进入内存，但尚未保存；请重试保存`,
+        message: `${pending.symbol} ${t("assets.status.unsaved")}`,
       });
       return;
     }
@@ -91,14 +93,14 @@ export function LocalAssetManager({
     ) {
       setFeedback(
         pending.operation === "add"
-          ? `${pending.symbol} 已作为本地资产保存`
-          : `${pending.symbol} 本地资产已删除`,
+          ? `${pending.symbol} ${t("assets.status.saved")}`
+          : `${pending.symbol} ${t("assets.status.deleted")}`,
       );
       if (pending.operation === "add") setSymbolInput("");
       setError(null);
       setPending(null);
     }
-  }, [pending, persistedVersion, persistenceStatus]);
+  }, [pending, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {
     if (!feedback) return;
@@ -115,7 +117,7 @@ export function LocalAssetManager({
       now: () => timeSnapshot.now.toISOString(),
     });
     if (!result.ok) {
-      setError({ code: result.error.code, message: assetErrorMessage(result.error.code) });
+      setError({ code: result.error.code, message: assetErrorMessage(result.error.code, t) });
       setFeedback("");
       return;
     }
@@ -125,13 +127,13 @@ export function LocalAssetManager({
         code: ASSET_ERROR_CODES.DEPENDENCY_FAILURE,
         message:
           outcome === "rejected"
-            ? "账本当前不可写，本地资产未新增"
-            : "本地资产未发生变化",
+            ? t("assets.status.ledgerNotWritableAdd")
+            : t("assets.status.unchanged"),
       });
       return;
     }
     setError(null);
-    setFeedback("正在保存本地资产…");
+    setFeedback(t("assets.status.savingAdd"));
     setPending({
       version: mutationVersion + 1,
       operation: "add",
@@ -148,6 +150,7 @@ export function LocalAssetManager({
         [asset.symbol]: formatRemovalError(
           review.error.code,
           review.error.dependencies,
+          t,
         ),
       }));
       return "rejected";
@@ -156,7 +159,7 @@ export function LocalAssetManager({
     const outcome = onAssetDeleted(asset.symbol, timeSnapshot);
     if (outcome === "applied") {
       setAssetErrors((current) => ({ ...current, [asset.symbol]: "" }));
-      setFeedback("正在保存资产删除…");
+      setFeedback(t("assets.status.savingDelete"));
       setPending({
         version: mutationVersion + 1,
         operation: "delete",
@@ -167,25 +170,25 @@ export function LocalAssetManager({
         ...current,
         [asset.symbol]:
           outcome === "rejected"
-            ? "账本当前不可写，资产未删除"
-            : "资产已不在当前账本中",
+            ? t("assets.status.ledgerNotWritableDelete")
+            : t("assets.status.notFound"),
       }));
     }
     return outcome;
   }
 
   return (
-    <section aria-label="本地资产与行情" className="grid gap-5">
+    <section aria-label={t("assets.workspace.ariaLabel")} className="grid gap-5">
       <div>
-        <h3 className="font-semibold">本地资产与行情</h3>
+        <h3 className="font-semibold">{t("assets.heading")}</h3>
         <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
-          新增只保存本地代码，不会访问 Binance。没有交易对的资产仍可记账并录入手动 USDT 价格。
+          {t("assets.description")}
         </p>
       </div>
 
       <form className="grid gap-2 sm:grid-cols-[minmax(0,20rem)_auto] sm:items-end" onSubmit={submitAsset}>
         <label className="grid gap-2 text-sm font-medium">
-          新增本地资产代码
+          {t("assets.field.symbol")}
           <input
             aria-describedby={error ? "local-asset-error" : undefined}
             autoCapitalize="characters"
@@ -195,7 +198,7 @@ export function LocalAssetManager({
               setSymbolInput(event.target.value);
               setError(null);
             }}
-            placeholder="例如 SOL 或 KNIGHT"
+            placeholder={t("assets.field.symbolPlaceholder")}
             value={symbolInput}
           />
         </label>
@@ -204,7 +207,7 @@ export function LocalAssetManager({
           disabled={!isWritable || pending !== null}
           type="submit"
         >
-          {pending?.operation === "add" ? "正在保存…" : "新增本地资产"}
+          {pending?.operation === "add" ? t("assets.status.saving") : t("assets.action.add")}
         </button>
       </form>
       <div aria-live="polite" className="min-h-5 text-sm">
@@ -235,26 +238,26 @@ export function LocalAssetManager({
                 <p className="text-xs text-slate-500">{asset.name}</p>
               </div>
               <div className="min-w-0 text-sm">
-                <p className="text-xs font-medium text-slate-500">Binance 映射</p>
-                <p className="break-all">{asset.binanceMapping?.symbol ?? "未配置"}</p>
+                <p className="text-xs font-medium text-slate-500">{t("assets.binanceMapping")}</p>
+                <p className="break-all">{asset.binanceMapping?.symbol ?? t("assets.unconfigured")}</p>
               </div>
               <div className="min-w-0 text-sm">
-                <p className="text-xs font-medium text-slate-500">当前价格来源</p>
+                <p className="text-xs font-medium text-slate-500">{t("assets.currentPriceSource")}</p>
                 <p className="break-words">
                   {selectedPrice ? (
                     <>
                       <LedgerNumber kind="money" value={selectedPrice.snapshot.price} />{" "}
-                      USDT · {selectedPrice.actualSource === "manual" ? "手动" : "Binance"}
+                      USDT · {selectedPrice.actualSource === "manual" ? t("assets.manual") : "Binance"}
                     </>
-                  ) : "无合法价格"}
+                  ) : t("assets.noValidPrice")}
                 </p>
               </div>
               <div className="grid gap-2 md:justify-items-end">
                 <ConfirmDeleteButton
-                  ariaLabel={`删除本地资产 ${asset.symbol}`}
-                  confirmLabel="再次点击删除资产"
+                  ariaLabel={`${t("assets.action.deleteAriaPrefix")} ${asset.symbol}`}
+                  confirmLabel={t("assets.action.deleteConfirm")}
                   disabled={!isWritable || pending !== null}
-                  label="删除资产"
+                  label={t("assets.action.delete")}
                   onConfirm={() => deleteAsset(asset)}
                 />
                 {assetErrors[asset.symbol] ? (
@@ -274,37 +277,38 @@ export function LocalAssetManager({
   );
 }
 
-function assetErrorMessage(code: AssetErrorCode): string {
+function assetErrorMessage(code: AssetErrorCode, t: Translate): string {
   return {
-    ASSET_INVALID_SYMBOL: "代码需为 1–32 位英文大写字母或数字",
-    ASSET_RESERVED_SYMBOL: "USDT 专用于现金池，不能作为本地资产",
-    ASSET_DUPLICATE_SYMBOL: "规范化后的资产代码已存在",
-    ASSET_NOT_FOUND: "资产已不在当前账本中",
-    ASSET_DEPENDENCY_EXISTS: "资产仍被账本事实引用",
-    ASSET_ID_GENERATION_EXHAUSTED: "连续三次未能生成唯一资产 ID",
-    ASSET_DEPENDENCY_FAILURE: "无法完成本地资产操作",
-    ASSET_LIMIT_REACHED: "资产数量已达 500 项上限",
-    ASSET_LEDGER_VALIDATION_FAILED: "新资产未通过完整账本校验",
+    ASSET_INVALID_SYMBOL: t("assets.error.invalidSymbol"),
+    ASSET_RESERVED_SYMBOL: t("assets.error.reservedSymbol"),
+    ASSET_DUPLICATE_SYMBOL: t("assets.error.duplicateSymbol"),
+    ASSET_NOT_FOUND: t("assets.error.notFound"),
+    ASSET_DEPENDENCY_EXISTS: t("assets.error.dependencyExists"),
+    ASSET_ID_GENERATION_EXHAUSTED: t("assets.error.idGenerationExhausted"),
+    ASSET_DEPENDENCY_FAILURE: t("assets.error.dependencyFailure"),
+    ASSET_LIMIT_REACHED: t("assets.error.limitReached"),
+    ASSET_LEDGER_VALIDATION_FAILED: t("assets.error.ledgerValidationFailed"),
   }[code];
 }
 
 function formatRemovalError(
   code: AssetErrorCode,
   dependencies: readonly AssetDependencySummary[] | undefined,
+  t: Translate,
 ): string {
   if (code !== ASSET_ERROR_CODES.DEPENDENCY_EXISTS || !dependencies) {
-    return `${code} · ${assetErrorMessage(code)}`;
+    return `${code} · ${assetErrorMessage(code, t)}`;
   }
   const labels = {
-    trades: "交易或非 USDT 手续费",
-    assetTransfers: "资产转入转出",
-    priceSnapshots: "价格事实",
-    feeRules: "手续费规则",
+    trades: t("assets.dependency.trades"),
+    assetTransfers: t("assets.dependency.assetTransfers"),
+    priceSnapshots: t("assets.dependency.priceSnapshots"),
+    feeRules: t("assets.dependency.feeRules"),
   };
-  return `${code} · 请先删除：${dependencies
+  return `${code} · ${t("assets.dependency.removeFirst")}${dependencies
     .map(
       (item) =>
-        `${labels[item.collection]} ${item.count} 项（${item.paths.join("、")}）`,
+        `${labels[item.collection]} ${item.count} ${t("assets.dependency.itemSuffix")}（${item.paths.join(t("assets.separator.join"))}）`,
     )
-    .join("；")}`;
+    .join(t("assets.separator.item"))}`;
 }
