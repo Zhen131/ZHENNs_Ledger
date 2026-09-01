@@ -6,6 +6,7 @@ import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
+import { translateDefault } from "@/ui";
 import {
   collectValidLedgerTradeProjections,
   validateLedgerData,
@@ -195,12 +196,12 @@ export async function preflightBackupJson(
 
   if (!bytePolicy.ok) {
     skippedChecks.push(
-      skipped("json-parse", "文件超过 8 MiB，上限检查后停止。"),
-      skipped("backup-envelope", "JSON 未解析。"),
-      skipped("ledger-structure", "JSON 未解析。"),
-      skipped("resource-policy", "JSON 未解析。"),
-      skipped("import-policy", "JSON 未解析。"),
-      skipped("duplicate-grouping", "JSON 未解析。"),
+      skipped("json-parse", translateDefault("backup.preflight.fileTooLarge")),
+      skipped("backup-envelope", translateDefault("backup.preflight.jsonNotParsed")),
+      skipped("ledger-structure", translateDefault("backup.preflight.jsonNotParsed")),
+      skipped("resource-policy", translateDefault("backup.preflight.jsonNotParsed")),
+      skipped("import-policy", translateDefault("backup.preflight.jsonNotParsed")),
+      skipped("duplicate-grouping", translateDefault("backup.preflight.jsonNotParsed")),
     );
     return finalizeResult({
       contentIdentity,
@@ -223,11 +224,11 @@ export async function preflightBackupJson(
   } catch (error) {
     const location = extractJsonErrorLocation(error, serializedBackup);
     skippedChecks.push(
-      skipped("backup-envelope", "JSON 语法错误。"),
-      skipped("ledger-structure", "JSON 语法错误。"),
-      skipped("resource-policy", "JSON 语法错误。"),
-      skipped("import-policy", "JSON 语法错误。"),
-      skipped("duplicate-grouping", "JSON 语法错误。"),
+      skipped("backup-envelope", translateDefault("backup.preflight.jsonSyntaxError")),
+      skipped("ledger-structure", translateDefault("backup.preflight.jsonSyntaxError")),
+      skipped("resource-policy", translateDefault("backup.preflight.jsonSyntaxError")),
+      skipped("import-policy", translateDefault("backup.preflight.jsonSyntaxError")),
+      skipped("duplicate-grouping", translateDefault("backup.preflight.jsonSyntaxError")),
     );
     return finalizeResult({
       contentIdentity,
@@ -242,8 +243,12 @@ export async function preflightBackupJson(
           path: "file",
           message:
             location.line === undefined
-              ? "JSON 语法错误；解析器没有提供可靠的行列位置。"
-              : `JSON 语法错误，位置为第 ${location.line} 行、第 ${location.column} 列。`,
+              ? translateDefault("backup.preflight.jsonLocationUnavailable")
+              : translateDefault("backup.preflight.jsonLocationPrefix") +
+                location.line +
+                translateDefault("backup.preflight.jsonLocationMiddle") +
+                location.column +
+                translateDefault("backup.preflight.jsonLocationSuffix"),
           ...location,
         },
       ],
@@ -258,12 +263,14 @@ export async function preflightBackupJson(
     isRecord(parsed) &&
     typeof parsed.backupFormatVersion === "number" &&
     parsed.backupFormatVersion < 3
-      ? `备份格式 V${parsed.backupFormatVersion}`
+      ? translateDefault("backup.preflight.formatVersionPrefix") +
+        parsed.backupFormatVersion
       : isRecord(parsed) &&
           parsed.backupFormatVersion === 3 &&
           typeof parsed.ledgerSchemaVersion === "number" &&
           parsed.ledgerSchemaVersion < 4
-        ? `账本 schema V${parsed.ledgerSchemaVersion}`
+        ? translateDefault("backup.preflight.schemaVersionPrefix") +
+          parsed.ledgerSchemaVersion
         : null;
   if (retiredBackupBoundary !== null && isRecord(parsed)) {
     const versionResult = validateBackupEnvelope(parsed, options.todayKey);
@@ -273,10 +280,10 @@ export async function preflightBackupJson(
           normalizeEnvelopeError(error, undefined),
         );
     skippedChecks.push(
-      skipped("ledger-structure", `${retiredBackupBoundary} 已在版本阶段停止。`),
-      skipped("resource-policy", `${retiredBackupBoundary} 已在版本阶段停止。`),
-      skipped("import-policy", `${retiredBackupBoundary} 已在版本阶段停止。`),
-      skipped("duplicate-grouping", `${retiredBackupBoundary} 已在版本阶段停止。`),
+      skipped("ledger-structure", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
+      skipped("resource-policy", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
+      skipped("import-policy", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
+      skipped("duplicate-grouping", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
     );
     return finalizeResult({
       contentIdentity,
