@@ -83,6 +83,16 @@ const chineseMessages = {
   "record.trade.description": "金额默认由数量 × 均价自动计算；手动改写后保持手动模式。",
   "record.price.heading": "更新当前价格",
   "record.price.description": "手动价格只用于估值；资产与日期会在认证保存后保留。",
+  "cash.negativeConfirmation.defaultConfirm": "确认并保存",
+  "cash.negativeConfirmation.description":
+    "这次操作会让 USDT 现金为负。负余额可以保存，但表示账本中的现金来源尚不完整。",
+  "cash.negativeConfirmation.currentBalance": "当前余额",
+  "cash.negativeConfirmation.change": "本次变化",
+  "cash.negativeConfirmation.nextBalance": "保存后余额",
+  "cash.negativeConfirmation.deficit": "现金缺口",
+  "cash.negativeConfirmation.validity":
+    "确认只对当前账本版本有效；若期间发生其他保存，本次确认会失效且不会写入。",
+  "cash.negativeConfirmation.cancel": "取消",
   "shared.i18n.fallbackExample": "中文回退文案",
   "settings.language.heading": "界面语言",
   "settings.language.description": "语言偏好只保存在这台浏览器中，不写入账本文件。",
