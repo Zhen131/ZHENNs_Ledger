@@ -60,11 +60,10 @@ import {
   type DashboardDerivationOptions,
   type DashboardDerivations,
 } from "./dashboardDerivations";
+import type { ClearConfirmationMode } from "./DashboardShellTypes";
 
 const LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空本地账本";
 const FILE_SAVED_FEEDBACK_MS = 4_000;
-
-type ClearConfirmationMode = "normal" | "recovery";
 
 function shortLedgerId(id: string): string {
   return id.length <= 12 ? id : `${id.slice(0, 6)}…${id.slice(-4)}`;
