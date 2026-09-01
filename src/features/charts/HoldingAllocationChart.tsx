@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, useLanguage } from "@/ui";
 import type { HoldingAllocation } from "./chartDataService";
 import { buildAllocationChartOption } from "./chartOptionBuilders";
 import { EChart } from "./EChart";
@@ -15,6 +15,7 @@ export function HoldingAllocationChart({
   allocation: HoldingAllocation;
   compact?: boolean;
 }>) {
+  const { t } = useLanguage();
   const option = useMemo(
     () =>
       buildAllocationChartOption(
@@ -27,49 +28,49 @@ export function HoldingAllocationChart({
   return (
     <article className="min-w-0 overflow-hidden rounded-2xl border border-[var(--ledger-border)] bg-[var(--ledger-surface)] p-4">
       <h3 className="font-semibold text-[var(--ledger-ink)]">
-        当前 {allocation.valuation.label} 资产分配
+        {t("charts.allocation.headingPrefix")}{allocation.valuation.label}{t("charts.allocation.headingSuffix")}
       </h3>
       {allocation.slices.length > 0 ? (
         <>
           <EChart
-            ariaLabel={`当前 ${allocation.valuation.label} 资产分配饼图`}
+            ariaLabel={`${t("charts.allocation.ariaPrefix")}${allocation.valuation.label}${t("charts.allocation.ariaSuffix")}`}
             className={compact ? "h-36 w-full" : "h-80 w-full"}
             option={option}
           />
           <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-            几何分配 {allocation.slices.length} 项；净总资产{" "}
+            {t("charts.allocation.geometryPrefix")}{allocation.slices.length}{t("charts.allocation.geometryMiddle")}{" "}
             <LedgerNumber kind="money" value={allocation.totalMarketValue} />{" "}
-            {allocation.valuation.label}。
+            {allocation.valuation.label}{t("charts.allocation.period")}
           </p>
         </>
       ) : allocation.missingPriceAssets.length > 0 ? (
         <p className="mt-3 text-sm leading-6 text-amber-800">
-          非零持仓缺少合法价格，当前不绘制误导性空饼。缺价资产：
-          {allocation.missingPriceAssets.join("、")}。
+          {t("charts.allocation.missingDescription")}
+          {allocation.missingPriceAssets.join(t("charts.allocation.joinSeparator"))}{t("charts.allocation.period")}
         </p>
       ) : (
         <p className="mt-3 text-sm leading-6 text-[var(--ledger-muted)]">
-          当前没有可绘制的正资产扇区；净总资产为{" "}
+          {t("charts.allocation.emptyPrefix")}{" "}
           <LedgerNumber kind="money" value={allocation.totalMarketValue} />{" "}
-          {allocation.valuation.label}。
+          {allocation.valuation.label}{t("charts.allocation.period")}
         </p>
       )}
       {allocation.cashDeficit !== "0" ? (
         <p className="mt-2 text-sm font-semibold text-red-800">
-          现金缺口 <LedgerNumber kind="money" value={allocation.cashDeficit} />{" "}
-          USDT；负现金不绘制为正扇区。
+          {t("charts.allocation.cashDeficit")} <LedgerNumber kind="money" value={allocation.cashDeficit} />{" "}
+          USDT{t("charts.allocation.cashDeficitSuffix")}
         </p>
       ) : null}
       {allocation.slices.length > 0 &&
       allocation.missingPriceAssets.length > 0 ? (
         <p className="mt-2 text-sm font-medium text-amber-800">
-          未估值资产：{allocation.missingPriceAssets.join("、")}。
+          {t("charts.allocation.unvaluedPrefix")}{allocation.missingPriceAssets.join(t("charts.allocation.joinSeparator"))}{t("charts.allocation.period")}
         </p>
       ) : null}
       {allocation.excludedCurrencyAssets.length > 0 ? (
         <p className="mt-2 text-sm font-medium text-amber-800">
-          非 USD/USDT 旧资产已排除：
-          {allocation.excludedCurrencyAssets.join("、")}。
+          {t("charts.allocation.excludedPrefix")}
+          {allocation.excludedCurrencyAssets.join(t("charts.allocation.joinSeparator"))}{t("charts.allocation.period")}
         </p>
       ) : null}
       {allocation.valuation.usesApproximation ? (
