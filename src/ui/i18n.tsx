@@ -246,6 +246,17 @@ const chineseMessages = {
   "charts.option.heatmap.november": "十一月",
   "charts.option.heatmap.december": "十二月",
   "charts.option.heatmap.series": "交易活跃",
+  "persistence.externalChange": "账本文件已在本页面之外发生变化。当前修改尚未保存；为避免覆盖新版本，请重新打开该文件。",
+  "persistence.saveFailed": "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
+  "persistence.readFailed": "本地账本读取失败，已停止自动保存以避免覆盖原数据",
+  "persistence.clearResultUnconfirmed": "清空当前账本文件的结果未确认，页面没有显示成功；请重试以核对同一次清空操作",
+  "persistence.clearAuthorizationFailed": "清空当前账本文件未通过安全确认，文件没有写入",
+  "persistence.clearFailed": "清空本地账本失败，原页面与本地数据均未更改",
+  "persistence.importRecoveryBlocked": "导入后的账本文件无法确认，也无法证明已恢复原文件；系统正在自动关闭当前会话。请保留该文件用于恢复。",
+  "persistence.importBaseRestored": "导入未完成；已复读确认原账本文件恢复为导入前的完整版本，页面没有替换。",
+  "persistence.importExternalChange": "导入写入前发现账本文件已在本页面之外发生变化；本次导入没有写入，请重新打开该文件。",
+  "persistence.importWriteFailed": "导入在写入账本文件前失败，页面没有替换；未取得“原文件已恢复”的事后证据。",
+  "persistence.importCandidateMismatch": "导入写回后的账本与预检候选不一致；系统正在自动关闭当前会话。请保留该文件并重新选择后验证。",
   "shared.i18n.fallbackExample": "中文回退文案",
   "settings.language.heading": "界面语言",
   "settings.language.description": "语言偏好只保存在这台浏览器中，不写入账本文件。",
@@ -616,6 +627,10 @@ export function translate(
     console.warn(`Missing ${language} translation for "${key}"; using Chinese.`);
   }
   return chineseMessages[key];
+}
+
+export function translateDefault(key: TranslationKey): string {
+  return translate(DEFAULT_LEDGER_LANGUAGE, key);
 }
 
 export function formatLedgerDate(value: string): string {

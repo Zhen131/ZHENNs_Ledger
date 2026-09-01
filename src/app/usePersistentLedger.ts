@@ -58,6 +58,7 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
+import { translateDefault } from "@/ui";
 
 export type PersistentLedgerState = {
   ledgerData: LedgerData;
@@ -575,8 +576,8 @@ export function usePersistentLedger(
           ) {
             setPersistenceError(
               requiresReopen
-                ? "账本文件已在本页面之外发生变化。当前修改尚未保存；为避免覆盖新版本，请重新打开该文件。"
-                : "本地保存失败，页面数据尚未保存；刷新后将恢复上次成功保存的版本",
+                ? translateDefault("persistence.externalChange")
+                : translateDefault("persistence.saveFailed"),
             );
           }
 
@@ -776,7 +777,7 @@ export function usePersistentLedger(
         hydratedRepositoryRef.current = null;
         hydrationErrorRepositoryRef.current = activeRepository;
         setPersistenceError(
-          "本地账本读取失败，已停止自动保存以避免覆盖原数据",
+          translateDefault("persistence.readFailed"),
         );
         setHydrationStatus("error");
       }
@@ -1262,13 +1263,13 @@ export function usePersistentLedger(
               ) {
                 setPersistenceError(
                   readyClearAttempted
-                    ? "清空当前账本文件的结果未确认，页面没有显示成功；请重试以核对同一次清空操作"
-                    : "清空当前账本文件未通过安全确认，文件没有写入",
+                    ? translateDefault("persistence.clearResultUnconfirmed")
+                    : translateDefault("persistence.clearAuthorizationFailed"),
                 );
               }
             } else {
               setPersistenceError(
-                "清空本地账本失败，原页面与本地数据均未更改",
+                translateDefault("persistence.clearFailed"),
               );
             }
           }
@@ -1600,7 +1601,7 @@ export function usePersistentLedger(
                 LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_RECOVERY_BLOCKED
             ) {
               stopForImportRecoveryFatal(
-                "导入后的账本文件无法确认，也无法证明已恢复原文件；系统正在自动关闭当前会话。请保留该文件用于恢复。",
+                translateDefault("persistence.importRecoveryBlocked"),
               );
               return {
                 ok: false,
@@ -1614,7 +1615,7 @@ export function usePersistentLedger(
             ) {
               if (mountedRef.current) {
                 setPersistenceError(
-                  "导入未完成；已复读确认原账本文件恢复为导入前的完整版本，页面没有替换。",
+                  translateDefault("persistence.importBaseRestored"),
                 );
               }
               return {
@@ -1641,7 +1642,7 @@ export function usePersistentLedger(
             ) {
               if (mountedRef.current) {
                 setPersistenceError(
-                  "导入写入前发现账本文件已在本页面之外发生变化；本次导入没有写入，请重新打开该文件。",
+                  translateDefault("persistence.importExternalChange"),
                 );
               }
               return {
@@ -1657,7 +1658,7 @@ export function usePersistentLedger(
             }
             if (mountedRef.current) {
               setPersistenceError(
-                "导入在写入账本文件前失败，页面没有替换；未取得“原文件已恢复”的事后证据。",
+                translateDefault("persistence.importWriteFailed"),
               );
             }
             return {
@@ -1681,7 +1682,7 @@ export function usePersistentLedger(
           JSON.stringify(verifiedLedger) !== serializedCandidate
         ) {
           stopForImportRecoveryFatal(
-            "导入写回后的账本与预检候选不一致；系统正在自动关闭当前会话。请保留该文件并重新选择后验证。",
+            translateDefault("persistence.importCandidateMismatch"),
           );
           return {
             ok: false,
