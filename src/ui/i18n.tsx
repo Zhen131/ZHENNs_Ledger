@@ -48,6 +48,20 @@ const chineseMessages = {
   "home.quickTrade.heading": "记一笔交易",
   "home.quickTrade.description": "新增真实买入或卖出事实",
   "home.missingPrices.action": "更新缺价资产",
+  "transfer.workspace.ariaLabel": "导入与导出工作区",
+  "transfer.heading": "导入与导出",
+  "transfer.description.file":
+    "当前 .lftl 是加密正式账本；这里导入或导出的备份文件始终是另一份明文 JSON。",
+  "transfer.description.indexedDb":
+    "这里导入或导出的备份文件是明文 JSON，不等同于浏览器中的本地账本记录。",
+  "transfer.privacyWarning":
+    "⚠ 明文备份包含完整资产、交易、价格和手续费规则。请核对浏览器实际下载位置；同步目录可能自动上传文件，不再需要时请安全删除。",
+  "transfer.export.heading": "导出明文账本",
+  "transfer.export.description":
+    "导出不会修改当前账本；下载是否落盘仍以浏览器下载列表为准。",
+  "transfer.import.heading": "预检并完整替换",
+  "transfer.import.description":
+    "先只读预检；只有通过当前文件授权、预检凭据和复读验证后才会写入，不会合并账本。",
   "shared.i18n.fallbackExample": "中文回退文案",
   "settings.language.heading": "界面语言",
   "settings.language.description": "语言偏好只保存在这台浏览器中，不写入账本文件。",
