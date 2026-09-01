@@ -189,22 +189,37 @@ function formatConclusion(result: BackupImportPreflightResult): string {
 
 function formatTradeSummary(summary: BackupTradeSummary): string {
   const values = [
-    summary.occurredAt ? `日期 ${singleLine(summary.occurredAt)}` : undefined,
+    summary.occurredAt
+      ? translateDefault("backup.markdown.datePrefix") +
+        singleLine(summary.occurredAt)
+      : undefined,
     summary.assetSymbol
-      ? `资产 ${singleLine(summary.assetSymbol)}`
+      ? translateDefault("backup.markdown.assetPrefix") +
+        singleLine(summary.assetSymbol)
       : undefined,
     summary.type
-      ? `方向 ${summary.type === "buy" ? "买入" : "卖出"}`
+      ? translateDefault("backup.markdown.directionPrefix") +
+        (summary.type === "buy"
+          ? translateDefault("backup.markdown.buy")
+          : translateDefault("backup.markdown.sell"))
       : undefined,
-    summary.quantity ? `数量 ${singleLine(summary.quantity)}` : undefined,
-    summary.price ? `价格 ${singleLine(summary.price)}` : undefined,
+    summary.quantity
+      ? translateDefault("backup.markdown.quantityPrefix") +
+        singleLine(summary.quantity)
+      : undefined,
+    summary.price
+      ? translateDefault("backup.markdown.pricePrefix") +
+        singleLine(summary.price)
+      : undefined,
     summary.totalValue
       ? `总额 ${singleLine(summary.totalValue)}${
           summary.currency ? ` ${singleLine(summary.currency)}` : ""
         }`
       : undefined,
   ].filter((value): value is string => value !== undefined);
-  return values.length > 0 ? values.join("；") : "无可安全取得的摘要字段";
+  return values.length > 0
+    ? values.join(translateDefault("backup.markdown.summarySeparator"))
+    : translateDefault("backup.markdown.noSafeSummary");
 }
 
 function textOrUnavailable(value: string | undefined): string {
