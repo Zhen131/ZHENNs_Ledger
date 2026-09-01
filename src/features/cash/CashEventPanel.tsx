@@ -24,7 +24,7 @@ import {
   type CashMutationProjection,
 } from "./cashProjection";
 import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog";
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, useLanguage } from "@/ui";
 
 type PendingRisk = Readonly<{
   operation: "add" | "delete";
@@ -44,6 +44,7 @@ type ArmedDelete = Readonly<{
 }>;
 
 const SUCCESS_FEEDBACK_MS = 4_000;
+type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function CashEventPanel({
   clock = systemLedgerClock,
@@ -74,6 +75,11 @@ export function CashEventPanel({
     timeSnapshot: LedgerTimeSnapshot,
   ) => ApplyLedgerActionResult;
 }>) {
+  const { t } = useLanguage();
+  const certifiedSavedFeedback = t("cash.status.certifiedSaved");
+  const deletedFeedback = t("cash.status.deleted");
+  const savingAddFeedback = t("cash.status.savingAdd");
+  const savingDeleteFeedback = t("cash.status.savingDelete");
   const initialTodayKey = captureLedgerTime(clock).todayKey;
   const [type, setType] = useState<CashEventType>("deposit");
   const [amountOrTarget, setAmountOrTarget] = useState("");
@@ -121,7 +127,7 @@ export function CashEventPanel({
   useEffect(() => {
     if (pendingMutationVersion === null) return;
     if (persistenceStatus === "error") {
-      setError("现金变更仍在内存中，但尚未保存；请重试保存");
+      setError(t("cash.status.unsaved"));
       return;
     }
     if (
@@ -131,31 +137,31 @@ export function CashEventPanel({
       if (pendingOperation === "add") {
         setAmountOrTarget("");
         setNote("");
-        setFeedback("现金事实已认证保存");
+        setFeedback(certifiedSavedFeedback);
       } else {
-        setFeedback("现金事实已删除");
+        setFeedback(deletedFeedback);
       }
       setError("");
       setPendingMutationVersion(null);
       setPendingOperation(null);
     }
-  }, [pendingMutationVersion, pendingOperation, persistedVersion, persistenceStatus]);
+  }, [certifiedSavedFeedback, deletedFeedback, pendingMutationVersion, pendingOperation, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {
-    if (!feedback.includes("已")) return;
+    if (feedback !== certifiedSavedFeedback && feedback !== deletedFeedback) return;
     const timeout = setTimeout(() => setFeedback(""), SUCCESS_FEEDBACK_MS);
     return () => clearTimeout(timeout);
-  }, [feedback]);
+  }, [certifiedSavedFeedback, deletedFeedback, feedback]);
 
   function applyAdd(cashEvent: CashEvent, timeSnapshot: LedgerTimeSnapshot) {
     const outcome = onCashEventCreated(cashEvent, timeSnapshot);
     if (outcome !== "applied") {
-      setError(outcome === "rejected" ? "账本当前不可写" : "账本未发生变化");
+      setError(outcome === "rejected" ? t("cash.status.ledgerNotWritable") : t("cash.status.unchanged"));
       return;
     }
     setPendingMutationVersion(mutationVersion + 1);
     setPendingOperation("add");
-    setFeedback("正在保存现金事实…");
+    setFeedback(savingAddFeedback);
     setError("");
   }
 
@@ -226,7 +232,7 @@ export function CashEventPanel({
         mutationVersion,
         persistedVersion,
       });
-      setFeedback("再次点击以确认删除该现金事实");
+      setFeedback(t("cash.status.deleteArmed"));
       return;
     }
     if (
@@ -235,7 +241,7 @@ export function CashEventPanel({
       armedDelete.persistedVersion !== persistedVersion
     ) {
       setArmedDelete(null);
-      setError("账本已变化，请重新检查后再删除");
+      setError(t("cash.status.deleteStale"));
       return;
     }
     applyDelete(cashEvent.id, timeSnapshot);
@@ -245,12 +251,12 @@ export function CashEventPanel({
     const outcome = onCashEventDeleted(cashEventId, timeSnapshot);
     setArmedDelete(null);
     if (outcome !== "applied") {
-      setError(outcome === "rejected" ? "账本当前不可写" : "现金事实已不存在");
+      setError(outcome === "rejected" ? t("cash.status.ledgerNotWritable") : t("cash.status.notFound"));
       return;
     }
     setPendingMutationVersion(mutationVersion + 1);
     setPendingOperation("delete");
-    setFeedback("正在保存删除…");
+    setFeedback(savingDeleteFeedback);
     setError("");
   }
 
@@ -263,7 +269,7 @@ export function CashEventPanel({
       pending.persistedVersion !== persistedVersion
     ) {
       setPendingRisk(null);
-      setError("账本版本已变化，旧确认已失效；请重新提交");
+      setError(t("cash.status.confirmationStale"));
       return;
     }
     const nextLedger =
@@ -288,7 +294,7 @@ export function CashEventPanel({
       latestProjection.nextBalance !== pending.projection.nextBalance
     ) {
       setPendingRisk(null);
-      setError("现金结果已变化，旧确认已失效；请重新提交");
+      setError(t("cash.status.resultStale"));
       return;
     }
     setPendingRisk(null);
@@ -303,19 +309,19 @@ export function CashEventPanel({
     <div className="grid gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold">USDT 现金</h3>
+          <h3 className="font-semibold">{t("cash.heading")}</h3>
           <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-            现金事实与交易共同重放；负余额允许保存，但必须二次确认。
+            {t("cash.description")}
           </p>
         </div>
         <p className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold">
-          当前 <LedgerNumber kind="money" value={currentBalance} /> USDT
+          {t("cash.currentBalance")} <LedgerNumber kind="money" value={currentBalance} /> USDT
         </p>
       </div>
 
       <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit}>
         <label className="grid gap-1 text-sm font-medium">
-          现金类型
+          {t("cash.field.type")}
           <select
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable || pendingMutationVersion !== null}
@@ -325,14 +331,14 @@ export function CashEventPanel({
             }}
             value={type}
           >
-            <option value="deposit">入金</option>
-            <option value="withdrawal">出金</option>
-            <option value="external-expense">外部支出</option>
-            <option value="balance-adjustment">余额校准</option>
+            <option value="deposit">{t("cash.type.deposit")}</option>
+            <option value="withdrawal">{t("cash.type.withdrawal")}</option>
+            <option value="external-expense">{t("cash.type.externalExpense")}</option>
+            <option value="balance-adjustment">{t("cash.type.balanceAdjustment")}</option>
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          {type === "balance-adjustment" ? "目标余额" : "金额"}
+          {type === "balance-adjustment" ? t("cash.field.targetBalance") : t("cash.field.amount")}
           <input
             aria-describedby={error ? "cash-event-error" : undefined}
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
@@ -347,7 +353,7 @@ export function CashEventPanel({
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          日期
+          {t("cash.field.date")}
           <input
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable || pendingMutationVersion !== null}
@@ -357,7 +363,7 @@ export function CashEventPanel({
           />
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          备注（可选）
+          {t("cash.field.noteOptional")}
           <input
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable || pendingMutationVersion !== null}
@@ -367,9 +373,7 @@ export function CashEventPanel({
         </label>
         {type === "balance-adjustment" && amountOrTarget !== "" ? (
           <p className="text-sm text-slate-600 sm:col-span-2">
-            保存时会重新读取当前余额{" "}
-            <LedgerNumber kind="money" value={currentBalance} /> USDT，并固定
-            before／target／adjustment 三项证据。
+            {t("cash.adjustment.descriptionPrefix")} <LedgerNumber kind="money" value={currentBalance} /> USDT，{t("cash.adjustment.descriptionSuffix")}
           </p>
         ) : null}
         <div className="sm:col-span-2">
@@ -379,7 +383,7 @@ export function CashEventPanel({
             ref={submitButtonRef}
             type="submit"
           >
-            {pendingOperation === "add" ? "正在保存…" : "保存现金事实"}
+            {pendingOperation === "add" ? t("cash.status.saving") : t("cash.action.save")}
           </button>
           <div aria-live="polite" className="mt-2 min-h-5 text-sm">
             {error ? <p className="text-red-700" id="cash-event-error">{error}</p> : null}
@@ -389,9 +393,9 @@ export function CashEventPanel({
       </form>
 
       <div>
-        <h4 className="text-sm font-semibold">现金事实</h4>
+        <h4 className="text-sm font-semibold">{t("cash.events.heading")}</h4>
         {ledgerData.cashEvents.length === 0 ? (
-          <p className="mt-2 text-sm text-[var(--ledger-muted)]">暂无现金事实。</p>
+          <p className="mt-2 text-sm text-[var(--ledger-muted)]">{t("cash.events.empty")}</p>
         ) : (
           <>
             <ul className="mt-2 grid gap-2">
@@ -402,7 +406,7 @@ export function CashEventPanel({
                 >
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {cashTypeLabel(cashEvent.type)} · {cashEvent.occurredAt.slice(0, 10)}
+                      {cashTypeLabel(cashEvent.type, t)} · {cashEvent.occurredAt.slice(0, 10)}
                     </p>
                     <p className="mt-1 break-words text-xs text-slate-600">
                       {cashEvent.type === "balance-adjustment" ? (
@@ -424,17 +428,17 @@ export function CashEventPanel({
                     onClick={(event) => requestDelete(cashEvent, event.currentTarget)}
                     type="button"
                   >
-                    {armedDelete?.cashEventId === cashEvent.id ? "确认删除" : "删除"}
+                    {armedDelete?.cashEventId === cashEvent.id ? t("cash.action.confirmDelete") : t("cash.action.delete")}
                   </button>
                 </li>
               ))}
             </ul>
             <div
-              aria-label="现金事实分页"
+              aria-label={t("cash.pagination.ariaLabel")}
               className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] pt-3 text-sm"
             >
               <p className="text-[var(--ledger-muted)]">
-                共 {orderedCashEvents.length} 条，第 {currentPage} / {totalPages} 页
+                {t("cash.pagination.totalPrefix")} {orderedCashEvents.length} {t("cash.pagination.totalSuffix")}，{t("cash.pagination.pagePrefix")} {currentPage} / {totalPages} {t("cash.pagination.pageSuffix")}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -443,7 +447,7 @@ export function CashEventPanel({
                   onClick={() => setCurrentPage((page) => page - 1)}
                   type="button"
                 >
-                  上一页
+                  {t("cash.pagination.previous")}
                 </button>
                 <button
                   className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -451,7 +455,7 @@ export function CashEventPanel({
                   onClick={() => setCurrentPage((page) => page + 1)}
                   type="button"
                 >
-                  下一页
+                  {t("cash.pagination.next")}
                 </button>
               </div>
             </div>
@@ -461,11 +465,11 @@ export function CashEventPanel({
 
       {pendingRisk ? (
         <NegativeCashConfirmationDialog
-          confirmLabel={pendingRisk.operation === "delete" ? "确认并删除" : "确认并保存"}
+          confirmLabel={pendingRisk.operation === "delete" ? t("cash.negativeConfirmation.confirmDelete") : t("cash.negativeConfirmation.defaultConfirm")}
           onCancel={() => setPendingRisk(null)}
           onConfirm={confirmNegativeBalance}
           projection={pendingRisk.projection}
-          title={pendingRisk.operation === "delete" ? "确认删除后的负现金" : "确认负现金余额"}
+          title={pendingRisk.operation === "delete" ? t("cash.negativeConfirmation.deleteTitle") : t("cash.negativeConfirmation.addTitle")}
           triggerRef={lastRiskTriggerRef}
         />
       ) : null}
@@ -473,11 +477,11 @@ export function CashEventPanel({
   );
 }
 
-function cashTypeLabel(type: CashEventType): string {
+function cashTypeLabel(type: CashEventType, t: Translate): string {
   return {
-    deposit: "入金",
-    withdrawal: "出金",
-    "external-expense": "外部支出",
-    "balance-adjustment": "余额校准",
+    deposit: t("cash.type.deposit"),
+    withdrawal: t("cash.type.withdrawal"),
+    "external-expense": t("cash.type.externalExpense"),
+    "balance-adjustment": t("cash.type.balanceAdjustment"),
   }[type];
 }
