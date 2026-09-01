@@ -241,6 +241,7 @@ export function PriceForm({
     pendingMutationVersion,
     persistedVersion,
     persistenceStatus,
+    t,
   ]);
 
   useEffect(() => {
