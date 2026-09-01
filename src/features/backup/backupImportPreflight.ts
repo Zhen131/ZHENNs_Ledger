@@ -331,11 +331,11 @@ export async function preflightBackupJson(
     skippedChecks.push(
       skipped(
         "resource-policy",
-        "LedgerData 结构未完整通过，不能安全执行完整资源策略。",
+        translateDefault("backup.preflight.ledgerStructureIncomplete"),
       ),
       skipped(
         "import-policy",
-        "LedgerData 结构未完整通过，不能安全执行完整业务导入策略。",
+        translateDefault("backup.preflight.importStructureIncomplete"),
       ),
     );
   } else {
@@ -357,7 +357,7 @@ export async function preflightBackupJson(
     skippedChecks.push(
       skipped(
         "duplicate-grouping",
-        "trades 不是可安全读取的数组，无法执行重复分组。",
+        translateDefault("backup.preflight.tradesUnreadable"),
       ),
     );
   }
@@ -411,7 +411,7 @@ async function finalizeResult(
       createTradeSummary(input.parsed, index),
     ),
     message:
-      "这些交易仅被标记为可疑；应用没有自动修改、删除、合并或去重。",
+      translateDefault("backup.preflight.suspiciousNoMutation"),
   }));
   const allDetails: BackupPreflightDetail[] = [
     ...sortedHardErrors,
@@ -650,10 +650,10 @@ function toChineseErrorMessage(error: BackupEnvelopeError): string {
     return error.message;
   }
   if (error.code.startsWith("LEDGER_IMPORT_")) {
-    return `导入业务规则未通过：${error.message}`;
+    return translateDefault("backup.preflight.importPolicyPrefix") + error.message;
   }
   if (error.code.startsWith("LEDGER_DATA_")) {
-    return `账本字段未通过结构校验：${error.message}`;
+    return translateDefault("backup.preflight.ledgerStructurePrefix") + error.message;
   }
   if (
     (error.code === "BACKUP_UNSUPPORTED_FORMAT_VERSION" ||
@@ -664,14 +664,14 @@ function toChineseErrorMessage(error: BackupEnvelopeError): string {
   }
 
   const labels: Partial<Record<BackupEnvelopeError["code"], string>> = {
-    BACKUP_BAD_JSON: "备份不是有效 JSON。",
-    BACKUP_INVALID_ENVELOPE: "备份外层结构无效。",
-    BACKUP_UNSUPPORTED_FORMAT_VERSION: "备份格式版本不受支持。",
-    BACKUP_INVALID_APP_VERSION: "备份应用版本缺失或无效。",
-    BACKUP_INVALID_EXPORTED_AT: "备份导出时间无效。",
-    BACKUP_SCHEMA_VERSION_MISMATCH: "备份账本 schema 版本不匹配。",
+    BACKUP_BAD_JSON: translateDefault("backup.preflight.invalidJson"),
+    BACKUP_INVALID_ENVELOPE: translateDefault("backup.preflight.invalidEnvelope"),
+    BACKUP_UNSUPPORTED_FORMAT_VERSION: translateDefault("backup.preflight.unsupportedVersion"),
+    BACKUP_INVALID_APP_VERSION: translateDefault("backup.preflight.invalidAppVersion"),
+    BACKUP_INVALID_EXPORTED_AT: translateDefault("backup.preflight.invalidExportedAt"),
+    BACKUP_SCHEMA_VERSION_MISMATCH: translateDefault("backup.preflight.schemaVersionMismatch"),
   };
-  return labels[error.code] ?? `备份校验失败：${error.message}`;
+  return labels[error.code] ?? translateDefault("backup.preflight.validationFailedPrefix") + error.message;
 }
 
 function collectHistoricalRawTextErrors(
