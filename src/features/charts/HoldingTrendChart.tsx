@@ -1,21 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { useLanguage } from "@/ui";
 
 import type { ChartRange, HoldingHistoryPoint } from "./chartDataService";
 import { buildHoldingHistoryChartOption } from "./chartOptionBuilders";
 import { EChart } from "./EChart";
-
-export const CHART_RANGE_OPTIONS: ReadonlyArray<{
-  value: ChartRange;
-  label: string;
-}> = [
-  { value: "1d", label: "1日" },
-  { value: "7d", label: "7日" },
-  { value: "30d", label: "30日" },
-  { value: "365d", label: "365日" },
-  { value: "all", label: "全部" },
-];
 
 export function HoldingTrendChart({
   history,
@@ -30,6 +20,17 @@ export function HoldingTrendChart({
   compact?: boolean;
   showRangeControl?: boolean;
 }>) {
+  const { t } = useLanguage();
+  const chartRangeOptions: ReadonlyArray<{
+    value: ChartRange;
+    label: string;
+  }> = [
+    { value: "1d", label: t("charts.trend.range1d") },
+    { value: "7d", label: t("charts.trend.range7d") },
+    { value: "30d", label: t("charts.trend.range30d") },
+    { value: "365d", label: t("charts.trend.range365d") },
+    { value: "all", label: t("charts.trend.rangeAll") },
+  ];
   const option = useMemo(
     () => buildHoldingHistoryChartOption(history),
     [history],
@@ -47,21 +48,21 @@ export function HoldingTrendChart({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-[var(--ledger-ink)]">
-            总资产 / 剩余持仓成本
+            {t("charts.trend.heading")}
           </h3>
           {!compact ? (
             <p className="mt-1 text-xs leading-5 text-[var(--ledger-muted)]">
-              日级阶梯线；总资产逐日重放当时的 USDT 现金与可得行情。成本线仍只来自交易。
+              {t("charts.trend.description")}
             </p>
           ) : null}
         </div>
         {showRangeControl ? (
           <div
-            aria-label="持仓历史范围"
+            aria-label={t("charts.trend.rangeAriaLabel")}
             className="flex flex-wrap gap-1"
             role="group"
           >
-            {CHART_RANGE_OPTIONS.map((optionItem) => (
+            {chartRangeOptions.map((optionItem) => (
               <button
                 aria-pressed={range === optionItem.value}
                 className={
@@ -80,24 +81,24 @@ export function HoldingTrendChart({
         ) : null}
       </div>
       <EChart
-        ariaLabel="总资产与剩余持仓成本阶梯线图"
+        ariaLabel={t("charts.trend.ariaLabel")}
         className={compact ? "mt-2 h-48 w-full" : "mt-3 h-80 w-full"}
         option={option}
       />
       {!compact ? (
         <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-          {history.length} 个显示点；{valuedDays} 个点具备完整市场价格
-          {missingDays > 0 ? `，${missingDays} 个市值点因缺价断开` : ""}。
+          {history.length}{t("charts.trend.pointSummaryMiddle")}{valuedDays}{t("charts.trend.pointSummarySuffix")}
+          {missingDays > 0 ? `${t("charts.trend.missingPrefix")}${missingDays}${t("charts.trend.missingSuffix")}` : ""}{t("charts.trend.period")}
         </p>
       ) : null}
       {unreliableCostDays > 0 ? (
         <p className="mt-1 text-sm font-medium text-amber-800">
-          {unreliableCostDays} 个成本点因异币手续费无法换算而断开；市值线和交易热力图仍按各自事实显示。
+          {unreliableCostDays}{t("charts.trend.unreliableSuffix")}
         </p>
       ) : null}
       {range === "1d" ? (
         <p className="mt-1 text-sm font-medium text-amber-800">
-          无可靠日内变化，边界点仅用于显示。
+          {t("charts.trend.singleDay")}
         </p>
       ) : null}
     </article>
