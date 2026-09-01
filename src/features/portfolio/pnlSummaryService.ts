@@ -11,6 +11,7 @@ import {
   partitionLedgerFactsForToday,
 } from "@/core/policies";
 import { add, getLedgerDateKey, isZero } from "@/core/shared";
+import { translateDefault } from "@/ui";
 import {
   createValuationDisplay,
   type ValuationDisplay,
@@ -61,14 +62,14 @@ export function buildLedgerPnlSummary(
       buyOutflowByAsset.set(trade.assetSymbol, "0");
     }
     if (!isSupportedValuationCurrency(trade.currency)) {
-      const reason = `${trade.id} 使用不支持的计价币种 ${trade.currency}`;
+      const reason = trade.id + translateDefault("portfolio.issue.unsupportedCurrencyMiddle") + trade.currency;
       reasons.push(reason);
       assetReasons?.push(reason);
       continue;
     }
     const cashImpact = calculateTradeCashImpact(trade);
     if (!cashImpact.ok) {
-      const reason = `${trade.id} 的 ${trade.feeCurrency} 手续费无法换算为 ${trade.currency}`;
+      const reason = trade.id + translateDefault("portfolio.issue.feeConversionMiddle") + trade.feeCurrency + translateDefault("portfolio.issue.feeConversionSuffix") + trade.currency;
       reasons.push(reason);
       assetReasons?.push(reason);
       continue;
@@ -98,7 +99,7 @@ export function buildLedgerPnlSummary(
   for (const position of positions) {
     if (!isSupportedValuationCurrency(position.currency)) {
       excludedCurrencyAssets.push(position.assetSymbol);
-      const reason = `${position.assetSymbol} 使用不支持的计价币种 ${position.currency}`;
+      const reason = position.assetSymbol + translateDefault("portfolio.issue.unsupportedCurrencyMiddle") + position.currency;
       costReasons.push(reason);
       realizedReasons.push(reason);
       if (!isZero(position.quantity)) {
@@ -108,7 +109,7 @@ export function buildLedgerPnlSummary(
     }
     if (position.feeAccountingIssues) {
       feeAccountingIssues.push(...position.feeAccountingIssues);
-      const reason = `${position.assetSymbol} 存在无法换算的手续费`;
+      const reason = position.assetSymbol + translateDefault("portfolio.issue.unconvertibleFee");
       costReasons.push(reason);
       realizedReasons.push(reason);
       if (!isZero(position.quantity)) {
@@ -124,7 +125,7 @@ export function buildLedgerPnlSummary(
     }
     if (position.unrealizedPnl === undefined) {
       missingPriceAssets.push(position.assetSymbol);
-      unrealizedReasons.push(`${position.assetSymbol} 缺少合法当前价格`);
+      unrealizedReasons.push(position.assetSymbol + translateDefault("portfolio.issue.missingCurrentPrice"));
       continue;
     }
     unrealizedPnl = add(unrealizedPnl, position.unrealizedPnl);
