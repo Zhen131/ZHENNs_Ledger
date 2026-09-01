@@ -1,0 +1,57 @@
+{
+  "evidenceFormatVersion": 1,
+  "batch": "W15-storage-cost",
+  "phase": "final-M9-retention",
+  "sourceCommit": "a32549b",
+  "storageImplementationCommit": "c6d57c4",
+  "sourceBranch": "zhennn/w15-main-chunked-storage",
+  "mode": "production",
+  "browserVersion": "152.0.7977.65",
+  "dataClassification": "synthetic-only",
+  "browserRuns": [
+    {
+      "sequence": 1,
+      "scale": "S-100",
+      "startedAt": "2026-09-01T13:04:40+02:00",
+      "resultFile": "01-m9-S-100.json",
+      "documentElements": 3002,
+      "repeatedDocumentElements": 3002,
+      "nextRunStartedAt": "2026-09-01T13:10:23+02:00"
+    },
+    {
+      "sequence": 2,
+      "scale": "S-1K",
+      "startedAt": "2026-09-01T13:10:23+02:00",
+      "resultFile": "02-m9-S-1K.json",
+      "documentElements": 3032,
+      "repeatedDocumentElements": 3032,
+      "nextRunStartedAt": "2026-09-01T13:15:59+02:00"
+    },
+    {
+      "sequence": 3,
+      "scale": "S-10K",
+      "startedAt": "2026-09-01T13:15:59+02:00",
+      "resultFile": "03-m9-S-10K.json",
+      "documentElements": 2996,
+      "repeatedDocumentElements": 2996,
+      "nextRunStartedAt": "2026-09-01T13:21:38+02:00"
+    },
+    {
+      "sequence": 4,
+      "scale": "S-100K",
+      "startedAt": "2026-09-01T13:21:38+02:00",
+      "resultFile": "04-m9-S-100K.json",
+      "documentElements": 3000,
+      "repeatedDocumentElements": 3000,
+      "finalCooldownCompleted": true
+    }
+  ],
+  "cooldownRule": "Each numbered run was followed by at least 300 seconds of idle time before another benchmark, test, or repository operation. Each cooldown was recorded as six completed 50-second waits. The final S-100K run was followed by the same six-wait cooldown.",
+  "thresholds": {
+    "S-100": null,
+    "S-1K": null,
+    "S-10K": 5000,
+    "S-100K": 5000
+  },
+  "verdict": "PASS: both measured counts match at every scale; the two scales with contractual limits are below 5000 elements."
+}

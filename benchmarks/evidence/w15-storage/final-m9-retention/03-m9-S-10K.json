@@ -1,0 +1,27 @@
+{
+  "kind": "rendered-element-count-benchmark",
+  "status": "completed",
+  "mode": "production",
+  "scale": "S-10K",
+  "tradeCount": 10000,
+  "browserVersion": "152.0.7977.65",
+  "first": {
+    "documentElements": 2996,
+    "homeWorkspaceElements": 0,
+    "recordWorkspaceElements": 0,
+    "transactionsWorkspaceElements": 2926,
+    "transferWorkspaceElements": 0,
+    "settingsWorkspaceElements": 0
+  },
+  "second": {
+    "documentElements": 2996,
+    "homeWorkspaceElements": 0,
+    "recordWorkspaceElements": 0,
+    "transactionsWorkspaceElements": 2926,
+    "transferWorkspaceElements": 0,
+    "settingsWorkspaceElements": 0
+  },
+  "measurementsMatch": true,
+  "consoleErrors": [],
+  "temporaryArtifactsCleaned": true
+}
