@@ -177,12 +177,12 @@ function appendSuspiciousGroup(
 
 function formatConclusion(result: BackupImportPreflightResult): string {
   if (result.hardErrorCount > 0) {
-    return "BLOCKED；存在硬错误，不得继续导入。";
+    return translateDefault("backup.markdown.blocked");
   }
   if (result.suspiciousGroupCount > 0) {
-    return "预检结构通过，但必须先对当前可疑组做一次明确确认。";
+    return translateDefault("backup.markdown.confirmSuspicious");
   }
-  return "预检通过；本报告本身不代表已经写入当前账本文件。";
+  return translateDefault("backup.markdown.passed");
 }
 
 function formatTradeSummary(summary: BackupTradeSummary): string {
@@ -206,17 +206,21 @@ function formatTradeSummary(summary: BackupTradeSummary): string {
 }
 
 function textOrUnavailable(value: string | undefined): string {
-  return value === undefined ? "不可得" : singleLine(value);
+  return value === undefined
+    ? translateDefault("backup.markdown.unavailable")
+    : singleLine(value);
 }
 
 function numberOrUnavailable(value: number | undefined): string {
-  return value === undefined ? "不可得" : String(value);
+  return value === undefined
+    ? translateDefault("backup.markdown.unavailable")
+    : String(value);
 }
 
 function formatMissingMappings(value: readonly string[] | undefined): string {
-  if (value === undefined) return "不可得";
+  if (value === undefined) return translateDefault("backup.markdown.unavailable");
   return value.length === 0
-    ? "无"
+    ? translateDefault("backup.markdown.none")
     : value.map((symbol) => `\`${inline(symbol)}\``).join("、");
 }
 
