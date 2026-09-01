@@ -23,7 +23,7 @@ import { ActivityTable } from "@/features/activity/ui";
 import { projectLedgerCashMutation } from "@/features/cash";
 import { NegativeCashConfirmationDialog } from "@/features/cash/ui";
 import { validateTradeRemoval } from "@/features/trades";
-import { SurfaceCard } from "@/ui";
+import { SurfaceCard, useLanguage } from "@/ui";
 import type { LedgerWorkspaceIntent } from "./useLedgerWorkspaceSession";
 import type {
   ApplyLedgerActionResult,
@@ -92,6 +92,7 @@ export function TransactionsWorkspace({
   onDeleteTrade: (tradeId: string) => ApplyLedgerActionResult;
   onDeleteCashEvent?: (cashEventId: string) => ApplyLedgerActionResult;
 }>) {
+  const { t } = useLanguage();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [exactDate, setExactDate] = useState("");
   const [assetFilter, setAssetFilter] = useState("all");
@@ -196,7 +197,7 @@ export function TransactionsWorkspace({
     if (item.kind === "cash-event") {
       return findCurrentItem(item.id, item.kind)
         ? null
-        : "无法删除：没有找到这条现金事实";
+        : t("transactions.delete.cashFactMissing");
     }
     const result = validateTradeRemoval(
       item.id,
@@ -204,8 +205,8 @@ export function TransactionsWorkspace({
     );
     if (result.ok) return null;
     return result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
-      ? "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出"
-      : "无法删除：没有找到这笔交易";
+      ? t("transactions.delete.tradeHasDependents")
+      : t("transactions.delete.tradeMissing");
   }
 
   function projectRemoval(item: LedgerActivityItem) {
@@ -242,8 +243,8 @@ export function TransactionsWorkspace({
       setPendingNegativeDelete(null);
       setFeedback(
         outcome === "rejected"
-          ? "账本当前不可写，删除未执行"
-          : `${item.kind === "trade" ? "交易" : "现金事实"}未发生变化，请刷新后重试`,
+          ? t("transactions.delete.ledgerNotWritable")
+          : `${item.kind === "trade" ? t("transactions.item.trade") : t("transactions.item.cashFact")}${t("transactions.delete.unchangedSuffix")}`,
       );
       return;
     }
@@ -257,7 +258,7 @@ export function TransactionsWorkspace({
     setPendingDelete(persisting);
     setPendingNegativeDelete(null);
     setRemainingMs(0);
-    setFeedback("删除正在保存…");
+    setFeedback(t("transactions.delete.saving"));
   }
 
   const finalizeDeleteRef = useRef<
@@ -277,7 +278,7 @@ export function TransactionsWorkspace({
     if (!item) {
       clearPendingDelete();
       setFeedback(
-        `删除倒计时已取消：${itemKind === "trade" ? "交易" : "现金事实"}已不在当前账本中`,
+        `${t("transactions.delete.countdownCancelledPrefix")}${itemKind === "trade" ? t("transactions.item.trade") : t("transactions.item.cashFact")}${t("transactions.delete.noLongerInLedger")}`,
       );
       return;
     }
@@ -300,7 +301,7 @@ export function TransactionsWorkspace({
         expectedTodayKey: todayKeyRef.current,
       });
       setFeedback(
-        `删除这${itemKind === "trade" ? "笔交易" : "条现金事实"}会使 USDT 现金为负，需要再次确认`,
+        `${t("transactions.delete.negativePrefix")}${itemKind === "trade" ? t("transactions.item.tradeWithMeasure") : t("transactions.item.cashFactWithMeasure")}${t("transactions.delete.negativeSuffix")}`,
       );
       return;
     }
@@ -351,10 +352,10 @@ export function TransactionsWorkspace({
       if (locationRequestRef.current?.requestId !== requestId) return;
       clearLocationRequest();
       if (result === "missing") {
-        setFeedback("该日期的交易已发生变化，已显示完整交易列表");
+        setFeedback(t("transactions.locate.changed"));
       }
     },
-    [clearLocationRequest],
+    [clearLocationRequest, t],
   );
 
   useEffect(() => {
@@ -364,26 +365,26 @@ export function TransactionsWorkspace({
       setArmedItemId(null);
       clearPendingDelete();
       setPendingNegativeDelete(null);
-      setFeedback("删除倒计时已取消");
+      setFeedback(t("transactions.delete.countdownCancelled"));
     };
     document.addEventListener("visibilitychange", cancelWhenHidden);
     return () =>
       document.removeEventListener("visibilitychange", cancelWhenHidden);
-  }, [active, clearPendingDelete]);
+  }, [active, clearPendingDelete, t]);
 
   useEffect(() => {
     if (pendingDelete?.phase !== "countdown") return;
     if (findCurrentItem(pendingDelete.itemId, pendingDelete.itemKind)) return;
     clearPendingDelete();
     setFeedback(
-      `删除倒计时已取消：${pendingDelete.itemKind === "trade" ? "交易" : "现金事实"}已不在当前账本中`,
+      `${t("transactions.delete.countdownCancelledPrefix")}${pendingDelete.itemKind === "trade" ? t("transactions.item.trade") : t("transactions.item.cashFact")}${t("transactions.delete.noLongerInLedger")}`,
     );
-  }, [ledgerData.trades, ledgerData.cashEvents, pendingDelete, clearPendingDelete]);
+  }, [ledgerData.trades, ledgerData.cashEvents, pendingDelete, clearPendingDelete, t]);
 
   useEffect(() => {
     if (pendingDelete?.phase !== "persisting") return;
     if (persistenceStatus === "error") {
-      setFeedback("删除已应用到内存，但尚未保存；请重试保存");
+      setFeedback(t("transactions.delete.notPersisted"));
       return;
     }
     if (
@@ -392,20 +393,21 @@ export function TransactionsWorkspace({
     ) {
       const deletedKind = pendingDelete.itemKind;
       clearPendingDelete();
-      setFeedback(deletedKind === "trade" ? "交易已删除" : "现金事实已删除");
+      setFeedback(deletedKind === "trade" ? t("transactions.delete.tradeDeleted") : t("transactions.delete.cashFactDeleted"));
     }
   }, [
     clearPendingDelete,
     pendingDelete,
     persistedVersion,
     persistenceStatus,
+    t,
   ]);
 
   useEffect(() => {
-    if (feedback !== "交易已删除" && feedback !== "现金事实已删除") return;
+    if (feedback !== t("transactions.delete.tradeDeleted") && feedback !== t("transactions.delete.cashFactDeleted")) return;
     const timeout = setTimeout(() => setFeedback(""), SUCCESS_FEEDBACK_MS);
     return () => clearTimeout(timeout);
-  }, [feedback]);
+  }, [feedback, t]);
 
   function armDelete(item: LedgerActivityItem) {
     if (
@@ -427,7 +429,7 @@ export function TransactionsWorkspace({
     const error = current ? reviewRemoval(current) : reviewRemoval(item);
     if (error || !current) {
       setArmedItemId(null);
-      setFeedback(error ?? "无法删除：事实已不在当前账本中");
+      setFeedback(error ?? t("transactions.delete.factMissing"));
       return;
     }
     negativeDeleteTriggerRef.current =
@@ -445,7 +447,7 @@ export function TransactionsWorkspace({
     setPendingDelete(countdown);
     setRemainingMs(DELETE_DELAY_MS);
     setArmedItemId(null);
-    setFeedback("5 秒内可撤回，倒计时结束后会再次检查账本事实");
+    setFeedback(t("transactions.delete.undoWindow"));
     intervalRef.current = setInterval(() => {
       setRemainingMs(Math.max(0, deadline - Date.now()));
     }, 100);
@@ -466,14 +468,14 @@ export function TransactionsWorkspace({
       todayKeyRef.current !== pending.expectedTodayKey
     ) {
       setPendingNegativeDelete(null);
-      setFeedback("旧确认已失效：账本或保存状态已变化，请重新删除");
+      setFeedback(t("transactions.delete.staleLedgerConfirmation"));
       return;
     }
     const item = findCurrentItem(pending.itemId, pending.itemKind);
-    const error = item ? reviewRemoval(item) : "无法删除：事实已不在当前账本中";
+    const error = item ? reviewRemoval(item) : t("transactions.delete.factMissing");
     if (!item || error) {
       setPendingNegativeDelete(null);
-      setFeedback(error ?? "无法删除：事实已不在当前账本中");
+      setFeedback(error ?? t("transactions.delete.factMissing"));
       return;
     }
     const projection = projectRemoval(item);
@@ -485,7 +487,7 @@ export function TransactionsWorkspace({
       projection.deficit !== pending.projection.deficit
     ) {
       setPendingNegativeDelete(null);
-      setFeedback("旧确认已失效：现金影响已变化，请重新删除");
+      setFeedback(t("transactions.delete.staleCashConfirmation"));
       return;
     }
     applyReviewedDelete(item);
@@ -548,29 +550,29 @@ export function TransactionsWorkspace({
     assetFilter !== "all" ||
     typeFilter !== "all";
   const timeLabel = {
-    all: "全部",
-    today: "今天",
-    "7d": "最近 7 天",
-    "1y": "最近 1 年",
+    all: t("transactions.time.all"),
+    today: t("transactions.time.today"),
+    "7d": t("transactions.time.7d"),
+    "1y": t("transactions.time.1y"),
   }[timeFilter];
-  const typeLabel = activityFilterLabel(typeFilter);
+  const typeLabel = activityFilterLabel(typeFilter, t);
 
   return (
     <section
-      aria-label="交易工作区"
+      aria-label={t("transactions.workspace.ariaLabel")}
       className={active ? "grid min-w-0 gap-4" : "hidden"}
       data-workspace-page="transactions"
     >
       <SurfaceCard className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">统一流水</h2>
+            <h2 className="text-lg font-semibold">{t("transactions.heading")}</h2>
             <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
-              共 {allItems.length} 条交易与现金事实；筛选只作用于当前解锁会话。
+              {t("transactions.summary.prefix")} {allItems.length} {t("transactions.summary.suffix")}
             </p>
           </div>
           <p className="rounded-full bg-[var(--ledger-surface-muted)] px-3 py-1.5 text-xs font-medium text-[var(--ledger-muted)]">
-            当前显示 {filteredItems.length} 笔
+            {t("transactions.currentlyShowing")} {filteredItems.length} {t("transactions.itemsMeasure")}
           </p>
         </div>
       </SurfaceCard>
@@ -578,21 +580,21 @@ export function TransactionsWorkspace({
       <SurfaceCard className="sticky top-0 z-20 p-4">
         <div className="grid gap-3 sm:grid-cols-2 min-[1100px]:grid-cols-4">
           <FilterSelect
-            label="时间范围"
+            label={t("transactions.filter.time")}
             onChange={(value) => {
               setTimeFilter(value as TimeFilter);
               setCurrentPage(1);
             }}
             options={[
-              ["all", "全部时间"],
-              ["today", "今天"],
-              ["7d", "最近 7 天"],
-              ["1y", "最近 1 年"],
+              ["all", t("transactions.time.allTime")],
+              ["today", t("transactions.time.today")],
+              ["7d", t("transactions.time.7d")],
+              ["1y", t("transactions.time.1y")],
             ]}
             value={timeFilter}
           />
           <label className="grid gap-1 text-xs font-medium text-[var(--ledger-muted)]">
-            准确日期
+            {t("transactions.filter.exactDate")}
             <input
               className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 text-sm text-[var(--ledger-ink)]"
               onChange={(event) => {
@@ -604,45 +606,45 @@ export function TransactionsWorkspace({
             />
           </label>
           <FilterSelect
-            label="资产筛选"
+            label={t("transactions.filter.asset")}
             onChange={(value) => {
               setAssetFilter(value);
               setCurrentPage(1);
             }}
             options={[
-              ["all", "全部资产"],
-              ["USDT", "现金 USDT"],
+              ["all", t("transactions.filter.allAssets")],
+              ["USDT", t("transactions.filter.cashUsdt")],
               ...assetOptions.map((asset) => [asset, asset] as const),
             ]}
             value={assetFilter}
           />
           <FilterSelect
-            label="类型筛选"
+            label={t("transactions.filter.type")}
             onChange={(value) => {
               setTypeFilter(value as LedgerActivityTypeFilter);
               setCurrentPage(1);
             }}
             options={[
-              ["all", "全部类型"],
-              ["buy", "买入"],
-              ["sell", "卖出"],
-              ["deposit", "入金"],
-              ["withdrawal", "出金"],
-              ["external-expense", "外部支出"],
-              ["balance-adjustment", "余额校准"],
+              ["all", t("transactions.filter.allTypes")],
+              ["buy", t("trades.type.buy")],
+              ["sell", t("trades.type.sell")],
+              ["deposit", t("transactions.type.deposit")],
+              ["withdrawal", t("transactions.type.withdrawal")],
+              ["external-expense", t("transactions.type.externalExpense")],
+              ["balance-adjustment", t("transactions.type.balanceAdjustment")],
             ]}
             value={typeFilter}
           />
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ledger-muted)]">
           <p>
-            时间：{timeLabel}｜日期：{exactDate || "全部"}｜资产：
+            {t("transactions.activeFilters.time")}{timeLabel}{t("transactions.activeFilters.date")}{exactDate || t("transactions.time.all")}{t("transactions.activeFilters.asset")}
             {assetFilter === "all"
-              ? "全部"
+              ? t("transactions.time.all")
               : assetFilter === "USDT"
-                ? "现金 USDT"
+                ? t("transactions.filter.cashUsdt")
                 : assetFilter}
-            ｜类型：{typeLabel}
+            {t("transactions.activeFilters.type")}{typeLabel}
           </p>
           {hasFilters ? (
             <button
@@ -650,7 +652,7 @@ export function TransactionsWorkspace({
               onClick={resetFilters}
               type="button"
             >
-              清除筛选
+              {t("transactions.filter.clear")}
             </button>
           ) : null}
         </div>
@@ -660,9 +662,9 @@ export function TransactionsWorkspace({
         <p
           aria-live="polite"
           className={`rounded-md border px-4 py-3 text-sm ${
-            feedback === "交易已删除" || feedback === "现金事实已删除"
+            feedback === t("transactions.delete.tradeDeleted") || feedback === t("transactions.delete.cashFactDeleted")
               ? "border-emerald-200 bg-emerald-50 text-emerald-800 motion-safe:animate-[ledger-feedback-fade_4s_ease-in_forwards]"
-              : feedback.includes("无法") || feedback.includes("尚未保存")
+              : feedback.includes(t("transactions.feedback.errorPrefix")) || feedback.includes(t("transactions.feedback.notPersistedFragment"))
                 ? "border-red-200 bg-red-50 text-red-800"
                 : "border-amber-200 bg-amber-50 text-amber-900"
           }`}
@@ -691,17 +693,17 @@ export function TransactionsWorkspace({
           onLocateComplete={handleLocateComplete}
           onUndoDelete={() => {
             clearPendingDelete();
-            setFeedback("已撤回，账本没有变化");
+            setFeedback(t("transactions.delete.undone"));
           }}
           todayKey={todayKey}
         />
         {filteredItems.length > 0 ? (
           <div
-            aria-label="流水分页"
+            aria-label={t("transactions.pagination.ariaLabel")}
             className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] px-4 py-3 text-sm"
           >
             <p className="text-[var(--ledger-muted)]">
-              共 {filteredItems.length} 条，第 {currentPage} / {totalPages} 页
+              {t("transactions.pagination.totalPrefix")} {filteredItems.length} {t("transactions.pagination.totalMiddle")} {currentPage} / {totalPages} {t("transactions.pagination.pageSuffix")}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -713,7 +715,7 @@ export function TransactionsWorkspace({
                 }}
                 type="button"
               >
-                上一页
+                {t("transactions.pagination.previous")}
               </button>
               <button
                 className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -724,7 +726,7 @@ export function TransactionsWorkspace({
                 }}
                 type="button"
               >
-                下一页
+                {t("transactions.pagination.next")}
               </button>
             </div>
           </div>
@@ -733,16 +735,16 @@ export function TransactionsWorkspace({
 
       {pendingNegativeDelete ? (
         <NegativeCashConfirmationDialog
-          confirmLabel="确认并删除"
+          confirmLabel={t("transactions.delete.confirm")}
           onCancel={() => {
             setPendingNegativeDelete(null);
-            setFeedback("已取消，账本没有变化");
+            setFeedback(t("transactions.delete.cancelled"));
           }}
           onConfirm={confirmNegativeDelete}
           projection={pendingNegativeDelete.projection}
-          title={`确认删除${
-            pendingNegativeDelete.itemKind === "trade" ? "交易" : "现金事实"
-          }后的负现金`}
+          title={`${t("transactions.delete.negativeTitlePrefix")}${
+            pendingNegativeDelete.itemKind === "trade" ? t("transactions.item.trade") : t("transactions.item.cashFact")
+          }${t("transactions.delete.negativeTitleSuffix")}`}
           triggerRef={negativeDeleteTriggerRef}
         />
       ) : null}
@@ -779,14 +781,17 @@ function FilterSelect({
   );
 }
 
-function activityFilterLabel(type: LedgerActivityTypeFilter): string {
+function activityFilterLabel(
+  type: LedgerActivityTypeFilter,
+  t: ReturnType<typeof useLanguage>["t"],
+): string {
   return {
-    all: "全部",
-    buy: "买入",
-    sell: "卖出",
-    deposit: "入金",
-    withdrawal: "出金",
-    "external-expense": "外部支出",
-    "balance-adjustment": "余额校准",
+    all: t("transactions.time.all"),
+    buy: t("trades.type.buy"),
+    sell: t("trades.type.sell"),
+    deposit: t("transactions.type.deposit"),
+    withdrawal: t("transactions.type.withdrawal"),
+    "external-expense": t("transactions.type.externalExpense"),
+    "balance-adjustment": t("transactions.type.balanceAdjustment"),
   }[type];
 }
