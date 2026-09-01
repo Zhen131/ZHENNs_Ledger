@@ -25,7 +25,9 @@ import {
 import { createInitialLedgerData } from "@/core/state";
 import {
   createUsdtSimpleTrade as createSimpleTrade,
+  ledgerFileTestStringToBytes,
   readLedgerFileForTest,
+  serializeLedgerFileForTest,
 } from "@/test-support";
 import {
   DefaultLedgerFileAccessController,
@@ -67,9 +69,12 @@ class MemoryFileHandle implements LedgerFileHandle {
 
   constructor(
     readonly name: string,
-    initial = "",
+    initial: string | Uint8Array = "",
   ) {
-    this.bytes = new TextEncoder().encode(initial);
+    this.bytes =
+      typeof initial === "string"
+        ? new TextEncoder().encode(initial)
+        : Uint8Array.from(initial);
   }
 
   async getFile() {
@@ -85,7 +90,10 @@ class MemoryFileHandle implements LedgerFileHandle {
     return {
       write: async (data) => {
         this.writes += 1;
-        pending = new TextEncoder().encode(data);
+        pending =
+          typeof data === "string"
+            ? new TextEncoder().encode(data)
+            : Uint8Array.from(data);
       },
       close: async () => {
         this.bytes = pending;
@@ -282,8 +290,8 @@ async function createRecoverableLedgerHandle(): Promise<{
   );
   await repository.save(currentLedger);
   const file = readLedgerFileForTest(handle.bytes);
-  handle.bytes = new TextEncoder().encode(
-    JSON.stringify({
+  handle.bytes = ledgerFileTestStringToBytes(
+    serializeLedgerFileForTest({
       ...file,
       current: {
         ...file.current,
@@ -446,7 +454,7 @@ describe("DefaultLedgerFileAccessController", () => {
     const original = await createExistingLedgerHandle("original");
     const copy = new MemoryFileHandle(
       "copy.lftl",
-      new TextDecoder().decode(original.bytes),
+      original.bytes,
     );
     const record: LedgerFileConnectionRecordV1 = {
       connectionFormatVersion: 1,
@@ -480,7 +488,7 @@ describe("DefaultLedgerFileAccessController", () => {
     const original = await createExistingLedgerHandle("reselect");
     const replacement = new MemoryFileHandle(
       "reselect.lftl",
-      new TextDecoder().decode(original.bytes),
+      original.bytes,
     );
     vi.spyOn(original, "isSameEntry").mockResolvedValue(true);
     const connection = createConnectionAdapter({
@@ -517,7 +525,7 @@ describe("DefaultLedgerFileAccessController", () => {
     const original = await createExistingLedgerHandle("reselect-prompt");
     const replacement = new MemoryFileHandle(
       "reselect-prompt.lftl",
-      new TextDecoder().decode(original.bytes),
+      original.bytes,
     );
     vi.spyOn(original, "isSameEntry").mockResolvedValue(true);
     replacement.queryPermission.mockResolvedValueOnce("prompt");
@@ -550,7 +558,7 @@ describe("DefaultLedgerFileAccessController", () => {
     const original = await createExistingLedgerHandle("late-reselect");
     const replacement = new MemoryFileHandle(
       "late-reselect.lftl",
-      new TextDecoder().decode(original.bytes),
+      original.bytes,
     );
     const permission =
       createDeferred<"granted" | "prompt" | "denied">();
@@ -598,7 +606,7 @@ describe("DefaultLedgerFileAccessController", () => {
     const original = await createExistingLedgerHandle("compare-fails");
     const replacement = new MemoryFileHandle(
       "compare-fails.lftl",
-      new TextDecoder().decode(original.bytes),
+      original.bytes,
     );
     vi.spyOn(original, "isSameEntry").mockRejectedValue(
       new Error("identity unavailable"),

@@ -35,6 +35,10 @@ import {
 import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
+import {
+  ledgerFileBytesToTestString,
+  ledgerFileTestStringToBytes,
+} from "@/test-support";
 import { usePersistentLedger } from "./usePersistentLedger";
 
 const PASSPHRASE = "correct horse battery staple";
@@ -109,7 +113,10 @@ class ImportLedgerHandle implements LedgerFileHandle {
           this.failNextWrite = false;
           throw new Error("write failed");
         }
-        const encoded = new TextEncoder().encode(serialized);
+        const encoded =
+          typeof serialized === "string"
+            ? new TextEncoder().encode(serialized)
+            : Uint8Array.from(serialized);
         pending = new Uint8Array(new ArrayBuffer(encoded.byteLength));
         pending.set(encoded);
       },
@@ -122,10 +129,10 @@ class ImportLedgerHandle implements LedgerFileHandle {
           await gate.release.promise;
         }
         if (pending) {
-          const serialized = new TextDecoder().decode(pending);
+          const serialized = ledgerFileBytesToTestString(pending);
           const committed = this.mutateAfterClose?.(serialized) ?? serialized;
           this.mutateAfterClose = null;
-          const encoded = new TextEncoder().encode(committed);
+          const encoded = ledgerFileTestStringToBytes(committed);
           this.bytes = new Uint8Array(new ArrayBuffer(encoded.byteLength));
           this.bytes.set(encoded);
         }
@@ -174,7 +181,7 @@ class ImportLedgerHandle implements LedgerFileHandle {
   }
 
   text(): string {
-    return new TextDecoder().decode(this.bytes);
+    return ledgerFileBytesToTestString(this.bytes);
   }
 }
 
@@ -1020,7 +1027,7 @@ describe("usePersistentLedger ready C import", () => {
     });
     const writesBeforeImport = handle.writeCount;
     const writablesBeforeImport = handle.createWritableCount;
-    const externallyChanged = new TextEncoder().encode(
+    const externallyChanged = ledgerFileTestStringToBytes(
       `${handle.text()}\n`,
     );
     const exactExternalBytes = new Uint8Array(

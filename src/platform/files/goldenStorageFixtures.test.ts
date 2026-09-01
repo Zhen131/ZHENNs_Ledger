@@ -12,7 +12,11 @@ import {
   LedgerFileHandleAdapter,
   type LedgerFileHandle,
 } from "./ledgerFileHandleAdapter";
-import { inspectLedgerFile, LedgerFileRepository } from "./ledgerFileRepository";
+import {
+  inspectLedgerFile,
+  LEDGER_FILE_REPOSITORY_ERROR_CODES,
+  LedgerFileRepository,
+} from "./ledgerFileRepository";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 
 const GOLDEN_BACKUP_URL = new URL(
@@ -36,6 +40,7 @@ const TEST_SESSION_LEASE: LedgerFileSessionLease = {
 
 class ReadOnlyGoldenLedgerHandle implements LedgerFileHandle {
   readonly name = "golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl";
+  writeAttempts = 0;
 
   constructor(private readonly bytes: Uint8Array) {}
 
@@ -48,12 +53,33 @@ class ReadOnlyGoldenLedgerHandle implements LedgerFileHandle {
   }
 
   async createWritable(): Promise<never> {
+    this.writeAttempts += 1;
     throw new Error("Golden fixture tests must remain read-only");
   }
 
   async isSameEntry(other: LedgerFileHandle): Promise<boolean> {
     return other === this;
   }
+
+  snapshot(): Uint8Array {
+    return this.bytes.slice();
+  }
+}
+
+async function expectV2Rejection(
+  operation: () => Promise<unknown>,
+): Promise<void> {
+  await expect(operation()).rejects.toMatchObject({
+    code: LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
+    message: expect.stringContaining("V2"),
+    cause: expect.arrayContaining([
+      expect.objectContaining({
+        code: "LEDGER_FILE_UNSUPPORTED_VERSION",
+        path: "fileFormatVersion",
+        message: expect.stringContaining("V2"),
+      }),
+    ]),
+  });
 }
 
 describe("storage golden fixtures", () => {
@@ -73,28 +99,32 @@ describe("storage golden fixtures", () => {
     expect(serializeBackupEnvelope(result.value)).toBe(serialized);
   });
 
-  it("freezes and opens the product-path file format V2 fixture", async () => {
+  it("freezes and rejects the product-path file format V2 fixture without mutation", async () => {
     const bytes = new Uint8Array(readFileSync(GOLDEN_LEDGER_FILE_URL));
 
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(
       GOLDEN_LEDGER_FILE_SHA256,
     );
     const handle = new ReadOnlyGoldenLedgerHandle(bytes);
+    const before = handle.snapshot();
     const adapter = new LedgerFileHandleAdapter();
-    const envelope = await inspectLedgerFile(adapter, handle);
-    expect(envelope.fileFormatVersion).toBe(2);
-    expect(envelope.crypto.cryptoVersion).toBe(1);
-    expect(envelope.current.ledgerSchemaVersion).toBe(4);
-    expect(envelope.previous?.ledgerSchemaVersion).toBe(4);
 
-    const repository = await LedgerFileRepository.open(
-      adapter,
-      handle,
-      GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
-      { sessionLease: TEST_SESSION_LEASE },
+    await expectV2Rejection(() => inspectLedgerFile(adapter, handle));
+    await expectV2Rejection(() =>
+      LedgerFileRepository.open(
+        adapter,
+        handle,
+        GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
+        { sessionLease: TEST_SESSION_LEASE },
+      ),
     );
-    await expect(repository.load()).resolves.toEqual(
-      createGoldenStorageScenario(),
+
+    expect(handle.writeAttempts).toBe(0);
+    const after = handle.snapshot();
+    expect(after.byteLength).toBe(before.byteLength);
+    expect(createHash("sha256").update(after).digest("hex")).toBe(
+      GOLDEN_LEDGER_FILE_SHA256,
     );
+    expect(after).toEqual(before);
   });
 });

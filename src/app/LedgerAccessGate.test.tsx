@@ -276,7 +276,10 @@ class MemoryLedgerFileHandle implements LedgerFileHandle {
     return {
       write: async (serialized) => {
         this.writes += 1;
-        pending = new TextEncoder().encode(serialized);
+        pending =
+          typeof serialized === "string"
+            ? new TextEncoder().encode(serialized)
+            : Uint8Array.from(serialized);
       },
       close: async () => {
         this.bytes = pending;

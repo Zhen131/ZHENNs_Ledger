@@ -7,7 +7,7 @@ Golden fixtures are immutable after their first commit. Every fixture contains f
 | `golden-backup-format-v3-ledger-schema-v3.json` | backup format 3; ledger schema 3 | 2026-08-28 | Legacy schema 3 backup with 3 assets, 300 fictional buy trades, one manual price, and one fee rule. Retained as an unsupported-version rejection input while the product remains in Alpha. | — |
 | `golden-backup-format-v3-ledger-schema-v4.json` | backup format 3; ledger schema 4 | 2026-08-28 | Minimal schema 4 envelope with one asset, no trades, and one cash event, asset transfer, manual price, and fee rule. | — |
 | `golden-backup-format-v3-ledger-schema-v4-rich.json` | backup format 3; ledger schema 4 | 2026-08-31 | Rich schema 4 relationships: two buy cost lots, one sale consuming both lots, one asset retained across exchange and cold-wallet locations, one internal transfer with a network fee, one cash event, and one manual price. | — |
-| `golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl` | file format 2; crypto 1; ledger schema 4 | 2026-08-31 | Product-path encrypted C file with adjacent `current` and `previous` generations. The current generation contains the rich schema 4 scenario; the previous generation contains the initial empty ledger. | `W15-Golden-V2-Fictional-Ledger` |
+| `golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl` | file format 2; crypto 1; ledger schema 4 | 2026-08-31 | Frozen evidence retained for a future migration project. It contains adjacent `current` and `previous` generations, is currently referenced only by the product-path rejection test, and will regain decoding coverage when migration is implemented. | `W15-Golden-V2-Fictional-Ledger` |
 
 ## Known gaps
 

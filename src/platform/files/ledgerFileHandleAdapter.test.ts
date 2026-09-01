@@ -35,7 +35,10 @@ class AtomicFakeHandle implements LedgerFileHandle {
       write: async (data) => {
         this.events.push("write");
         if (this.writeError) throw this.writeError;
-        pending = new TextEncoder().encode(data);
+        pending =
+          typeof data === "string"
+            ? new TextEncoder().encode(data)
+            : Uint8Array.from(data);
       },
       close: async () => {
         this.events.push("close");
@@ -301,6 +304,24 @@ describe("LedgerFileHandleAdapter", () => {
       keepExistingData: false,
       mode: "exclusive",
     });
+    expect(handle.events).toEqual([
+      "createWritable",
+      "write",
+      "close",
+      "getFile",
+      "arrayBuffer",
+    ]);
+  });
+
+  it("writes and reads back raw binary bytes without UTF-8 conversion", async () => {
+    const adapter = new LedgerFileHandleAdapter();
+    const handle = new AtomicFakeHandle("ledger.lftl", "old");
+    const bytes = new Uint8Array([0xff, 0x00, 0x80, 0x41]);
+
+    await expect(
+      adapter.writeBinaryAndReadBack(handle, bytes),
+    ).resolves.toEqual({ bytes, byteLength: bytes.byteLength });
+    expect(handle.bytes).toEqual(bytes);
     expect(handle.events).toEqual([
       "createWritable",
       "write",

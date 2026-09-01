@@ -19,7 +19,10 @@ import { LedgerFileRepository } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createUsdtSimpleTrade as createSimpleTrade,
+  ledgerFileBytesToTestString,
+  ledgerFileTestStringToBytes,
   readLedgerFileForTest,
+  serializeLedgerFileForTest,
 } from "@/test-support";
 import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger } from "./usePersistentLedger";
@@ -54,7 +57,7 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 class ControlledLedgerHandle implements LedgerFileHandle {
-  bytes = new Uint8Array();
+  bytes: Uint8Array = new Uint8Array();
   writeCount = 0;
   mutateAfterClose: ((serialized: string) => string) | null = null;
   private failReadAfterClose = false;
@@ -84,7 +87,10 @@ class ControlledLedgerHandle implements LedgerFileHandle {
     return {
       write: async (serialized) => {
         this.writeCount += 1;
-        pending = new TextEncoder().encode(serialized);
+        pending =
+          typeof serialized === "string"
+            ? new TextEncoder().encode(serialized)
+            : Uint8Array.from(serialized);
       },
       close: async () => {
         const closeStarted = this.closeStarted;
@@ -96,12 +102,12 @@ class ControlledLedgerHandle implements LedgerFileHandle {
           await closeRelease.promise;
         }
         if (!pending) return;
-        const serialized = new TextDecoder().decode(pending);
+        const serialized = ledgerFileBytesToTestString(pending);
         const published = this.mutateAfterClose
           ? this.mutateAfterClose(serialized)
           : serialized;
         this.mutateAfterClose = null;
-        this.bytes = new TextEncoder().encode(published);
+        this.bytes = ledgerFileTestStringToBytes(published);
         if (this.failReadAfterClose) {
           this.failReadAfterClose = false;
           this.failNextRead = true;
@@ -188,7 +194,7 @@ class GatedHookSessionLease implements LedgerFileSessionLease {
 
 function replaceLedgerFileSalt(serialized: string): string {
   const file = readLedgerFileForTest(serialized);
-  return JSON.stringify({
+  return serializeLedgerFileForTest({
     ...file,
     crypto: {
       ...file.crypto,
@@ -806,7 +812,7 @@ describe("usePersistentLedger file session capabilities", () => {
         sessionLease,
       },
     );
-    const serializedA = new TextDecoder().decode(handle.bytes);
+    const serializedA = ledgerFileBytesToTestString(handle.bytes);
     const { result } = renderHook(() =>
       usePersistentLedger(repository, fixedClock, {
         canClearReadyLedger: false,
@@ -861,7 +867,7 @@ describe("usePersistentLedger file session capabilities", () => {
     });
 
     expect(handle.writeCount).toBe(1);
-    expect(new TextDecoder().decode(handle.bytes)).toBe(serializedA);
+    expect(ledgerFileBytesToTestString(handle.bytes)).toBe(serializedA);
     await expect(repository.load()).resolves.toEqual(ledgerA);
   });
 
@@ -1172,7 +1178,7 @@ describe("usePersistentLedger file session capabilities", () => {
       ],
     };
     await externalRepository.save(ledger302);
-    const disk302 = new TextDecoder().decode(handle.bytes);
+    const disk302 = ledgerFileBytesToTestString(handle.bytes);
     const writesAfterExternal = handle.writeCount;
 
     act(() => {
@@ -1193,7 +1199,7 @@ describe("usePersistentLedger file session capabilities", () => {
     expect(result.current.canRetryPersistence).toBe(false);
     expect(staleSave).toHaveBeenCalledTimes(1);
     expect(handle.writeCount).toBe(writesAfterExternal);
-    expect(new TextDecoder().decode(handle.bytes)).toBe(disk302);
+    expect(ledgerFileBytesToTestString(handle.bytes)).toBe(disk302);
 
     act(() => {
       expect(
@@ -1221,14 +1227,14 @@ describe("usePersistentLedger file session capabilities", () => {
     expect(result.current.canRetryPersistence).toBe(false);
     expect(staleSave).toHaveBeenCalledTimes(2);
     expect(handle.writeCount).toBe(writesAfterExternal);
-    expect(new TextDecoder().decode(handle.bytes)).toBe(disk302);
+    expect(ledgerFileBytesToTestString(handle.bytes)).toBe(disk302);
     let retried = true;
     await act(async () => {
       retried = await result.current.retryPersistence();
     });
     expect(retried).toBe(false);
     expect(handle.writeCount).toBe(writesAfterExternal);
-    expect(new TextDecoder().decode(handle.bytes)).toBe(disk302);
+    expect(ledgerFileBytesToTestString(handle.bytes)).toBe(disk302);
 
     act(() => {
       expect(
@@ -1248,7 +1254,7 @@ describe("usePersistentLedger file session capabilities", () => {
     expect(result.current.canRetryPersistence).toBe(false);
     expect(staleSave).toHaveBeenCalledTimes(3);
     expect(handle.writeCount).toBe(writesAfterExternal);
-    expect(new TextDecoder().decode(handle.bytes)).toBe(disk302);
+    expect(ledgerFileBytesToTestString(handle.bytes)).toBe(disk302);
     await expect(externalRepository.load()).resolves.toEqual(
       ledger302,
     );

@@ -1,7 +1,13 @@
 import { MAX_LEDGER_FILE_V2_BYTES } from "./ledgerFileContract";
+import { LEDGER_FILE_OUTER_V3_CONSTANTS } from "./ledgerFileContainerV3";
 
 export type LedgerFileReadResult = {
   text: string;
+  byteLength: number;
+};
+
+export type LedgerFileBytesReadResult = {
+  bytes: Uint8Array;
   byteLength: number;
 };
 
@@ -18,7 +24,7 @@ export interface LedgerFileLike {
 }
 
 export interface LedgerFileWritable {
-  write(data: string): Promise<void>;
+  write(data: string | Uint8Array): Promise<void>;
   close(): Promise<void>;
   abort?(reason?: unknown): Promise<void>;
 }
@@ -232,6 +238,34 @@ export class LedgerFileHandleAdapter {
   }
 
   async read(handle: LedgerFileHandle): Promise<LedgerFileReadResult> {
+    const read = await this.readBytes(handle, MAX_LEDGER_FILE_V2_BYTES);
+    try {
+      return {
+        text: new TextDecoder("utf-8", { fatal: true }).decode(read.bytes),
+        byteLength: read.byteLength,
+      };
+    } catch (error) {
+      throw new LedgerFileAdapterError(
+        "utf8",
+        "Ledger file is not valid UTF-8",
+        error,
+      );
+    }
+  }
+
+  async readBinary(
+    handle: LedgerFileHandle,
+  ): Promise<LedgerFileBytesReadResult> {
+    return this.readBytes(
+      handle,
+      LEDGER_FILE_OUTER_V3_CONSTANTS.maximumFileBytes,
+    );
+  }
+
+  private async readBytes(
+    handle: LedgerFileHandle,
+    maximumBytes: number,
+  ): Promise<LedgerFileBytesReadResult> {
     this.assertLedgerFileExtension(handle);
     let file: LedgerFileLike;
     try {
@@ -244,7 +278,7 @@ export class LedgerFileHandleAdapter {
       );
     }
 
-    if (file.size > MAX_LEDGER_FILE_V2_BYTES) {
+    if (file.size > maximumBytes) {
       throw new LedgerFileAdapterError(
         "size",
         "Ledger file exceeds the 32 MiB outer limit",
@@ -262,25 +296,17 @@ export class LedgerFileHandleAdapter {
       );
     }
 
-    if (buffer.byteLength > MAX_LEDGER_FILE_V2_BYTES) {
+    if (buffer.byteLength > maximumBytes) {
       throw new LedgerFileAdapterError(
         "size",
         "Ledger file bytes exceed the 384 MiB outer limit",
       );
     }
 
-    try {
-      return {
-        text: new TextDecoder("utf-8", { fatal: true }).decode(buffer),
-        byteLength: buffer.byteLength,
-      };
-    } catch (error) {
-      throw new LedgerFileAdapterError(
-        "utf8",
-        "Ledger file is not valid UTF-8",
-        error,
-      );
-    }
+    return {
+      bytes: new Uint8Array(buffer.slice(0)),
+      byteLength: buffer.byteLength,
+    };
   }
 
   async writeAndReadBack(
@@ -361,6 +387,102 @@ export class LedgerFileHandleAdapter {
 
     try {
       const readback = await this.read(handle);
+      assertWriteNotAborted(signal);
+      return readback;
+    } catch (error) {
+      if (error instanceof LedgerFileAdapterError && error.stage === "aborted") {
+        throw error;
+      }
+      throw new LedgerFileAdapterError(
+        "readback",
+        "Could not read the ledger file after closing the writable stream",
+        error,
+      );
+    } finally {
+      signal?.removeEventListener("abort", abortWritable);
+    }
+  }
+
+  async writeBinaryAndReadBack(
+    handle: LedgerFileHandle,
+    serializedFile: Uint8Array,
+    signal?: AbortSignal,
+  ): Promise<LedgerFileBytesReadResult> {
+    this.assertLedgerFileExtension(handle);
+    assertWriteNotAborted(signal);
+    if (
+      serializedFile.byteLength >
+      LEDGER_FILE_OUTER_V3_CONSTANTS.maximumFileBytes
+    ) {
+      throw new LedgerFileAdapterError(
+        "size",
+        "Serialized ledger file exceeds the V3 outer limit",
+      );
+    }
+
+    let writable: LedgerFileWritable;
+    try {
+      writable = await handle.createWritable({
+        keepExistingData: false,
+        mode: "exclusive",
+      });
+    } catch (error) {
+      throw new LedgerFileAdapterError(
+        "create-writable",
+        "Could not create a ledger file writable stream",
+        error,
+      );
+    }
+
+    const abortWritable = () => {
+      void bestEffortAbort(writable, signal?.reason);
+    };
+    signal?.addEventListener("abort", abortWritable, {
+      once: true,
+    });
+
+    try {
+      if (signal?.aborted) {
+        await bestEffortAbort(writable, signal.reason);
+        assertWriteNotAborted(signal);
+      }
+      await writable.write(Uint8Array.from(serializedFile));
+      if (signal?.aborted) {
+        await bestEffortAbort(writable, signal.reason);
+        assertWriteNotAborted(signal);
+      }
+    } catch (error) {
+      signal?.removeEventListener("abort", abortWritable);
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
+      await bestEffortAbort(writable, error);
+      throw new LedgerFileAdapterError(
+        "write",
+        "Could not write the complete ledger file",
+        error,
+      );
+    }
+
+    try {
+      assertWriteNotAborted(signal);
+      await writable.close();
+      assertWriteNotAborted(signal);
+    } catch (error) {
+      signal?.removeEventListener("abort", abortWritable);
+      if (error instanceof LedgerFileAdapterError) {
+        throw error;
+      }
+      await bestEffortAbort(writable, error);
+      throw new LedgerFileAdapterError(
+        "close",
+        "Could not close the ledger file writable stream",
+        error,
+      );
+    }
+
+    try {
+      const readback = await this.readBinary(handle);
       assertWriteNotAborted(signal);
       return readback;
     } catch (error) {
