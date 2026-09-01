@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
+import { useLanguage } from "@/ui";
 
 export type TradeDeletePhase =
   | "idle"
@@ -34,6 +35,7 @@ export function TradeDeleteControl({
   onCancel: () => void;
   onUndo: () => void;
 }>) {
+  const { t } = useLanguage();
   const rootRef = useRef<HTMLDivElement>(null);
   const ignoreRepeatedKeyboardClickRef = useRef(false);
 
@@ -91,23 +93,23 @@ export function TradeDeleteControl({
             style={{ width: `${progress}%` }}
           />
           <button
-            aria-label={`撤回${ariaLabel}`}
+            aria-label={`${t("trades.delete.undoPrefix")}${ariaLabel}`}
             className="relative w-full px-3 py-2 text-sm font-semibold text-amber-950"
             onClick={onUndo}
             type="button"
           >
-            撤回 · {(remainingMs / 1_000).toFixed(1)} 秒
+            {t("trades.delete.countdownPrefix")}{(remainingMs / 1_000).toFixed(1)}{t("trades.delete.secondsSuffix")}
           </button>
         </div>
       ) : phase === "persisting" ? (
         <button
           aria-busy="true"
-          aria-label={`${ariaLabel}正在保存`}
+          aria-label={`${ariaLabel}${t("trades.delete.savingSuffix")}`}
           className="w-full rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500"
           disabled
           type="button"
         >
-          正在保存…
+          {t("trades.delete.saving")}
         </button>
       ) : (
         <button
@@ -123,7 +125,7 @@ export function TradeDeleteControl({
           onKeyDown={handleKeyDown}
           type="button"
         >
-          {phase === "armed" ? "再次点击删除" : "删除"}
+          {phase === "armed" ? t("trades.delete.armed") : t("trades.delete.idle")}
         </button>
       )}
     </div>

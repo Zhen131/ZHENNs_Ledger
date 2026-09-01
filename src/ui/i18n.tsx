@@ -75,6 +75,13 @@ const chineseMessages = {
   "shared.shell.lock": "锁定账本",
   "shared.shell.workspaceLabel": "加密账本工作区",
   "shared.confirmDelete.confirm": "再次点击确认",
+  "trades.delete.undoPrefix": "撤回",
+  "trades.delete.countdownPrefix": "撤回 · ",
+  "trades.delete.secondsSuffix": " 秒",
+  "trades.delete.savingSuffix": "正在保存",
+  "trades.delete.saving": "正在保存…",
+  "trades.delete.armed": "再次点击删除",
+  "trades.delete.idle": "删除",
   "record.workspace.ariaLabel": "记账工作区",
   "record.heading": "记录现金、交易、资产转入转出与价格",
   "record.description":
