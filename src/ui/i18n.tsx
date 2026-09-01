@@ -401,6 +401,16 @@ const chineseMessages = {
   "assetTransfers.action.save": "保存资产转入转出", "assetTransfers.action.confirmDelete": "确认删除", "assetTransfers.action.delete": "删除",
   "assetTransfers.events.heading": "资产转移事实", "assetTransfers.events.empty": "暂无资产转移。", "assetTransfers.networkFeeShort": "链上手续费", "assetTransfers.unitPriceShort": "到账单价",
   "assetTransfers.pagination.ariaLabel": "资产转移事实分页", "assetTransfers.pagination.totalPrefix": "共", "assetTransfers.pagination.totalSuffix": "条", "assetTransfers.pagination.pagePrefix": "第", "assetTransfers.pagination.pageSuffix": "页", "assetTransfers.pagination.previous": "上一页", "assetTransfers.pagination.next": "下一页",
+  "dashboard.clearConfirmation.legacy": "清空本地账本",
+  "dashboard.fileStatus.switchBlocked": "切换已阻止",
+  "dashboard.fileStatus.loading": "正在读取账本",
+  "dashboard.fileStatus.needsAttention": "文件需要处理",
+  "dashboard.fileStatus.readOnly": "只读账本",
+  "dashboard.fileStatus.saving": "正在保存到加密文件",
+  "dashboard.fileStatus.saved": "已保存到加密文件",
+  "dashboard.fileStatus.dirty": "有修改等待保存",
+  "dashboard.fileStatus.connected": "加密文件已连接",
+  "dashboard.summaryMetric.incomplete": "不可完整计算",
 } as const;
 
 export type TranslationKey = keyof typeof chineseMessages;

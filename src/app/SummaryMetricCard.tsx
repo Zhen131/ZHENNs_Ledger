@@ -1,5 +1,5 @@
 import type { SummaryMetric } from "@/features/portfolio";
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, useLanguage } from "@/ui";
 
 export function SummaryMetricCard({
   label,
@@ -10,12 +10,13 @@ export function SummaryMetricCard({
   metric: SummaryMetric;
   valuationLabel: string;
 }>) {
+  const { t } = useLanguage();
   return (
     <article className="rounded-md border border-slate-200 bg-slate-50 p-4">
       <h3 className="text-sm font-medium text-slate-600">{label}</h3>
       <p className="mt-2 text-xl font-semibold text-slate-950">
         {metric.value === undefined ? (
-          "不可完整计算"
+          t("dashboard.summaryMetric.incomplete")
         ) : (
           <>
             <LedgerNumber kind="money" value={metric.value} /> {valuationLabel}

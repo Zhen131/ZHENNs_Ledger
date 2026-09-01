@@ -47,6 +47,7 @@ import { LocalAssetManager } from "@/features/assets/ui";
 import {
   ConfirmDeleteButton,
   LedgerNumber,
+  useLanguage,
   type ConfirmDeleteOutcome,
 } from "@/ui";
 import {
@@ -59,7 +60,6 @@ import type { ClearConfirmationMode } from "./DashboardShellTypes";
 import {
   FILE_SAVED_FEEDBACK_MS,
   getWorkspaceFileStatus,
-  LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT,
   shortLedgerId,
 } from "./DashboardShellHelpers";
 import { Section } from "./Section";
@@ -93,6 +93,7 @@ export function DashboardShell({
     drain: PersistentLedgerState["drainForSessionQuiesce"],
   ) => void;
 }>) {
+  const { t } = useLanguage();
   const repository = session?.repository ?? providedRepository;
   if (!repository) {
     throw new Error("DashboardShell requires a LedgerSession or repository");
@@ -104,7 +105,7 @@ export function DashboardShell({
   const clearConfirmationText =
     storageKind === "ledger-file"
       ? READY_LEDGER_CLEAR_CONFIRMATION_TEXT
-      : LEGACY_CLEAR_LEDGER_CONFIRMATION_TEXT;
+      : t("dashboard.clearConfirmation.legacy");
   const {
     ledgerData,
     applyLedgerAction,
@@ -518,6 +519,7 @@ export function DashboardShell({
     isDirty,
     isReadOnly,
     repositorySwitchBlocked,
+    t,
   });
 
   if (
