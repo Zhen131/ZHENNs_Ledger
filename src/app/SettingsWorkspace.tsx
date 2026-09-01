@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { SurfaceCard } from "@/ui";
+import { SurfaceCard, useLanguage } from "@/ui";
 import type { HydrationStatus } from "./hydrationState";
 import type { PersistenceOperation } from "./usePersistentLedger";
 
@@ -45,6 +45,7 @@ export function SettingsWorkspace({
   storageKind: "indexeddb" | "ledger-file";
   onClear: (mode: ClearMode) => Promise<boolean>;
 }>) {
+  const { language, setLanguage, t } = useLanguage();
   const [tab, setTab] = useState<SettingsTab>("market");
   const [dangerExpanded, setDangerExpanded] = useState(false);
   const [confirmationValue, setConfirmationValue] = useState("");
@@ -178,6 +179,34 @@ export function SettingsWorkspace({
         <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
           配置只作用于当前账本；历史经济规则通过新版本替换，不原地改写。
         </p>
+      </SurfaceCard>
+
+      <SurfaceCard className="p-5">
+        <h2 className="text-lg font-semibold">
+          {t("settings.language.heading")}
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
+          {t("settings.language.description")}
+        </p>
+        <label className="mt-4 grid max-w-sm gap-2 text-sm font-medium">
+          {t("settings.language.label")}
+          <select
+            aria-label={t("settings.language.label")}
+            className="rounded-lg border border-[var(--ledger-border)] bg-white px-3 py-2 text-[var(--ledger-ink)]"
+            onChange={(event) =>
+              setLanguage(event.target.value as typeof language)
+            }
+            value={language}
+          >
+            <option value="zh-CN">
+              {t("settings.language.optionChinese")}
+            </option>
+            <option value="en">{t("settings.language.optionEnglish")}</option>
+            <option value="hu">
+              {t("settings.language.optionHungarian")}
+            </option>
+          </select>
+        </label>
       </SurfaceCard>
 
       <div
