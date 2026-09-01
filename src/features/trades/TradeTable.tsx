@@ -14,6 +14,7 @@ import { getLedgerDateKey, isLedgerFactInFuture } from "@/core/shared";
 import {
   ConfirmDeleteButton,
   LedgerNumber,
+  useLanguage,
   type ConfirmDeleteOutcome,
 } from "@/ui";
 import {
@@ -82,6 +83,7 @@ function WorkspaceTradeTable({
   locateRequest = null,
   onLocateComplete = ignoreLocationResult,
 }: Omit<TradeTableProps, "variant" | "onDelete">) {
+  const { t } = useLanguage();
   const detailButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
   const [locatedDate, setLocatedDate] = useState<string | null>(null);
@@ -183,19 +185,19 @@ function WorkspaceTradeTable({
       <table className="w-full min-w-[820px] text-left text-sm">
         <thead className="sticky top-0 z-10 bg-[var(--ledger-surface-muted)] text-[var(--ledger-muted)]">
           <tr>
-            <th className="px-4 py-3 font-medium">日期</th>
-            <th className="px-3 py-3 font-medium">类型</th>
-            <th className="px-3 py-3 font-medium">资产</th>
-            <th className="px-3 py-3 font-medium">成交金额</th>
-            <th className="px-3 py-3 font-medium">手续费</th>
-            <th className="w-56 px-4 py-3 font-medium">操作</th>
+            <th className="px-4 py-3 font-medium">{t("trades.table.date")}</th>
+            <th className="px-3 py-3 font-medium">{t("trades.table.type")}</th>
+            <th className="px-3 py-3 font-medium">{t("trades.table.asset")}</th>
+            <th className="px-3 py-3 font-medium">{t("trades.table.totalValue")}</th>
+            <th className="px-3 py-3 font-medium">{t("trades.table.fee")}</th>
+            <th className="w-56 px-4 py-3 font-medium">{t("trades.table.actions")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--ledger-border)] bg-white">
           {trades.length === 0 ? (
             <tr>
               <td className="px-4 py-12 text-center text-[var(--ledger-muted)]" colSpan={6}>
-                没有符合当前筛选的交易。
+                {t("trades.table.noFilteredTrades")}
               </td>
             </tr>
           ) : (
@@ -260,7 +262,7 @@ function WorkspaceTradeTable({
                     <td className="px-4 py-3 text-[var(--ledger-muted)]">
                       {trade.occurredAt}
                       {todayKey && isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
-                        <span className="ml-2 font-medium text-red-700">未来事实</span>
+                        <span className="ml-2 font-medium text-red-700">{t("trades.table.futureFact")}</span>
                       ) : null}
                     </td>
                     <td className="px-3 py-3">
@@ -271,7 +273,7 @@ function WorkspaceTradeTable({
                             : "bg-amber-50 text-amber-900"
                         }`}
                       >
-                        {trade.type === "buy" ? "买入" : "卖出"}
+                        {trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")}
                       </span>
                     </td>
                     <td className="px-3 py-3 font-semibold">{trade.assetSymbol}</td>
@@ -302,12 +304,12 @@ function WorkspaceTradeTable({
                             }}
                             type="button"
                           >
-                            详情
+                            {t("trades.table.details")}
                           </button>
                         ) : null}
                         <TradeDeleteControl
-                          ariaLabel={`删除 ${
-                            trade.type === "buy" ? "买入" : "卖出"
+                          ariaLabel={`${t("trades.table.deletePrefix")} ${
+                            trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")
                           } ${trade.assetSymbol} ${trade.occurredAt}`}
                           className={phase === "idle" ? "" : "col-span-2"}
                           disabled={rowDeleteDisabled}
@@ -331,11 +333,11 @@ function WorkspaceTradeTable({
                       <td className="px-4 py-4" colSpan={6}>
                         <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                           <Detail
-                            label="数量"
+                            label={t("trades.table.quantity")}
                             value={<LedgerNumber kind="quantity" value={trade.quantity} />}
                           />
                           <Detail
-                            label="成交均价"
+                            label={t("trades.table.averagePrice")}
                             value={
                               <>
                                 <LedgerNumber kind="money" value={trade.price} />{" "}
@@ -343,23 +345,23 @@ function WorkspaceTradeTable({
                               </>
                             }
                           />
-                          <Detail label="平台" value={trade.platform ?? "未填写"} />
+                          <Detail label={t("trades.table.platform")} value={trade.platform ?? t("trades.table.notFilled")} />
                           <Detail
-                            label="手续费来源"
-                            value={trade.feeRuleId ? `FeeRule ${trade.feeRuleId}` : "手填"}
+                            label={t("trades.table.feeSource")}
+                            value={trade.feeRuleId ? `FeeRule ${trade.feeRuleId}` : t("trades.table.manual")}
                           />
                           <Detail
-                            label="现金影响"
+                            label={t("trades.table.cashImpact")}
                             value={cashImpact.ok ? (
                               <>
                                 <LedgerNumber kind="money" value={cashImpact.amount} />{" "}
                                 {cashImpact.currency} · {cashImpact.kind === "buy-outflow"
-                                  ? "买入总支出"
-                                  : "卖出净到账"}
+                                  ? t("trades.table.buyOutflow")
+                                  : t("trades.table.sellProceeds")}
                               </>
-                            ) : `不可可靠计算：${cashImpact.feeCurrency} 手续费未换算`}
+                            ) : `${t("trades.table.unreliablePrefix")}：${cashImpact.feeCurrency} ${t("trades.table.unconvertedFee")}`}
                           />
-                          <Detail label="备注" value={trade.note ?? "未填写"} />
+                          <Detail label={t("trades.table.note")} value={trade.note ?? t("trades.table.notFilled")} />
                         </div>
                       </td>
                     </tr>
@@ -389,6 +391,7 @@ function LegacyTradeTable({
   deleteDisabled = false,
   todayKey,
 }: Omit<TradeTableProps, "variant">) {
+  const { t } = useLanguage();
   const columnCount = onDelete ? 10 : 9;
 
   return (
@@ -396,23 +399,23 @@ function LegacyTradeTable({
       <table className="w-full min-w-[960px] text-left text-sm">
         <thead className="border-b border-slate-200 text-slate-500">
           <tr>
-            <th className="py-2 font-medium">日期</th>
-            <th className="py-2 font-medium">类型</th>
-            <th className="py-2 font-medium">资产</th>
-            <th className="py-2 font-medium">数量</th>
-            <th className="py-2 font-medium">均价</th>
-            <th className="py-2 font-medium">成交金额（不含手续费）</th>
-            <th className="py-2 font-medium">实际手续费</th>
-            <th className="py-2 font-medium">平台 / 手续费来源</th>
-            <th className="py-2 font-medium">现金影响</th>
-            {onDelete ? <th className="py-2 font-medium">操作</th> : null}
+            <th className="py-2 font-medium">{t("trades.table.date")}</th>
+            <th className="py-2 font-medium">{t("trades.table.type")}</th>
+            <th className="py-2 font-medium">{t("trades.table.asset")}</th>
+            <th className="py-2 font-medium">{t("trades.table.quantity")}</th>
+            <th className="py-2 font-medium">{t("trades.table.averagePriceShort")}</th>
+            <th className="py-2 font-medium">{t("trades.table.totalValueExcludingFee")}</th>
+            <th className="py-2 font-medium">{t("trades.table.actualFee")}</th>
+            <th className="py-2 font-medium">{t("trades.table.platformFeeSource")}</th>
+            <th className="py-2 font-medium">{t("trades.table.cashImpact")}</th>
+            {onDelete ? <th className="py-2 font-medium">{t("trades.table.actions")}</th> : null}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {trades.length === 0 ? (
             <tr>
               <td className="py-8 text-center text-slate-500" colSpan={columnCount}>
-                暂无交易。添加交易后，这里会自动显示。
+                {t("trades.table.empty")}
               </td>
             </tr>
           ) : (
@@ -423,11 +426,11 @@ function LegacyTradeTable({
                   <td className="py-3 text-slate-600">
                     {trade.occurredAt}
                     {todayKey && isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
-                      <span className="ml-2 font-medium text-red-700">无效未来事实</span>
+                      <span className="ml-2 font-medium text-red-700">{t("trades.table.invalidFutureFact")}</span>
                     ) : null}
                   </td>
                   <td className="py-3 text-slate-600">
-                    {trade.type === "buy" ? "买入" : "卖出"}
+                    {trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")}
                   </td>
                   <td className="py-3 font-medium">{trade.assetSymbol}</td>
                   <td className="py-3 text-slate-600">
@@ -448,9 +451,9 @@ function LegacyTradeTable({
                     {trade.feeCurrency}
                   </td>
                   <td className="py-3 text-slate-600">
-                    {trade.platform ?? "未填写"}
+                    {trade.platform ?? t("trades.table.notFilled")}
                     <span className="block text-xs text-slate-500">
-                      {trade.feeRuleId ? `FeeRule ${trade.feeRuleId}` : "手填"}
+                      {trade.feeRuleId ? `FeeRule ${trade.feeRuleId}` : t("trades.table.manual")}
                     </span>
                   </td>
                   <td className="py-3 text-slate-600">
@@ -460,24 +463,24 @@ function LegacyTradeTable({
                         {cashImpact.currency}
                         <span className="block text-xs text-slate-500">
                           {cashImpact.kind === "buy-outflow"
-                            ? "买入总支出"
-                            : "卖出净到账"}
+                            ? t("trades.table.buyOutflow")
+                            : t("trades.table.sellProceeds")}
                         </span>
                       </>
                     ) : (
                       <span className="text-amber-800">
-                        不可可靠计算：{cashImpact.feeCurrency} 手续费未换算
+                        {t("trades.table.unreliablePrefix")}：{cashImpact.feeCurrency} {t("trades.table.unconvertedFee")}
                       </span>
                     )}
                   </td>
                   {onDelete ? (
                     <td className="py-3">
                       <ConfirmDeleteButton
-                        ariaLabel={`删除 ${
-                          trade.type === "buy" ? "买入" : "卖出"
+                        ariaLabel={`${t("trades.table.deletePrefix")} ${
+                          trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")
                         } ${trade.assetSymbol} ${trade.occurredAt}`}
                         disabled={deleteDisabled}
-                        label="删除"
+                        label={t("trades.table.delete")}
                         onConfirm={() => onDelete(trade.id)}
                       />
                     </td>

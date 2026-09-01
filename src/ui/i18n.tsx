@@ -411,6 +411,8 @@ const chineseMessages = {
   "dashboard.fileStatus.dirty": "有修改等待保存",
   "dashboard.fileStatus.connected": "加密文件已连接",
   "dashboard.summaryMetric.incomplete": "不可完整计算",
+  "trades.table.date": "日期", "trades.table.type": "类型", "trades.table.asset": "资产", "trades.table.totalValue": "成交金额", "trades.table.fee": "手续费", "trades.table.actions": "操作", "trades.table.noFilteredTrades": "没有符合当前筛选的交易。", "trades.table.futureFact": "未来事实", "trades.table.details": "详情", "trades.table.deletePrefix": "删除", "trades.table.quantity": "数量", "trades.table.averagePrice": "成交均价", "trades.table.platform": "平台", "trades.table.notFilled": "未填写", "trades.table.feeSource": "手续费来源", "trades.table.manual": "手填", "trades.table.cashImpact": "现金影响", "trades.table.buyOutflow": "买入总支出", "trades.table.sellProceeds": "卖出净到账", "trades.table.unreliablePrefix": "不可可靠计算", "trades.table.unconvertedFee": "手续费未换算", "trades.table.note": "备注", "trades.table.averagePriceShort": "均价", "trades.table.totalValueExcludingFee": "成交金额（不含手续费）", "trades.table.actualFee": "实际手续费", "trades.table.platformFeeSource": "平台 / 手续费来源", "trades.table.empty": "暂无交易。添加交易后，这里会自动显示。", "trades.table.invalidFutureFact": "无效未来事实", "trades.table.delete": "删除",
+  "trades.type.buy": "买入", "trades.type.sell": "卖出",
 } as const;
 
 export type TranslationKey = keyof typeof chineseMessages;
