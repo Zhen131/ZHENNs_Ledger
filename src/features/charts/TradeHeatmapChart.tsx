@@ -14,6 +14,7 @@ import {
   TRADE_HEATMAP_LEVEL_COLORS,
 } from "./chartOptionBuilders";
 import { EChart } from "./EChart";
+import { useLanguage } from "@/ui";
 
 type OverviewTradeHeatmapProps = Readonly<{
   heatmap: readonly TradeHeatmapDay[];
@@ -57,6 +58,7 @@ function OverviewTradeHeatmap({
   selectedTradeDate,
   onSelectedTradeDateChange,
 }: OverviewTradeHeatmapProps) {
+  const { t } = useLanguage();
   const option = useMemo(
     () => buildTradeHeatmapChartOption(heatmap),
     [heatmap],
@@ -80,11 +82,12 @@ function OverviewTradeHeatmap({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-[var(--ledger-ink)]">
-            最近 365 天交易活跃
+            {t("charts.heatmap.overview.heading")}
           </h3>
           <p className="mt-1 text-xs leading-5 text-[var(--ledger-muted)]">
-            一周一列、星期为行；共 {heatmap.length} 个自然日、
-            {totalTrades} 笔交易。
+            {t("charts.heatmap.overview.descriptionPrefix")} {heatmap.length}{" "}
+            {t("charts.heatmap.overview.daysSuffix")}、{totalTrades}{" "}
+            {t("charts.heatmap.overview.tradesSuffix")}
           </p>
         </div>
         {selectedTradeDate ? (
@@ -93,21 +96,21 @@ function OverviewTradeHeatmap({
             onClick={() => onSelectedTradeDateChange(null)}
             type="button"
           >
-            清除日期筛选
+            {t("charts.heatmap.overview.clearSelection")}
           </button>
         ) : null}
       </div>
       <EChart
-        ariaLabel="最近 365 天交易活跃热力图"
+        ariaLabel={t("charts.heatmap.overview.ariaLabel")}
         className="mt-3 h-56 w-full"
         events={events}
         option={option}
       />
       <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-        活跃等级：无交易 / 低 / 较低 / 较高 / 最高。{" "}
+        {t("charts.heatmap.overview.levels")} {" "}
         {selectedTradeDate
-          ? `当前筛选 ${selectedTradeDate} 的交易，再点同一天可取消。`
-          : "点击日期格可筛选交易列表。"}
+          ? `${t("charts.heatmap.overview.selectedPrefix")} ${selectedTradeDate} ${t("charts.heatmap.overview.selectedSuffix")}`
+          : t("charts.heatmap.overview.idleHint")}
       </p>
     </article>
   );
@@ -118,6 +121,7 @@ function HomeTradeHeatmap({
   onLocateDate,
   onViewAll,
 }: HomeTradeHeatmapProps) {
+  const { t } = useLanguage();
   const cardRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const dayButtonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -184,20 +188,20 @@ function HomeTradeHeatmap({
     >
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-semibold text-[var(--ledger-ink)]">
-          最近 365 天交易活动
+          {t("charts.heatmap.home.heading")}
         </h3>
         <button
           className="shrink-0 text-sm font-semibold text-[var(--ledger-accent-strong)]"
           onClick={onViewAll}
           type="button"
         >
-          查看全部交易
+          {t("charts.heatmap.home.viewAll")}
         </button>
       </div>
 
       <div className="flex flex-1 items-center justify-center py-4">
         <div
-          aria-label="最近 365 天交易活动日格"
+          aria-label={t("charts.heatmap.home.gridAriaLabel")}
           className="grid aspect-[53/7] w-full gap-[clamp(1px,0.15vw,2px)]"
           role="grid"
           style={{
@@ -211,7 +215,7 @@ function HomeTradeHeatmap({
             const gridRow = (offset % 7) + 1;
             return (
               <button
-                aria-label={getHomeDayAriaLabel(day)}
+                aria-label={getHomeDayAriaLabel(day, t)}
                 className="min-h-0 min-w-0 rounded-[2px] border-0 p-0 transition-[filter,outline] hover:brightness-95 focus-visible:z-10 motion-reduce:transition-none"
                 data-heatmap-date={day.date}
                 data-heatmap-level={day.level}
@@ -267,7 +271,9 @@ function HomeTradeHeatmap({
         >
           <p className="font-semibold">{tooltipDay.date}</p>
           {tooltip.kind === "empty" ? (
-            <p className="mt-1 text-white/85">当天无交易</p>
+            <p className="mt-1 text-white/85">
+              {t("charts.heatmap.home.emptyDay")}
+            </p>
           ) : (
             <ActivityTooltipContent day={tooltipDay} />
           )}
@@ -278,6 +284,7 @@ function HomeTradeHeatmap({
 }
 
 function ActivityTooltipContent({ day }: Readonly<{ day: TradeHeatmapDay }>) {
+  const { t } = useLanguage();
   const visibleGroups = day.activityGroups.slice(0, 3);
   const hiddenTradeCount = day.activityGroups
     .slice(3)
@@ -286,23 +293,34 @@ function ActivityTooltipContent({ day }: Readonly<{ day: TradeHeatmapDay }>) {
   return (
     <div className="mt-1 text-white/85">
       <p>
-        共 {day.total} 笔 · 买入 {day.buys} 笔 · 卖出 {day.sells} 笔
+        {t("charts.heatmap.tooltip.totalPrefix")} {day.total}{" "}
+        {t("charts.heatmap.tooltip.tradesSuffix")} · {t("charts.heatmap.tooltip.buyPrefix")} {day.buys}{" "}
+        {t("charts.heatmap.tooltip.tradesSuffix")} · {t("charts.heatmap.tooltip.sellPrefix")} {day.sells}{" "}
+        {t("charts.heatmap.tooltip.tradesSuffix")}
       </p>
       {visibleGroups.map((group) => (
         <p key={`${group.assetSymbol}-${group.type}`}>
-          {group.assetSymbol} {group.type === "buy" ? "买入" : "卖出"} ×
+          {group.assetSymbol} {group.type === "buy" ? t("charts.heatmap.tooltip.buy") : t("charts.heatmap.tooltip.sell")} ×
           {group.count}
         </p>
       ))}
-      {hiddenTradeCount > 0 ? <p>另有 {hiddenTradeCount} 笔交易</p> : null}
+      {hiddenTradeCount > 0 ? (
+        <p>
+          {t("charts.heatmap.tooltip.remainingPrefix")} {hiddenTradeCount}{" "}
+          {t("charts.heatmap.tooltip.remainingSuffix")}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function getHomeDayAriaLabel(day: TradeHeatmapDay): string {
+function getHomeDayAriaLabel(
+  day: TradeHeatmapDay,
+  t: (key: Parameters<ReturnType<typeof useLanguage>["t"]>[0]) => string,
+): string {
   return day.total === 0
-    ? `${day.date}，当天无交易`
-    : `${day.date}，共 ${day.total} 笔，买入 ${day.buys} 笔，卖出 ${day.sells} 笔`;
+    ? `${day.date}，${t("charts.heatmap.home.emptyDay")}`
+    : `${day.date}，${t("charts.heatmap.tooltip.totalPrefix")} ${day.total} ${t("charts.heatmap.tooltip.tradesSuffix")}，${t("charts.heatmap.tooltip.buyPrefix")} ${day.buys} ${t("charts.heatmap.tooltip.tradesSuffix")}，${t("charts.heatmap.tooltip.sellPrefix")} ${day.sells} ${t("charts.heatmap.tooltip.tradesSuffix")}`;
 }
 
 function getMondayDayRow(dateKey: string): number {
