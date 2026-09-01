@@ -33,6 +33,7 @@ import {
   ConfirmDeleteButton,
   LedgerNumber,
   type ConfirmDeleteOutcome,
+  useLanguage,
 } from "@/ui";
 import {
   BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
@@ -107,6 +108,7 @@ type AssetFeedback = {
   status: AssetOperationStatus;
   message: string;
 };
+type Translate = ReturnType<typeof useLanguage>["t"];
 
 type GlobalRefreshState = {
   status: "idle" | "loading" | "saving" | "success" | "partial" | "error";
@@ -124,11 +126,13 @@ type GlobalOperation = {
   failures: BinanceAssetRefreshFailure[];
 };
 
-const INITIAL_REFRESH_STATE: GlobalRefreshState = {
+function createInitialRefreshState(t: Translate): GlobalRefreshState {
+  return {
   status: "idle",
-  message: "尚未主动刷新 Binance 行情。",
+  message: t("marketData.refresh.initial"),
   failures: [],
-};
+  };
+}
 
 export function MarketDataControls({
   ledgerData,
@@ -151,6 +155,7 @@ export function MarketDataControls({
   expandMappings = false,
   compactMappings = false,
 }: Readonly<MarketDataControlsProps>) {
+  const { t } = useLanguage();
   const activeTodayKey = todayKey ?? captureLedgerTime(clock).todayKey;
   const assets = ledgerData.assets;
   const mappingSignature = getBinanceMappingSignature(ledgerData);
@@ -167,8 +172,9 @@ export function MarketDataControls({
   const [editingAssetSymbol, setEditingAssetSymbol] = useState<string | null>(
     null,
   );
-  const [refreshState, setRefreshState] =
-    useState<GlobalRefreshState>(INITIAL_REFRESH_STATE);
+  const [refreshState, setRefreshState] = useState<GlobalRefreshState>(() =>
+    createInitialRefreshState(t),
+  );
   const mountedRef = useRef(true);
   const operationSequenceRef = useRef(0);
   const assetOperationsRef = useRef(new Map<string, AssetOperation>());
@@ -232,9 +238,9 @@ export function MarketDataControls({
     operation.controller.abort();
     globalOperationRef.current = null;
     if (resetFeedback && mountedRef.current) {
-      setRefreshState(INITIAL_REFRESH_STATE);
+      setRefreshState(createInitialRefreshState(t));
     }
-  }, []);
+  }, [t]);
 
   const cancelAssetOperation = useCallback(
     (assetSymbol: string, resetFeedback: boolean) => {
@@ -284,7 +290,7 @@ export function MarketDataControls({
     if (globalOperation && !globalOperationIsCurrent(globalOperation)) {
       globalOperation.controller.abort();
       globalOperationRef.current = null;
-      setRefreshState(INITIAL_REFRESH_STATE);
+      setRefreshState(createInitialRefreshState(t));
     }
   }, [
     assetIdentitySignature,
@@ -292,6 +298,7 @@ export function MarketDataControls({
     ledgerEpoch,
     mappingSignature,
     sessionGeneration,
+    t,
   ]);
 
   useEffect(() => {
@@ -308,7 +315,7 @@ export function MarketDataControls({
           finishAssetOperation(
             operation,
             "error",
-            "映射尚未保存到加密文件；未请求首次价格。",
+            t("marketData.assetFeedback.mappingNotPersisted"),
           );
           continue;
         }
@@ -322,7 +329,7 @@ export function MarketDataControls({
             ...current,
             [operation.assetSymbol]: {
               status: "fetching-price",
-              message: "映射已保存；正在获取首次价格。",
+              message: t("marketData.assetFeedback.mappingSavedFetching"),
             },
           }));
           void fetchAndPersistAssetPrice(operation);
@@ -339,8 +346,8 @@ export function MarketDataControls({
             operation,
             "error",
             operation.kind === "save-mapping"
-              ? "映射已保存；首次价格已进入内存，但尚未保存到加密文件。"
-              : "行情已进入内存，但尚未保存到加密文件。",
+              ? t("marketData.assetFeedback.mappingSavedPriceNotPersisted")
+              : t("marketData.assetFeedback.priceNotPersisted"),
           );
           continue;
         }
@@ -352,8 +359,8 @@ export function MarketDataControls({
             operation,
             "saved",
             operation.kind === "save-mapping"
-              ? "映射与首次价格均已保存。"
-              : "该资产行情已保存。",
+              ? t("marketData.assetFeedback.mappingAndPriceSaved")
+              : t("marketData.assetFeedback.priceSaved"),
           );
         }
       }
@@ -373,7 +380,7 @@ export function MarketDataControls({
         globalOperationRef.current = null;
         setRefreshState({
           status: "error",
-          message: "行情已进入内存，但尚未保存到加密文件。",
+          message: t("marketData.assetFeedback.priceNotPersisted"),
           failures: globalOperation.failures,
         });
       } else if (
@@ -386,7 +393,7 @@ export function MarketDataControls({
     // Operations are ref-owned tokens. Only persisted-version transitions may
     // advance them; render-local callback identities must not retrigger this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mappingSignature, mutationVersion, persistedVersion, persistenceStatus]);
+  }, [mappingSignature, mutationVersion, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -441,13 +448,14 @@ export function MarketDataControls({
           symbol: operation.mapping.symbol,
           message: "Ticker response omitted the requested symbol",
         },
+        t,
       );
       finishAssetOperation(
         operation,
         "error",
         operation.kind === "save-mapping"
-          ? `映射已保存；首次价格失败：${detail}`
-          : `该资产刷新失败：${detail}`,
+          ? `${t("marketData.assetFeedback.mappingSavedPriceFailedPrefix")}${detail}`
+          : `${t("marketData.assetFeedback.refreshFailedPrefix")}${detail}`,
       );
       return;
     }
@@ -486,8 +494,8 @@ export function MarketDataControls({
           status: "saving-price",
           message:
             operation.kind === "save-mapping"
-              ? "映射已保存；正在保存首次价格。"
-              : "正在保存该资产行情。",
+              ? t("marketData.assetFeedback.mappingSavedSavingPrice")
+              : t("marketData.assetFeedback.savingAssetPrice"),
         },
       }));
       return;
@@ -496,8 +504,8 @@ export function MarketDataControls({
       operation,
       "error",
       operation.kind === "save-mapping"
-        ? "映射已保存；首次价格未写入，旧价格保持不变。"
-        : "该资产行情未写入，旧价格保持不变。",
+        ? t("marketData.assetFeedback.mappingSavedPriceNotWritten")
+        : t("marketData.assetFeedback.priceNotWritten"),
     );
   }
 
@@ -530,8 +538,8 @@ export function MarketDataControls({
         status: "validating",
         message:
           kind === "save-mapping"
-            ? "正在向 Binance 验证交易对。"
-            : "正在验证交易对并刷新该资产。",
+            ? t("marketData.assetFeedback.validatingMapping")
+            : t("marketData.assetFeedback.validatingAndRefreshing"),
       },
     }));
     return operation;
@@ -551,7 +559,7 @@ export function MarketDataControls({
       finishAssetOperation(
         operation,
         "error",
-        formatBinanceFailure(result.error),
+        formatBinanceFailure(result.error, t),
       );
       return;
     }
@@ -596,7 +604,7 @@ export function MarketDataControls({
         ...current,
         [asset.symbol]: {
           status: "saving-mapping",
-          message: "交易对已验证；正在保存映射。",
+          message: t("marketData.assetFeedback.mappingValidatedSaving"),
         },
       }));
       return;
@@ -610,7 +618,7 @@ export function MarketDataControls({
         ...current,
         [asset.symbol]: {
           status: "fetching-price",
-          message: "映射已保存；正在获取首次价格。",
+          message: t("marketData.assetFeedback.mappingSavedFetching"),
         },
       }));
       void fetchAndPersistAssetPrice(operation);
@@ -619,7 +627,7 @@ export function MarketDataControls({
     finishAssetOperation(
       operation,
       "error",
-      "账本当前不可写或已变化，映射未保存。",
+      t("marketData.assetFeedback.ledgerNotWritable"),
     );
   }
 
@@ -638,7 +646,7 @@ export function MarketDataControls({
       finishAssetOperation(
         operation,
         "error",
-        `该资产刷新失败：${formatBinanceFailure(validation.error)}`,
+        `${t("marketData.assetFeedback.refreshFailedPrefix")}${formatBinanceFailure(validation.error, t)}`,
       );
       return;
     }
@@ -647,7 +655,7 @@ export function MarketDataControls({
       ...current,
       [asset.symbol]: {
         status: "fetching-price",
-        message: "交易对有效；正在获取该资产价格。",
+        message: t("marketData.assetFeedback.mappingValidFetching"),
       },
     }));
     void fetchAndPersistAssetPrice(operation);
@@ -671,7 +679,7 @@ export function MarketDataControls({
     globalOperationRef.current = operation;
     setRefreshState({
       status: "loading",
-      message: "正在验证并刷新已映射的非零持仓。",
+      message: t("marketData.refresh.validating"),
       failures: [],
     });
     const result = await refreshBinancePrices(
@@ -724,7 +732,7 @@ export function MarketDataControls({
       operation.expectedPersistedVersion = expectedVersion;
       setRefreshState({
         status: "saving",
-        message: `已取得 ${appliedCount} 项行情；正在保存。`,
+        message: `${t("marketData.refresh.fetchedPrefix")}${appliedCount}${t("marketData.refresh.fetchedSuffix")}`,
         failures: result.failures,
       });
       return;
@@ -748,8 +756,8 @@ export function MarketDataControls({
             : "success",
       message:
         operation.appliedCount === 0 && failedCount === 0
-          ? "当前没有需要刷新的已映射非零持仓。"
-          : `已保存 ${operation.appliedCount} 项，失败 ${failedCount} 项。`,
+          ? t("marketData.refresh.noMappedNonZeroHoldings")
+          : `${t("marketData.refresh.savedPrefix")}${operation.appliedCount}${t("marketData.refresh.savedMiddle")}${failedCount}${t("marketData.refresh.savedSuffix")}`,
       failures: operation.failures,
     });
   }
@@ -779,10 +787,10 @@ export function MarketDataControls({
         status: mutationResult === "rejected" ? "error" : "saved",
         message:
           mutationResult === "applied"
-            ? "映射已进入保存队列；历史 API 价格仍保留。"
+            ? t("marketData.assetFeedback.mappingQueued")
             : mutationResult === "noop"
-              ? "映射未发生变化。"
-              : "账本当前不可写，映射未删除。",
+              ? t("marketData.assetFeedback.mappingUnchanged")
+              : t("marketData.assetFeedback.mappingNotDeleted"),
       },
     }));
     return mutationResult;
@@ -799,14 +807,14 @@ export function MarketDataControls({
           className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
           role="status"
         >
-          暂不可修改：当前账本只读或文件操作尚未完成。
+          {t("marketData.readOnlyNotice")}
         </p>
       ) : null}
 
       {showRefresh ? (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium">估值价格模式</span>
+            <span className="text-sm font-medium">{t("marketData.priceMode.label")}</span>
             {(["auto", "manual"] as const).map((value) => (
               <button
                 aria-pressed={mode === value}
@@ -819,7 +827,7 @@ export function MarketDataControls({
                 onClick={() => onModeChange(value)}
                 type="button"
               >
-                {value === "auto" ? "自动行情" : "手动价格"}
+                {value === "auto" ? t("marketData.priceMode.auto") : t("marketData.priceMode.manual")}
               </button>
             ))}
             <button
@@ -834,8 +842,8 @@ export function MarketDataControls({
               type="button"
             >
               {globalBusy
-                ? "正在更新 Binance 行情"
-                : "刷新已映射非零持仓"}
+                ? t("marketData.refresh.updating")
+                : t("marketData.refresh.action")}
             </button>
           </div>
           <p
@@ -854,19 +862,19 @@ export function MarketDataControls({
       <div className="grid gap-2 text-sm text-slate-700">
         {showRefresh ? (
           <p>
-            USDT 账本按 USDT 显示；旧 USD 数据只用于明确拒绝或兼容诊断，不会写入新的 Binance 价格事实。
+            {t("marketData.description.usdt")}
           </p>
         ) : null}
         <p>
-          只有点击验证或刷新按钮才会联网。请求只包含公开交易对 symbol，不会发送交易、数量、成本、密码或完整账本。
+          {t("marketData.description.network")}
         </p>
       </div>
 
       {showRefresh ? (
         <div className="grid gap-3">
-          <h3 className="font-semibold">当前非零持仓实际价格</h3>
+          <h3 className="font-semibold">{t("marketData.holdings.heading")}</h3>
           {currentPositions.length === 0 ? (
-            <p className="text-sm text-slate-500">当前没有非零持仓。</p>
+            <p className="text-sm text-slate-500">{t("marketData.holdings.empty")}</p>
           ) : (
             <ul className="grid gap-1 text-sm text-slate-700">
               {currentPositions.map((position) => {
@@ -892,11 +900,11 @@ export function MarketDataControls({
                         <LedgerNumber kind="money" value={selected.snapshot.price} />{" "}
                         {selected.snapshot.currency} · {selected.actualSource === "binance"
                           ? "Binance"
-                          : "手动"} · 截至 {selected.asOf}
+                          : t("marketData.holdings.manual")} · {t("marketData.holdings.asOf")} {selected.asOf}
                       </>
-                    ) : "无合法价格"}
+                    ) : t("marketData.holdings.noValidPrice")}
                     {failure
-                      ? ` · 本次刷新失败：${formatBinanceFailure(failure)}`
+                      ? ` · ${t("marketData.holdings.refreshFailedPrefix")}${formatBinanceFailure(failure, t)}`
                       : ""}
                   </li>
                 );
@@ -909,16 +917,16 @@ export function MarketDataControls({
       {showMappings ? (
         <details open={expandMappings}>
           <summary className="cursor-pointer font-semibold">
-            配置 Binance Spot 交易对
+            {t("marketData.mappings.heading")}
           </summary>
           <div className="mt-3 min-w-0 overflow-x-auto">
             <div className="grid min-w-0 gap-3 md:min-w-[720px]">
               {compactMappings ? (
                 <div className="hidden grid-cols-[7rem_1fr_1fr_auto] gap-3 px-3 text-xs font-semibold text-[var(--ledger-muted)] md:grid">
-                  <span>资产</span>
-                  <span>当前交易对</span>
-                  <span>验证 / 最近结果</span>
-                  <span>操作</span>
+                  <span>{t("marketData.mappings.asset")}</span>
+                  <span>{t("marketData.mappings.currentPair")}</span>
+                  <span>{t("marketData.mappings.validationResult")}</span>
+                  <span>{t("marketData.mappings.actions")}</span>
                 </div>
               ) : null}
               {ledgerData.assets.map((asset) => (
@@ -943,6 +951,7 @@ export function MarketDataControls({
                   onRefresh={() => void refreshAsset(asset)}
                   onSave={() => void saveMapping(asset)}
                   operationActive={assetOperationsRef.current.has(asset.symbol)}
+                  t={t}
                 />
               ))}
             </div>
@@ -968,6 +977,7 @@ function MappingRow({
   onEdit,
   onRefresh,
   onSave,
+  t,
 }: Readonly<{
   asset: Asset;
   compact: boolean;
@@ -983,6 +993,7 @@ function MappingRow({
   onEdit: () => void;
   onRefresh: () => void;
   onSave: () => void;
+  t: Translate;
 }>) {
   const currentMapping = resolveAssetBinanceMappingForRuntime(asset);
   const mayRestartValidation =
@@ -990,7 +1001,7 @@ function MappingRow({
   const busy = (operationActive && !mayRestartValidation) || globalBusy;
   const input = (
     <input
-      aria-label={`${asset.symbol} Binance 交易对`}
+      aria-label={`${asset.symbol} ${t("marketData.mappings.binancePair")}`}
       className="w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
       disabled={!isWritable || busy}
       id={`mapping-${asset.id}`}
@@ -1009,11 +1020,11 @@ function MappingRow({
           type="button"
         >
           {feedback?.status === "saving-mapping"
-              ? "正在保存映射"
+              ? t("marketData.mappings.savingMapping")
               : feedback?.status === "fetching-price" ||
                   feedback?.status === "saving-price"
-                ? "正在保存首次价格"
-                : "验证并保存"}
+                ? t("marketData.mappings.savingFirstPrice")
+                : t("marketData.mappings.validateAndSave")}
         </button>
       ) : (
         <button
@@ -1022,7 +1033,7 @@ function MappingRow({
           onClick={onEdit}
           type="button"
         >
-          编辑
+          {t("marketData.mappings.edit")}
         </button>
       )}
       {editing && compact ? (
@@ -1032,7 +1043,7 @@ function MappingRow({
           onClick={onCancel}
           type="button"
         >
-          取消
+          {t("marketData.mappings.cancel")}
         </button>
       ) : null}
       <button
@@ -1041,12 +1052,12 @@ function MappingRow({
         onClick={onRefresh}
         type="button"
       >
-        刷新该资产
+        {t("marketData.mappings.refreshAsset")}
       </button>
       <ConfirmDeleteButton
-        ariaLabel={`删除 ${asset.symbol} Binance 映射`}
+        ariaLabel={`${t("marketData.mappings.deletePrefix")} ${asset.symbol} ${t("marketData.mappings.binanceMapping")}`}
         disabled={!isWritable || busy || currentMapping === null}
-        label="删除映射"
+        label={t("marketData.mappings.delete")}
         onConfirm={onDelete}
       />
     </>
@@ -1057,11 +1068,11 @@ function MappingRow({
       <div className="grid gap-3 rounded-md border border-slate-200 p-3 md:grid-cols-[7rem_1fr_1fr_auto] md:items-center">
         <p className="font-semibold">{asset.symbol}</p>
         <div className="grid gap-2">
-          <p>{currentMapping?.symbol ?? "未配置"}</p>
+          <p>{currentMapping?.symbol ?? t("marketData.mappings.notConfigured")}</p>
           {editing ? input : null}
         </div>
         <div className="text-sm text-slate-600">
-          <p>{currentMapping ? "已配置显式映射" : "尚未配置"}</p>
+          <p>{currentMapping ? t("marketData.mappings.explicitConfigured") : t("marketData.mappings.notConfiguredYet")}</p>
           {feedback ? (
             <p
               aria-live="polite"
@@ -1159,24 +1170,27 @@ function createMappingDrafts(
   );
 }
 
-function formatBinanceFailure(failure: BinanceMarketDataFailure): string {
+function formatBinanceFailure(
+  failure: BinanceMarketDataFailure,
+  t: Translate,
+): string {
   const labels: Record<BinanceMarketDataFailure["code"], string> = {
-    BINANCE_INVALID_SYMBOL_INPUT: "输入只能是 1～64 位 ASCII 字母或数字",
-    BINANCE_ABORTED: "请求已取消",
-    BINANCE_TIMEOUT: "请求超时",
+    BINANCE_INVALID_SYMBOL_INPUT: t("marketData.failure.invalidSymbolInput"),
+    BINANCE_ABORTED: t("marketData.failure.aborted"),
+    BINANCE_TIMEOUT: t("marketData.failure.timeout"),
     BINANCE_VALIDATION_UNAVAILABLE:
       BINANCE_VALIDATION_UNAVAILABLE_USER_MESSAGE,
-    BINANCE_NETWORK_ERROR: "网络不可用",
-    BINANCE_HTTP_ERROR: `Binance HTTP 错误${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
-    BINANCE_RATE_LIMITED: `Binance 限流${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
-    BINANCE_MALFORMED_RESPONSE: "Binance 响应格式异常",
-    BINANCE_SYMBOL_MISSING: "未找到该交易对",
-    BINANCE_SYMBOL_DUPLICATE: "Binance 返回了重复交易对",
-    BINANCE_SYMBOL_NOT_TRADING: "交易对当前不可交易",
-    BINANCE_BASE_ASSET_MISMATCH: "基础资产与本地资产不一致",
-    BINANCE_QUOTE_ASSET_MISMATCH: "报价资产不是 USDT",
-    BINANCE_SPOT_NOT_ALLOWED: "交易对未开放 Spot",
-    BINANCE_INVALID_PRICE: "价格不是有效正数",
+    BINANCE_NETWORK_ERROR: t("marketData.failure.network"),
+    BINANCE_HTTP_ERROR: `${t("marketData.failure.http")}${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
+    BINANCE_RATE_LIMITED: `${t("marketData.failure.rateLimited")}${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
+    BINANCE_MALFORMED_RESPONSE: t("marketData.failure.malformedResponse"),
+    BINANCE_SYMBOL_MISSING: t("marketData.failure.symbolMissing"),
+    BINANCE_SYMBOL_DUPLICATE: t("marketData.failure.symbolDuplicate"),
+    BINANCE_SYMBOL_NOT_TRADING: t("marketData.failure.symbolNotTrading"),
+    BINANCE_BASE_ASSET_MISMATCH: t("marketData.failure.baseAssetMismatch"),
+    BINANCE_QUOTE_ASSET_MISMATCH: t("marketData.failure.quoteAssetMismatch"),
+    BINANCE_SPOT_NOT_ALLOWED: t("marketData.failure.spotNotAllowed"),
+    BINANCE_INVALID_PRICE: t("marketData.failure.invalidPrice"),
   };
   return `${failure.code} · ${labels[failure.code]}`;
 }
