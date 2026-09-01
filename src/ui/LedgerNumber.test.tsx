@@ -10,7 +10,7 @@ import { LedgerNumber, type LedgerNumberKind } from "./LedgerNumber";
 describe("LedgerNumber", () => {
   it.each([
     ["money", "594.862375883946480045", "594.86"],
-    ["quantity", "6638.73487823", "6,638.7349"],
+    ["quantity", "6638.73487823", "6 638.7349"],
     ["percent", "0.0679", "+6.79%"],
   ] as const)(
     "renders %s text while exposing the unformatted value",
@@ -49,7 +49,7 @@ describe("LedgerNumber", () => {
     await user.type(input, "6492.3391");
 
     expect(input.value).toBe("6492.3391");
-    expect(screen.getByTitle("6492.3391").textContent).toBe("6,492.34");
+    expect(screen.getByTitle("6492.3391").textContent).toBe("6 492.34");
   });
 
   it("supports inline currency text and caller styling", () => {

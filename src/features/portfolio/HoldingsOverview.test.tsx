@@ -240,10 +240,10 @@ describe("holdings workspace views", () => {
     expect(cells).toHaveLength(8);
     expect(cells[0]?.textContent).toBe("BTC");
     expect(within(cells[1] as HTMLElement).getByTitle("80000").textContent).toBe(
-      "80,000.00",
+      "80 000.00",
     );
     expect(within(cells[2] as HTMLElement).getByTitle("65050").textContent).toBe(
-      "65,050.00",
+      "65 050.00",
     );
     expect(
       within(cells[3] as HTMLElement).getByTitle(
@@ -257,10 +257,10 @@ describe("holdings workspace views", () => {
       "0.06",
     );
     expect(within(cells[6] as HTMLElement).getByTitle("3903").textContent).toBe(
-      "3,903.00",
+      "3 903.00",
     );
     expect(within(cells[7] as HTMLElement).getByTitle("4800").textContent).toBe(
-      "4,800.00",
+      "4 800.00",
     );
     expect(cells[3]?.className).toContain("text-emerald-700");
     expect(cells[4]?.className).toContain("text-emerald-700");
@@ -382,13 +382,13 @@ describe("holdings workspace views", () => {
     const cells = row.querySelectorAll("th, td");
     expect(Array.from(cells, (cell) => cell.textContent)).toEqual([
       "BTC",
-      "45,000.00 USDT",
-      "33,333.33 USDT",
+      "45 000.00 USDT",
+      "33 333.33 USDT",
       "+35.00%",
-      "1,166.67 USDT",
+      "1 166.67 USDT",
       "0.1",
-      "3,333.33 USDT",
-      "4,500.00 USDT",
+      "3 333.33 USDT",
+      "4 500.00 USDT",
     ]);
     expect(within(row).queryByTitle("5000")).toBeNull();
   });
@@ -434,8 +434,8 @@ describe("holdings workspace views", () => {
       .getByRole("row", { name: /ETH/ })
       .querySelectorAll("th, td");
     expect(cells[4]?.textContent).toBe("400.00 USDT");
-    expect(cells[6]?.textContent).toBe("2,000.00 USDT");
-    expect(cells[7]?.textContent).toBe("2,400.00 USDT");
+    expect(cells[6]?.textContent).toBe("2 000.00 USDT");
+    expect(cells[7]?.textContent).toBe("2 400.00 USDT");
   });
 
   it("T-07 keeps SOL gift cost separate from cumulative buy outflow", () => {

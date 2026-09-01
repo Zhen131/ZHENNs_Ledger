@@ -1833,7 +1833,7 @@ describe("DashboardShell data management", () => {
           element.closest("p")?.textContent?.includes("几何分配"),
         );
       expect(totalMarketValue?.closest("p")?.textContent).toContain(
-        "几何分配 1 项；净总资产 79,999.00 USDT",
+        "几何分配 1 项；净总资产 79 999.00 USDT",
       );
       const deficit = screen
         .getAllByTitle("1")

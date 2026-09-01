@@ -9,14 +9,14 @@ import {
 describe("formatLedgerNumber", () => {
   it.each([
     ["594.862375883946480045", "594.86"],
-    ["6492.3391", "6,492.34"],
+    ["6492.3391", "6 492.34"],
     ["0.0003", "0.0003"],
     ["0.5", "0.50"],
     ["0", "0.00"],
-    ["94288.5", "94,288.50"],
+    ["94288.5", "94 288.50"],
     ["0.6134", "0.6134"],
     ["0.000000134", "0.000000134"],
-    ["-1234.5678", "-1,234.57"],
+    ["-1234.5678", "-1 234.57"],
   ] as const)("formats money %s as %s", (input, expected) => {
     expect(formatMoney(input)).toBe(expected);
   });
@@ -24,8 +24,8 @@ describe("formatLedgerNumber", () => {
   it.each([
     ["0.03619818", "0.03619818"],
     ["0.6177", "0.6177"],
-    ["4818.72", "4,818.72"],
-    ["6638.73487823", "6,638.7349"],
+    ["4818.72", "4 818.72"],
+    ["6638.73487823", "6 638.7349"],
     ["300", "300"],
     ["0", "0"],
   ] as const)("formats quantity %s as %s", (input, expected) => {
@@ -50,6 +50,6 @@ describe("formatLedgerNumber", () => {
   it("rounds half up without converting through JavaScript floating point", () => {
     expect(formatMoney("1.005")).toBe("1.01");
     expect(formatMoney("-1.005")).toBe("-1.01");
-    expect(formatPercent("12.34565")).toBe("+1,234.57%");
+    expect(formatPercent("12.34565")).toBe("+1 234.57%");
   });
 });

@@ -96,7 +96,7 @@ function insertThousandsSeparators(value: string): string {
   const [signedInteger, fraction] = value.split(".");
   const isNegative = signedInteger.startsWith("-");
   const integer = isNegative ? signedInteger.slice(1) : signedInteger;
-  const groupedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const groupedInteger = integer.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   const signedGroupedInteger = isNegative
     ? `-${groupedInteger}`
     : groupedInteger;
