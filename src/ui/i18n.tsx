@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { getLedgerDateKey } from "@/core/shared";
+
 export const LEDGER_LANGUAGES = ["zh-CN", "en", "hu"] as const;
 export type LedgerLanguage = (typeof LEDGER_LANGUAGES)[number];
 
@@ -46,6 +48,7 @@ const chineseMessages = {
   "home.quickTrade.heading": "记一笔交易",
   "home.quickTrade.description": "新增真实买入或卖出事实",
   "home.missingPrices.action": "更新缺价资产",
+  "shared.i18n.fallbackExample": "中文回退文案",
   "settings.language.heading": "界面语言",
   "settings.language.description": "语言偏好只保存在这台浏览器中，不写入账本文件。",
   "settings.language.label": "选择界面语言",
@@ -152,6 +155,10 @@ export function translate(
   return chineseMessages[key];
 }
 
+export function formatLedgerDate(value: string): string {
+  return getLedgerDateKey(value);
+}
+
 export function readLanguagePreference(
   storage: Pick<Storage, "getItem"> | undefined = getBrowserStorage(),
 ): LedgerLanguage {
@@ -192,19 +199,28 @@ const LanguageContext = createContext<LanguageContextValue>(
   defaultLanguageContext,
 );
 
-export function LanguageProvider({ children }: Readonly<{ children: ReactNode }>) {
+export function LanguageProvider({
+  children,
+  storage,
+}: Readonly<{
+  children: ReactNode;
+  storage?: Pick<Storage, "getItem" | "setItem">;
+}>) {
   const [language, setLanguageState] = useState<LedgerLanguage>(
     DEFAULT_LEDGER_LANGUAGE,
   );
 
   useEffect(() => {
-    setLanguageState(readLanguagePreference());
-  }, []);
+    setLanguageState(readLanguagePreference(storage));
+  }, [storage]);
 
-  const setLanguage = useCallback((nextLanguage: LedgerLanguage) => {
-    setLanguageState(nextLanguage);
-    writeLanguagePreference(nextLanguage);
-  }, []);
+  const setLanguage = useCallback(
+    (nextLanguage: LedgerLanguage) => {
+      setLanguageState(nextLanguage);
+      writeLanguagePreference(nextLanguage, storage);
+    },
+    [storage],
+  );
   const t = useCallback(
     (key: TranslationKey) => translate(language, key),
     [language],
