@@ -60,15 +60,15 @@ export function formatBackupImportReportMarkdown(
   }
 
   if (result.skippedChecks.length > 0) {
-    lines.push("", "## 未执行的检查", "");
+    lines.push("", translateDefault("backup.markdown.skippedChecks"), "");
     result.skippedChecks.forEach(({ check, reason }) => {
       lines.push(`- \`${inline(check)}\`：${singleLine(reason)}`);
     });
   }
 
-  lines.push("", "## 详情", "");
+  lines.push("", translateDefault("backup.markdown.detailsHeading"), "");
   if (result.retainedDetails.length === 0) {
-    lines.push("未发现硬错误或可疑重复组。");
+    lines.push(translateDefault("backup.markdown.noDetails"));
   } else {
     result.retainedDetails.forEach((detail, index) => {
       if (detail.kind === "hard-error") {
@@ -82,13 +82,17 @@ export function formatBackupImportReportMarkdown(
   if (result.truncated) {
     lines.push(
       "",
-      `> 详情共 ${result.totalDetailCount} 项，本报告只保留前 ${result.retainedDetailCount} 项。第 1001 项后已截断，请修正后重新检查。`,
+      translateDefault("backup.markdown.truncationPrefix") +
+        result.totalDetailCount +
+        translateDefault("backup.markdown.truncationMiddle") +
+        result.retainedDetailCount +
+        translateDefault("backup.markdown.truncationSuffix"),
     );
   }
 
   lines.push(
     "",
-    "> 可疑重复只是提示。本应用没有自动修改、删除、合并或去重任何交易，也没有修改、移动、删除或主动上传原备份文件。",
+    translateDefault("backup.markdown.noMutationNotice"),
     "",
   );
   return lines.join("\n");
@@ -100,20 +104,36 @@ function appendHardError(
   number: number,
 ): void {
   lines.push(
-    `### ${number}. 硬错误`,
+    translateDefault("backup.markdown.hardErrorPrefix") +
+      number +
+      translateDefault("backup.markdown.hardErrorSuffix"),
     "",
-    `- 错误码：\`${inline(error.code)}\``,
-    `- 路径：\`${inline(error.path)}\``,
-    `- 说明：${singleLine(error.message)}`,
+    translateDefault("backup.markdown.code") + "\`" + inline(error.code) + "\`",
+    translateDefault("backup.markdown.path") + "\`" + inline(error.path) + "\`",
+    translateDefault("backup.markdown.description") + singleLine(error.message),
   );
   if (error.line !== undefined && error.column !== undefined) {
-    lines.push(`- JSON 位置：第 ${error.line} 行，第 ${error.column} 列`);
+    lines.push(
+      translateDefault("backup.markdown.jsonLocationPrefix") +
+        error.line +
+        translateDefault("backup.markdown.jsonLocationMiddle") +
+        error.column +
+        translateDefault("backup.markdown.jsonLocationSuffix"),
+    );
   }
   if (error.limit !== undefined && error.actual !== undefined) {
-    lines.push(`- 资源边界：限制 ${error.limit}，实际 ${error.actual}`);
+    lines.push(
+      translateDefault("backup.markdown.resourceLimitPrefix") +
+        error.limit +
+        translateDefault("backup.markdown.resourceLimitMiddle") +
+        error.actual,
+    );
   }
   if (error.summary) {
-    lines.push(`- 交易摘要：${formatTradeSummary(error.summary)}`);
+    lines.push(
+      translateDefault("backup.markdown.tradeSummary") +
+        formatTradeSummary(error.summary),
+    );
   }
   lines.push("");
 }
