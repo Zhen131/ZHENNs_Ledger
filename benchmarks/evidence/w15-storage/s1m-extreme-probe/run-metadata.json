@@ -1,0 +1,26 @@
+{
+  "evidenceFormatVersion": 1,
+  "batch": "W15-storage-cost",
+  "phase": "S1M-extreme-probe",
+  "sourceCommit": "d6c9b7d",
+  "storageImplementationCommit": "c6d57c4",
+  "sourceBranch": "zhennn/w15-main-chunked-storage",
+  "dataClassification": "synthetic-only",
+  "runs": [
+    {
+      "sequence": 1,
+      "kind": "node-scale-probe",
+      "startedAt": "2026-09-01T13:27:58+02:00",
+      "resultFile": "01-node-scale-probe.json"
+    },
+    {
+      "sequence": 2,
+      "kind": "production-browser-extreme-probe",
+      "startedAt": "2026-09-01T13:28:39+02:00",
+      "resultFile": "02-browser-extreme-probe.json",
+      "finalCooldownCompleted": true
+    }
+  ],
+  "cooldownRule": "The only browser run was followed by at least 300 seconds of idle time, recorded as six completed 50-second waits. These runs are an extreme probe and are not included in the four-scale main benchmark series.",
+  "verdict": "S-1M did not produce M-3. Generation, validation, position replay, and cash replay completed, but the unchanged backup JSON path hit RangeError: Invalid string length before the browser could import data and reach C-file saving. The failure remains a string-limit failure in B serialization; it cannot be attributed to the new chunked C-file implementation."
+}

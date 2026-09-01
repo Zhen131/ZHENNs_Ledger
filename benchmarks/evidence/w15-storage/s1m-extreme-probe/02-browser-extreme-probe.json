@@ -1,0 +1,11 @@
+{
+  "kind": "browser-benchmark",
+  "status": "setup-failed",
+  "mode": "production",
+  "scale": "S-1M",
+  "tradeCount": 1000000,
+  "stage": "backup-serialization",
+  "reason": "The synthetic backup for S-1M exceeded the runtime string limit",
+  "consoleErrors": [],
+  "temporaryArtifactsCleaned": true
+}

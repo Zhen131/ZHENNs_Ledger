@@ -1,0 +1,21 @@
+{
+  "kind": "synthetic-scale-probe",
+  "scale": "S-1M",
+  "tradeCount": 1000000,
+  "generatedFactCount": 1600020,
+  "generationMs": 2093.237,
+  "validation": {
+    "ok": true,
+    "durationMs": 9990.588
+  },
+  "replay": {
+    "positionMs": 4074.468,
+    "cashMs": 1587.106
+  },
+  "backup": {
+    "status": "failed",
+    "serializationMs": 507.716,
+    "reason": "RangeError: Invalid string length"
+  },
+  "rssBytesAfterProbe": 2813165568
+}
