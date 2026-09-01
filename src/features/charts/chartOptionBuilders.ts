@@ -1,6 +1,12 @@
 import type { EChartsCoreOption } from "echarts/core";
 
-import { formatMoney, formatPercent } from "@/ui";
+import {
+  DEFAULT_LEDGER_LANGUAGE,
+  formatMoney,
+  formatPercent,
+  translate,
+  type TranslationKey,
+} from "@/ui";
 import type {
   HoldingAllocationSlice,
   HoldingHistoryPoint,
@@ -25,6 +31,11 @@ type TooltipParams = {
   axisValue?: string;
   data?: unknown;
 };
+
+type Translate = (key: TranslationKey) => string;
+
+const defaultTranslate: Translate = (key) =>
+  translate(DEFAULT_LEDGER_LANGUAGE, key);
 
 export const TRADE_HEATMAP_LEVEL_COLORS = [
   "#eee9e2",
@@ -60,6 +71,7 @@ export function toFiniteChartNumber(value: string): number {
 export function buildAllocationChartOption(
   slices: readonly HoldingAllocationSlice[],
   valuationLabel: string,
+  t: Translate = defaultTranslate,
 ): EChartsCoreOption {
   const data: PieDatum[] = slices.map((slice) => ({
     name: slice.assetSymbol,
@@ -88,12 +100,12 @@ export function buildAllocationChartOption(
         }
         const source =
           datum.source === "cash"
-            ? "USDT 现金重放"
+            ? t("charts.option.allocation.cashReplay")
             : datum.source === "binance"
               ? "Binance"
               : datum.source === "grouped"
-                ? "小额资产合并"
-                : "手动价格";
+                ? t("charts.option.allocation.grouped")
+                : t("charts.option.allocation.manual");
         const groupedMembers =
           datum.source === "grouped"
             ? (datum.groupedMembers ?? []).map(
@@ -106,7 +118,7 @@ export function buildAllocationChartOption(
           `${formatMoney(datum.marketValue)} ${valuationLabel}`,
           formatPercent(datum.ratio),
           ...groupedMembers,
-          `${source} · 截至 ${datum.asOf}`,
+          `${source} · ${t("charts.option.allocation.asOfPrefix")}${datum.asOf}`,
         ].join("<br/>");
       },
     },
@@ -116,7 +128,7 @@ export function buildAllocationChartOption(
     },
     series: [
       {
-        name: `当前 ${valuationLabel} 资产分配`,
+        name: `${t("charts.option.allocation.seriesPrefix")}${valuationLabel}${t("charts.option.allocation.seriesSuffix")}`,
         type: "pie",
         radius: ["42%", "70%"],
         center: ["50%", "43%"],
@@ -129,9 +141,10 @@ export function buildAllocationChartOption(
 
 export function buildHoldingHistoryChartOption(
   points: readonly HoldingHistoryPoint[],
+  t: Translate = defaultTranslate,
 ): EChartsCoreOption {
   const pointsByDate = new Map(points.map((point) => [point.date, point]));
-  const valuationLabel = getHistoryValuationLabel(points);
+  const valuationLabel = getHistoryValuationLabel(points, t);
 
   return {
     tooltip: {
@@ -146,22 +159,25 @@ export function buildHoldingHistoryChartOption(
         }
         const marketValue =
           point.totalMarketValue === undefined
-            ? `缺价：${point.missingPriceAssets.join("、")}`
+            ? `${t("charts.option.history.missingPricePrefix")}${point.missingPriceAssets.join("、")}`
             : `${formatMoney(point.totalMarketValue)} ${point.valuation.label}`;
         return [
           `<strong>${date}</strong>`,
-          `剩余持仓成本：${
+          `${t("charts.option.history.costBasis")}${
             point.totalCostBasis === undefined
-              ? `手续费币种问题：${point.unreliableFeeAssets.join("、")}`
+              ? `${t("charts.option.history.feeIssuePrefix")}${point.unreliableFeeAssets.join("、")}`
               : `${formatMoney(point.totalCostBasis)} ${point.valuation.label}`
           }`,
-          `总资产：${marketValue}`,
-          `USDT 现金：${formatMoney(point.cashBalance)} ${point.valuation.label}`,
+          `${t("charts.option.history.totalAssets")}${marketValue}`,
+          `${t("charts.option.history.cash")}${formatMoney(point.cashBalance)} ${point.valuation.label}`,
         ].join("<br/>");
       },
     },
     legend: {
-      data: ["总资产", "剩余持仓成本"],
+      data: [
+        t("charts.option.history.totalAssetsSeries"),
+        t("charts.option.history.costBasisSeries"),
+      ],
       top: 0,
     },
     grid: {
@@ -182,7 +198,7 @@ export function buildHoldingHistoryChartOption(
     },
     series: [
       {
-        name: "总资产",
+        name: t("charts.option.history.totalAssetsSeries"),
         type: "line",
         step: "end",
         smooth: false,
@@ -205,7 +221,7 @@ export function buildHoldingHistoryChartOption(
         ),
       },
       {
-        name: "剩余持仓成本",
+        name: t("charts.option.history.costBasisSeries"),
         type: "line",
         step: "end",
         smooth: false,
@@ -231,16 +247,18 @@ export function buildHoldingHistoryChartOption(
 
 function getHistoryValuationLabel(
   points: readonly HoldingHistoryPoint[],
+  t: Translate,
 ): string {
   const labels = new Set(points.map((point) => point.valuation.label));
   if (labels.size === 1) {
     return points[0]?.valuation.label ?? "USDT";
   }
-  return "USD/USDT 近似等值";
+  return t("charts.option.history.approximation");
 }
 
 export function buildTradeHeatmapChartOption(
   days: readonly TradeHeatmapDay[],
+  t: Translate = defaultTranslate,
 ): EChartsCoreOption {
   const startDate = days[0]?.date ?? "";
   const endDate = days.at(-1)?.date ?? "";
@@ -257,9 +275,9 @@ export function buildTradeHeatmapChartOption(
         }
         return [
           `<strong>${datum[0]}</strong>`,
-          `总笔数：${datum[2]}`,
-          `买入：${datum[3]}`,
-          `卖出：${datum[4]}`,
+          `${t("charts.option.heatmap.total")}${datum[2]}`,
+          `${t("charts.option.heatmap.buy")}${datum[3]}`,
+          `${t("charts.option.heatmap.sell")}${datum[4]}`,
         ].join("<br/>");
       },
     },
@@ -271,11 +289,11 @@ export function buildTradeHeatmapChartOption(
       left: "center",
       bottom: 0,
       pieces: [
-        { value: 0, label: "无交易", color: TRADE_HEATMAP_LEVEL_COLORS[0] },
-        { value: 1, label: "低", color: TRADE_HEATMAP_LEVEL_COLORS[1] },
-        { value: 2, label: "较低", color: TRADE_HEATMAP_LEVEL_COLORS[2] },
-        { value: 3, label: "较高", color: TRADE_HEATMAP_LEVEL_COLORS[3] },
-        { value: 4, label: "最高", color: TRADE_HEATMAP_LEVEL_COLORS[4] },
+        { value: 0, label: t("charts.option.heatmap.none"), color: TRADE_HEATMAP_LEVEL_COLORS[0] },
+        { value: 1, label: t("charts.option.heatmap.low"), color: TRADE_HEATMAP_LEVEL_COLORS[1] },
+        { value: 2, label: t("charts.option.heatmap.lower"), color: TRADE_HEATMAP_LEVEL_COLORS[2] },
+        { value: 3, label: t("charts.option.heatmap.higher"), color: TRADE_HEATMAP_LEVEL_COLORS[3] },
+        { value: 4, label: t("charts.option.heatmap.highest"), color: TRADE_HEATMAP_LEVEL_COLORS[4] },
       ],
     },
     calendar: {
@@ -298,28 +316,36 @@ export function buildTradeHeatmapChartOption(
       },
       dayLabel: {
         firstDay: 1,
-        nameMap: ["日", "一", "二", "三", "四", "五", "六"],
+        nameMap: [
+          t("charts.option.heatmap.sunday"),
+          t("charts.option.heatmap.monday"),
+          t("charts.option.heatmap.tuesday"),
+          t("charts.option.heatmap.wednesday"),
+          t("charts.option.heatmap.thursday"),
+          t("charts.option.heatmap.friday"),
+          t("charts.option.heatmap.saturday"),
+        ],
       },
       monthLabel: {
         nameMap: [
-          "一月",
-          "二月",
-          "三月",
-          "四月",
-          "五月",
-          "六月",
-          "七月",
-          "八月",
-          "九月",
-          "十月",
-          "十一月",
-          "十二月",
+          t("charts.option.heatmap.january"),
+          t("charts.option.heatmap.february"),
+          t("charts.option.heatmap.march"),
+          t("charts.option.heatmap.april"),
+          t("charts.option.heatmap.may"),
+          t("charts.option.heatmap.june"),
+          t("charts.option.heatmap.july"),
+          t("charts.option.heatmap.august"),
+          t("charts.option.heatmap.september"),
+          t("charts.option.heatmap.october"),
+          t("charts.option.heatmap.november"),
+          t("charts.option.heatmap.december"),
         ],
       },
     },
     series: [
       {
-        name: "交易活跃",
+        name: t("charts.option.heatmap.series"),
         type: "heatmap",
         coordinateSystem: "calendar",
         data: days.map((day) => [

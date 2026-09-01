@@ -21,8 +21,9 @@ export function HoldingAllocationChart({
       buildAllocationChartOption(
         allocation.slices,
         allocation.valuation.label,
+        t,
       ),
-    [allocation.slices, allocation.valuation.label],
+    [allocation.slices, allocation.valuation.label, t],
   );
 
   return (

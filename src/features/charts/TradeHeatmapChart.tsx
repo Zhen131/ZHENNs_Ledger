@@ -60,8 +60,8 @@ function OverviewTradeHeatmap({
 }: OverviewTradeHeatmapProps) {
   const { t } = useLanguage();
   const option = useMemo(
-    () => buildTradeHeatmapChartOption(heatmap),
-    [heatmap],
+    () => buildTradeHeatmapChartOption(heatmap, t),
+    [heatmap, t],
   );
   const events = useMemo(
     () => ({

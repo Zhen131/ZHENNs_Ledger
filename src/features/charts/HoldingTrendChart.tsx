@@ -32,8 +32,8 @@ export function HoldingTrendChart({
     { value: "all", label: t("charts.trend.rangeAll") },
   ];
   const option = useMemo(
-    () => buildHoldingHistoryChartOption(history),
-    [history],
+    () => buildHoldingHistoryChartOption(history, t),
+    [history, t],
   );
   const valuedDays = history.filter(
     (point) => point.totalMarketValue !== undefined,
