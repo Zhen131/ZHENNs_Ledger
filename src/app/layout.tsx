@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { translateDefault } from "@/ui";
 
 export const metadata: Metadata = {
   title: "Zhenn's Ledger",
-  description: "只由你选择的加密文件承载的本地优先交易账本。",
+  description: translateDefault("metadata.description"),
 };
 
 export default function RootLayout({

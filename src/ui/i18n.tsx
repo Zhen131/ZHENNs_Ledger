@@ -413,6 +413,7 @@ const chineseMessages = {
   "backup.markdown.noSafeSummary": "无可安全取得的摘要字段",
   "backup.markdown.unavailable": "不可得",
   "backup.markdown.none": "无",
+  "metadata.description": "只由你选择的加密文件承载的本地优先交易账本。",
   "shared.i18n.fallbackExample": "中文回退文案",
   "settings.language.heading": "界面语言",
   "settings.language.description": "语言偏好只保存在这台浏览器中，不写入账本文件。",
