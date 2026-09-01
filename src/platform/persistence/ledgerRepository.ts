@@ -6,6 +6,7 @@ import {
 import { validateStoredLedgerEnvelopeV2 } from "@/platform/legacy";
 import type { EncryptionService } from "@/platform/legacy";
 import type { LedgerData } from "@/core/models";
+import type { LedgerAction } from "@/core/state";
 import { validateLedgerData } from "@/core/validation";
 
 export const LEDGER_REPOSITORY_ERROR_CODES = {
@@ -43,6 +44,10 @@ export class LedgerRepositoryError extends Error {
 export interface LedgerRepository {
   load(): Promise<LedgerData | null>;
   save(ledgerData: LedgerData): Promise<void>;
+  saveAfterAction?(
+    action: LedgerAction,
+    ledgerData: LedgerData,
+  ): Promise<void>;
   clear(): Promise<void>;
 }
 
@@ -422,6 +427,12 @@ export function createLedgerSession(
     load: () => requireActiveRepository(runtime).load(),
     save: (ledgerData) =>
       requireActiveRepository(runtime).save(ledgerData),
+    saveAfterAction: (action, ledgerData) => {
+      const repository = requireActiveRepository(runtime);
+      return repository.saveAfterAction
+        ? repository.saveAfterAction(action, ledgerData)
+        : repository.save(ledgerData);
+    },
     clear: () => requireActiveRepository(runtime).clear(),
   };
 
@@ -864,6 +875,12 @@ export function claimLedgerSessionPersistencePort(
     load: () => requirePersistenceRepository(runtime).load(),
     save: (ledgerData) =>
       requirePersistenceRepository(runtime).save(ledgerData),
+    saveAfterAction: (action, ledgerData) => {
+      const repository = requirePersistenceRepository(runtime);
+      return repository.saveAfterAction
+        ? repository.saveAfterAction(action, ledgerData)
+        : repository.save(ledgerData);
+    },
     clear: () => requirePersistenceRepository(runtime).clear(),
   };
   const port: LedgerSessionPersistencePort = Object.freeze({

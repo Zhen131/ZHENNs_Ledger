@@ -24,6 +24,33 @@ const OPTIONS: DashboardDerivationOptions = {
 const CREATED_AT = "2026-08-19T12:00:00.000Z";
 
 describe("updateDashboardDerivationsForAppend", () => {
+  it.each(["1d", "7d", "30d", "365d", "all"] as const)(
+    "matches a full recomputation for a current trade in the %s history range",
+    (chartRange) => {
+      const options = { ...OPTIONS, chartRange };
+      const previousLedger = createBaseLedger();
+      const previousValues = buildDashboardDerivations(
+        previousLedger,
+        options,
+      );
+      const nextLedger = appendTrade(previousLedger, {
+        ...currentTrade(),
+        occurredAt: OPTIONS.todayKey,
+      });
+
+      const update = updateDashboardDerivationsForAppend(
+        previousValues,
+        previousLedger,
+        nextLedger,
+        options,
+      );
+
+      expect(update.values).toEqual(
+        buildDashboardDerivations(nextLedger, options),
+      );
+    },
+  );
+
   it.each<{
     name: string;
     append: (ledger: LedgerData) => LedgerData;

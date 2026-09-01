@@ -3,12 +3,15 @@ import {
   buildHoldingAllocation,
   buildHoldingHistory,
   buildTradeHeatmap,
+  updateHoldingHistoryForCurrentDay,
+  updateTradeHeatmapForAppendedTrade,
   type ChartRange,
 } from "@/features/charts";
 import {
   buildLedgerPnlSummary,
   buildLedgerProjection,
   updateLedgerProjectionForAppendedFact,
+  updateLedgerPnlSummaryForAppendedTrade,
   type AppendedLedgerFact,
 } from "@/features/portfolio";
 
@@ -175,13 +178,32 @@ export function updateDashboardDerivationsForAppend(
   }
 
   const projection = incrementalProjection.projection;
+  const appendedTrade = appended.kind === "trade" ? appended.fact : null;
+  const incrementalPnl = appendedTrade
+    ? updateLedgerPnlSummaryForAppendedTrade(
+        previousValues.pnlSummary,
+        appendedTrade,
+        projection,
+        options.todayKey,
+      )
+    : null;
+  const incrementalHistory =
+    appendedTrade &&
+    appendedTrade.occurredAt.slice(0, 10) === options.todayKey
+      ? updateHoldingHistoryForCurrentDay(
+          previousValues.history,
+          nextLedger,
+          projection,
+          { todayKey: options.todayKey, range: options.chartRange },
+        )
+      : null;
   return {
     values: {
       projection,
       pnlSummary:
         appended.kind === "cash-event"
           ? previousValues.pnlSummary
-          : buildLedgerPnlSummary(nextLedger, {
+          : incrementalPnl ?? buildLedgerPnlSummary(nextLedger, {
               todayKey: options.todayKey,
               mode: options.valuationPriceMode,
             }),
@@ -190,14 +212,20 @@ export function updateDashboardDerivationsForAppend(
         mode: options.valuationPriceMode,
         projection,
       }),
-      history: buildHoldingHistory(nextLedger, {
-        todayKey: options.todayKey,
-        mode: options.valuationPriceMode,
-        range: options.chartRange,
-      }),
+      history:
+        incrementalHistory ??
+        buildHoldingHistory(nextLedger, {
+          todayKey: options.todayKey,
+          mode: options.valuationPriceMode,
+          range: options.chartRange,
+        }),
       heatmap:
-        appended.kind === "trade"
-          ? buildTradeHeatmap(nextLedger, options.todayKey)
+        appendedTrade
+          ? updateTradeHeatmapForAppendedTrade(
+              previousValues.heatmap,
+              appendedTrade,
+              options.todayKey,
+            )
           : previousValues.heatmap,
     },
     mode: "incremental",

@@ -1,4 +1,5 @@
 import type { LedgerData } from "@/core/models";
+import type { LedgerAction } from "@/core/state";
 import { isValidISODateOrDateTime } from "@/core/validation";
 import {
   createCanonicalLedgerPayloadV4,
@@ -30,7 +31,7 @@ export type LedgerFactBlockPlanV3S3 = {
   order: number;
   sealed: boolean;
   recordCount: number;
-  serializedPayload: string;
+  serializedPayload: string | null;
   reusedBlock: EncryptedLedgerBlockV3S3 | null;
 };
 
@@ -54,6 +55,7 @@ export function createLedgerGenerationPlanV3S3(
     generation: LedgerGenerationV3S3;
     blockPayloads: ReadonlyMap<string, LedgerBlockPayloadV3S3>;
   },
+  action?: LedgerAction,
 ): LedgerGenerationPlanV3S3 {
   const controlSerializedPayload = serializeBlockPayload(
     payload.value.savedAt,
@@ -65,6 +67,16 @@ export function createLedgerGenerationPlanV3S3(
       payload,
       controlSerializedPayload,
     );
+  }
+  if (action?.type === "trade/add") {
+    const incremental = createTradeAppendPlan(
+      revisionId,
+      payload,
+      controlSerializedPayload,
+      base,
+      action,
+    );
+    if (incremental) return incremental;
   }
 
   const candidateEntries = flattenLedgerData(payload.value.ledgerData);
@@ -130,6 +142,8 @@ export function createLedgerGenerationPlanV3S3(
 
   const plans = working.map(({ block, entries }) => {
     const order = block.order;
+    // A deletion may leave a previously sealed block sparse. Compaction is
+    // deliberately out of scope: the block stays sealed and is never refilled.
     const sealed = block.sealed || entries.length === RECORDS_PER_LEDGER_BLOCK;
     const changedSerializedPayload = serializeBlockPayload(
       payload.value.savedAt,
@@ -162,14 +176,14 @@ export function createLedgerGenerationPlanV3S3(
     };
   });
 
-  const reconstructed = mergeBlockPayloadsV3S3(
-    JSON.parse(controlSerializedPayload) as LedgerBlockPayloadV3S3,
+  const reconstructedLedgerData = mergeLedgerDataV3S3(
     plans.map(({ serializedPayload }) =>
-      JSON.parse(serializedPayload) as LedgerBlockPayloadV3S3,
+      JSON.parse(serializedPayload!) as LedgerBlockPayloadV3S3,
     ),
   );
   if (
-    reconstructed.serializedLedgerData !== payload.serializedLedgerData
+    JSON.stringify(reconstructedLedgerData) !==
+      payload.serializedLedgerData
   ) {
     // A reordered or otherwise whole-ledger replacement is allowed to rebuild
     // all fact blocks. Ordinary append/edit/delete paths preserve membership.
@@ -185,6 +199,120 @@ export function createLedgerGenerationPlanV3S3(
     controlSerializedPayload,
     factBlocks: plans,
     openBlockId: openPlan?.blockId ?? null,
+    fullRebuild: false,
+  };
+}
+
+function createTradeAppendPlan(
+  revisionId: string,
+  payload: CanonicalLedgerPayloadV4,
+  controlSerializedPayload: string,
+  base: {
+    generation: LedgerGenerationV3S3;
+    blockPayloads: ReadonlyMap<string, LedgerBlockPayloadV3S3>;
+  },
+  action: Extract<LedgerAction, { type: "trade/add" }>,
+): LedgerGenerationPlanV3S3 | null {
+  const candidateTrade = payload.value.ledgerData.trades.at(-1);
+  if (
+    !candidateTrade ||
+    candidateTrade.id !== action.trade.id
+  ) {
+    return null;
+  }
+
+  const baseCounts: Record<LedgerFactCollection, number> = {
+    assets: 0,
+    trades: 0,
+    cashEvents: 0,
+    assetTransfers: 0,
+    priceSnapshots: 0,
+    feeRules: 0,
+  };
+  for (const block of base.generation.factBlocks) {
+    const blockPayload = base.blockPayloads.get(block.blockId);
+    if (!blockPayload) return null;
+    for (const collection of LEDGER_FACT_COLLECTIONS) {
+      baseCounts[collection] +=
+        collectionArray(blockPayload.ledgerData, collection).length;
+    }
+  }
+  if (
+    LEDGER_FACT_COLLECTIONS.some((collection) =>
+      payload.value.ledgerData[collection].length !==
+        baseCounts[collection] +
+          (collection === "trades" ? 1 : 0),
+    )
+  ) {
+    return null;
+  }
+
+  const openBlock = base.generation.openBlockId
+    ? base.generation.factBlocks.find(
+        (block) => block.blockId === base.generation.openBlockId,
+      )
+    : undefined;
+  const plans: LedgerFactBlockPlanV3S3[] =
+    base.generation.factBlocks.map((block) => ({
+      blockId: block.blockId,
+      order: block.order,
+      sealed: block.sealed,
+      recordCount: block.recordCount,
+      serializedPayload: null,
+      reusedBlock: block,
+    }));
+
+  let openBlockId: string;
+  if (openBlock) {
+    const openPayload = base.blockPayloads.get(openBlock.blockId);
+    if (!openPayload) return null;
+    const entries = flattenLedgerData(openPayload.ledgerData);
+    entries.push({
+      collection: "trades",
+      id: candidateTrade.id,
+      value: candidateTrade,
+    });
+    if (entries.length > RECORDS_PER_LEDGER_BLOCK) return null;
+    const sealed = entries.length === RECORDS_PER_LEDGER_BLOCK;
+    const index = plans.findIndex(
+      (block) => block.blockId === openBlock.blockId,
+    );
+    plans[index] = {
+      blockId: openBlock.blockId,
+      order: openBlock.order,
+      sealed,
+      recordCount: entries.length,
+      serializedPayload: serializeBlockPayload(
+        payload.value.savedAt,
+        entries,
+      ),
+      reusedBlock: null,
+    };
+    openBlockId = sealed ? "" : openBlock.blockId;
+  } else {
+    const order = Math.max(
+      -1,
+      ...base.generation.factBlocks.map((block) => block.order),
+    ) + 1;
+    const blockId = `${revisionId}:facts:${order}`;
+    plans.push({
+      blockId,
+      order,
+      sealed: false,
+      recordCount: 1,
+      serializedPayload: serializeBlockPayload(
+        payload.value.savedAt,
+        [{ collection: "trades", id: candidateTrade.id, value: candidateTrade }],
+      ),
+      reusedBlock: null,
+    });
+    openBlockId = blockId;
+  }
+
+  return {
+    controlSerializedPayload,
+    factBlocks: plans,
+    openBlockId: openBlockId || null,
     fullRebuild: false,
   };
 }
@@ -242,6 +370,19 @@ export function mergeBlockPayloadsV3S3(
   control: LedgerBlockPayloadV3S3,
   facts: readonly LedgerBlockPayloadV3S3[],
 ): CanonicalLedgerPayloadV4 {
+  const merged = mergeLedgerDataV3S3(facts);
+  const result = createCanonicalLedgerPayloadV4(merged, control.savedAt);
+  if (!result.ok) {
+    throw new Error("Merged V3 S-3 blocks failed the canonical V4 payload contract", {
+      cause: result.errors,
+    });
+  }
+  return result.value;
+}
+
+function mergeLedgerDataV3S3(
+  facts: readonly LedgerBlockPayloadV3S3[],
+): LedgerData {
   const merged = emptyLedgerData();
   for (const payload of facts) {
     for (const collection of LEDGER_FACT_COLLECTIONS) {
@@ -250,13 +391,7 @@ export function mergeBlockPayloadsV3S3(
       );
     }
   }
-  const result = createCanonicalLedgerPayloadV4(merged, control.savedAt);
-  if (!result.ok) {
-    throw new Error("Merged V3 S-3 blocks failed the canonical V4 payload contract", {
-      cause: result.errors,
-    });
-  }
-  return result.value;
+  return merged;
 }
 
 function createFullPlan(

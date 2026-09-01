@@ -46,6 +46,7 @@ import {
 } from "@/core/state";
 import {
   evaluateLedgerResourcePolicy,
+  evaluateLedgerResourcePolicyAfterTradeAppend,
   type LedgerResourcePolicyError,
 } from "@/core/validation";
 import { validateLedgerData } from "@/core/validation";
@@ -121,7 +122,8 @@ type PersistenceVersionState = {
 type ScheduledSnapshot = {
   generation: number;
   version: number;
-  serializedLedger: string;
+  serializedLedger: string | null;
+  action?: LedgerAction;
 };
 
 type RetryAttempt = {
@@ -230,6 +232,15 @@ export function usePersistentLedger(
       load: () => requireCommittedPersistenceRepository().load(),
       save: (ledgerData: LedgerData) =>
         requireCommittedPersistenceRepository().save(ledgerData),
+      saveAfterAction: (
+        action: LedgerAction,
+        ledgerData: LedgerData,
+      ) => {
+        const repository = requireCommittedPersistenceRepository();
+        return repository.saveAfterAction
+          ? repository.saveAfterAction(action, ledgerData)
+          : repository.save(ledgerData);
+      },
       clear: () => requireCommittedPersistenceRepository().clear(),
     });
   }, [requestedSession]);
@@ -401,11 +412,14 @@ export function usePersistentLedger(
   const midnightDelay = millisecondsUntilNextLocalMidnight(
     renderTimeSnapshot.now,
   );
-  const compatibilityWarnings = collectLedgerCompatibilityWarnings(
-    ledgerData,
-    todayKey,
+  const compatibilityWarnings = useMemo(
+    () => collectLedgerCompatibilityWarnings(ledgerData, todayKey),
+    [ledgerData, todayKey],
   );
-  const factPartition = partitionLedgerFactsForToday(ledgerData, todayKey);
+  const factPartition = useMemo(
+    () => partitionLedgerFactsForToday(ledgerData, todayKey),
+    [ledgerData, todayKey],
+  );
   const isFutureFactCorrectionMode =
     factPartition.futureTrades.length > 0 ||
     factPartition.futureCashEvents.length > 0 ||
@@ -440,7 +454,14 @@ export function usePersistentLedger(
         () => undefined,
       );
       const saveAttempt = usesLatestFileSave
-        ? invokeRepositorySave(scheduledRepository, ledgerSnapshot)
+        ? scheduledSnapshot.action &&
+          scheduledRepository.saveAfterAction
+          ? invokeRepositoryActionSave(
+              scheduledRepository,
+              scheduledSnapshot.action,
+              ledgerSnapshot,
+            )
+          : invokeRepositorySave(scheduledRepository, ledgerSnapshot)
         : precedingQueue.then(() =>
             scheduledRepository.save(ledgerSnapshot),
           );
@@ -465,8 +486,10 @@ export function usePersistentLedger(
             return "ignored";
           }
 
-          lastPersistedSnapshotRef.current =
-            scheduledSnapshot.serializedLedger;
+          if (scheduledSnapshot.serializedLedger !== null) {
+            lastPersistedSnapshotRef.current =
+              scheduledSnapshot.serializedLedger;
+          }
 
           if (
             latestScheduledSnapshotRef.current === scheduledSnapshot
@@ -577,13 +600,16 @@ export function usePersistentLedger(
       nextVersionState: PersistenceVersionState,
       scheduledRepository: LedgerRepository,
       scheduledSession: LedgerSession | undefined,
+      action?: LedgerAction,
     ): void => {
-      const serializedLedger = JSON.stringify(ledgerSnapshot);
       const requiresRepositoryNoOpVerification =
         isLedgerFileBackedRepository(
           scheduledRepository,
           scheduledSession,
         );
+      const serializedLedger = requiresRepositoryNoOpVerification
+        ? null
+        : JSON.stringify(ledgerSnapshot);
       if (
         !requiresRepositoryNoOpVerification &&
         serializedLedger === lastPersistedSnapshotRef.current
@@ -601,6 +627,7 @@ export function usePersistentLedger(
         generation: generationRef.current,
         version: nextVersionState.mutationVersion,
         serializedLedger,
+        ...(action ? { action } : {}),
       };
       void enqueuePersistence(
         scheduledSnapshot,
@@ -803,7 +830,6 @@ export function usePersistentLedger(
       return;
     }
 
-    const serialized = JSON.stringify(ledgerData);
     const { mutationVersion, persistedVersion } =
       persistenceVersionStateRef.current;
     const generation = generationRef.current;
@@ -816,19 +842,6 @@ export function usePersistentLedger(
       );
 
     if (mutationVersion === persistedVersion) {
-      return;
-    }
-
-    if (
-      serialized === lastPersistedSnapshotRef.current &&
-      latestScheduledSnapshot?.generation !== generation &&
-      !requiresRepositoryNoOpVerification
-    ) {
-      publishPersistenceVersionState({
-        mutationVersion,
-        persistedVersion: mutationVersion,
-        persistenceStatus: "saved",
-      });
       return;
     }
 
@@ -847,6 +860,23 @@ export function usePersistentLedger(
       failedSnapshot?.generation === generation &&
       failedSnapshot.version === mutationVersion
     ) {
+      return;
+    }
+
+    const serialized = requiresRepositoryNoOpVerification
+      ? null
+      : JSON.stringify(ledgerData);
+
+    if (
+      serialized === lastPersistedSnapshotRef.current &&
+      latestScheduledSnapshot?.generation !== generation &&
+      !requiresRepositoryNoOpVerification
+    ) {
+      publishPersistenceVersionState({
+        mutationVersion,
+        persistedVersion: mutationVersion,
+        persistenceStatus: "saved",
+      });
       return;
     }
 
@@ -895,7 +925,7 @@ export function usePersistentLedger(
         timeSnapshot?.todayKey ?? captureLedgerTime(clock).todayKey;
 
       if (
-        hasFutureFacts(currentLedgerData, operationTodayKey) &&
+        isFutureFactCorrectionMode &&
         !isCorrectionAction(action, currentLedgerData, operationTodayKey)
       ) {
         return "rejected";
@@ -908,7 +938,12 @@ export function usePersistentLedger(
       }
 
       const resourcePolicyResult =
-        evaluateLedgerResourcePolicy(nextLedgerData);
+        action.type === "trade/add"
+          ? evaluateLedgerResourcePolicyAfterTradeAppend(
+              nextLedgerData,
+              action.trade,
+            )
+          : evaluateLedgerResourcePolicy(nextLedgerData);
 
       if (!resourcePolicyResult.ok) {
         if (mountedRef.current) {
@@ -931,6 +966,10 @@ export function usePersistentLedger(
         nextVersionState,
         activeRepository,
         activeSession,
+        currentVersionState.persistedVersion ===
+          currentVersionState.mutationVersion
+          ? action
+          : undefined,
       );
 
       if (mountedRef.current) {
@@ -950,6 +989,7 @@ export function usePersistentLedger(
       activeSession,
       clock,
       hydrationStatus,
+      isFutureFactCorrectionMode,
       registerAcceptedPersistence,
     ],
   );
@@ -1060,7 +1100,12 @@ export function usePersistentLedger(
     const scheduledSnapshot: ScheduledSnapshot = {
       generation,
       version: currentVersionState.mutationVersion,
-      serializedLedger: JSON.stringify(ledgerSnapshot),
+      serializedLedger: isLedgerFileBackedRepository(
+        activeRepository,
+        activeSession,
+      )
+        ? null
+        : JSON.stringify(ledgerSnapshot),
     };
     publishPersistenceVersionState({
       ...currentVersionState,
@@ -1812,6 +1857,20 @@ function invokeRepositorySave(
 ): Promise<void> {
   try {
     return repository.save(ledgerData);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}
+
+function invokeRepositoryActionSave(
+  repository: LedgerRepository,
+  action: LedgerAction,
+  ledgerData: LedgerData,
+): Promise<void> {
+  try {
+    return repository.saveAfterAction
+      ? repository.saveAfterAction(action, ledgerData)
+      : repository.save(ledgerData);
   } catch (error) {
     return Promise.reject(error);
   }

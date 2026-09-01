@@ -1,4 +1,5 @@
 import { base64UrlToBytes } from "@/platform/encryption";
+import { byteArraysEqual } from "./byteArraysEqual";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
   MAX_LEDGER_FILE_V2_BYTES,
@@ -1139,7 +1140,7 @@ function sameBlockHeader(left: EncryptedLedgerBlockV3S3, right: EncryptedLedgerB
 }
 
 function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
-  return left.byteLength === right.byteLength && left.every((value, index) => value === right[index]);
+  return byteArraysEqual(left, right);
 }
 
 function validateCrypto(input: unknown): LedgerFileContractError | null {

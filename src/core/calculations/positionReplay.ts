@@ -303,6 +303,35 @@ export function replayPositions(
   return getReplayPositions(state);
 }
 
+export function updatePositionForAppendedTrade(
+  previous: Position,
+  trade: Trade,
+): Position {
+  if (
+    previous.assetSymbol !== trade.assetSymbol ||
+    previous.currency !== trade.currency
+  ) {
+    throw new Error("An appended trade must match the previous position");
+  }
+  const state = createPositionReplayState();
+  state.positionsByAsset.set(previous.assetSymbol, {
+    assetSymbol: previous.assetSymbol,
+    quantity: previous.quantity,
+    locationQuantities: {
+      exchange: previous.locationQuantities.exchange,
+      "cold-wallet": previous.locationQuantities["cold-wallet"],
+      "cold-wallet-earn": previous.locationQuantities["cold-wallet-earn"],
+    },
+    costBasis: previous.costBasis,
+    realizedPnl: previous.realizedPnl,
+    giftIncome: previous.giftIncome,
+    currency: previous.currency,
+    feeAccountingIssues: [...(previous.feeAccountingIssues ?? [])],
+  });
+  applyTradeToReplay(state, trade);
+  return getReplayPositions(state)[0]!;
+}
+
 function getOrCreatePosition(
   positionsByAsset: Map<string, PositionAccumulator>,
   assetSymbol: string,

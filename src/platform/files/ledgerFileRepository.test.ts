@@ -23,7 +23,7 @@ import {
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import type { CryptoProvider } from "@/platform/encryption";
 import type { CashEvent, LedgerData, Trade } from "@/core/models";
-import { createInitialLedgerData } from "@/core/state";
+import { createInitialLedgerData, ledgerReducer } from "@/core/state";
 import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,
@@ -833,6 +833,103 @@ describe("LedgerFileRepository", () => {
     15_000,
   );
 
+  it("persists an authoritative trade action by rewriting only its open fact block", async () => {
+    const handle = new AtomicLedgerHandle("action-append.lftl");
+    const ledger = createLedgerWithTrades(2_001);
+    const appended = createTrade(2_001);
+    const action = { type: "trade/add" as const, trade: appended };
+    const expected = ledgerReducer(ledger, action);
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      ledger,
+      {
+        generateId: createIdGenerator([
+          "file-action-append",
+          "revision-action-base",
+          "revision-action-next",
+        ]),
+        now: createClock([
+          "2026-09-01T11:05:00.000Z",
+          "2026-09-01T11:06:00.000Z",
+        ]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    const before = readLatestChunkedFile(handle);
+    const beforeBytes = Uint8Array.from(handle.bytes);
+
+    await repository.saveAfterAction(action);
+
+    const after = readLatestChunkedFile(handle);
+    expect(after.current.factBlocks).toHaveLength(2);
+    expect(after.current.factBlocks[0]).toEqual(before.current.factBlocks[0]);
+    expect(
+      readChunkedBodySlots(
+        handle.bytes,
+        after.current.factBlocks[0]!.bodySlots,
+      ),
+    ).toEqual(
+      readChunkedBodySlots(
+        beforeBytes,
+        before.current.factBlocks[0]!.bodySlots,
+      ),
+    );
+    expect(after.current.factBlocks[1]!.ivBase64Url).not.toBe(
+      before.current.factBlocks[1]!.ivBase64Url,
+    );
+    await expect(repository.load()).resolves.toEqual(expected);
+  }, 15_000);
+
+  it("blocks later action saves after an uncertain action write until a full snapshot retry succeeds", async () => {
+    const handle = new AtomicLedgerHandle("action-failure-chain.lftl");
+    const ledger = createLedgerWithTrades(1);
+    const firstAction = {
+      type: "trade/add" as const,
+      trade: createTrade(1),
+    };
+    const secondAction = {
+      type: "trade/add" as const,
+      trade: createTrade(2),
+    };
+    const afterFirst = ledgerReducer(ledger, firstAction);
+    const afterSecond = ledgerReducer(afterFirst, secondAction);
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      ledger,
+      {
+        generateId: createIdGenerator([
+          "file-action-chain",
+          "revision-action-chain-base",
+          "revision-action-chain-first",
+          "revision-action-chain-second",
+        ]),
+        now: createClock([
+          "2026-09-01T11:07:00.000Z",
+          "2026-09-01T11:08:00.000Z",
+          "2026-09-01T11:09:00.000Z",
+        ]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    handle.failNextWrite = true;
+
+    await expect(repository.saveAfterAction(firstAction)).rejects.toMatchObject({
+      code: LEDGER_FILE_REPOSITORY_ERROR_CODES.WRITE_FAILED,
+    });
+    await expect(repository.saveAfterAction(secondAction)).rejects.toMatchObject({
+      code: LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+    });
+    await expect(repository.load()).resolves.toEqual(ledger);
+
+    await repository.save(afterFirst);
+    await repository.saveAfterAction(secondAction);
+    await expect(repository.load()).resolves.toEqual(afterSecond);
+  }, 15_000);
+
   it(
     "rewrites only the control block and one edited historical fact block",
     async () => {
@@ -897,6 +994,67 @@ describe("LedgerFileRepository", () => {
       await expect(repository.load()).resolves.toEqual(editedLedger);
     },
     20_000,
+  );
+
+  it(
+    "keeps a deleted sealed block sparse and rewrites no unrelated fact block",
+    async () => {
+      const handle = new AtomicLedgerHandle("chunk-sparse-delete.lftl");
+      const beforeLedger = createLedgerWithTrades(2_001);
+      const repository = await LedgerFileRepository.create(
+        new LedgerFileHandleAdapter(),
+        handle,
+        PASSPHRASE,
+        beforeLedger,
+        {
+          generateId: createIdGenerator([
+            "file-chunk-sparse-delete",
+            "revision-chunk-sparse-before",
+            "revision-chunk-sparse-after",
+          ]),
+          now: createClock([
+            "2026-09-01T11:15:00.000Z",
+            "2026-09-01T11:16:00.000Z",
+          ]),
+          sessionLease: TEST_SESSION_LEASE,
+        },
+      );
+      const beforeFile = readLatestChunkedFile(handle);
+      const beforeBytes = Uint8Array.from(handle.bytes);
+      const afterLedger = {
+        ...beforeLedger,
+        trades: beforeLedger.trades.filter(
+          ({ id }) => id !== "fixture-trade-17",
+        ),
+      };
+
+      await repository.save(afterLedger);
+
+      const afterFile = readLatestChunkedFile(handle);
+      expect(afterFile.current.factBlocks[0]).toMatchObject({
+        sealed: true,
+        recordCount: 1_999,
+      });
+      expect(afterFile.current.factBlocks[0]!.ivBase64Url).not.toBe(
+        beforeFile.current.factBlocks[0]!.ivBase64Url,
+      );
+      expect(afterFile.current.factBlocks[1]).toEqual(
+        beforeFile.current.factBlocks[1],
+      );
+      expect(
+        readChunkedBodySlots(
+          handle.bytes,
+          afterFile.current.factBlocks[1]!.bodySlots,
+        ),
+      ).toEqual(
+        readChunkedBodySlots(
+          beforeBytes,
+          beforeFile.current.factBlocks[1]!.bodySlots,
+        ),
+      );
+      await expect(repository.load()).resolves.toEqual(afterLedger);
+    },
+    15_000,
   );
 
   it(

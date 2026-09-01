@@ -3,18 +3,20 @@ import type {
   DecimalString,
   FeeAccountingIssue,
   LedgerData,
+  Trade,
   ValuationPriceMode,
 } from "@/core/models";
 import {
   isSupportedValuationCurrency,
   partitionLedgerFactsForToday,
 } from "@/core/policies";
-import { add, isZero } from "@/core/shared";
+import { add, getLedgerDateKey, isZero } from "@/core/shared";
 import {
   createValuationDisplay,
   type ValuationDisplay,
 } from "./valuationDisplay";
 import { getPositionsFromLedger } from "./positionService";
+import type { LedgerProjection } from "./ledgerProjection";
 
 export type SummaryMetric = {
   value?: DecimalString;
@@ -152,6 +154,79 @@ export function buildLedgerPnlSummary(
     missingPriceAssets: uniqueSorted(missingPriceAssets),
     excludedCurrencyAssets: uniqueSorted(excludedCurrencyAssets),
     valuation,
+  };
+}
+
+export function updateLedgerPnlSummaryForAppendedTrade(
+  previous: LedgerPnlSummary,
+  trade: Trade,
+  projection: LedgerProjection,
+  todayKey: string,
+): LedgerPnlSummary | null {
+  if (getLedgerDateKey(trade.occurredAt) > todayKey) return previous;
+  if (
+    previous.buyOutflow.value === undefined ||
+    previous.sellProceeds.value === undefined ||
+    previous.remainingCostBasis.value === undefined ||
+    previous.realizedPnl.value === undefined ||
+    previous.unrealizedPnl.value === undefined ||
+    previous.feeAccountingIssues.length > 0 ||
+    previous.missingPriceAssets.length > 0 ||
+    previous.excludedCurrencyAssets.length > 0 ||
+    !isSupportedValuationCurrency(trade.currency)
+  ) {
+    return null;
+  }
+  const cashImpact = calculateTradeCashImpact(trade);
+  if (!cashImpact.ok) return null;
+
+  let remainingCostBasis: DecimalString = "0";
+  let realizedPnl: DecimalString = "0";
+  let unrealizedPnl: DecimalString = "0";
+  for (const position of projection.positions) {
+    if (
+      !isSupportedValuationCurrency(position.currency) ||
+      position.feeAccountingIssues
+    ) {
+      return null;
+    }
+    remainingCostBasis = add(remainingCostBasis, position.costBasis);
+    realizedPnl = add(realizedPnl, position.realizedPnl);
+    if (isZero(position.quantity)) continue;
+    if (position.unrealizedPnl === undefined) return null;
+    unrealizedPnl = add(unrealizedPnl, position.unrealizedPnl);
+  }
+
+  const buyOutflowByAsset = { ...previous.buyOutflowByAsset };
+  let buyOutflow = previous.buyOutflow.value;
+  let sellProceeds = previous.sellProceeds.value;
+  if (trade.type === "buy") {
+    buyOutflow = add(buyOutflow, cashImpact.amount);
+    const priorAsset = buyOutflowByAsset[trade.assetSymbol];
+    if (priorAsset?.value === undefined && priorAsset !== undefined) return null;
+    buyOutflowByAsset[trade.assetSymbol] = metric(
+      add(priorAsset?.value ?? "0", cashImpact.amount),
+      [],
+    );
+  } else {
+    sellProceeds = add(sellProceeds, cashImpact.amount);
+  }
+
+  return {
+    buyOutflow: metric(buyOutflow, []),
+    buyOutflowByAsset: Object.fromEntries(
+      Object.entries(buyOutflowByAsset).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    ),
+    sellProceeds: metric(sellProceeds, []),
+    remainingCostBasis: metric(remainingCostBasis, []),
+    realizedPnl: metric(realizedPnl, []),
+    unrealizedPnl: metric(unrealizedPnl, []),
+    feeAccountingIssues: [],
+    missingPriceAssets: [],
+    excludedCurrencyAssets: [],
+    valuation: previous.valuation,
   };
 }
 

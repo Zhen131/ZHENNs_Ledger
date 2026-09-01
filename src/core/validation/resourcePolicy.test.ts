@@ -12,6 +12,7 @@ import {
   evaluateLedgerByteLengthResourcePolicy,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
+  evaluateLedgerResourcePolicyAfterTradeAppend,
 } from "./resourcePolicy";
 
 function padSerializedBackupToBytes(serialized: string, targetBytes: number): string {
@@ -25,6 +26,31 @@ function padSerializedBackupToBytes(serialized: string, targetBytes: number): st
 }
 
 describe("Ledger resource policy", () => {
+  it("matches the full policy for a legal appended trade and its bounded fields", () => {
+    const ledger = createInitialLedgerData();
+    const trade = {
+      id: "incremental-resource-trade",
+      occurredAt: "2026-09-01",
+      timePrecision: "day" as const,
+      type: "buy" as const,
+      assetSymbol: "BTC",
+      quantity: "1",
+      price: "10",
+      totalValue: "10",
+      currency: "USDT" as const,
+      fee: "0",
+      feeCurrency: "USDT" as const,
+      note: "n".repeat(DEFAULT_LEDGER_RESOURCE_LIMITS.note + 1),
+      createdAt: "2026-09-01T10:00:00.000Z",
+      updatedAt: "2026-09-01T10:00:00.000Z",
+    };
+    ledger.trades.push(trade);
+
+    expect(
+      evaluateLedgerResourcePolicyAfterTradeAppend(ledger, trade),
+    ).toEqual(evaluateLedgerResourcePolicy(ledger));
+  });
+
   it("accepts collections and strings exactly at their configured limits", () => {
     const ledger = createInitialLedgerData();
     ledger.assets = Array.from(

@@ -16,6 +16,7 @@ export {
   evaluateLedgerByteLengthResourcePolicy,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
+  evaluateLedgerResourcePolicyAfterTradeAppend,
 } from "./resourcePolicy";
 export { isValidISODateOrDateTime } from "./isoDateValidator";
 

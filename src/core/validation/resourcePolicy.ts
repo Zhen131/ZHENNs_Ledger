@@ -1,4 +1,4 @@
-import type { LedgerData } from "@/core/models";
+import type { LedgerData, Trade } from "@/core/models";
 
 export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   fileBytes: 128 * 1024 * 1024,
@@ -268,6 +268,70 @@ export function evaluateLedgerResourcePolicy(
       limits.id,
     );
   }
+
+  return errors.length === 0 ? { ok: true } : { ok: false, errors };
+}
+
+export function evaluateLedgerResourcePolicyAfterTradeAppend(
+  ledgerData: LedgerData,
+  trade: Trade,
+  overrides: Partial<LedgerResourceLimits> = {},
+): LedgerResourcePolicyResult {
+  const limits = { ...DEFAULT_LEDGER_RESOURCE_LIMITS, ...overrides };
+  const errors: LedgerResourcePolicyError[] = [];
+
+  checkCollection(errors, "assets", ledgerData.assets.length, limits.assets);
+  checkCollection(errors, "trades", ledgerData.trades.length, limits.trades);
+  checkCollection(
+    errors,
+    "cashEvents",
+    ledgerData.cashEvents.length,
+    limits.cashEvents,
+  );
+  checkCollection(
+    errors,
+    "assetTransfers",
+    ledgerData.assetTransfers.length,
+    limits.assetTransfers,
+  );
+  checkCollection(
+    errors,
+    "priceSnapshots",
+    ledgerData.priceSnapshots.length,
+    limits.priceSnapshots,
+  );
+  checkCollection(
+    errors,
+    "feeRules",
+    ledgerData.feeRules.length,
+    limits.feeRules,
+  );
+
+  const path = `trades[${ledgerData.trades.length - 1}]`;
+  checkString(errors, `${path}.id`, trade.id, limits.id);
+  checkString(errors, `${path}.assetSymbol`, trade.assetSymbol, limits.symbol);
+  checkString(errors, `${path}.currency`, trade.currency, limits.currency);
+  checkString(errors, `${path}.feeCurrency`, trade.feeCurrency, limits.currency);
+  checkString(errors, `${path}.quantity`, trade.quantity, limits.decimal);
+  checkString(errors, `${path}.price`, trade.price, limits.decimal);
+  checkString(errors, `${path}.totalValue`, trade.totalValue, limits.decimal);
+  checkString(errors, `${path}.fee`, trade.fee, limits.decimal);
+  checkOptionalString(
+    errors,
+    `${path}.quantitySortKey`,
+    trade.quantitySortKey,
+    limits.decimal,
+  );
+  checkOptionalString(
+    errors,
+    `${path}.totalValueSortKey`,
+    trade.totalValueSortKey,
+    limits.decimal,
+  );
+  checkOptionalString(errors, `${path}.platform`, trade.platform, limits.platform);
+  checkOptionalString(errors, `${path}.feeRuleId`, trade.feeRuleId, limits.id);
+  checkOptionalString(errors, `${path}.note`, trade.note, limits.note);
+  checkOptionalString(errors, `${path}.rawText`, trade.rawText, limits.rawText);
 
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }

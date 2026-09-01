@@ -3,8 +3,10 @@ import {
   type LedgerFileHandle,
   type LedgerFileHandleAdapter,
 } from "./ledgerFileHandleAdapter";
+import { byteArraysEqual } from "./byteArraysEqual";
 import {
   createCanonicalLedgerPayloadV4,
+  evaluateLedgerFilePayloadByteLength,
   type CanonicalLedgerPayloadV4,
   type DecryptedLedgerPayloadV4,
   SUPPORTED_LEDGER_SCHEMA_VERSION,
@@ -36,7 +38,8 @@ import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import type { CryptoProvider } from "@/platform/encryption";
-import type { LedgerData } from "@/core/models";
+import type { LedgerData, Trade } from "@/core/models";
+import { evaluateLedgerResourcePolicyAfterTradeAppend } from "@/core/validation";
 import {
   claimReadyLedgerImportExecutionContextForDriver,
   claimReadyLedgerClearExecutionContextForDriver,
@@ -57,7 +60,11 @@ import {
   type ReadyLedgerImportAuthorizationContext,
   type ReadyLedgerImportExecutionContext,
 } from "@/platform/persistence";
-import { createInitialLedgerData } from "@/core/state";
+import {
+  createInitialLedgerData,
+  ledgerReducer,
+  type LedgerAction,
+} from "@/core/state";
 
 export const LEDGER_FILE_REPOSITORY_ERROR_CODES = {
   INVALID_CANDIDATE: "LEDGER_FILE_INVALID_CANDIDATE",
@@ -118,6 +125,7 @@ type VerifiedLedgerFile = {
   previous: VerifiedGeneration | null;
   serializedFile: Uint8Array;
   reachableBodySlots: readonly number[];
+  reachableIvBase64Urls: readonly string[];
 };
 
 type PendingSaveIntent = {
@@ -130,6 +138,10 @@ type PendingSaveIntent = {
   writeMode: "replace" | "patch";
   patches: readonly LedgerFileBinaryPatchV3S3[];
   expectedCurrent: CanonicalLedgerPayloadV4;
+  expectedCurrentBlockPayloads: ReadonlyMap<string, string>;
+  expectedReachableBodySlots: readonly number[];
+  expectedReachableIvBase64Urls: readonly string[];
+  appendedFactId?: string;
 };
 
 type PendingRecoveryIntent = {
@@ -138,6 +150,9 @@ type PendingRecoveryIntent = {
   writeMode: "replace" | "patch";
   patches: readonly LedgerFileBinaryPatchV3S3[];
   expectedCurrent: CanonicalLedgerPayloadV4;
+  expectedCurrentBlockPayloads: ReadonlyMap<string, string>;
+  expectedReachableBodySlots: readonly number[];
+  expectedReachableIvBase64Urls: readonly string[];
 };
 
 type PendingClearIntent = PendingSaveIntent & {
@@ -195,6 +210,8 @@ export class LedgerFileRepository
     | ReadyLedgerImportAuthorization
     | null = null;
   private latestSaveRequest = 0;
+  private actionSaveChainBroken = false;
+  private verifiedFactIds: Set<string>;
 
   private constructor(
     private readonly adapter: LedgerFileHandleAdapter,
@@ -204,7 +221,25 @@ export class LedgerFileRepository
     private readonly sessionLease: LedgerFileSessionLease,
     private readonly generateId: () => string,
     private readonly now: () => Date,
-  ) {}
+  ) {
+    this.verifiedFactIds = collectLedgerFactIds(
+      verified.current.payload.ledgerData,
+    );
+  }
+
+  private acceptVerified(
+    verified: VerifiedLedgerFile,
+    appendedFactId?: string,
+  ): void {
+    this.verified = verified;
+    if (appendedFactId !== undefined) {
+      this.verifiedFactIds.add(appendedFactId);
+      return;
+    }
+    this.verifiedFactIds = collectLedgerFactIds(
+      verified.current.payload.ledgerData,
+    );
+  }
 
   getVerifiedFileId(): string {
     return this.verified.file.fileId;
@@ -275,14 +310,18 @@ export class LedgerFileRepository
         readback,
         crypto,
         {
+          file,
           fileId,
           currentRevisionId: revisionId,
           currentParentRevisionId: null,
           currentGeneration: file.current,
           currentPayload: payloadResult.value,
+          currentBlockSerializedPayloads: null,
           previousGeneration: null,
           previousPayload: null,
           serializedFile,
+          reachableBodySlots: collectLedgerFileBodySlots(file),
+          reachableIvBase64Urls: collectLedgerFileIvBase64Urls([file]),
         },
       );
 
@@ -332,6 +371,9 @@ export class LedgerFileRepository
   ): Promise<LedgerFileOpenResult> {
     const read = await adapter.readBinary(handle);
     const parsed = parseAndValidateLedgerFileCandidates(read.bytes);
+    const reachableIvBase64Urls = collectLedgerFileIvBase64Urls(
+      parsed.candidates.map(({ file }) => file),
+    );
     const generateId = dependencies.generateId ?? defaultGenerateId;
     const now = dependencies.now ?? (() => new Date());
     let firstError: unknown;
@@ -365,6 +407,8 @@ export class LedgerFileRepository
           file,
           read.bytes,
           crypto,
+          parsed.reachableBodySlots,
+          reachableIvBase64Urls,
         );
       } catch (error) {
         firstError ??= error;
@@ -389,6 +433,7 @@ export class LedgerFileRepository
             file,
             read.bytes,
             parsed.reachableBodySlots,
+            reachableIvBase64Urls,
             recoverySource,
             dependencies.sessionLease,
             generateId,
@@ -482,14 +527,75 @@ export class LedgerFileRepository
     }
     const saveRequest = this.latestSaveRequest + 1;
     this.latestSaveRequest = saveRequest;
-    return this.sessionLease.runExclusiveWrite(() =>
-      saveRequest === this.latestSaveRequest
-        ? this.saveExclusive(candidate)
-        : Promise.resolve(),
-    );
+    return this.sessionLease
+      .runExclusiveWrite(() =>
+        saveRequest === this.latestSaveRequest
+          ? this.saveExclusive(candidateValidation.value)
+          : Promise.resolve(),
+      )
+      .then(() => {
+        this.actionSaveChainBroken = false;
+      });
   }
 
-  private async saveExclusive(candidate: LedgerData): Promise<void> {
+  async saveAfterAction(action: LedgerAction): Promise<void> {
+    if (
+      this.pendingImportIntent ||
+      this.isImportAuthorizationActive()
+    ) {
+      throw importAuthorizationError(
+        "A ledger-file import authorization already owns the next write",
+      );
+    }
+    return this.sessionLease
+      .runExclusiveWrite(async () => {
+        if (this.actionSaveChainBroken) {
+          throw new LedgerFileRepositoryError(
+            LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
+            "A failed action save must be retried from the full ledger snapshot",
+          );
+        }
+        const fastPayload =
+          action.type === "trade/add" &&
+          action.trade.type === "buy" &&
+          !this.verifiedFactIds.has(action.trade.id)
+            ? createCanonicalPayloadAfterBuyTrade(
+                this.verified.current.payload.ledgerData,
+                action.trade,
+                this.verified.current.payload.savedAt,
+              )
+            : null;
+        const candidateValidation = fastPayload
+          ? { ok: true as const, value: fastPayload }
+          : createCanonicalLedgerPayloadV4(
+              ledgerReducer(
+                this.verified.current.payload.ledgerData,
+                action,
+              ),
+              this.verified.current.payload.savedAt,
+            );
+        if (!candidateValidation.ok) {
+          throw new LedgerFileRepositoryError(
+            LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+            "Ledger action failed validation before file save",
+            candidateValidation.errors,
+          );
+        }
+        await this.saveExclusive(
+          candidateValidation.value,
+          fastPayload ? action : undefined,
+        );
+      })
+      .catch((error: unknown) => {
+        this.actionSaveChainBroken = true;
+        throw error;
+      });
+  }
+
+  private async saveExclusive(
+    candidateForComparison: CanonicalLedgerPayloadV4,
+    action?: LedgerAction,
+  ): Promise<void> {
     if (
       this.pendingImportIntent ||
       this.isImportAuthorizationActive()
@@ -504,23 +610,11 @@ export class LedgerFileRepository
         "A ledger-file clear intent must be reconciled before saving",
       );
     }
-    const candidateForComparison = createCanonicalLedgerPayloadV4(
-      candidate,
-      this.verified.current.payload.savedAt,
-    );
-    if (!candidateForComparison.ok) {
-      throw new LedgerFileRepositoryError(
-        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
-        "Ledger data failed validation before file save",
-        candidateForComparison.errors,
-      );
-    }
-
     if (this.pendingIntent) {
       const pendingResult = await this.reconcilePendingIntent();
       if (
         pendingResult === "committed" &&
-        candidateForComparison.value.serializedLedgerData ===
+        candidateForComparison.serializedLedgerData ===
           this.verified.current.serializedLedgerData
       ) {
         return;
@@ -530,7 +624,7 @@ export class LedgerFileRepository
         const key = createIntentKey(
           this.verified.file.fileId,
           this.verified.file.current.revisionId,
-          candidateForComparison.value.serializedLedgerData,
+          candidateForComparison.serializedLedgerData,
         );
         if (this.pendingIntent?.key === key) {
           await this.writePendingIntent(this.pendingIntent);
@@ -539,27 +633,20 @@ export class LedgerFileRepository
         this.pendingIntent = null;
       }
     } else {
-      await this.assertDiskMatchesVerified();
+      await this.assertDiskMatchesVerified(false);
     }
 
     if (
-      candidateForComparison.value.serializedLedgerData ===
+      candidateForComparison.serializedLedgerData ===
       this.verified.current.serializedLedgerData
     ) {
       return;
     }
 
-    const payloadResult = createCanonicalLedgerPayloadV4(
-      candidate,
+    const payload = retimeCanonicalLedgerPayloadV4(
+      candidateForComparison,
       this.now().toISOString(),
     );
-    if (!payloadResult.ok) {
-      throw new LedgerFileRepositoryError(
-        LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
-        "Ledger data failed validation before file save",
-        payloadResult.errors,
-      );
-    }
 
     const baseFile = this.verified.file;
     const revisionId = this.generateId();
@@ -576,14 +663,16 @@ export class LedgerFileRepository
       this.verified.serializedFile,
       this.verified.reachableBodySlots,
       this.verified.current,
-      payloadResult.value,
+      payload,
       revisionId,
+      this.verified.reachableIvBase64Urls,
+      action,
     );
     const pendingIntent: PendingSaveIntent = {
       key: createIntentKey(
         baseFile.fileId,
         baseFile.current.revisionId,
-        payloadResult.value.serializedLedgerData,
+        payload.serializedLedgerData,
       ),
       baseFile,
       baseSerializedFile: this.verified.serializedFile,
@@ -592,7 +681,16 @@ export class LedgerFileRepository
       serializedFile: prepared.serializedFile,
       writeMode: prepared.mode,
       patches: prepared.patches,
-      expectedCurrent: payloadResult.value,
+      expectedCurrent: payload,
+      expectedCurrentBlockPayloads:
+        prepared.expectedCurrentBlockPayloads,
+      expectedReachableBodySlots:
+        prepared.expectedReachableBodySlots,
+      expectedReachableIvBase64Urls:
+        prepared.expectedReachableIvBase64Urls,
+      ...(action?.type === "trade/add"
+        ? { appendedFactId: action.trade.id }
+        : {}),
     };
     this.pendingIntent = pendingIntent;
     await this.writePendingIntent(pendingIntent);
@@ -949,6 +1047,7 @@ export class LedgerFileRepository
       this.verified.current,
       payloadResult.value,
       revisionId,
+      this.verified.reachableIvBase64Urls,
     );
     assertImportActive(signal);
     await this.assertDiskMatchesVerified();
@@ -968,6 +1067,12 @@ export class LedgerFileRepository
       writeMode: prepared.mode,
       patches: prepared.patches,
       expectedCurrent: payloadResult.value,
+      expectedCurrentBlockPayloads:
+        prepared.expectedCurrentBlockPayloads,
+      expectedReachableBodySlots:
+        prepared.expectedReachableBodySlots,
+      expectedReachableIvBase64Urls:
+        prepared.expectedReachableIvBase64Urls,
     };
     this.pendingImportIntent = pending;
     let writeAttempted = false;
@@ -994,7 +1099,7 @@ export class LedgerFileRepository
         expectedFromPending(pending),
       );
       assertImportActive(signal);
-      this.verified = verified;
+      this.acceptVerified(verified);
       this.pendingImportIntent = null;
       return structuredClone(verified.current.payload.ledgerData);
     } catch (error) {
@@ -1026,9 +1131,8 @@ export class LedgerFileRepository
     }
     if (sameBytes(currentText, pending.baseSerializedFile)) {
       try {
-        this.verified = await verifySerializedLedgerFile(
-          currentText,
-          this.crypto,
+        this.acceptVerified(
+          await verifySerializedLedgerFile(currentText, this.crypto),
         );
         this.pendingImportIntent = null;
         return;
@@ -1060,9 +1164,8 @@ export class LedgerFileRepository
           "Compensation readback did not match the exact pre-import bytes",
         );
       }
-      this.verified = await verifySerializedLedgerFile(
-        restored,
-        this.crypto,
+      this.acceptVerified(
+        await verifySerializedLedgerFile(restored, this.crypto),
       );
       this.pendingImportIntent = null;
       return;
@@ -1077,9 +1180,8 @@ export class LedgerFileRepository
           "Final compensation readback did not match the exact pre-import bytes",
         );
       }
-      this.verified = await verifySerializedLedgerFile(
-        finalText,
-        this.crypto,
+      this.acceptVerified(
+        await verifySerializedLedgerFile(finalText, this.crypto),
       );
       this.pendingImportIntent = null;
       return;
@@ -1229,6 +1331,7 @@ export class LedgerFileRepository
       this.verified.current,
       payloadResult.value,
       revisionId,
+      this.verified.reachableIvBase64Urls,
     );
     const pending: PendingClearIntent = {
       authorization,
@@ -1245,6 +1348,12 @@ export class LedgerFileRepository
       writeMode: prepared.mode,
       patches: prepared.patches,
       expectedCurrent: payloadResult.value,
+      expectedCurrentBlockPayloads:
+        prepared.expectedCurrentBlockPayloads,
+      expectedReachableBodySlots:
+        prepared.expectedReachableBodySlots,
+      expectedReachableIvBase64Urls:
+        prepared.expectedReachableIvBase64Urls,
     };
     this.pendingClearIntent = pending;
     await this.writePendingClearIntent(pending);
@@ -1268,10 +1377,12 @@ export class LedgerFileRepository
       );
     }
     if (sameBytes(readText, pending.serializedFile)) {
-      this.verified = await verifySerializedLedgerFile(
-        readText,
-        this.crypto,
-        expectedFromPending(pending),
+      this.acceptVerified(
+        await verifySerializedLedgerFile(
+          readText,
+          this.crypto,
+          expectedFromPending(pending),
+        ),
       );
       this.pendingClearIntent = null;
       return "committed";
@@ -1304,10 +1415,12 @@ export class LedgerFileRepository
     } catch (error) {
       throw mapAdapterWriteError(error);
     }
-    this.verified = await verifySerializedLedgerFile(
-      readback,
-      this.crypto,
-      expectedFromPending(pending),
+    this.acceptVerified(
+      await verifySerializedLedgerFile(
+        readback,
+        this.crypto,
+        expectedFromPending(pending),
+      ),
     );
     if (this.pendingClearIntent === pending) {
       this.pendingClearIntent = null;
@@ -1339,7 +1452,7 @@ export class LedgerFileRepository
         expectedFromPending(pending),
         readText,
       );
-      this.verified = verified;
+      this.acceptVerified(verified, pending.appendedFactId);
       this.pendingIntent = null;
       return "committed";
     }
@@ -1387,13 +1500,15 @@ export class LedgerFileRepository
       );
     }
 
-    this.verified = verified;
+    this.acceptVerified(verified, pending.appendedFactId);
     if (this.pendingIntent === pending) {
       this.pendingIntent = null;
     }
   }
 
-  private async assertDiskMatchesVerified(): Promise<void> {
+  private async assertDiskMatchesVerified(
+    reauthenticate = true,
+  ): Promise<void> {
     let readText: Uint8Array;
     try {
       readText = (await this.adapter.readBinary(this.handle)).bytes;
@@ -1410,6 +1525,8 @@ export class LedgerFileRepository
         "Ledger file changed outside the current session",
       );
     }
+    if (!reauthenticate) return;
+
     const diskFile = parseAndValidateLedgerFile(readText);
     try {
       await verifyLedgerFile(
@@ -1441,6 +1558,7 @@ export class LedgerFileRecoveryCandidate {
     private readonly physicalBaseFile: LedgerFileV3S3,
     private readonly serializedBaseline: Uint8Array,
     private readonly reachableBodySlots: readonly number[],
+    private readonly reachableIvBase64Urls: readonly string[],
     private readonly verifiedRecoverySource: VerifiedGeneration,
     private readonly sessionLease: LedgerFileSessionLease,
     private readonly generateId: () => string,
@@ -1542,6 +1660,7 @@ export class LedgerFileRecoveryCandidate {
         this.verifiedRecoverySource,
         payloadResult.value,
         revisionId,
+        this.reachableIvBase64Urls,
       );
       this.pendingIntent = {
         file: prepared.file,
@@ -1549,6 +1668,12 @@ export class LedgerFileRecoveryCandidate {
         writeMode: prepared.mode,
         patches: prepared.patches,
         expectedCurrent: payloadResult.value,
+        expectedCurrentBlockPayloads:
+          prepared.expectedCurrentBlockPayloads,
+        expectedReachableBodySlots:
+          prepared.expectedReachableBodySlots,
+        expectedReachableIvBase64Urls:
+          prepared.expectedReachableIvBase64Urls,
       };
     }
 
@@ -1693,6 +1818,8 @@ async function prepareNextLedgerFileV3S3(
   logicalBase: VerifiedGeneration,
   payload: CanonicalLedgerPayloadV4,
   revisionId: string,
+  reachableIvBase64Urls?: readonly string[],
+  action?: LedgerAction,
 ) {
   const plan = createLedgerGenerationPlanV3S3(
     revisionId,
@@ -1701,6 +1828,7 @@ async function prepareNextLedgerFileV3S3(
       generation: logicalBase.generation,
       blockPayloads: logicalBase.blockPayloads,
     },
+    action,
   );
   const initialFree = Array.from(
     { length: physicalBaseFile.bodySlotCount },
@@ -1722,7 +1850,8 @@ async function prepareNextLedgerFileV3S3(
   }
   const allocator = createBodySlotAllocator(free);
   const usedIvBase64Urls = new Set(
-    readReachableIvBase64UrlsV3S3(baseSerializedFile),
+    reachableIvBase64Urls ??
+      readReachableIvBase64UrlsV3S3(baseSerializedFile),
   );
   const current = await encryptGenerationPlanV3S3(
     crypto,
@@ -1757,11 +1886,62 @@ async function prepareNextLedgerFileV3S3(
     current,
     previous: logicalBase.generation,
   });
-  return prepareLedgerFileUpdateV3S3(
+  return {
+    ...prepareLedgerFileUpdateV3S3(
     physicalBaseFile,
     baseSerializedFile,
     nextFile,
-  );
+    ),
+    expectedCurrentBlockPayloads: new Map<string, string>([
+      [current.controlBlock.blockId, plan.controlSerializedPayload],
+      ...plan.factBlocks.flatMap((block) =>
+        block.serializedPayload === null
+          ? []
+          : [[block.blockId, block.serializedPayload] as const],
+      ),
+    ]),
+    expectedReachableBodySlots: Array.from(
+      new Set([
+        ...reachableBodySlots,
+        ...collectLedgerFileBodySlots(nextFile),
+      ]),
+    ).sort((left, right) => left - right),
+    expectedReachableIvBase64Urls: Array.from(
+      new Set([
+        ...usedIvBase64Urls,
+        nextFile.manifestAuthIvBase64Url,
+      ]),
+    ),
+  };
+}
+
+function collectLedgerFileBodySlots(file: LedgerFileV3S3): number[] {
+  return [file.current, file.previous]
+    .flatMap((generation) =>
+      generation
+        ? [generation.controlBlock, ...generation.factBlocks]
+        : [],
+    )
+    .flatMap((block) => block.bodySlots);
+}
+
+function collectLedgerFileIvBase64Urls(
+  files: readonly LedgerFileV3S3[],
+): string[] {
+  const ivs = new Set<string>();
+  for (const file of files) {
+    ivs.add(file.manifestAuthIvBase64Url);
+    for (const generation of [file.current, file.previous]) {
+      if (!generation) continue;
+      for (const block of [
+        generation.controlBlock,
+        ...generation.factBlocks,
+      ]) {
+        ivs.add(block.ivBase64Url);
+      }
+    }
+  }
+  return [...ivs];
 }
 
 async function encryptGenerationPlanV3S3(
@@ -1802,6 +1982,11 @@ async function encryptGenerationPlanV3S3(
     if (block.reusedBlock) {
       factBlocks.push(block.reusedBlock);
       continue;
+    }
+    if (block.serializedPayload === null) {
+      throw new Error(
+        `Changed V3 S-3 block ${block.blockId} has no plaintext`,
+      );
     }
     const plaintextByteLength = new TextEncoder().encode(
       block.serializedPayload,
@@ -1853,6 +2038,11 @@ function generationPlanRequiredSlots(
     ledgerFileBodySlotsRequiredV3S3(controlBytes + 16) +
     plan.factBlocks.reduce((total, block) => {
       if (block.reusedBlock) return total;
+      if (block.serializedPayload === null) {
+        throw new Error(
+          `Changed V3 S-3 block ${block.blockId} has no plaintext`,
+        );
+      }
       const bytes = new TextEncoder().encode(block.serializedPayload).byteLength;
       return total + ledgerFileBodySlotsRequiredV3S3(bytes + 16);
     }, 0)
@@ -1869,6 +2059,9 @@ function ordinaryRewriteSlotReserve(
   const maximumFactSlots = Math.max(
     1,
     ...plan.factBlocks.map((block) => {
+      if (block.serializedPayload === null) {
+        return block.reusedBlock?.bodySlots.length ?? 1;
+      }
       const bytes = new TextEncoder().encode(block.serializedPayload).byteLength;
       return ledgerFileBodySlotsRequiredV3S3(bytes + 16);
     }),
@@ -1909,20 +2102,9 @@ function readReachableIvBase64UrlsV3S3(bytes: Uint8Array): string[] {
       parsed.errors,
     );
   }
-  const ivs = new Set<string>();
-  for (const { file } of parsed.value.candidates) {
-    ivs.add(file.manifestAuthIvBase64Url);
-    for (const generation of [file.current, file.previous]) {
-      if (!generation) continue;
-      for (const block of [
-        generation.controlBlock,
-        ...generation.factBlocks,
-      ]) {
-        ivs.add(block.ivBase64Url);
-      }
-    }
-  }
-  return [...ivs];
+  return collectLedgerFileIvBase64Urls(
+    parsed.value.candidates.map(({ file }) => file),
+  );
 }
 
 export async function inspectLedgerFile(
@@ -1935,12 +2117,18 @@ export async function inspectLedgerFile(
 
 function expectedFromPending(pending: PendingSaveIntent) {
   return {
+    file: pending.file,
     fileId: pending.file.fileId,
     currentRevisionId: pending.file.current.revisionId,
     currentParentRevisionId:
       pending.baseFile.current.revisionId,
     currentGeneration: pending.file.current,
     currentPayload: pending.expectedCurrent,
+    currentBlockSerializedPayloads:
+      pending.expectedCurrentBlockPayloads,
+    reachableBodySlots: pending.expectedReachableBodySlots,
+    reachableIvBase64Urls:
+      pending.expectedReachableIvBase64Urls,
     previousGeneration: pending.baseFile.current,
     previousPayload: pending.baseCurrent,
     serializedFile: pending.serializedFile,
@@ -1953,11 +2141,17 @@ function expectedFromRecovery(
   previousPayload: VerifiedGeneration,
 ): VerificationExpectation {
   return {
+    file: pending.file,
     fileId: pending.file.fileId,
     currentRevisionId: pending.file.current.revisionId,
     currentParentRevisionId: previousGeneration.revisionId,
     currentGeneration: pending.file.current,
     currentPayload: pending.expectedCurrent,
+    currentBlockSerializedPayloads:
+      pending.expectedCurrentBlockPayloads,
+    reachableBodySlots: pending.expectedReachableBodySlots,
+    reachableIvBase64Urls:
+      pending.expectedReachableIvBase64Urls,
     previousGeneration,
     previousPayload,
     serializedFile: pending.serializedFile,
@@ -1969,25 +2163,32 @@ async function verifySerializedLedgerFile(
   crypto: LedgerFileCrypto,
   expected?: VerificationExpectation,
 ): Promise<VerifiedLedgerFile> {
+  const exactExpectedBytes =
+    expected !== undefined &&
+    sameBytes(serialized, expected.serializedFile);
   return verifyLedgerFile(
-    parseAndValidateLedgerFile(serialized),
+    exactExpectedBytes
+      ? expected.file
+      : parseAndValidateLedgerFile(serialized),
     crypto,
     expected,
     serialized,
+    exactExpectedBytes,
   );
 }
 
 type VerificationExpectation = {
+  file: LedgerFileV3S3;
   fileId: string;
   currentRevisionId: string;
   currentParentRevisionId: string | null;
   currentGeneration: LedgerGenerationV3S3;
   currentPayload: CanonicalLedgerPayloadV4;
+  currentBlockSerializedPayloads: ReadonlyMap<string, string> | null;
+  reachableBodySlots?: readonly number[];
+  reachableIvBase64Urls?: readonly string[];
   previousGeneration: LedgerGenerationV3S3 | null;
-  previousPayload: Pick<
-    VerifiedGeneration,
-    "serializedPayload" | "serializedLedgerData"
-  > | null;
+  previousPayload: VerifiedGeneration | null;
   serializedFile: Uint8Array;
 };
 
@@ -1996,6 +2197,7 @@ async function verifyLedgerFile(
   crypto: LedgerFileCrypto,
   expected?: VerificationExpectation,
   serializedFile = serializeLedgerFile(file),
+  exactExpectedBytes = false,
 ): Promise<VerifiedLedgerFile> {
   if (!crypto.matchesCryptoMetadata(file.crypto)) {
     throw new LedgerFileRepositoryError(
@@ -2027,16 +2229,34 @@ async function verifyLedgerFile(
   let previousError: unknown;
 
   try {
-    current = await verifyGeneration(file, file.current, crypto);
+    current = await verifyGeneration(
+      file,
+      file.current,
+      crypto,
+      expected?.previousPayload ?? undefined,
+      expected?.currentBlockSerializedPayloads ?? undefined,
+      expected?.currentPayload,
+    );
   } catch (error) {
     currentError = error;
   }
 
   if (file.previous) {
-    try {
-      previous = await verifyGeneration(file, file.previous, crypto);
-    } catch (error) {
-      previousError = error;
+    if (
+      expected?.previousGeneration &&
+      expected.previousPayload &&
+      sameGeneration(file.previous, expected.previousGeneration)
+    ) {
+      previous = {
+        ...expected.previousPayload,
+        generation: file.previous,
+      };
+    } else {
+      try {
+        previous = await verifyGeneration(file, file.previous, crypto);
+      } catch (error) {
+        previousError = error;
+      }
     }
   }
 
@@ -2109,7 +2329,10 @@ async function verifyLedgerFile(
       );
     }
 
-    if (!sameBytes(serializedFile, expected.serializedFile)) {
+    if (
+      !exactExpectedBytes &&
+      !sameBytes(serializedFile, expected.serializedFile)
+    ) {
       throw new LedgerFileRepositoryError(
         LEDGER_FILE_REPOSITORY_ERROR_CODES.READBACK_FAILED,
         "Ledger file readback did not match the exact prepared bytes",
@@ -2122,7 +2345,12 @@ async function verifyLedgerFile(
     current,
     previous,
     serializedFile,
-    reachableBodySlots: readReachableBodySlotsV3S3(serializedFile),
+    reachableBodySlots:
+      expected?.reachableBodySlots ??
+      readReachableBodySlotsV3S3(serializedFile),
+    reachableIvBase64Urls:
+      expected?.reachableIvBase64Urls ??
+      readReachableIvBase64UrlsV3S3(serializedFile),
   };
 }
 
@@ -2130,6 +2358,8 @@ async function verifyLedgerFileForOpen(
   file: LedgerFileV3S3,
   serializedFile: Uint8Array,
   crypto: LedgerFileCrypto,
+  reachableBodySlots: readonly number[],
+  reachableIvBase64Urls: readonly string[],
 ): Promise<
   | { status: "verified"; verified: VerifiedLedgerFile }
   | {
@@ -2197,7 +2427,8 @@ async function verifyLedgerFileForOpen(
       current,
       previous,
       serializedFile,
-      reachableBodySlots: readReachableBodySlotsV3S3(serializedFile),
+      reachableBodySlots,
+      reachableIvBase64Urls,
     },
   };
 }
@@ -2206,31 +2437,53 @@ async function verifyGeneration(
   file: LedgerFileV3S3,
   generation: LedgerGenerationV3S3,
   crypto: LedgerFileCrypto,
+  trusted?: VerifiedGeneration,
+  expectedBlockSerializedPayloads?: ReadonlyMap<string, string>,
+  expectedPayload?: CanonicalLedgerPayloadV4,
 ): Promise<VerifiedGeneration> {
   try {
-    const blockPayloads = new Map<string, LedgerBlockPayloadV3S3>();
-    const controlPlaintext = await crypto.decryptBlockV3S3(
-      file.fileId,
-      generation.controlBlock,
+    const generationBlockIds = new Set(
+      [generation.controlBlock, ...generation.factBlocks].map(
+        (block) => block.blockId,
+      ),
     );
-    const control = parseLedgerBlockPayloadV3S3(
-      controlPlaintext,
-      "control",
-      generation.controlBlock.recordCount,
+    if (
+      expectedBlockSerializedPayloads &&
+      [...expectedBlockSerializedPayloads.keys()].some(
+        (blockId) => !generationBlockIds.has(blockId),
+      )
+    ) {
+      throw new Error(
+        "Expected V3 S-3 block payload is outside the generation",
+      );
+    }
+    const blockPayloads = new Map<string, LedgerBlockPayloadV3S3>();
+    const control = await readVerifiedBlockPayload(
+      file,
+      generation.controlBlock,
+      crypto,
+      trusted,
+      expectedBlockSerializedPayloads?.get(
+        generation.controlBlock.blockId,
+      ),
+      expectedBlockSerializedPayloads !== undefined,
     );
     blockPayloads.set(generation.controlBlock.blockId, control);
     const factPayloads: LedgerBlockPayloadV3S3[] = [];
     for (const block of generation.factBlocks) {
-      const plaintext = await crypto.decryptBlockV3S3(file.fileId, block);
-      const payload = parseLedgerBlockPayloadV3S3(
-        plaintext,
-        "facts",
-        block.recordCount,
+      const payload = await readVerifiedBlockPayload(
+        file,
+        block,
+        crypto,
+        trusted,
+        expectedBlockSerializedPayloads?.get(block.blockId),
+        expectedBlockSerializedPayloads !== undefined,
       );
       blockPayloads.set(block.blockId, payload);
       factPayloads.push(payload);
     }
-    const payloadResult = mergeBlockPayloadsV3S3(control, factPayloads);
+    const payloadResult = expectedPayload ??
+      mergeBlockPayloadsV3S3(control, factPayloads);
     return {
       generation,
       payload: payloadResult.value,
@@ -2246,6 +2499,63 @@ async function verifyGeneration(
       error,
     );
   }
+}
+
+async function readVerifiedBlockPayload(
+  file: LedgerFileV3S3,
+  block: EncryptedLedgerBlockV3S3,
+  crypto: LedgerFileCrypto,
+  trusted?: VerifiedGeneration,
+  expectedSerializedPayload?: string,
+  expectedPayloadsProvided = false,
+): Promise<LedgerBlockPayloadV3S3> {
+  const trustedBlock = trusted
+    ? [
+        trusted.generation.controlBlock,
+        ...trusted.generation.factBlocks,
+      ].find((candidate) =>
+        candidate.blockId === block.blockId &&
+        sameEncryptedBlock(candidate, block),
+      )
+    : undefined;
+  const trustedPayload = trustedBlock
+    ? trusted?.blockPayloads.get(trustedBlock.blockId)
+    : undefined;
+  if (trustedPayload) {
+    if (
+      expectedSerializedPayload !== undefined &&
+      JSON.stringify(trustedPayload) !== expectedSerializedPayload
+    ) {
+      throw new Error(
+        `Trusted V3 S-3 block ${block.blockId} does not match the save plan`,
+      );
+    }
+    return trustedPayload;
+  }
+
+  if (
+    expectedPayloadsProvided &&
+    expectedSerializedPayload === undefined
+  ) {
+    throw new Error(
+      `Changed V3 S-3 block ${block.blockId} is missing from the save plan`,
+    );
+  }
+
+  const plaintext = await crypto.decryptBlockV3S3(file.fileId, block);
+  if (
+    expectedSerializedPayload !== undefined &&
+    plaintext !== expectedSerializedPayload
+  ) {
+    throw new Error(
+      `Authenticated V3 S-3 block ${block.blockId} does not match the save plan`,
+    );
+  }
+  return parseLedgerBlockPayloadV3S3(
+    plaintext,
+    block.role,
+    block.recordCount,
+  );
 }
 
 function parseAndValidateLedgerFile(
@@ -2429,10 +2739,106 @@ function readPlaintextVersion(
 }
 
 function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
-  return (
-    left.byteLength === right.byteLength &&
-    left.every((value, index) => value === right[index])
+  return byteArraysEqual(left, right);
+}
+
+function retimeCanonicalLedgerPayloadV4(
+  payload: CanonicalLedgerPayloadV4,
+  savedAt: string,
+): CanonicalLedgerPayloadV4 {
+  const value = {
+    savedAt,
+    ledgerData: payload.value.ledgerData,
+  };
+  const serializedPayload = serializeCanonicalPayload(
+    savedAt,
+    payload.serializedLedgerData,
   );
+  const byteResult = evaluateLedgerFilePayloadByteLength(
+    serializedPayload,
+  );
+  if (!byteResult.ok) {
+    throw new LedgerFileRepositoryError(
+      LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_CANDIDATE,
+      "Ledger data failed the file payload resource policy after retiming",
+      byteResult.errors,
+    );
+  }
+  return {
+    value,
+    serializedPayload,
+    serializedLedgerData: payload.serializedLedgerData,
+  };
+}
+
+function createCanonicalPayloadAfterBuyTrade(
+  base: LedgerData,
+  trade: Trade,
+  savedAt: string,
+): CanonicalLedgerPayloadV4 | null {
+  const focused = createCanonicalLedgerPayloadV4(
+    {
+      schemaVersion: 4,
+      assets: base.assets,
+      trades: [trade],
+      cashEvents: [],
+      assetTransfers: [],
+      priceSnapshots: [],
+      feeRules: base.feeRules,
+    },
+    savedAt,
+  );
+  if (!focused.ok) return null;
+  const validatedTrade = focused.value.value.ledgerData.trades[0];
+  if (!validatedTrade) return null;
+
+  const ledgerData: LedgerData = {
+    schemaVersion: 4,
+    assets: base.assets,
+    trades: [...base.trades, validatedTrade],
+    cashEvents: base.cashEvents,
+    assetTransfers: base.assetTransfers,
+    priceSnapshots: base.priceSnapshots,
+    feeRules: base.feeRules,
+  };
+  const resourceResult =
+    evaluateLedgerResourcePolicyAfterTradeAppend(
+      ledgerData,
+      validatedTrade,
+    );
+  if (!resourceResult.ok) return null;
+
+  const value = { savedAt, ledgerData };
+  const serializedLedgerData = JSON.stringify(ledgerData);
+  const serializedPayload = serializeCanonicalPayload(
+    savedAt,
+    serializedLedgerData,
+  );
+  const byteResult = evaluateLedgerFilePayloadByteLength(
+    serializedPayload,
+  );
+  if (!byteResult.ok) return null;
+  return { value, serializedPayload, serializedLedgerData };
+}
+
+function collectLedgerFactIds(ledgerData: LedgerData): Set<string> {
+  return new Set(
+    [
+      ...ledgerData.assets,
+      ...ledgerData.trades,
+      ...ledgerData.cashEvents,
+      ...ledgerData.assetTransfers,
+      ...ledgerData.priceSnapshots,
+      ...ledgerData.feeRules,
+    ].map(({ id }) => id),
+  );
+}
+
+function serializeCanonicalPayload(
+  savedAt: string,
+  serializedLedgerData: string,
+): string {
+  return `{"savedAt":${JSON.stringify(savedAt)},"ledgerData":${serializedLedgerData}}`;
 }
 
 function sameGeneration(

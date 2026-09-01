@@ -435,6 +435,131 @@ export function buildTradeHeatmap(
   });
 }
 
+export function updateTradeHeatmapForAppendedTrade(
+  previous: readonly TradeHeatmapDay[],
+  trade: LedgerData["trades"][number],
+  todayKey: string,
+): TradeHeatmapDay[] {
+  const date = getLedgerDateKey(trade.occurredAt);
+  const startDate = addLedgerDays(todayKey, -364);
+  if (date < startDate || date > todayKey) return [...previous];
+  const updated = previous.map((day) => {
+    if (day.date !== date) return day;
+    const activityGroups = day.activityGroups.map((group) => ({ ...group }));
+    const group = activityGroups.find(
+      (candidate) =>
+        candidate.assetSymbol === trade.assetSymbol &&
+        candidate.type === trade.type,
+    );
+    if (group) {
+      group.count += 1;
+    } else {
+      activityGroups.push({
+        assetSymbol: trade.assetSymbol,
+        type: trade.type,
+        count: 1,
+      });
+    }
+    activityGroups.sort(compareHeatmapActivityGroups);
+    return {
+      ...day,
+      total: day.total + 1,
+      buys: day.buys + (trade.type === "buy" ? 1 : 0),
+      sells: day.sells + (trade.type === "sell" ? 1 : 0),
+      activityGroups,
+    };
+  });
+  const maxCount = Math.max(0, ...updated.map((day) => day.total));
+  return updated.map((day) => ({
+    ...day,
+    level: getHeatLevel(day.total, maxCount),
+  }));
+}
+
+export function updateHoldingHistoryForCurrentDay(
+  previous: readonly HoldingHistoryPoint[],
+  ledgerData: LedgerData,
+  projection: LedgerProjection,
+  options: Readonly<{ todayKey: string; range: ChartRange }>,
+): HoldingHistoryPoint[] | null {
+  const todayPoint = createHistoryPointFromProjection(
+    options.todayKey,
+    ledgerData,
+    projection,
+  );
+  if (options.range === "1d") {
+    if (previous.length !== 2) return null;
+    return [
+      {
+        ...todayPoint,
+        date: `${options.todayKey}T00:00:00`,
+        displayBoundary: "start",
+      },
+      {
+        ...todayPoint,
+        date: `${options.todayKey}T23:59:59`,
+        displayBoundary: "end",
+      },
+    ];
+  }
+  if (previous.at(-1)?.date !== options.todayKey) return null;
+  return [...previous.slice(0, -1), todayPoint];
+}
+
+function createHistoryPointFromProjection(
+  date: string,
+  ledgerData: LedgerData,
+  projection: LedgerProjection,
+): HoldingHistoryPoint {
+  let totalCostBasis: DecimalString = "0";
+  let totalMarketValue: DecimalString = "0";
+  const missingPriceAssets: string[] = [];
+  const excludedCurrencyAssets: string[] = [];
+  const unreliableFeeAssets: string[] = [];
+  const priceAsOfByAsset: Record<string, string> = {};
+  const valuationCurrencies: string[] = [];
+  for (const position of projection.positions) {
+    if (!isSupportedValuationCurrency(position.currency)) {
+      excludedCurrencyAssets.push(position.assetSymbol);
+      continue;
+    }
+    valuationCurrencies.push(position.currency);
+    if (position.feeAccountingIssues) {
+      unreliableFeeAssets.push(position.assetSymbol);
+    }
+    if (isZero(position.quantity)) continue;
+    if (!position.feeAccountingIssues) {
+      totalCostBasis = add(totalCostBasis, position.costBasis);
+    }
+    const selected =
+      projection.valuation.selectedPricesByAsset[position.assetSymbol];
+    if (!selected || position.marketValue === undefined) {
+      missingPriceAssets.push(position.assetSymbol);
+      continue;
+    }
+    totalMarketValue = add(totalMarketValue, position.marketValue);
+    priceAsOfByAsset[position.assetSymbol] = selected.asOf;
+  }
+  return {
+    date,
+    ...(unreliableFeeAssets.length === 0 ? { totalCostBasis } : {}),
+    ...(missingPriceAssets.length === 0
+      ? { totalMarketValue: add(totalMarketValue, projection.cash.balance) }
+      : {}),
+    assetMarketValue: totalMarketValue,
+    cashBalance: projection.cash.balance,
+    cashDeficit: projection.cash.deficit,
+    missingPriceAssets: missingPriceAssets.sort(),
+    excludedCurrencyAssets: excludedCurrencyAssets.sort(),
+    unreliableFeeAssets: unreliableFeeAssets.sort(),
+    priceAsOfByAsset,
+    valuation: createValuationDisplay(
+      valuationCurrencies,
+      getDefaultValuationCurrency(ledgerData),
+    ),
+  };
+}
+
 function compareHeatmapActivityGroups(
   left: TradeHeatmapActivityGroup,
   right: TradeHeatmapActivityGroup,

@@ -4,6 +4,7 @@ import {
   compareCashReplayCandidates,
   replayPositions,
   replayUsdtCash,
+  updatePositionForAppendedTrade,
 } from "@/core/calculations";
 import type {
   AssetTransfer,
@@ -301,6 +302,10 @@ function updateAffectedPosition(
   const replayedPosition =
     appended.kind === "price-snapshot"
       ? previousPosition
+      : appended.kind === "trade" &&
+          previousPosition &&
+          isLatestPositionFact(ledgerData, appended.fact)
+        ? updatePositionForAppendedTrade(previousPosition, appended.fact)
       : replayPositions(
           ledgerData.trades.filter(
             (trade) =>
@@ -334,6 +339,47 @@ function updateAffectedPosition(
     mode:
       appended.kind === "price-snapshot" ? "unchanged" : "affected-asset",
   };
+}
+
+function isLatestPositionFact(
+  ledgerData: LedgerData,
+  appended: Trade,
+): boolean {
+  const candidate = {
+    id: appended.id,
+    kind: "trade" as const,
+    occurredAt: appended.occurredAt,
+    createdAt: appended.createdAt,
+  };
+  return (
+    ledgerData.trades.every(
+      (trade) =>
+        trade.id === appended.id ||
+        trade.assetSymbol !== appended.assetSymbol ||
+        compareCashReplayCandidates(
+          {
+            id: trade.id,
+            kind: "trade",
+            occurredAt: trade.occurredAt,
+            createdAt: trade.createdAt,
+          },
+          candidate,
+        ) <= 0,
+    ) &&
+    ledgerData.assetTransfers.every(
+      (transfer) =>
+        transfer.assetSymbol !== appended.assetSymbol ||
+        compareCashReplayCandidates(
+          {
+            id: transfer.id,
+            kind: "asset-transfer",
+            occurredAt: transfer.occurredAt,
+            createdAt: transfer.createdAt,
+          },
+          candidate,
+        ) <= 0,
+    )
+  );
 }
 
 function previousValuedPositions(
