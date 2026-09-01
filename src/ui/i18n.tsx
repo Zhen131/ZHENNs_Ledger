@@ -74,6 +74,7 @@ const chineseMessages = {
   "shared.shell.settings": "设置",
   "shared.shell.lock": "锁定账本",
   "shared.shell.workspaceLabel": "加密账本工作区",
+  "shared.confirmDelete.confirm": "再次点击确认",
   "record.workspace.ariaLabel": "记账工作区",
   "record.heading": "记录现金、交易、资产转入转出与价格",
   "record.description":

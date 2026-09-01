@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
+import { useLanguage } from "./i18n";
 
 export type ConfirmDeleteOutcome = "applied" | "rejected" | "noop";
 
@@ -27,11 +28,12 @@ export type ConfirmDeleteButtonProps = Readonly<{
  */
 export function ConfirmDeleteButton({
   label,
-  confirmLabel = "再次点击确认",
+  confirmLabel,
   ariaLabel,
   disabled = false,
   onConfirm,
 }: ConfirmDeleteButtonProps) {
+  const { t } = useLanguage();
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -129,7 +131,7 @@ export function ConfirmDeleteButton({
       ref={buttonRef}
       type="button"
     >
-      {armed ? confirmLabel : label}
+      {armed ? (confirmLabel ?? t("shared.confirmDelete.confirm")) : label}
     </button>
   );
 }
