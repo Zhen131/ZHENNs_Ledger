@@ -5,30 +5,11 @@ import type { ReactNode } from "react";
 import {
   FileStatusIndicator,
   LedgerIcon,
+  useLanguage,
   type FileStatusTone,
   type LedgerIconName,
 } from "@/ui";
 import type { LedgerWorkspacePage } from "./useLedgerWorkspaceSession";
-
-const NAV_ITEMS: ReadonlyArray<{
-  page: LedgerWorkspacePage;
-  label: string;
-  icon: LedgerIconName;
-}> = [
-  { page: "home", label: "首页", icon: "home" },
-  { page: "record", label: "记账", icon: "record" },
-  { page: "transactions", label: "交易", icon: "transactions" },
-  { page: "transfer", label: "导入与导出", icon: "transfer" },
-  { page: "settings", label: "设置", icon: "settings" },
-];
-
-const PAGE_TITLES: Record<LedgerWorkspacePage, string> = {
-  home: "首页",
-  record: "记账",
-  transactions: "交易",
-  transfer: "导入与导出",
-  settings: "设置",
-};
 
 export function LedgerWorkspaceFrame({
   currentPage,
@@ -45,6 +26,34 @@ export function LedgerWorkspaceFrame({
   fileStatusTone: FileStatusTone;
   children: ReactNode;
 }>) {
+  const { t } = useLanguage();
+  const navItems: ReadonlyArray<{
+    page: LedgerWorkspacePage;
+    label: string;
+    icon: LedgerIconName;
+  }> = [
+    { page: "home", label: t("shared.shell.home"), icon: "home" },
+    { page: "record", label: t("shared.shell.record"), icon: "record" },
+    {
+      page: "transactions",
+      label: t("shared.shell.transactions"),
+      icon: "transactions",
+    },
+    {
+      page: "transfer",
+      label: t("shared.shell.transfer"),
+      icon: "transfer",
+    },
+    { page: "settings", label: t("shared.shell.settings"), icon: "settings" },
+  ];
+  const pageTitles: Record<LedgerWorkspacePage, string> = {
+    home: t("shared.shell.home"),
+    record: t("shared.shell.record"),
+    transactions: t("shared.shell.transactions"),
+    transfer: t("shared.shell.transfer"),
+    settings: t("shared.shell.settings"),
+  };
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[var(--ledger-canvas)] p-2 text-[var(--ledger-ink)] sm:p-4">
       <div className="mx-auto flex min-h-[calc(100vh-1rem)] w-full max-w-[1500px] flex-col overflow-hidden rounded-[20px] border border-[var(--ledger-border)] bg-[var(--ledger-shell)] shadow-[var(--ledger-shadow)] sm:min-h-[calc(100vh-2rem)] sm:rounded-[24px] min-[1100px]:h-[calc(100vh-2rem)] min-[1100px]:min-h-0 min-[1100px]:flex-row">
@@ -59,10 +68,10 @@ export function LedgerWorkspaceFrame({
           </div>
 
           <nav
-            aria-label="账本主导航"
+            aria-label={t("shared.shell.navigationAriaLabel")}
             className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5 min-[1100px]:mt-8 min-[1100px]:grid-cols-1"
           >
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = currentPage === item.page;
               return (
                 <button
@@ -90,7 +99,7 @@ export function LedgerWorkspaceFrame({
               type="button"
             >
               <LedgerIcon className="h-[18px] w-[18px] shrink-0" name="lock" />
-              <span>锁定账本</span>
+              <span>{t("shared.shell.lock")}</span>
             </button>
           ) : null}
         </aside>
@@ -99,10 +108,10 @@ export function LedgerWorkspaceFrame({
           <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-[var(--ledger-border)] px-3 py-3 sm:px-5 min-[1100px]:px-7">
             <div>
               <p className="text-xs font-medium text-[var(--ledger-muted)]">
-                加密账本工作区
+                {t("shared.shell.workspaceLabel")}
               </p>
               <h1 className="mt-0.5 text-xl font-semibold tracking-tight">
-                {PAGE_TITLES[currentPage]}
+                {pageTitles[currentPage]}
               </h1>
             </div>
             <FileStatusIndicator
