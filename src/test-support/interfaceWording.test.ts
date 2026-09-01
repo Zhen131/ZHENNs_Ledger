@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
-const INTERFACE_ROOTS = [join(SRC_ROOT, "app"), join(SRC_ROOT, "features")];
+const INTERFACE_ROOTS = [
+  join(SRC_ROOT, "app"),
+  join(SRC_ROOT, "features"),
+  join(SRC_ROOT, "ui"),
+];
 const DEPRECATED_INTERFACE_TERMS = [
   "总花费",
   "盈亏金额",
