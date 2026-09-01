@@ -22,7 +22,7 @@ import { AssetTransferPanel } from "@/features/asset-transfers/ui";
 import { PriceForm } from "@/features/prices/ui";
 import { TradeForm } from "@/features/trades/ui";
 import { CashEventPanel } from "@/features/cash/ui";
-import { SurfaceCard } from "@/ui";
+import { SurfaceCard, useLanguage } from "@/ui";
 import type {
   PriceWorkspaceDraft,
   RecordTarget,
@@ -105,6 +105,7 @@ export function RecordWorkspace({
   onTradeDraftChange?: (draft: TradeWorkspaceDraft) => void;
   onPriceDraftChange?: (draft: PriceWorkspaceDraft) => void;
 }>) {
+  const { t } = useLanguage();
   const tradeFocusRef = useRef<HTMLSelectElement>(null);
   const priceFocusRef = useRef<HTMLSelectElement>(null);
   const defaultAssetSymbol = ledgerData.assets[0]?.symbol ?? "";
@@ -240,14 +241,14 @@ export function RecordWorkspace({
 
   return (
     <section
-      aria-label="记账工作区"
+      aria-label={t("record.workspace.ariaLabel")}
       className={active ? "grid min-w-0 gap-4" : "hidden"}
       data-workspace-page="record"
     >
       <SurfaceCard className="p-5">
-        <h2 className="text-lg font-semibold">记录现金、交易、资产转入转出与价格</h2>
+        <h2 className="text-lg font-semibold">{t("record.heading")}</h2>
         <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
-          先选择现金、资产转移或某项本地资产；切换时会卸载另一张表单，不保留过期确认。
+          {t("record.description")}
         </p>
       </SurfaceCard>
 
@@ -256,13 +257,13 @@ export function RecordWorkspace({
           className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
           role="status"
         >
-          暂不可录入：当前账本只读或文件操作尚未完成，请查看顶部文件状态。
+          {t("record.readOnlyNotice")}
         </p>
       ) : null}
 
       <SurfaceCard className="min-w-0 p-5">
         <label className="grid max-w-xl gap-2 text-sm font-medium">
-          记账对象
+          {t("record.target.label")}
           <select
             className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-normal"
             disabled={!isWritable}
@@ -287,8 +288,8 @@ export function RecordWorkspace({
                   : `trade:${recordTarget.assetSymbol}`
             }
           >
-            <option value="cash:USDT">现金 USDT</option>
-            <option value="asset-transfer">资产转入转出</option>
+            <option value="cash:USDT">{t("record.target.cash")}</option>
+            <option value="asset-transfer">{t("record.target.assetTransfer")}</option>
             {ledgerData.assets.map((asset) => (
               <option key={asset.id} value={`trade:${asset.symbol}`}>
                 {asset.symbol} · {asset.name}
@@ -329,10 +330,10 @@ export function RecordWorkspace({
             <>
               <div className="mb-4">
                 <h3 className="font-semibold">
-                  新增 {recordTarget.assetSymbol} 交易
+                  {t("record.trade.headingPrefix")}{recordTarget.assetSymbol}{t("record.trade.headingSuffix")}
                 </h3>
                 <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-                  金额默认由数量 × 均价自动计算；手动改写后保持手动模式。
+                  {t("record.trade.description")}
                 </p>
               </div>
               <fieldset
@@ -380,9 +381,9 @@ export function RecordWorkspace({
         <div className="grid min-w-0 content-start gap-4">
           <SurfaceCard className="min-w-0 p-5">
             <div className="mb-4">
-              <h3 className="font-semibold">更新当前价格</h3>
+              <h3 className="font-semibold">{t("record.price.heading")}</h3>
               <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-                手动价格只用于估值；资产与日期会在认证保存后保留。
+                {t("record.price.description")}
               </p>
             </div>
             <fieldset
