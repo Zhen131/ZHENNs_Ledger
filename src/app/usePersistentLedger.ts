@@ -81,6 +81,7 @@ import {
   runPersistenceTargetEffect,
 } from "./usePersistentLedgerLifecycle";
 import {
+  doEnqueuePersistence,
   doRegisterAcceptedPersistence,
   doRetryPersistence,
   runAutomaticPersistenceEffect,
@@ -326,154 +327,27 @@ export function usePersistentLedger(
       ledgerSnapshot: LedgerData,
       scheduledRepository: LedgerRepository,
       scheduledSession: LedgerSession | undefined,
-    ): Promise<PersistenceAttemptResult> => {
-      latestScheduledSnapshotRef.current = scheduledSnapshot;
-      const usesLatestFileSave =
-        isLedgerFileBackedRepository(
-          scheduledRepository,
-          scheduledSession,
-        );
-      const precedingQueue = writeQueueRef.current.catch(
-        () => undefined,
-      );
-      const saveAttempt = usesLatestFileSave
-        ? scheduledSnapshot.action &&
-          scheduledRepository.saveAfterAction
-          ? invokeRepositoryActionSave(
-              scheduledRepository,
-              scheduledSnapshot.action,
-              ledgerSnapshot,
-            )
-          : invokeRepositorySave(scheduledRepository, ledgerSnapshot)
-        : precedingQueue.then(() =>
-            scheduledRepository.save(ledgerSnapshot),
-          );
-
-      const persistenceAttempt = saveAttempt
-        .then((): PersistenceAttemptResult => {
-          if (
-            currentRepositoryRef.current !== scheduledRepository ||
-            hydratedRepositoryRef.current !== scheduledRepository ||
-            generationRef.current !== scheduledSnapshot.generation
-          ) {
-            return "ignored";
-          }
-
-          const currentVersionState =
-            persistenceVersionStateRef.current;
-          if (
-            usesLatestFileSave &&
-            scheduledSnapshot.version <
-              currentVersionState.mutationVersion
-          ) {
-            return "ignored";
-          }
-
-          if (scheduledSnapshot.serializedLedger !== null) {
-            lastPersistedSnapshotRef.current =
-              scheduledSnapshot.serializedLedger;
-          }
-
-          if (
-            latestScheduledSnapshotRef.current === scheduledSnapshot
-          ) {
-            latestScheduledSnapshotRef.current = null;
-          }
-
-          if (
-            failedSnapshotRef.current?.generation ===
-              scheduledSnapshot.generation &&
-            failedSnapshotRef.current.version === scheduledSnapshot.version
-          ) {
-            failedSnapshotRef.current = null;
-          }
-
-          const nextPersistedVersion = Math.max(
-            currentVersionState.persistedVersion,
-            scheduledSnapshot.version,
-          );
-          publishPersistenceVersionState({
-            ...currentVersionState,
-            persistedVersion: nextPersistedVersion,
-            persistenceStatus:
-              nextPersistedVersion === currentVersionState.mutationVersion
-                ? "saved"
-                : "saving",
-          });
-
-          if (
-            mountedRef.current &&
-            nextPersistedVersion === currentVersionState.mutationVersion
-          ) {
-            setPersistenceError(null);
-          }
-
-          return "saved";
-        })
-        .catch((error: unknown): PersistenceAttemptResult => {
-          if (
-            currentRepositoryRef.current !== scheduledRepository ||
-            hydratedRepositoryRef.current !== scheduledRepository ||
-            generationRef.current !== scheduledSnapshot.generation
-          ) {
-            return "ignored";
-          }
-
-          const currentVersionState =
-            persistenceVersionStateRef.current;
-          if (
-            usesLatestFileSave &&
-            scheduledSnapshot.version <
-              currentVersionState.mutationVersion
-          ) {
-            return "ignored";
-          }
-
-          if (
-            latestScheduledSnapshotRef.current === scheduledSnapshot
-          ) {
-            latestScheduledSnapshotRef.current = null;
-          }
-
-          const requiresReopen =
-            error instanceof LedgerFileRepositoryError &&
-            error.code ===
-              LEDGER_FILE_REPOSITORY_ERROR_CODES.EXTERNAL_CHANGE;
-
-          if (
-            currentVersionState.mutationVersion === scheduledSnapshot.version
-          ) {
-            failedSnapshotRef.current = requiresReopen
-              ? null
-              : scheduledSnapshot;
-            publishPersistenceVersionState({
-              ...currentVersionState,
-              persistenceStatus: "error",
-            });
-          }
-
-          if (
-            mountedRef.current &&
-            currentVersionState.mutationVersion === scheduledSnapshot.version
-          ) {
-            setPersistenceError(
-              requiresReopen
-                ? translateDefault("persistence.externalChange")
-                : translateDefault("persistence.saveFailed"),
-            );
-          }
-
-          return "failed";
-        });
-
-      writeQueueRef.current = usesLatestFileSave
-        ? Promise.all([precedingQueue, persistenceAttempt]).then(
-            () => undefined,
-          )
-        : persistenceAttempt.then(() => undefined);
-      trackSessionAcceptedWork(scheduledSession, persistenceAttempt);
-      return persistenceAttempt;
-    },
+    ): Promise<PersistenceAttemptResult> =>
+      doEnqueuePersistence(
+        {
+          currentRepositoryRef,
+          failedSnapshotRef,
+          generationRef,
+          hydratedRepositoryRef,
+          lastPersistedSnapshotRef,
+          latestScheduledSnapshotRef,
+          mountedRef,
+          persistenceVersionStateRef,
+          publishPersistenceVersionState,
+          setPersistenceError,
+          trackSessionAcceptedWork,
+          writeQueueRef,
+        },
+        scheduledSnapshot,
+        ledgerSnapshot,
+        scheduledRepository,
+        scheduledSession,
+      ),
     [publishPersistenceVersionState, trackSessionAcceptedWork],
   );
 
