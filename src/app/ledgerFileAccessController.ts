@@ -1,10 +1,5 @@
+import { type LedgerFileHandleAdapter } from "@/platform/files";
 import {
-  LedgerFileAdapterError,
-  type LedgerFileHandle,
-  type LedgerFileHandleAdapter,
-} from "@/platform/files";
-import {
-  LedgerFileConnectionRecordError,
   type LedgerFileConnectionAdapter,
   type LedgerFileConnectionRecordV1,
 } from "@/platform/files";
@@ -28,119 +23,47 @@ import {
   inspectLedgerFile,
   type LedgerFileRepositoryDependencies,
 } from "@/platform/files";
+import type {
+  LedgerFileAccessSessionResult,
+  LedgerFileSelectionResult,
+  LedgerFileReconnectResult,
+  LedgerFileAccessController,
+  PendingSelection,
+  PendingRecovery,
+  ActiveLedgerFileSession,
+  RetainedLeaseCleanup,
+} from "./ledgerFileAccessControllerTypes";
+import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessControllerTypes";
+import {
+  LedgerFileConnectionCommitError,
+  staleOperationResult,
+  staleSelectionResult,
+  reconnectError,
+  coordinationFailureResult,
+  ownedFileSessionResult,
+  mapCreateError,
+  mapSelectionError,
+  mapUnlockError,
+  mapReconnectError,
+  bestEffortWait,
+  invokePromise,
+  defaultCreateRecoveryId,
+} from "./ledgerFileAccessControllerHelpers";
+
+export type {
+  LedgerFileAccessController,
+  LedgerFileAccessErrorCode,
+  LedgerFileAccessSessionResult,
+  LedgerFileReconnectResult,
+  LedgerFileSelectionResult,
+} from "./ledgerFileAccessControllerTypes";
+export {
+  LEDGER_FILE_ACCESS_ERROR_CODES,
+} from "./ledgerFileAccessControllerTypes";
+
 import { createInitialLedgerData } from "@/core/state";
 
-export const LEDGER_FILE_ACCESS_ERROR_CODES = {
-  CANCELLED: "LEDGER_FILE_ACCESS_CANCELLED",
-  PICKER_UNAVAILABLE: "LEDGER_FILE_PICKER_UNAVAILABLE",
-  INVALID_EXTENSION: "LEDGER_FILE_INVALID_EXTENSION",
-  NON_EMPTY_CREATE_TARGET: "LEDGER_FILE_NON_EMPTY_CREATE_TARGET",
-  UNSUPPORTED_FILE_VERSION:
-    "LEDGER_FILE_ACCESS_UNSUPPORTED_FILE_VERSION",
-  UNSUPPORTED_LEDGER_SCHEMA:
-    "LEDGER_FILE_ACCESS_UNSUPPORTED_LEDGER_SCHEMA",
-  INVALID_FILE: "LEDGER_FILE_ACCESS_INVALID_FILE",
-  CREATE_FAILED: "LEDGER_FILE_ACCESS_CREATE_FAILED",
-  UNLOCK_FAILED: "LEDGER_FILE_ACCESS_UNLOCK_FAILED",
-  NO_SELECTION: "LEDGER_FILE_ACCESS_NO_SELECTION",
-  FILE_IN_USE: "LEDGER_FILE_ACCESS_FILE_IN_USE",
-  COORDINATION_UNSUPPORTED:
-    "LEDGER_FILE_ACCESS_COORDINATION_UNSUPPORTED",
-  COORDINATION_FAILED: "LEDGER_FILE_ACCESS_COORDINATION_FAILED",
-  RECOVERY_NOT_FOUND: "LEDGER_FILE_ACCESS_RECOVERY_NOT_FOUND",
-  RECOVERY_FAILED: "LEDGER_FILE_ACCESS_RECOVERY_FAILED",
-  EXTERNAL_CHANGE: "LEDGER_FILE_ACCESS_EXTERNAL_CHANGE",
-  CONNECTION_INVALID: "LEDGER_FILE_ACCESS_CONNECTION_INVALID",
-  CONNECTION_SAVE_FAILED:
-    "LEDGER_FILE_ACCESS_CONNECTION_SAVE_FAILED",
-  PERMISSION_DENIED: "LEDGER_FILE_ACCESS_PERMISSION_DENIED",
-  PERMISSION_REQUIRED: "LEDGER_FILE_ACCESS_PERMISSION_REQUIRED",
-  RECONNECT_FAILED: "LEDGER_FILE_ACCESS_RECONNECT_FAILED",
-  WRONG_RECONNECT_FILE: "LEDGER_FILE_ACCESS_WRONG_RECONNECT_FILE",
-} as const;
 
-export type LedgerFileAccessErrorCode =
-  (typeof LEDGER_FILE_ACCESS_ERROR_CODES)[keyof typeof LEDGER_FILE_ACCESS_ERROR_CODES];
-
-export type LedgerFileAccessSessionResult =
-  | { status: "unlocked"; ok: true; session: LedgerSession }
-  | {
-      status: "recovery-required";
-      ok: false;
-      recoveryId: string;
-    }
-  | {
-      status: "error";
-      ok: false;
-      code: LedgerFileAccessErrorCode;
-    };
-
-export type LedgerFileSelectionResult =
-  | { ok: true }
-  | { ok: false; code: LedgerFileAccessErrorCode };
-
-export type LedgerFileReconnectResult =
-  | { status: "none"; ok: true }
-  | { status: "ready"; ok: true }
-  | { status: "permission-prompt"; ok: false }
-  | {
-      status: "error";
-      ok: false;
-      code: LedgerFileAccessErrorCode;
-    };
-
-export interface LedgerFileAccessController {
-  inspectRememberedConnection(): Promise<LedgerFileReconnectResult>;
-  requestRememberedPermission(): Promise<LedgerFileReconnectResult>;
-  reselectRememberedConnection(): Promise<LedgerFileSelectionResult>;
-  forgetRememberedConnection(): Promise<void>;
-  create(passphrase: string): Promise<LedgerFileAccessSessionResult>;
-  selectExisting(): Promise<LedgerFileSelectionResult>;
-  unlockSelected(
-    passphrase: string,
-  ): Promise<LedgerFileAccessSessionResult>;
-  confirmRecovery(
-    recoveryId: string,
-  ): Promise<LedgerFileAccessSessionResult>;
-  cancelRecovery(recoveryId: string): Promise<void>;
-  cancelPendingSelection(): void;
-}
-
-type PendingSelection = {
-  handle: LedgerFileHandle;
-  fileId: string;
-  connectionRecord: LedgerFileConnectionRecordV1;
-};
-
-type PendingRecovery = {
-  recoveryId: string;
-  candidate: LedgerFileRecoveryCandidate;
-  lease: LedgerFileSessionLease;
-  operation: number;
-  confirmation: Promise<LedgerFileAccessSessionResult> | null;
-  cancelRequested: boolean;
-  cancellation: Promise<void> | null;
-  connectionRecord: LedgerFileConnectionRecordV1;
-};
-
-type ActiveLedgerFileSession = {
-  session: LedgerSession;
-  repository: LedgerFileRepository;
-  lease: LedgerFileSessionLease;
-  releaseAttempt: Promise<void> | null;
-};
-
-type RetainedLeaseCleanup = {
-  lease: LedgerFileSessionLease;
-  releaseAttempt: Promise<void> | null;
-};
-
-class LedgerFileConnectionCommitError extends Error {
-  constructor(readonly cause: unknown) {
-    super("Could not save the verified ledger file connection");
-    this.name = "LedgerFileConnectionCommitError";
-  }
-}
 
 export class DefaultLedgerFileAccessController
   implements LedgerFileAccessController
@@ -990,183 +913,4 @@ export class DefaultLedgerFileAccessController
     pending.cancellation = cancellation;
     return cancellation;
   }
-}
-
-function staleOperationResult(): {
-  status: "error";
-  ok: false;
-  code: typeof LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED;
-} {
-  return {
-    status: "error",
-    ok: false,
-    code: LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED,
-  };
-}
-
-function staleSelectionResult(): {
-  ok: false;
-  code: typeof LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED;
-} {
-  return {
-    ok: false,
-    code: LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED,
-  };
-}
-
-function reconnectError(
-  code: LedgerFileAccessErrorCode,
-): Extract<LedgerFileReconnectResult, { status: "error" }> {
-  return {
-    status: "error",
-    ok: false,
-    code,
-  };
-}
-
-function coordinationFailureResult(
-  status: "in-use" | "unsupported" | "coordination-failed",
-): LedgerFileAccessSessionResult {
-  if (status === "in-use") {
-    return {
-      status: "error",
-      ok: false,
-      code: LEDGER_FILE_ACCESS_ERROR_CODES.FILE_IN_USE,
-    };
-  }
-  return {
-    status: "error",
-    ok: false,
-    code:
-      status === "unsupported"
-        ? LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_UNSUPPORTED
-        : LEDGER_FILE_ACCESS_ERROR_CODES.COORDINATION_FAILED,
-  };
-}
-
-function ownedFileSessionResult(): LedgerFileAccessSessionResult {
-  return {
-    status: "error",
-    ok: false,
-    code: LEDGER_FILE_ACCESS_ERROR_CODES.FILE_IN_USE,
-  };
-}
-
-function mapCreateError(error: unknown): LedgerFileAccessErrorCode {
-  if (error instanceof LedgerFileConnectionCommitError) {
-    return LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_SAVE_FAILED;
-  }
-  if (error instanceof LedgerFileAdapterError) {
-    if (error.stage === "extension") {
-      return LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_EXTENSION;
-    }
-    if (error.stage === "target") {
-      return LEDGER_FILE_ACCESS_ERROR_CODES.NON_EMPTY_CREATE_TARGET;
-    }
-    if (
-      error.stage === "picker" &&
-      error.message.includes("unavailable")
-    ) {
-      return LEDGER_FILE_ACCESS_ERROR_CODES.PICKER_UNAVAILABLE;
-    }
-  }
-
-  return LEDGER_FILE_ACCESS_ERROR_CODES.CREATE_FAILED;
-}
-
-function mapSelectionError(error: unknown): LedgerFileAccessErrorCode {
-  if (error instanceof LedgerFileAdapterError) {
-    if (error.stage === "extension") {
-      return LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_EXTENSION;
-    }
-    if (
-      error.stage === "picker" &&
-      error.message.includes("unavailable")
-    ) {
-      return LEDGER_FILE_ACCESS_ERROR_CODES.PICKER_UNAVAILABLE;
-    }
-  }
-  if (
-    error instanceof LedgerFileRepositoryError &&
-    error.code === LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE
-  ) {
-    if (hasLedgerFileContractError(
-      error.cause,
-      "LEDGER_FILE_UNSUPPORTED_VERSION",
-    )) {
-      return LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION;
-    }
-    if (hasLedgerFileContractError(
-      error.cause,
-      "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
-    )) {
-      return LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA;
-    }
-    return LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE;
-  }
-
-  return LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE;
-}
-
-function hasLedgerFileContractError(
-  cause: unknown,
-  code: string,
-): boolean {
-  return (
-    Array.isArray(cause) &&
-    cause.some(
-      (item) =>
-        typeof item === "object" &&
-        item !== null &&
-        "code" in item &&
-        item.code === code,
-    )
-  );
-}
-
-function mapUnlockError(error: unknown): LedgerFileAccessErrorCode {
-  if (error instanceof LedgerFileConnectionCommitError) {
-    return LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_SAVE_FAILED;
-  }
-  if (
-    error instanceof LedgerFileRepositoryError &&
-    error.code === LEDGER_FILE_REPOSITORY_ERROR_CODES.EXTERNAL_CHANGE
-  ) {
-    return LEDGER_FILE_ACCESS_ERROR_CODES.EXTERNAL_CHANGE;
-  }
-  return LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED;
-}
-
-function mapReconnectError(error: unknown): LedgerFileAccessErrorCode {
-  if (error instanceof LedgerFileConnectionRecordError) {
-    return LEDGER_FILE_ACCESS_ERROR_CODES.CONNECTION_INVALID;
-  }
-  if (
-    error instanceof LedgerFileAdapterError &&
-    (error.stage === "permission-query" ||
-      error.stage === "permission-request")
-  ) {
-    return LEDGER_FILE_ACCESS_ERROR_CODES.RECONNECT_FAILED;
-  }
-  return LEDGER_FILE_ACCESS_ERROR_CODES.RECONNECT_FAILED;
-}
-
-async function bestEffortWait(operation: Promise<void>): Promise<void> {
-  try {
-    await operation;
-  } catch {
-    // The retained owner keeps the controller fail-closed for an explicit retry.
-  }
-}
-
-function invokePromise(operation: () => Promise<void>): Promise<void> {
-  try {
-    return operation();
-  } catch (error) {
-    return Promise.reject(error);
-  }
-}
-
-function defaultCreateRecoveryId(): string {
-  return globalThis.crypto.randomUUID();
 }
