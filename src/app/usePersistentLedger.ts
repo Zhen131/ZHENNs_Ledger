@@ -9,17 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-
 import type { LedgerData } from "@/core/models";
 import {
   collectLedgerCompatibilityWarnings,
   partitionLedgerFactsForToday,
-  type LedgerCompatibilityWarning,
 } from "@/core/policies";
-import {
-  validateLedgerImportPolicy,
-  type LedgerImportPolicyError,
-} from "@/core/policies";
+import { validateLedgerImportPolicy } from "@/core/policies";
 import {
   assertSessionQuiesceRequest,
   claimLedgerSessionPersistencePort,
@@ -28,14 +23,12 @@ import {
   type LedgerBackupImportEvidence,
   type LedgerSession,
   type LedgerSessionCapabilities,
-  type LedgerSessionPersistencePort,
   type LedgerRepository,
   type SessionQuiesceRequest,
   type SessionQuiesceToken,
 } from "@/platform/persistence";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
-  LedgerFileRepository,
   LedgerFileRepositoryError,
 } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
@@ -52,128 +45,45 @@ import {
 import { validateLedgerData } from "@/core/validation";
 import {
   captureLedgerTime,
-  isLedgerFactInFuture,
   millisecondsUntilNextLocalMidnight,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
 import { translateDefault } from "@/ui";
+import type {
+  PersistentLedgerState,
+  LedgerSessionFatalSignal,
+  PersistenceOperation,
+  ApplyLedgerActionResult,
+  PersistenceVersionState,
+  ScheduledSnapshot,
+  RetryAttempt,
+  SessionPersistenceBinding,
+  PersistenceTarget,
+  PersistenceAttemptResult,
+  ClearLedgerResult,
+  ImportLedgerResult,
+} from "./usePersistentLedgerTypes";
+import {
+  INITIAL_PERSISTENCE_VERSION_STATE,
+  invokeRepositorySave,
+  invokeRepositoryActionSave,
+  isSamePersistenceTarget,
+  isLedgerFileBackedRepository,
+  hasFutureFacts,
+  isCorrectionAction,
+} from "./usePersistentLedgerHelpers";
 
-export type PersistentLedgerState = {
-  ledgerData: LedgerData;
-  applyLedgerAction: (
-    action: LedgerAction,
-    timeSnapshot?: LedgerTimeSnapshot,
-  ) => ApplyLedgerActionResult;
-  applyLedgerMutation: (
-    mutation: (current: LedgerData) => LedgerData,
-    timeSnapshot?: LedgerTimeSnapshot,
-  ) => ApplyLedgerActionResult;
-  hydrationStatus: HydrationStatus;
-  persistenceError: string | null;
-  resourcePolicyError: LedgerResourcePolicyError | null;
-  isReadOnly: boolean;
-  retryPersistence: () => Promise<boolean>;
-  canRetryPersistence: boolean;
-  clearLedger: (
-    confirmationNonce?: string,
-  ) => Promise<ClearLedgerResult>;
-  replaceLedgerFromBackup: (
-    candidate: unknown,
-    timeSnapshot?: LedgerTimeSnapshot,
-    evidence?: LedgerBackupImportEvidence,
-    signal?: AbortSignal,
-  ) => Promise<ImportLedgerResult>;
-  persistenceOperation: PersistenceOperation;
-  persistenceStatus: PersistenceStatus;
-  mutationVersion: number;
-  persistedVersion: number;
-  isDirty: boolean;
-  repositorySwitchBlocked: boolean;
-  discardDirtyChangesAndSwitchRepository: () => boolean;
-  ledgerEpoch: number;
-  compatibilityWarnings: LedgerCompatibilityWarning[];
-  isFutureFactCorrectionMode: boolean;
-  todayKey: string;
-  lifecycleStatus: "active" | "quiescing";
-  sessionFatalSignal: LedgerSessionFatalSignal | null;
-  drainForSessionQuiesce: (
-    request: SessionQuiesceRequest,
-  ) => Promise<SessionQuiesceToken>;
-};
-
-export type LedgerSessionFatalSignal = Readonly<{
-  code: "IMPORT_RECOVERY_BLOCKED";
-  occurrence: number;
-  sessionId: string;
-  sessionGeneration: number;
-}>;
-
-export type PersistenceOperation = "idle" | "clearing" | "importing";
-export type PersistenceStatus = "idle" | "saving" | "saved" | "error";
-export type ApplyLedgerActionResult = "applied" | "noop" | "rejected";
-
-type PersistenceVersionState = {
-  mutationVersion: number;
-  persistedVersion: number;
-  persistenceStatus: PersistenceStatus;
-};
-
-type ScheduledSnapshot = {
-  generation: number;
-  version: number;
-  serializedLedger: string | null;
-  action?: LedgerAction;
-};
-
-type RetryAttempt = {
-  generation: number;
-  version: number;
-  promise: Promise<boolean>;
-};
-
-type SessionPersistenceBinding = {
-  readonly port: LedgerSessionPersistencePort;
-  readonly acceptedWork: Set<PromiseLike<unknown>>;
-  quiesceRequest: SessionQuiesceRequest | null;
-  quiesceDrain: Promise<SessionQuiesceToken> | null;
-};
-
-type PersistenceTarget = Readonly<{
-  repository: LedgerRepository;
-  session: LedgerSession | undefined;
-}>;
-
-type PersistenceAttemptResult = "saved" | "failed" | "ignored";
-
-const INITIAL_PERSISTENCE_VERSION_STATE: PersistenceVersionState = {
-  mutationVersion: 0,
-  persistedVersion: 0,
-  persistenceStatus: "idle",
-};
-
-export type ClearLedgerResult =
-  | { ok: true }
-  | {
-      ok: false;
-      code: typeof LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED;
-    };
-
-export type ImportLedgerResult =
-  | { ok: true }
-  | {
-      ok: false;
-      code:
-        | "LEDGER_IMPORT_NOT_ALLOWED"
-        | "LEDGER_IMPORT_INVALID_BACKUP"
-        | "LEDGER_IMPORT_CANCELLED"
-        | "LEDGER_IMPORT_BASE_RESTORED"
-        | "LEDGER_IMPORT_SOURCE_CHANGED"
-        | "LEDGER_IMPORT_RECOVERY_BLOCKED"
-        | typeof LEDGER_REPOSITORY_ERROR_CODES.WRITE_FAILED;
-      errors?: LedgerImportPolicyError[];
-    };
+export type {
+  ApplyLedgerActionResult,
+  ClearLedgerResult,
+  ImportLedgerResult,
+  LedgerSessionFatalSignal,
+  PersistenceOperation,
+  PersistenceStatus,
+  PersistentLedgerState,
+} from "./usePersistentLedgerTypes";
 
 /**
  * 统一管理启动读取、hydration 门禁和 ready 后的串行自动保存。
@@ -1850,115 +1760,4 @@ export function usePersistentLedger(
     sessionFatalSignal,
     drainForSessionQuiesce,
   };
-}
-
-function invokeRepositorySave(
-  repository: LedgerRepository,
-  ledgerData: LedgerData,
-): Promise<void> {
-  try {
-    return repository.save(ledgerData);
-  } catch (error) {
-    return Promise.reject(error);
-  }
-}
-
-function invokeRepositoryActionSave(
-  repository: LedgerRepository,
-  action: LedgerAction,
-  ledgerData: LedgerData,
-): Promise<void> {
-  try {
-    return repository.saveAfterAction
-      ? repository.saveAfterAction(action, ledgerData)
-      : repository.save(ledgerData);
-  } catch (error) {
-    return Promise.reject(error);
-  }
-}
-
-function isSamePersistenceTarget(
-  firstRepository: LedgerRepository | null,
-  firstSession: LedgerSession | undefined,
-  secondRepository: LedgerRepository | null,
-  secondSession: LedgerSession | undefined,
-): boolean {
-  if (firstSession || secondSession) {
-    return firstSession === secondSession;
-  }
-  return firstRepository === secondRepository;
-}
-
-function isLedgerFileBackedRepository(
-  repository: LedgerRepository,
-  session: LedgerSession | undefined,
-): boolean {
-  return (
-    session?.storageKind === "ledger-file" ||
-    repository instanceof LedgerFileRepository
-  );
-}
-
-function hasFutureFacts(ledgerData: LedgerData, todayKey: string): boolean {
-  return (
-    ledgerData.trades.some((trade) =>
-      isLedgerFactInFuture(trade.occurredAt, todayKey),
-    ) ||
-    ledgerData.cashEvents.some((cashEvent) =>
-      isLedgerFactInFuture(cashEvent.occurredAt, todayKey),
-    ) ||
-    ledgerData.assetTransfers.some((assetTransfer) =>
-      isLedgerFactInFuture(assetTransfer.occurredAt, todayKey),
-    ) ||
-    ledgerData.priceSnapshots.some((snapshot) =>
-      isLedgerFactInFuture(snapshot.recordedAt, todayKey),
-    )
-  );
-}
-
-function isCorrectionAction(
-  action: LedgerAction,
-  ledgerData: LedgerData,
-  todayKey: string,
-): boolean {
-  if (action.type === "futureFacts/deleteAll") {
-    return action.todayKey === todayKey;
-  }
-
-  if (action.type === "trade/delete") {
-    const trade = ledgerData.trades.find((item) => item.id === action.tradeId);
-    return trade !== undefined && isLedgerFactInFuture(trade.occurredAt, todayKey);
-  }
-
-  if (action.type === "cashEvent/delete") {
-    const cashEvent = ledgerData.cashEvents.find(
-      (item) => item.id === action.cashEventId,
-    );
-    return (
-      cashEvent !== undefined &&
-      isLedgerFactInFuture(cashEvent.occurredAt, todayKey)
-    );
-  }
-
-  if (action.type === "assetTransfer/delete") {
-    const assetTransfer = ledgerData.assetTransfers.find(
-      (item) => item.id === action.assetTransferId,
-    );
-    return (
-      assetTransfer !== undefined &&
-      isLedgerFactInFuture(assetTransfer.occurredAt, todayKey)
-    );
-  }
-
-  if (action.type === "priceSnapshot/delete") {
-    const snapshot = ledgerData.priceSnapshots.find(
-      (item) => item.id === action.priceSnapshotId,
-    );
-    return (
-      snapshot !== undefined &&
-      isLedgerFactInFuture(snapshot.recordedAt, todayKey)
-    );
-  }
-
-  return false;
 }
