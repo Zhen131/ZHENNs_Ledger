@@ -6,6 +6,8 @@ import {
   type SessionQuiesceRequest,
   type SessionQuiesceToken,
 } from "@/platform/persistence";
+import { translateDefault } from "@/ui";
+import type { HydrationStatus } from "./hydrationState";
 import type {
   ClearLedgerResult,
   ImportLedgerResult,
@@ -17,7 +19,10 @@ import type {
   ScheduledSnapshot,
   SessionPersistenceBinding,
 } from "./usePersistentLedgerTypes";
-import { isSamePersistenceTarget } from "./usePersistentLedgerHelpers";
+import {
+  INITIAL_PERSISTENCE_VERSION_STATE,
+  isSamePersistenceTarget,
+} from "./usePersistentLedgerHelpers";
 
 type StopForImportRecoveryFatalDeps = {
   acceptingOperationsRef: { current: boolean };
@@ -317,3 +322,201 @@ export function doDrainForSessionQuiesce(
       persistenceBinding.quiesceDrain = drain;
       return drain;
 }
+
+type RunHydrationEffectDeps = {
+  acceptingOperationsRef: { current: boolean };
+  activePersistenceTarget: PersistenceTarget;
+  activePersistenceTargetRef: { current: PersistenceTarget };
+  activeRepository: LedgerRepository;
+  activeSession: LedgerSession | undefined;
+  clearPromiseRef: { current: Promise<ClearLedgerResult> | null };
+  failedSnapshotRef: { current: ScheduledSnapshot | null };
+  generationRef: { current: number };
+  hydratedRepositoryRef: { current: LedgerRepository | null };
+  hydrationErrorRepositoryRef: { current: LedgerRepository | null };
+  hydrationPromisesRef: { current: Set<Promise<void>> };
+  importAbortControllerRef: { current: AbortController | null };
+  importPromiseRef: { current: Promise<ImportLedgerResult> | null };
+  lastPersistedSnapshotRef: { current: string | null };
+  latestScheduledSnapshotRef: { current: ScheduledSnapshot | null };
+  ledgerDataRef: { current: LedgerData };
+  operationRef: { current: PersistenceOperation };
+  operationRepositoryRef: { current: LedgerRepository | null };
+  operationTokenRef: { current: symbol | null };
+  pendingHydrationRef: {
+    current: {
+      repository: LedgerRepository;
+      generation: number;
+      serializedLedger: string;
+    } | null;
+  };
+  publishPersistenceVersionState: (nextState: PersistenceVersionState) => void;
+  readOnlyRef: { current: boolean };
+  reducerDispatch: (action: LedgerAction) => void;
+  retryAttemptRef: { current: RetryAttempt | null };
+  sessionFatalSignalRef: { current: LedgerSessionFatalSignal | null };
+  setHydrationStatus: (nextValue: HydrationStatus) => void;
+  setIsReadOnly: (nextValue: boolean) => void;
+  setLifecycleStatus: (nextValue: "active") => void;
+  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceOperation: (nextValue: PersistenceOperation) => void;
+  setResourcePolicyError: (
+    nextValue: LedgerResourcePolicyError | null,
+  ) => void;
+  setSessionFatalSignal: (nextValue: LedgerSessionFatalSignal | null) => void;
+  trackSessionAcceptedWork: (
+    session: LedgerSession | undefined,
+    work: PromiseLike<unknown>,
+  ) => void;
+  writeQueueRef: { current: Promise<void> };
+};
+
+export function runHydrationEffect(
+  deps: RunHydrationEffectDeps,
+): void | (() => void) {
+  const {
+    acceptingOperationsRef,
+    activePersistenceTarget,
+    activePersistenceTargetRef,
+    activeRepository,
+    activeSession,
+    clearPromiseRef,
+    failedSnapshotRef,
+    generationRef,
+    hydratedRepositoryRef,
+    hydrationErrorRepositoryRef,
+    hydrationPromisesRef,
+    importAbortControllerRef,
+    importPromiseRef,
+    lastPersistedSnapshotRef,
+    latestScheduledSnapshotRef,
+    ledgerDataRef,
+    operationRef,
+    operationRepositoryRef,
+    operationTokenRef,
+    pendingHydrationRef,
+    publishPersistenceVersionState,
+    readOnlyRef,
+    reducerDispatch,
+    retryAttemptRef,
+    sessionFatalSignalRef,
+    setHydrationStatus,
+    setIsReadOnly,
+    setLifecycleStatus,
+    setPersistenceError,
+    setPersistenceOperation,
+    setResourcePolicyError,
+    setSessionFatalSignal,
+    trackSessionAcceptedWork,
+    writeQueueRef,
+  } = deps;
+    if (
+      activePersistenceTargetRef.current !==
+      activePersistenceTarget
+    ) {
+      return;
+    }
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    acceptingOperationsRef.current = true;
+    setLifecycleStatus("active");
+    sessionFatalSignalRef.current = null;
+    setSessionFatalSignal(null);
+    hydratedRepositoryRef.current = null;
+    hydrationErrorRepositoryRef.current = null;
+    pendingHydrationRef.current = null;
+    lastPersistedSnapshotRef.current = null;
+    latestScheduledSnapshotRef.current = null;
+    failedSnapshotRef.current = null;
+    retryAttemptRef.current = null;
+    writeQueueRef.current = Promise.resolve();
+    publishPersistenceVersionState(INITIAL_PERSISTENCE_VERSION_STATE);
+
+    if (operationRef.current !== "idle") {
+      importAbortControllerRef.current?.abort();
+      importAbortControllerRef.current = null;
+      operationRef.current = "idle";
+      operationRepositoryRef.current = null;
+      operationTokenRef.current = null;
+      clearPromiseRef.current = null;
+      importPromiseRef.current = null;
+      setPersistenceOperation("idle");
+    }
+
+    setHydrationStatus("loading");
+    setResourcePolicyError(null);
+    readOnlyRef.current = false;
+    setIsReadOnly(false);
+    let cancelled = false;
+
+    async function hydrate() {
+      try {
+        const savedLedger = await activeRepository.load();
+
+        if (cancelled || generationRef.current !== generation) {
+          return;
+        }
+
+        const hydratedLedger = savedLedger ?? createInitialLedgerData();
+        const resourcePolicyResult =
+          evaluateLedgerResourcePolicy(hydratedLedger);
+        const serializedLedger = JSON.stringify(hydratedLedger);
+        ledgerDataRef.current = hydratedLedger;
+        lastPersistedSnapshotRef.current = serializedLedger;
+        pendingHydrationRef.current = {
+          repository: activeRepository,
+          generation,
+          serializedLedger,
+        };
+        hydrationErrorRepositoryRef.current = null;
+        reducerDispatch({
+          type: "ledger/replace",
+          ledgerData: hydratedLedger,
+        });
+
+        setPersistenceError(null);
+        if (resourcePolicyResult.ok) {
+          readOnlyRef.current = false;
+          setResourcePolicyError(null);
+          setIsReadOnly(false);
+        } else {
+          readOnlyRef.current = true;
+          setResourcePolicyError(resourcePolicyResult.errors[0]);
+          setIsReadOnly(true);
+        }
+      } catch {
+        if (cancelled || generationRef.current !== generation) {
+          return;
+        }
+
+        pendingHydrationRef.current = null;
+        hydratedRepositoryRef.current = null;
+        hydrationErrorRepositoryRef.current = activeRepository;
+        setPersistenceError(
+          translateDefault("persistence.readFailed"),
+        );
+        setHydrationStatus("error");
+      }
+    }
+
+    const hydrationPromise = hydrate();
+    hydrationPromisesRef.current.add(hydrationPromise);
+    trackSessionAcceptedWork(activeSession, hydrationPromise);
+    void hydrationPromise.finally(() => {
+      hydrationPromisesRef.current.delete(hydrationPromise);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+}
+import type { LedgerData } from "@/core/models";
+import {
+  createInitialLedgerData,
+  ledgerReducer,
+  type LedgerAction,
+} from "@/core/state";
+import {
+  evaluateLedgerResourcePolicy,
+  type LedgerResourcePolicyError,
+} from "@/core/validation";
