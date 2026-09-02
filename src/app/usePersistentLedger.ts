@@ -14,11 +14,7 @@ import {
   collectLedgerCompatibilityWarnings,
   partitionLedgerFactsForToday,
 } from "@/core/policies";
-import { validateLedgerImportPolicy } from "@/core/policies";
 import {
-  assertSessionQuiesceRequest,
-  claimLedgerSessionPersistencePort,
-  LEDGER_REPOSITORY_ERROR_CODES,
   INDEXED_DB_LEDGER_CAPABILITIES,
   type LedgerBackupImportEvidence,
   type LedgerSession,
@@ -27,10 +23,6 @@ import {
   type SessionQuiesceRequest,
   type SessionQuiesceToken,
 } from "@/platform/persistence";
-import {
-  LEDGER_FILE_REPOSITORY_ERROR_CODES,
-  LedgerFileRepositoryError,
-} from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import type { HydrationStatus } from "./hydrationState";
 import {
@@ -38,11 +30,8 @@ import {
   type LedgerAction,
 } from "@/core/state";
 import {
-  evaluateLedgerResourcePolicy,
-  evaluateLedgerResourcePolicyAfterTradeAppend,
   type LedgerResourcePolicyError,
 } from "@/core/validation";
-import { validateLedgerData } from "@/core/validation";
 import {
   captureLedgerTime,
   millisecondsUntilNextLocalMidnight,
@@ -50,7 +39,6 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
-import { translateDefault } from "@/ui";
 import type {
   PersistentLedgerState,
   LedgerSessionFatalSignal,
@@ -67,12 +55,7 @@ import type {
 } from "./usePersistentLedgerTypes";
 import {
   INITIAL_PERSISTENCE_VERSION_STATE,
-  invokeRepositorySave,
-  invokeRepositoryActionSave,
   isSamePersistenceTarget,
-  isLedgerFileBackedRepository,
-  hasFutureFacts,
-  isCorrectionAction,
 } from "./usePersistentLedgerHelpers";
 import {
   doClearLedger,
@@ -386,6 +369,8 @@ export function usePersistentLedger(
     return () => {
       mountedRef.current = false;
       acceptingOperationsRef.current = false;
+      // Abort the current controller rather than a controller captured at mount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       importAbortControllerRef.current?.abort();
       generationRef.current += 1;
       failedSnapshotRef.current = null;
@@ -658,7 +643,11 @@ export function usePersistentLedger(
       doClearLedger(
         {
           acceptingOperationsRef,
-          activeCapabilities,
+          activeCapabilities: {
+            canClearHydrationError:
+              activeCapabilities.canClearHydrationError,
+            canClearReadyLedger: activeCapabilities.canClearReadyLedger,
+          },
           activeRepository,
           activeSession,
           clearPromiseRef,
@@ -740,7 +729,9 @@ export function usePersistentLedger(
       doReplaceLedgerFromBackup(
         {
           acceptingOperationsRef,
-          activeCapabilities,
+          activeCapabilities: {
+            canImportBackup: activeCapabilities.canImportBackup,
+          },
           activeRepository,
           activeSession,
           clock,

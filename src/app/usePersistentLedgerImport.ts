@@ -459,5 +459,5 @@ export function doReplaceLedgerFromBackup(
           }),
       );
       return importPromise;
-    
+
 }
