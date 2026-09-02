@@ -76,6 +76,7 @@ import {
 } from "./usePersistentLedgerHelpers";
 import { doStopForImportRecoveryFatal } from "./usePersistentLedgerLifecycle";
 import { doRegisterAcceptedPersistence } from "./usePersistentLedgerPersistence";
+import { doApplyLedgerMutation } from "./usePersistentLedgerActions";
 
 export type {
   ApplyLedgerActionResult,
@@ -890,63 +891,30 @@ export function usePersistentLedger(
     (
       mutation: (current: LedgerData) => LedgerData,
       timeSnapshot?: LedgerTimeSnapshot,
-    ): ApplyLedgerActionResult => {
-      if (
-        !acceptingOperationsRef.current ||
-        hydrationStatus !== "ready" ||
-        readOnlyRef.current ||
-        operationRef.current !== "idle" ||
-        hydratedRepositoryRef.current !== activeRepository
-      ) {
-        return "rejected";
-      }
-
-      const currentLedgerData = ledgerDataRef.current;
-      const operationTodayKey =
-        timeSnapshot?.todayKey ?? captureLedgerTime(clock).todayKey;
-      if (hasFutureFacts(currentLedgerData, operationTodayKey)) {
-        return "rejected";
-      }
-
-      const nextLedgerData = mutation(currentLedgerData);
-      if (nextLedgerData === currentLedgerData) {
-        return "noop";
-      }
-
-      const resourcePolicyResult =
-        evaluateLedgerResourcePolicy(nextLedgerData);
-      if (!resourcePolicyResult.ok) {
-        if (mountedRef.current) {
-          setResourcePolicyError(resourcePolicyResult.errors[0]);
-        }
-        return "rejected";
-      }
-
-      const currentVersionState = persistenceVersionStateRef.current;
-      failedSnapshotRef.current = null;
-      retryAttemptRef.current = null;
-      ledgerDataRef.current = nextLedgerData;
-      registerAcceptedPersistence(
-        nextLedgerData,
+    ): ApplyLedgerActionResult =>
+      doApplyLedgerMutation(
         {
-          ...currentVersionState,
-          mutationVersion: currentVersionState.mutationVersion + 1,
-          persistenceStatus: "saving",
+          acceptingOperationsRef,
+          activeRepository,
+          activeSession,
+          clock,
+          failedSnapshotRef,
+          hydratedRepositoryRef,
+          hydrationStatus,
+          ledgerDataRef,
+          mountedRef,
+          operationRef,
+          persistenceVersionStateRef,
+          readOnlyRef,
+          reducerDispatch,
+          registerAcceptedPersistence,
+          retryAttemptRef,
+          setPersistenceError,
+          setResourcePolicyError,
         },
-        activeRepository,
-        activeSession,
-      );
-
-      if (mountedRef.current) {
-        setPersistenceError(null);
-        setResourcePolicyError(null);
-      }
-      reducerDispatch({
-        type: "ledger/replace",
-        ledgerData: nextLedgerData,
-      });
-      return "applied";
-    },
+        mutation,
+        timeSnapshot,
+      ),
     [
       activeRepository,
       activeSession,
