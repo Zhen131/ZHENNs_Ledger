@@ -75,6 +75,7 @@ import {
   isCorrectionAction,
 } from "./usePersistentLedgerHelpers";
 import { doStopForImportRecoveryFatal } from "./usePersistentLedgerLifecycle";
+import { doRegisterAcceptedPersistence } from "./usePersistentLedgerPersistence";
 
 export type {
   ApplyLedgerActionResult,
@@ -513,41 +514,20 @@ export function usePersistentLedger(
       scheduledRepository: LedgerRepository,
       scheduledSession: LedgerSession | undefined,
       action?: LedgerAction,
-    ): void => {
-      const requiresRepositoryNoOpVerification =
-        isLedgerFileBackedRepository(
-          scheduledRepository,
-          scheduledSession,
-        );
-      const serializedLedger = requiresRepositoryNoOpVerification
-        ? null
-        : JSON.stringify(ledgerSnapshot);
-      if (
-        !requiresRepositoryNoOpVerification &&
-        serializedLedger === lastPersistedSnapshotRef.current
-      ) {
-        publishPersistenceVersionState({
-          ...nextVersionState,
-          persistedVersion: nextVersionState.mutationVersion,
-          persistenceStatus: "saved",
-        });
-        return;
-      }
-
-      publishPersistenceVersionState(nextVersionState);
-      const scheduledSnapshot: ScheduledSnapshot = {
-        generation: generationRef.current,
-        version: nextVersionState.mutationVersion,
-        serializedLedger,
-        ...(action ? { action } : {}),
-      };
-      void enqueuePersistence(
-        scheduledSnapshot,
+    ): void =>
+      doRegisterAcceptedPersistence(
+        {
+          enqueuePersistence,
+          generationRef,
+          lastPersistedSnapshotRef,
+          publishPersistenceVersionState,
+        },
         ledgerSnapshot,
+        nextVersionState,
         scheduledRepository,
         scheduledSession,
-      );
-    },
+        action,
+      ),
     [
       enqueuePersistence,
       publishPersistenceVersionState,
