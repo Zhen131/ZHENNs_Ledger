@@ -154,8 +154,6 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "portfolio.overview.missingPrice",
   // Holding overview variants use the same unreliable marker.
   "portfolio.overview.unreliable",
-  // Price form areas use the same Asset field label.
-  "prices.field.asset",
   // Price form areas use the same Current-price field label.
   "prices.field.currentPrice",
   // Price form areas use the same Date field label.

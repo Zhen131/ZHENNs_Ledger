@@ -86,7 +86,7 @@ function formatValidationError(
   t: Translate,
 ): string {
   const fieldLabels: Record<keyof PriceSnapshotDraft, string> = {
-    assetSymbol: t("prices.field.asset"),
+    assetSymbol: t("prices.field.assetSymbolLabel"),
     price: t("prices.field.currentPrice"),
     currency: t("prices.field.currency"),
     recordedAt: t("prices.field.date"),

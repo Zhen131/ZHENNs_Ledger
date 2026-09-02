@@ -460,6 +460,7 @@ const chineseMessages = {
   "settings.clear.confirmation.confirm": "确认清空账本内容",
   "settings.clear.confirmation.cancel": "取消",
   "prices.field.asset": "价格资产",
+  "prices.field.assetSymbolLabel": "资产",
   "prices.field.price": "价格",
   "prices.field.currentPrice": "当前价格",
   "prices.field.currency": "计价货币",
