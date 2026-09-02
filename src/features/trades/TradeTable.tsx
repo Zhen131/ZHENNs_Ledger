@@ -359,7 +359,7 @@ function WorkspaceTradeTable({
                                   ? t("trades.table.buyOutflow")
                                   : t("trades.table.sellProceeds")}
                               </>
-                            ) : `${t("trades.table.unreliablePrefix")}：${cashImpact.feeCurrency} ${t("trades.table.unconvertedFee")}`}
+                            ) : `${t("trades.table.unreliablePrefix")}${t("trades.table.unreliableSeparator")}${cashImpact.feeCurrency} ${t("trades.table.unconvertedFee")}`}
                           />
                           <Detail label={t("trades.table.note")} value={trade.note ?? t("trades.table.notFilled")} />
                         </div>
@@ -469,7 +469,7 @@ function LegacyTradeTable({
                       </>
                     ) : (
                       <span className="text-amber-800">
-                        {t("trades.table.unreliablePrefix")}：{cashImpact.feeCurrency} {t("trades.table.unconvertedFee")}
+                        {t("trades.table.unreliablePrefix")}{t("trades.table.unreliableSeparator")}{cashImpact.feeCurrency} {t("trades.table.unconvertedFee")}
                       </span>
                     )}
                   </td>
