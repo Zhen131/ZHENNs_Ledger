@@ -893,7 +893,7 @@ export function MarketDataControls({
                 );
                 return (
                   <li key={position.assetSymbol}>
-                    <strong>{position.assetSymbol}</strong>：
+                    <strong>{position.assetSymbol}</strong>{t("marketData.holdings.colonSeparator")}
                     {selected ? (
                       <>
                         <LedgerNumber kind="money" value={selected.snapshot.price} />{" "}
