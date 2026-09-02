@@ -68,6 +68,7 @@ import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
 import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
+import { PersistenceErrorNotice } from "./PersistenceErrorNotice";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -595,22 +596,13 @@ export function DashboardShell({
             </p>
           ) : null}
           {hydrationStatus === "ready" && persistenceError ? (
-            <div
-              aria-live="assertive"
-              className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-            >
-              <p>{persistenceError}</p>
-              {canRetryPersistence ? (
-                <button
-                  className="rounded-md border border-amber-400 bg-white px-3 py-1.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={persistenceOperation !== "idle"}
-                  onClick={() => void retryPersistence()}
-                  type="button"
-                >
-                  {t("dashboard.action.retrySave")}
-                </button>
-              ) : null}
-            </div>
+            <PersistenceErrorNotice
+              canRetryPersistence={canRetryPersistence}
+              persistenceError={persistenceError}
+              persistenceOperation={persistenceOperation}
+              retryPersistence={retryPersistence}
+              t={t}
+            />
           ) : null}
           {hydrationStatus === "ready" && !persistenceError ? (
             persistenceStatus === "saving" ? (
