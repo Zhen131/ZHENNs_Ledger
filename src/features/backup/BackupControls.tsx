@@ -1404,7 +1404,7 @@ function PreflightReportView({
       </p>
       {result.hardErrorCount > 0 ? (
         <p>
-          {t("backup.errors.foundPrefix")} {result.hardErrorCount} {t("backup.errors.showingPrefix")}{" "}
+          {t("backup.errors.foundPrefix")} {result.hardErrorCount} {t("backup.errors.hardErrorVisiblePrefix")}{" "}
           {Math.min(
             result.hardErrorCount,
             result.visibleDetails.filter(
