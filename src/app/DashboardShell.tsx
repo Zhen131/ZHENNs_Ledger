@@ -66,6 +66,7 @@ import { SessionFatalPanel } from "./SessionFatalPanel";
 import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
+import { CompatibilityWarningList } from "./CompatibilityWarningList";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -645,19 +646,10 @@ export function DashboardShell({
             </div>
           ) : null}
           {compatibilityWarnings.length > 0 ? (
-            <div
-              aria-live="assertive"
-              className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-            >
-              <p className="font-semibold">{t("dashboard.compatibility.heading")}</p>
-              <ul className="mt-2 grid gap-1">
-                {compatibilityWarnings.slice(0, 8).map((warning, index) => (
-                  <li key={`${warning.code}-${warning.path}-${index}`}>
-                    <code>{warning.path}</code> · {warning.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <CompatibilityWarningList
+              compatibilityWarnings={compatibilityWarnings}
+              t={t}
+            />
           ) : null}
           {isFutureFactCorrectionMode ? (
             <FutureCorrectionPanel
