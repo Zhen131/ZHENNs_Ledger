@@ -293,7 +293,7 @@ export function SettingsWorkspace({
                   className="text-sm text-[var(--ledger-muted)]"
                   id="clear-ledger-disabled-reason"
                 >
-                  {t("settings.clear.unavailablePrefix")}：{clearDisabledReason}{t("settings.period")}
+                  {t("settings.clear.unavailablePrefix")}{t("settings.clear.unavailableSeparator")}{clearDisabledReason}{t("settings.period")}
                 </p>
               ) : null}
             </div>

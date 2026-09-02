@@ -720,7 +720,7 @@ export function DashboardShell({
                     key={trade.id}
                   >
                     <span>
-                      {t("dashboard.futureFacts.trade")}：{trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")} ·{" "}
+                      {t("dashboard.futureFacts.trade")}{t("dashboard.futureFacts.colonSeparator")}{trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")} ·{" "}
                       {trade.assetSymbol} · {t("dashboard.futureFacts.quantity")} {" "}
                       <LedgerNumber kind="quantity" value={trade.quantity} /> · {t("dashboard.futureFacts.price")} {" "}
                       <LedgerNumber kind="money" value={trade.price} />{" "}
@@ -741,7 +741,7 @@ export function DashboardShell({
                     key={snapshot.id}
                   >
                     <span>
-                      {t("dashboard.futureFacts.priceSnapshot")}：{snapshot.assetSymbol} ·{" "}
+                      {t("dashboard.futureFacts.priceSnapshot")}{t("dashboard.futureFacts.colonSeparator")}{snapshot.assetSymbol} ·{" "}
                       <LedgerNumber kind="money" value={snapshot.price} />{" "}
                       {snapshot.currency} · {t("dashboard.futureFacts.source")} {" "}
                       {snapshot.source === "api" ? "Binance API" : t("dashboard.futureFacts.manual")} ·{" "}
@@ -763,7 +763,7 @@ export function DashboardShell({
                     key={assetTransfer.id}
                   >
                     <span>
-                      {t("dashboard.futureFacts.assetTransfer")}：{assetTransfer.assetSymbol} · {t("dashboard.futureFacts.quantity")} {" "}
+                      {t("dashboard.futureFacts.assetTransfer")}{t("dashboard.futureFacts.colonSeparator")}{assetTransfer.assetSymbol} · {t("dashboard.futureFacts.quantity")} {" "}
                       <LedgerNumber
                         kind="quantity"
                         value={assetTransfer.quantity}
