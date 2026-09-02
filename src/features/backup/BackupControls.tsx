@@ -611,7 +611,7 @@ export function BackupControls({
         .map(({ assetSymbol }) => ({
           assetSymbol,
           code: "BINANCE_PRICE_NOT_APPLIED",
-          message: t("backup.pairing.priceNotWritten"),
+          message: t("backup.pairing.priceNotWrittenByLedger"),
         })),
     );
     completePostImportPairing(operation);
