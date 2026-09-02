@@ -75,6 +75,7 @@ import {
   isCorrectionAction,
 } from "./usePersistentLedgerHelpers";
 import {
+  doClearLedger,
   doDrainForSessionQuiesce,
   doStopForImportRecoveryFatal,
   runHydrationEffect,
@@ -649,173 +650,46 @@ export function usePersistentLedger(
     return true;
   }, [requestedPersistenceRepository, requestedSession]);
 
-  const clearLedger = useCallback((
-    confirmationNonce = "",
-  ): Promise<ClearLedgerResult> => {
-    if (!acceptingOperationsRef.current) {
-      return Promise.resolve({
-        ok: false,
-        code: LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED,
-      });
-    }
-
-    if (
-      operationRef.current === "clearing" &&
-      operationRepositoryRef.current === activeRepository &&
-      clearPromiseRef.current !== null
-    ) {
-      return clearPromiseRef.current;
-    }
-
-    const canClearReadyLedger =
-      hydrationStatus === "ready" &&
-      hydratedRepositoryRef.current === activeRepository &&
-      activeCapabilities.canClearReadyLedger;
-    const canRecoverHydrationError =
-      hydrationStatus === "error" &&
-      hydrationErrorRepositoryRef.current === activeRepository &&
-      activeCapabilities.canClearHydrationError;
-
-    if (
-      operationRef.current !== "idle" ||
-      readOnlyRef.current ||
-      (!canClearReadyLedger && !canRecoverHydrationError)
-    ) {
-      return Promise.resolve({
-        ok: false,
-        code: LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED,
-      });
-    }
-
-    const operationToken = Symbol("clear-ledger");
-    const operationRepository = activeRepository;
-    const operationSession = activeSession;
-    operationRef.current = "clearing";
-    operationRepositoryRef.current = operationRepository;
-    operationTokenRef.current = operationToken;
-
-    if (mountedRef.current) {
-      setPersistenceOperation("clearing");
-    }
-
-    let readyClearAttempted = false;
-    const clearPromise = writeQueueRef.current
-      .catch(() => undefined)
-      .then(async (): Promise<ClearLedgerResult> => {
-        try {
-          if (
-            canClearReadyLedger &&
-            operationSession?.storageKind === "ledger-file"
-          ) {
-            const readyClearPort = operationSession.readyClearPort;
-            if (!readyClearPort) {
-              throw new Error(
-                "Ready ledger-file clear port is unavailable",
-              );
-            }
-            const authorization =
-              readyClearPort.authorizeReadyClear(
-                confirmationNonce,
-              );
-            if (!authorization) {
-              throw new Error(
-                "Ready ledger-file clear authorization was rejected",
-              );
-            }
-            readyClearAttempted = true;
-            await readyClearPort.clearReadyLedger(authorization);
-          } else {
-            await operationRepository.clear();
-          }
-        } catch {
-          if (
-            mountedRef.current &&
-            currentRepositoryRef.current === operationRepository &&
-            operationTokenRef.current === operationToken
-          ) {
-            if (
-              canClearReadyLedger &&
-              operationSession?.storageKind === "ledger-file"
-            ) {
-              if (
-                readyClearAttempted ||
-                failedSnapshotRef.current === null
-              ) {
-                setPersistenceError(
-                  readyClearAttempted
-                    ? translateDefault("persistence.clearResultUnconfirmed")
-                    : translateDefault("persistence.clearAuthorizationFailed"),
-                );
-              }
-            } else {
-              setPersistenceError(
-                translateDefault("persistence.clearFailed"),
-              );
-            }
-          }
-
-          return {
-            ok: false,
-            code: LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED,
-          };
-        }
-
-        if (
-          mountedRef.current &&
-          currentRepositoryRef.current === operationRepository &&
-          operationTokenRef.current === operationToken
-        ) {
-          const initialLedger = createInitialLedgerData();
-          const serializedInitialLedger = JSON.stringify(initialLedger);
-          generationRef.current += 1;
-          ledgerDataRef.current = initialLedger;
-          lastPersistedSnapshotRef.current = serializedInitialLedger;
-          latestScheduledSnapshotRef.current = null;
-          failedSnapshotRef.current = null;
-          retryAttemptRef.current = null;
-          pendingHydrationRef.current = null;
-          hydratedRepositoryRef.current = operationRepository;
-          hydrationErrorRepositoryRef.current = null;
-          publishPersistenceVersionState(
-            INITIAL_PERSISTENCE_VERSION_STATE,
-          );
-          reducerDispatch({
-            type: "ledger/replace",
-            ledgerData: initialLedger,
-          });
-          setPersistenceError(null);
-          readOnlyRef.current = false;
-          setIsReadOnly(false);
-          setHydrationStatus("ready");
-          setLedgerEpoch((current) => current + 1);
-        }
-
-        return { ok: true };
-      })
-      .finally(() => {
-        if (
-          operationTokenRef.current !== operationToken ||
-          currentRepositoryRef.current !== operationRepository
-        ) {
-          return;
-        }
-
-        operationRef.current = "idle";
-        operationRepositoryRef.current = null;
-        operationTokenRef.current = null;
-        clearPromiseRef.current = null;
-
-        if (mountedRef.current) {
-          setPersistenceOperation("idle");
-        }
-      });
-
-    clearPromiseRef.current = clearPromise;
-    writeQueueRef.current = clearPromise.then(() => undefined);
-    trackSessionAcceptedWork(operationSession, clearPromise);
-
-    return clearPromise;
-  }, [
+  const clearLedger = useCallback(
+    (
+      confirmationNonce = "",
+    ): Promise<ClearLedgerResult> =>
+      doClearLedger(
+        {
+          acceptingOperationsRef,
+          activeCapabilities,
+          activeRepository,
+          activeSession,
+          clearPromiseRef,
+          currentRepositoryRef,
+          failedSnapshotRef,
+          generationRef,
+          hydratedRepositoryRef,
+          hydrationErrorRepositoryRef,
+          hydrationStatus,
+          lastPersistedSnapshotRef,
+          latestScheduledSnapshotRef,
+          ledgerDataRef,
+          mountedRef,
+          operationRef,
+          operationRepositoryRef,
+          operationTokenRef,
+          pendingHydrationRef,
+          publishPersistenceVersionState,
+          readOnlyRef,
+          reducerDispatch,
+          retryAttemptRef,
+          setHydrationStatus,
+          setIsReadOnly,
+          setLedgerEpoch,
+          setPersistenceError,
+          setPersistenceOperation,
+          trackSessionAcceptedWork,
+          writeQueueRef,
+        },
+        confirmationNonce,
+      ),
+    [
     activeRepository,
     activeSession,
     activeCapabilities.canClearHydrationError,
@@ -823,7 +697,8 @@ export function usePersistentLedger(
     hydrationStatus,
     publishPersistenceVersionState,
     trackSessionAcceptedWork,
-  ]);
+  ],
+  );
 
   const stopForImportRecoveryFatal = useCallback(
     (message: string): void =>
