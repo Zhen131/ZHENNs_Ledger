@@ -67,6 +67,7 @@ import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
+import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -629,21 +630,10 @@ export function DashboardShell({
             ) : null
           ) : null}
           {repositorySwitchBlocked ? (
-            <div
-              aria-live="assertive"
-              className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
-            >
-              <p>
-                {t("dashboard.repositorySwitchBlocked.description")}
-              </p>
-              <button
-                className="rounded-md border border-red-300 bg-white px-3 py-1.5 font-medium"
-                onClick={discardDirtyChangesAndSwitchRepository}
-                type="button"
-              >
-                {t("dashboard.repositorySwitchBlocked.action")}
-              </button>
-            </div>
+            <RepositorySwitchBlockedNotice
+              discardDirtyChangesAndSwitchRepository={discardDirtyChangesAndSwitchRepository}
+              t={t}
+            />
           ) : null}
           {compatibilityWarnings.length > 0 ? (
             <CompatibilityWarningList
