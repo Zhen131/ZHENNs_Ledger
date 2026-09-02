@@ -75,6 +75,7 @@ import {
   isCorrectionAction,
 } from "./usePersistentLedgerHelpers";
 import {
+  doDrainForSessionQuiesce,
   doStopForImportRecoveryFatal,
   runPersistenceTargetEffect,
 } from "./usePersistentLedgerLifecycle";
@@ -1552,72 +1553,25 @@ export function usePersistentLedger(
   const drainForSessionQuiesce = useCallback(
     (
       request: SessionQuiesceRequest,
-    ): Promise<SessionQuiesceToken> => {
-      if (!requestedSession) {
-        throw new Error(
-          "A lifecycle-bound LedgerSession is required for quiesce drain",
-        );
-      }
-      assertSessionQuiesceRequest(requestedSession, request);
-
-      const persistenceBinding =
-        sessionPersistenceBindingsRef.current.get(requestedSession);
-      if (!persistenceBinding) {
-        throw new Error(
-          "The current Hook does not own this session persistence port",
-        );
-      }
-      if (
-        persistenceBinding.quiesceRequest === request &&
-        persistenceBinding.quiesceDrain
-      ) {
-        return persistenceBinding.quiesceDrain;
-      }
-      if (persistenceBinding.quiesceRequest !== null) {
-        throw new Error(
-          "A different session quiesce request is already draining",
-        );
-      }
-
-      persistenceBinding.quiesceRequest = request;
-      const isCurrentCommittedSession =
-        activePersistenceTargetRef.current.session ===
-        requestedSession;
-      if (isCurrentCommittedSession) {
-        acceptingOperationsRef.current = false;
-        importAbortControllerRef.current?.abort();
-        generationRef.current += 1;
-        if (mountedRef.current) {
-          setLifecycleStatus("quiescing");
-        }
-      }
-
-      const currentAcceptedWork: Array<
-        PromiseLike<unknown> | null | undefined
-      > = isCurrentCommittedSession
-        ? [
-            writeQueueRef.current,
-            ...hydrationPromisesRef.current,
-            clearPromiseRef.current,
-            importPromiseRef.current,
-            retryAttemptRef.current?.promise,
-          ]
-        : [];
-      const acceptedWork = [
-        ...persistenceBinding.acceptedWork,
-        ...currentAcceptedWork,
-      ].filter(
-        (operation): operation is PromiseLike<unknown> =>
-          operation !== null && operation !== undefined,
-      );
-      const settled = Promise.allSettled(acceptedWork);
-      const drain = persistenceBinding.port.completeQuiesce(
+    ): Promise<SessionQuiesceToken> =>
+      doDrainForSessionQuiesce(
+        {
+          acceptingOperationsRef,
+          activePersistenceTargetRef,
+          clearPromiseRef,
+          generationRef,
+          hydrationPromisesRef,
+          importAbortControllerRef,
+          importPromiseRef,
+          mountedRef,
+          requestedSession,
+          retryAttemptRef,
+          sessionPersistenceBindingsRef,
+          setLifecycleStatus,
+          writeQueueRef,
+        },
         request,
-        settled,
-      );
-      persistenceBinding.quiesceDrain = drain;
-      return drain;
-    },
+      ),
     [requestedSession],
   );
 
