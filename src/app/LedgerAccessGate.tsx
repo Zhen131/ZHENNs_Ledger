@@ -43,6 +43,7 @@ import {
   getFileAccessErrorMessage,
 } from "./LedgerAccessGateHelpers";
 import { AccessPanel } from "./AccessPanel";
+import { LegacyRetiredPanel } from "./LegacyRetiredPanel";
 import { FormError } from "./FormError";
 
 export function LedgerAccessGate({
@@ -762,14 +763,7 @@ export function LedgerAccessGate({
 
   if (accessPath === "legacy-retired") {
     return (
-      <AccessPanel
-        description={t("access.legacy.description")}
-        title={t("access.legacy.title")}
-      >
-        <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-          {t("access.legacy.hint")}
-        </p>
-      </AccessPanel>
+      <LegacyRetiredPanel t={t} />
     );
   }
 
