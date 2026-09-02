@@ -44,6 +44,7 @@ import {
 } from "./LedgerAccessGateHelpers";
 import { AccessPanel } from "./AccessPanel";
 import { LegacyRetiredPanel } from "./LegacyRetiredPanel";
+import { AccessCheckingPanel } from "./AccessCheckingPanel";
 import { FormError } from "./FormError";
 
 export function LedgerAccessGate({
@@ -750,14 +751,7 @@ export function LedgerAccessGate({
 
   if (accessState.status === "checking") {
     return (
-      <AccessPanel
-        description={t("access.checking.description")}
-        title={t("access.checking.title")}
-      >
-        <p aria-live="polite" className="text-sm text-[var(--ledger-muted)]">
-          {t("access.action.wait")}
-        </p>
-      </AccessPanel>
+      <AccessCheckingPanel t={t} />
     );
   }
 
