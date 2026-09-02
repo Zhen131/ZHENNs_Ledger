@@ -86,7 +86,7 @@ function OverviewTradeHeatmap({
           </h3>
           <p className="mt-1 text-xs leading-5 text-[var(--ledger-muted)]">
             {t("charts.heatmap.overview.descriptionPrefix")} {heatmap.length}{" "}
-            {t("charts.heatmap.overview.daysSuffix")}、{totalTrades}{" "}
+            {t("charts.heatmap.overview.daysSuffix")}{t("charts.heatmap.overview.listSeparator")}{totalTrades}{" "}
             {t("charts.heatmap.overview.tradesSuffix")}
           </p>
         </div>
@@ -319,8 +319,8 @@ function getHomeDayAriaLabel(
   t: (key: Parameters<ReturnType<typeof useLanguage>["t"]>[0]) => string,
 ): string {
   return day.total === 0
-    ? `${day.date}，${t("charts.heatmap.home.emptyDay")}`
-    : `${day.date}，${t("charts.heatmap.tooltip.totalPrefix")} ${day.total} ${t("charts.heatmap.tooltip.tradesSuffix")}，${t("charts.heatmap.tooltip.buyPrefix")} ${day.buys} ${t("charts.heatmap.tooltip.tradesSuffix")}，${t("charts.heatmap.tooltip.sellPrefix")} ${day.sells} ${t("charts.heatmap.tooltip.tradesSuffix")}`;
+    ? `${day.date}${t("charts.heatmap.home.ariaSeparator")}${t("charts.heatmap.home.emptyDay")}`
+    : `${day.date}${t("charts.heatmap.home.ariaSeparator")}${t("charts.heatmap.tooltip.totalPrefix")} ${day.total} ${t("charts.heatmap.tooltip.tradesSuffix")}${t("charts.heatmap.home.ariaSeparator")}${t("charts.heatmap.tooltip.buyPrefix")} ${day.buys} ${t("charts.heatmap.tooltip.tradesSuffix")}${t("charts.heatmap.home.ariaSeparator")}${t("charts.heatmap.tooltip.sellPrefix")} ${day.sells} ${t("charts.heatmap.tooltip.tradesSuffix")}`;
 }
 
 function getMondayDayRow(dateKey: string): number {
