@@ -65,6 +65,7 @@ import {
 import { Section } from "./Section";
 import { SummaryMetricCard } from "./SummaryMetricCard";
 import { SessionFatalPanel } from "./SessionFatalPanel";
+import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -534,11 +535,7 @@ export function DashboardShell({
 
   if (lifecycleStatus === "quiescing") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-950">
-        <p aria-live="polite" className="text-sm text-slate-700">
-          {t("dashboard.session.quiescing")}
-        </p>
-      </main>
+      <SessionQuiescingPanel t={t} />
     );
   }
 
