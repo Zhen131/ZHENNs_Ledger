@@ -79,7 +79,10 @@ import {
   doStopForImportRecoveryFatal,
   runPersistenceTargetEffect,
 } from "./usePersistentLedgerLifecycle";
-import { doRegisterAcceptedPersistence } from "./usePersistentLedgerPersistence";
+import {
+  doRegisterAcceptedPersistence,
+  doRetryPersistence,
+} from "./usePersistentLedgerPersistence";
 import { doApplyLedgerMutation } from "./usePersistentLedgerActions";
 
 export type {
@@ -885,84 +888,34 @@ export function usePersistentLedger(
     ],
   );
 
-  const retryPersistence = useCallback((): Promise<boolean> => {
-    const currentVersionState = persistenceVersionStateRef.current;
-    const generation = generationRef.current;
-    const currentRetryAttempt = retryAttemptRef.current;
-
-    if (!acceptingOperationsRef.current) {
-      return Promise.resolve(false);
-    }
-
-    if (
-      currentRetryAttempt?.generation === generation &&
-      currentRetryAttempt.version === currentVersionState.mutationVersion
-    ) {
-      return currentRetryAttempt.promise;
-    }
-
-    const failedSnapshot = failedSnapshotRef.current;
-
-    if (
-      !acceptingOperationsRef.current ||
-      hydrationStatus !== "ready" ||
-      readOnlyRef.current ||
-      operationRef.current !== "idle" ||
-      hydratedRepositoryRef.current !== activeRepository ||
-      currentVersionState.persistenceStatus !== "error" ||
-      failedSnapshot === null ||
-      failedSnapshot.generation !== generation ||
-      failedSnapshot.version !== currentVersionState.mutationVersion
-    ) {
-      return Promise.resolve(false);
-    }
-
-    const ledgerSnapshot = ledgerDataRef.current;
-    const scheduledSnapshot: ScheduledSnapshot = {
-      generation,
-      version: currentVersionState.mutationVersion,
-      serializedLedger: isLedgerFileBackedRepository(
+  const retryPersistence = useCallback(
+    (): Promise<boolean> =>
+      doRetryPersistence({
+        acceptingOperationsRef,
         activeRepository,
         activeSession,
-      )
-        ? null
-        : JSON.stringify(ledgerSnapshot),
-    };
-    publishPersistenceVersionState({
-      ...currentVersionState,
-      persistenceStatus: "saving",
-    });
-
-    if (mountedRef.current) {
-      setPersistenceError(null);
-    }
-
-    const retryPromise = enqueuePersistence(
-      scheduledSnapshot,
-      ledgerSnapshot,
-      activeRepository,
-      activeSession,
-    ).then((result) => result === "saved");
-    const retryAttempt: RetryAttempt = {
-      generation,
-      version: currentVersionState.mutationVersion,
-      promise: retryPromise,
-    };
-    retryAttemptRef.current = retryAttempt;
-    void retryPromise.finally(() => {
-      if (retryAttemptRef.current === retryAttempt) {
-        retryAttemptRef.current = null;
-      }
-    });
-
-    return retryPromise;
-  }, [
+        enqueuePersistence,
+        failedSnapshotRef,
+        generationRef,
+        hydratedRepositoryRef,
+        hydrationStatus,
+        ledgerDataRef,
+        mountedRef,
+        operationRef,
+        persistenceVersionStateRef,
+        publishPersistenceVersionState,
+        readOnlyRef,
+        retryAttemptRef,
+        setPersistenceError,
+      }),
+    [
     enqueuePersistence,
     hydrationStatus,
     publishPersistenceVersionState,
     activeRepository,
     activeSession,
-  ]);
+  ],
+  );
 
   const discardDirtyChangesAndSwitchRepository = useCallback((): boolean => {
     const versionState = persistenceVersionStateRef.current;
