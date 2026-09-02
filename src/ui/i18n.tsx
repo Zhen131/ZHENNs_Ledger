@@ -597,6 +597,7 @@ const chineseMessages = {
   "fees.field.asset": "规则资产",
   "fees.field.type": "规则类型",
   "fees.field.fixedAmount": "金额（USDT）",
+  "fees.field.decimalRate": "小数费率",
   "fees.field.amount": "金额",
   "fees.field.rate": "费率",
   "fees.type.fixed": "固定费",

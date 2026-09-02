@@ -296,7 +296,7 @@ export function FeeRuleManager({
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
-          {form.type === "fixed" ? t("fees.field.fixedAmount") : t("fees.field.rate")}
+          {form.type === "fixed" ? t("fees.field.fixedAmount") : t("fees.field.decimalRate")}
           <input
             className="rounded-md border border-slate-200 px-3 py-2 font-normal"
             disabled={!isWritable}
