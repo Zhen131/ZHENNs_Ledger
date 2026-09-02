@@ -74,6 +74,7 @@ import {
   hasFutureFacts,
   isCorrectionAction,
 } from "./usePersistentLedgerHelpers";
+import { doStopForImportRecoveryFatal } from "./usePersistentLedgerLifecycle";
 
 export type {
   ApplyLedgerActionResult,
@@ -1256,48 +1257,31 @@ export function usePersistentLedger(
   ]);
 
   const stopForImportRecoveryFatal = useCallback(
-    (message: string): void => {
-      const fatalSession = activePersistenceTargetRef.current.session;
-      if (!fatalSession || fatalSession.storageKind !== "ledger-file") {
-        return;
-      }
-      const existingSignal = sessionFatalSignalRef.current;
-      if (existingSignal?.sessionId === fatalSession.sessionId) {
-        return;
-      }
-
-      acceptingOperationsRef.current = false;
-      readOnlyRef.current = true;
-      importAbortControllerRef.current?.abort(
-        "Ledger import recovery was blocked",
-      );
-      generationRef.current += 1;
-      latestScheduledSnapshotRef.current = null;
-      failedSnapshotRef.current = null;
-      retryAttemptRef.current = null;
-      pendingHydrationRef.current = null;
-      hydratedRepositoryRef.current = null;
-      const currentVersionState = persistenceVersionStateRef.current;
-      publishPersistenceVersionState({
-        ...currentVersionState,
-        persistenceStatus: "error",
-      });
-      fatalOccurrenceRef.current += 1;
-      const signal = Object.freeze({
-        code: "IMPORT_RECOVERY_BLOCKED" as const,
-        occurrence: fatalOccurrenceRef.current,
-        sessionId: fatalSession.sessionId,
-        sessionGeneration: fatalSession.generation,
-      });
-      sessionFatalSignalRef.current = signal;
-
-      if (mountedRef.current) {
-        setIsReadOnly(true);
-        setPersistenceError(message);
-        setLifecycleStatus("quiescing");
-        setSessionFatalSignal(signal);
-      }
-    },
+    (message: string): void =>
+      doStopForImportRecoveryFatal(
+        {
+          acceptingOperationsRef,
+          activePersistenceTargetRef,
+          failedSnapshotRef,
+          fatalOccurrenceRef,
+          generationRef,
+          hydratedRepositoryRef,
+          importAbortControllerRef,
+          latestScheduledSnapshotRef,
+          mountedRef,
+          pendingHydrationRef,
+          persistenceVersionStateRef,
+          publishPersistenceVersionState,
+          readOnlyRef,
+          retryAttemptRef,
+          sessionFatalSignalRef,
+          setIsReadOnly,
+          setLifecycleStatus,
+          setPersistenceError,
+          setSessionFatalSignal,
+        },
+        message,
+      ),
     [publishPersistenceVersionState],
   );
 
