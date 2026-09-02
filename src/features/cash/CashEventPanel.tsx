@@ -373,7 +373,7 @@ export function CashEventPanel({
         </label>
         {type === "balance-adjustment" && amountOrTarget !== "" ? (
           <p className="text-sm text-slate-600 sm:col-span-2">
-            {t("cash.adjustment.descriptionPrefix")} <LedgerNumber kind="money" value={currentBalance} /> USDT，{t("cash.adjustment.descriptionSuffix")}
+            {t("cash.adjustment.descriptionPrefix")} <LedgerNumber kind="money" value={currentBalance} /> USDT{t("cash.adjustment.listSeparator")}{t("cash.adjustment.descriptionSuffix")}
           </p>
         ) : null}
         <div className="sm:col-span-2">
@@ -412,7 +412,7 @@ export function CashEventPanel({
                       {cashEvent.type === "balance-adjustment" ? (
                         <>
                           before <LedgerNumber kind="money" value={cashEvent.balanceBefore} />{" "}
-                          → target <LedgerNumber kind="money" value={cashEvent.targetBalance} />；
+                          → target <LedgerNumber kind="money" value={cashEvent.targetBalance} />{t("cash.adjustment.semicolonSeparator")}
                           adjustment{" "}
                           <LedgerNumber kind="money" value={cashEvent.adjustmentAmount} /> USDT
                         </>
@@ -438,7 +438,7 @@ export function CashEventPanel({
               className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] pt-3 text-sm"
             >
               <p className="text-[var(--ledger-muted)]">
-                {t("cash.pagination.totalPrefix")} {orderedCashEvents.length} {t("cash.pagination.totalSuffix")}，{t("cash.pagination.pagePrefix")} {currentPage} / {totalPages} {t("cash.pagination.pageSuffix")}
+                {t("cash.pagination.totalPrefix")} {orderedCashEvents.length} {t("cash.pagination.totalSuffix")}{t("cash.pagination.listSeparator")}{t("cash.pagination.pagePrefix")} {currentPage} / {totalPages} {t("cash.pagination.pageSuffix")}
               </p>
               <div className="flex items-center gap-2">
                 <button
