@@ -391,7 +391,7 @@ function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
                 ? t("activity.details.buyOutflow")
                 : t("activity.details.sellProceeds")}
             </>
-          ) : `${t("activity.details.unreliablePrefix")}：${cashImpact.feeCurrency} ${t("activity.details.unconvertedFee")}`}
+          ) : `${t("activity.details.unreliablePrefix")}${t("activity.details.unreliableSeparator")}${cashImpact.feeCurrency} ${t("activity.details.unconvertedFee")}`}
         />
         <Detail label={t("activity.details.note")} value={item.trade.note ?? t("activity.details.notFilled")} />
         <Detail label={t("activity.details.timePrecision")} value={item.trade.timePrecision} />
