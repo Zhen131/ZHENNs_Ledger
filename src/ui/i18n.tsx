@@ -606,6 +606,7 @@ const chineseMessages = {
   "fees.action.replace": "创建新版本并停用旧版",
   "fees.action.deactivate": "停用规则",
   "fees.history.heading": "规则历史",
+  "fees.history.fixedAmountLabel": "固定",
   "fees.history.empty": "暂无手续费规则。",
   "fees.history.tradeValue": "成交金额",
   "fees.history.created": "创建",

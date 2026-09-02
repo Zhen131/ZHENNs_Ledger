@@ -334,7 +334,7 @@ export function FeeRuleManager({
             <p className="mt-1 text-slate-600">
               {rule.type === "fixed" ? (
                 <>
-                  {t("fees.type.fixed")} <LedgerNumber kind="money" value={rule.amount} /> USDT
+                  {t("fees.history.fixedAmountLabel")} <LedgerNumber kind="money" value={rule.amount} /> USDT
                 </>
               ) : (
                 <>
