@@ -70,6 +70,22 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "backup.report.hardErrors",
   // Both negative-cash confirmations require the same confirmation text.
   "cash.negativeConfirmation.defaultConfirm",
+  // Backup report detail lines both use the original "- 说明：" label.
+  "backup.markdown.description",
+  // Backup report warning and skipped-check lines both use the original colon.
+  "backup.markdown.lineColonSeparator",
+  // Backup report lists use the original Chinese list separator.
+  "backup.markdown.listSeparator",
+  // Backup report summaries use the original Chinese summary separator.
+  "backup.markdown.summarySeparator",
+  // Backup report fallbacks all use the original unavailable marker.
+  "backup.markdown.unavailable",
+  // Oversize-file skipped checks all use the original JSON-not-parsed sentence.
+  "backup.preflight.jsonNotParsed",
+  // JSON parse-error skipped checks all use the original JSON-syntax sentence.
+  "backup.preflight.jsonSyntaxError",
+  // Version-boundary skipped checks all use the original stopped suffix.
+  "backup.preflight.versionStageStoppedSuffix",
   // Cash save paths share the same ledger-not-writable sentence.
   "cash.status.ledgerNotWritable",
   // Activity and cash panels use the same balance-adjustment type name.
@@ -154,6 +170,10 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "portfolio.overview.missingPrice",
   // Holding overview variants use the same unreliable marker.
   "portfolio.overview.unreliable",
+  // Valuation paths both use the original missing-current-price suffix.
+  "portfolio.issue.missingCurrentPrice",
+  // Valuation paths all use the original unsupported-currency middle text.
+  "portfolio.issue.unsupportedCurrencyMiddle",
   // Price form areas use the same Current-price field label.
   "prices.field.currentPrice",
   // Price form areas use the same Date field label.
@@ -280,7 +300,7 @@ function translationKeyUsages(): Map<string, string[]> {
       if (
         ts.isCallExpression(node) &&
         ts.isIdentifier(node.expression) &&
-        node.expression.text === "t" &&
+        ["t", "translateDefault"].includes(node.expression.text) &&
         ts.isStringLiteralLike(node.arguments[0])
       ) {
         const key = node.arguments[0].text;
