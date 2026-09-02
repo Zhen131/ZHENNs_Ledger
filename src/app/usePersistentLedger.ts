@@ -74,7 +74,10 @@ import {
   hasFutureFacts,
   isCorrectionAction,
 } from "./usePersistentLedgerHelpers";
-import { doStopForImportRecoveryFatal } from "./usePersistentLedgerLifecycle";
+import {
+  doStopForImportRecoveryFatal,
+  runPersistenceTargetEffect,
+} from "./usePersistentLedgerLifecycle";
 import { doRegisterAcceptedPersistence } from "./usePersistentLedgerPersistence";
 import { doApplyLedgerMutation } from "./usePersistentLedgerActions";
 
@@ -206,67 +209,24 @@ export function usePersistentLedger(
   const sessionFatalSignalRef = useRef<LedgerSessionFatalSignal | null>(null);
   const fatalOccurrenceRef = useRef(0);
 
-  useLayoutEffect(() => {
-    const activeTarget = activePersistenceTargetRef.current;
-    const targetChanged = !isSamePersistenceTarget(
-      activeTarget.repository,
-      activeTarget.session,
+  useLayoutEffect(() =>
+    runPersistenceTargetEffect({
+      acceptingOperationsRef,
+      activePersistenceTargetRef,
+      currentRepositoryRef,
+      importAbortControllerRef,
+      importSessionRef,
+      operationRef,
+      operationRepositoryRef,
+      persistenceVersionStateRef,
+      repositorySwitchPermissionRef,
       requestedPersistenceRepository,
+      requestedPersistenceTarget,
       requestedSession,
-    );
-    const currentVersionState = persistenceVersionStateRef.current;
-    const isDirty =
-      currentVersionState.persistedVersion !==
-      currentVersionState.mutationVersion;
-    const canCommitTargetSwitch =
-      targetChanged &&
-      operationRef.current !== "importing" &&
-      (!isDirty ||
-        repositorySwitchPermissionRef.current ===
-          requestedPersistenceRepository);
-    const sessionToActivate = targetChanged
-      ? canCommitTargetSwitch
-        ? requestedSession
-        : undefined
-      : activeTarget.session;
-    if (
-      sessionToActivate &&
-      !sessionPersistenceBindingsRef.current.has(sessionToActivate)
-    ) {
-      sessionPersistenceBindingsRef.current.set(sessionToActivate, {
-        port: claimLedgerSessionPersistencePort(
-          sessionToActivate,
-          sessionPersistenceOwnerRef.current,
-        ),
-        acceptedWork: new Set(),
-        quiesceRequest: null,
-        quiesceDrain: null,
-      });
-    }
-
-    if (canCommitTargetSwitch) {
-      activePersistenceTargetRef.current = requestedPersistenceTarget;
-      currentRepositoryRef.current = requestedPersistenceRepository;
-      repositorySwitchPermissionRef.current = null;
-      acceptingOperationsRef.current = false;
-      setActivePersistenceTarget(requestedPersistenceTarget);
-    }
-
-    const readyFileImportTargetChanged =
-      operationRef.current === "importing" &&
-      importSessionRef.current?.storageKind === "ledger-file" &&
-      !isSamePersistenceTarget(
-        operationRepositoryRef.current,
-        importSessionRef.current,
-        requestedPersistenceRepository,
-        requestedSession,
-      );
-    if (readyFileImportTargetChanged) {
-      importAbortControllerRef.current?.abort(
-        "The requested ledger-file session changed during import",
-      );
-    }
-  }, [
+      sessionPersistenceBindingsRef,
+      sessionPersistenceOwnerRef,
+      setActivePersistenceTarget,
+    }), [
     activePersistenceTarget,
     persistenceOperation,
     persistenceVersionState.mutationVersion,

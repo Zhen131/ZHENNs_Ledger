@@ -1,10 +1,17 @@
-import type { LedgerRepository } from "@/platform/persistence";
+import {
+  claimLedgerSessionPersistencePort,
+  type LedgerSession,
+  type LedgerRepository,
+} from "@/platform/persistence";
 import type {
   LedgerSessionFatalSignal,
+  PersistenceOperation,
   PersistenceTarget,
   PersistenceVersionState,
   ScheduledSnapshot,
+  SessionPersistenceBinding,
 } from "./usePersistentLedgerTypes";
+import { isSamePersistenceTarget } from "./usePersistentLedgerHelpers";
 
 type StopForImportRecoveryFatalDeps = {
   acceptingOperationsRef: { current: boolean };
@@ -99,4 +106,105 @@ export function doStopForImportRecoveryFatal(
         setLifecycleStatus("quiescing");
         setSessionFatalSignal(signal);
       }
+}
+
+type RunPersistenceTargetEffectDeps = {
+  acceptingOperationsRef: { current: boolean };
+  activePersistenceTargetRef: { current: PersistenceTarget };
+  currentRepositoryRef: { current: LedgerRepository };
+  importAbortControllerRef: { current: AbortController | null };
+  importSessionRef: { current: LedgerSession | undefined };
+  operationRef: { current: PersistenceOperation };
+  operationRepositoryRef: { current: LedgerRepository | null };
+  persistenceVersionStateRef: { current: PersistenceVersionState };
+  repositorySwitchPermissionRef: { current: LedgerRepository | null };
+  requestedPersistenceRepository: LedgerRepository;
+  requestedPersistenceTarget: PersistenceTarget;
+  requestedSession: LedgerSession | undefined;
+  sessionPersistenceBindingsRef: {
+    current: WeakMap<LedgerSession, SessionPersistenceBinding>;
+  };
+  sessionPersistenceOwnerRef: { current: object };
+  setActivePersistenceTarget: (nextValue: PersistenceTarget) => void;
+};
+
+export function runPersistenceTargetEffect(
+  deps: RunPersistenceTargetEffectDeps,
+): void {
+  const {
+    acceptingOperationsRef,
+    activePersistenceTargetRef,
+    currentRepositoryRef,
+    importAbortControllerRef,
+    importSessionRef,
+    operationRef,
+    operationRepositoryRef,
+    persistenceVersionStateRef,
+    repositorySwitchPermissionRef,
+    requestedPersistenceRepository,
+    requestedPersistenceTarget,
+    requestedSession,
+    sessionPersistenceBindingsRef,
+    sessionPersistenceOwnerRef,
+    setActivePersistenceTarget,
+  } = deps;
+    const activeTarget = activePersistenceTargetRef.current;
+    const targetChanged = !isSamePersistenceTarget(
+      activeTarget.repository,
+      activeTarget.session,
+      requestedPersistenceRepository,
+      requestedSession,
+    );
+    const currentVersionState = persistenceVersionStateRef.current;
+    const isDirty =
+      currentVersionState.persistedVersion !==
+      currentVersionState.mutationVersion;
+    const canCommitTargetSwitch =
+      targetChanged &&
+      operationRef.current !== "importing" &&
+      (!isDirty ||
+        repositorySwitchPermissionRef.current ===
+          requestedPersistenceRepository);
+    const sessionToActivate = targetChanged
+      ? canCommitTargetSwitch
+        ? requestedSession
+        : undefined
+      : activeTarget.session;
+    if (
+      sessionToActivate &&
+      !sessionPersistenceBindingsRef.current.has(sessionToActivate)
+    ) {
+      sessionPersistenceBindingsRef.current.set(sessionToActivate, {
+        port: claimLedgerSessionPersistencePort(
+          sessionToActivate,
+          sessionPersistenceOwnerRef.current,
+        ),
+        acceptedWork: new Set(),
+        quiesceRequest: null,
+        quiesceDrain: null,
+      });
+    }
+
+    if (canCommitTargetSwitch) {
+      activePersistenceTargetRef.current = requestedPersistenceTarget;
+      currentRepositoryRef.current = requestedPersistenceRepository;
+      repositorySwitchPermissionRef.current = null;
+      acceptingOperationsRef.current = false;
+      setActivePersistenceTarget(requestedPersistenceTarget);
+    }
+
+    const readyFileImportTargetChanged =
+      operationRef.current === "importing" &&
+      importSessionRef.current?.storageKind === "ledger-file" &&
+      !isSamePersistenceTarget(
+        operationRepositoryRef.current,
+        importSessionRef.current,
+        requestedPersistenceRepository,
+        requestedSession,
+      );
+    if (readyFileImportTargetChanged) {
+      importAbortControllerRef.current?.abort(
+        "The requested ledger-file session changed during import",
+      );
+    }
 }
