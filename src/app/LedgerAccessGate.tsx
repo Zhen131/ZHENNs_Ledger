@@ -45,6 +45,7 @@ import {
 import { AccessPanel } from "./AccessPanel";
 import { LegacyRetiredPanel } from "./LegacyRetiredPanel";
 import { AccessCheckingPanel } from "./AccessCheckingPanel";
+import { SessionLockingPanel } from "./SessionLockingPanel";
 import { FormError } from "./FormError";
 
 export function LedgerAccessGate({
@@ -683,20 +684,7 @@ export function LedgerAccessGate({
 
   if (accessState.status === "locking") {
     return (
-      <AccessPanel
-        description={
-          accessState.fatal
-            ? t("access.locking.fatalDescription")
-            : t("access.locking.description")
-        }
-        title={accessState.fatal ? t("access.locking.fatalTitle") : t("access.locking.title")}
-      >
-        <p aria-live="polite" className="text-sm text-[var(--ledger-muted)]">
-          {accessState.fatal
-            ? t("access.locking.fatalHint")
-            : t("access.locking.hint")}
-        </p>
-      </AccessPanel>
+      <SessionLockingPanel accessState={accessState} t={t} />
     );
   }
 
