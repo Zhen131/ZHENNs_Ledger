@@ -1,0 +1,331 @@
+// @vitest-environment jsdom
+
+import {
+  act,
+  fireEvent,
+  screen,
+} from "@testing-library/react";
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { createInitialLedgerData } from "@/core/state";
+import { createUsdtSimpleTrade } from "@/test-support";
+import { TransactionsWorkspace } from "./TransactionsWorkspace";
+import {
+  createNegativeDeletionLedger,
+  deleteButton,
+  renderWorkspace,
+} from "./TransactionsWorkspace.testHelpers";
+
+describe("TransactionsWorkspace delayed deletion", () => {
+  it("does zero mutation through 4999ms and dispatches only after the 5000ms final review", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      createUsdtSimpleTrade("safe-buy", "buy", "BTC", "1", "2026-07-20"),
+    ];
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    renderWorkspace({ ledgerData, onDeleteTrade });
+    const buttonName = "删除 买入 BTC 2026-07-20";
+
+    fireEvent.click(deleteButton(buttonName));
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+    fireEvent.click(deleteButton(buttonName));
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(4_999);
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onDeleteTrade).toHaveBeenCalledOnce();
+    expect(onDeleteTrade).toHaveBeenCalledWith("safe-buy");
+    expect(screen.queryByText("交易已删除")).toBeNull();
+  });
+
+  it("undo, page leave, visibility loss, and unmount all cancel with zero mutation", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      createUsdtSimpleTrade("safe-buy", "buy", "BTC", "1", "2026-07-20"),
+    ];
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    const view = renderWorkspace({ ledgerData, onDeleteTrade });
+    const buttonName = "删除 买入 BTC 2026-07-20";
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(
+      screen.getByRole("button", { name: `撤回${buttonName}` }),
+    );
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    view.rerender(
+      <TransactionsWorkspace
+        active={false}
+        intent={null}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={0}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={0}
+        persistenceStatus="saved"
+        todayKey="2026-07-25"
+      />,
+    );
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={0}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={0}
+        persistenceStatus="saved"
+        todayKey="2026-07-25"
+      />,
+    );
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    fireEvent(document, new Event("visibilitychange"));
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    view.unmount();
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+  });
+
+  it("cancels the previous countdown before arming a second trade", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [
+      {
+        id: "cash-cover",
+        occurredAt: "2026-07-19",
+        timePrecision: "day",
+        type: "deposit",
+        currency: "USDT",
+        amount: "10",
+        createdAt: "2026-07-19T12:00:00.000Z",
+        updatedAt: "2026-07-19T12:00:00.000Z",
+      },
+    ];
+    ledgerData.trades = [
+      createUsdtSimpleTrade("safe-btc", "buy", "BTC", "1", "2026-07-20"),
+      createUsdtSimpleTrade("safe-eth", "buy", "ETH", "1", "2026-07-21"),
+    ];
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    renderWorkspace({ ledgerData, onDeleteTrade });
+    const btcButton = "删除 买入 BTC 2026-07-20";
+    const ethButton = "删除 买入 ETH 2026-07-21";
+
+    fireEvent.click(deleteButton(btcButton));
+    fireEvent.click(deleteButton(btcButton));
+    expect(
+      screen.getByRole("button", { name: `撤回${btcButton}` }),
+    ).not.toBeNull();
+
+    fireEvent.click(deleteButton(ethButton));
+    expect(
+      screen.queryByRole("button", { name: `撤回${btcButton}` }),
+    ).toBeNull();
+    expect(deleteButton(ethButton).textContent).toBe("再次点击删除");
+    fireEvent.click(deleteButton(ethButton));
+    act(() => vi.advanceTimersByTime(5_000));
+
+    expect(onDeleteTrade).toHaveBeenCalledOnce();
+    expect(onDeleteTrade).toHaveBeenCalledWith("safe-eth");
+  });
+
+  it("rejects dependent buys immediately and a newly unsafe timeline at final review", async () => {
+    const buy = createUsdtSimpleTrade("supporting-buy", "buy", "BTC", "1", "2026-07-20");
+    const sell = createUsdtSimpleTrade("dependent-sell", "sell", "BTC", "1", "2026-07-21");
+    const dependentLedger = createInitialLedgerData();
+    dependentLedger.trades = [buy, sell];
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    const view = renderWorkspace({ ledgerData: dependentLedger, onDeleteTrade });
+    const buttonName = "删除 买入 BTC 2026-07-20";
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    expect(
+      screen.getByText(
+        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
+      ),
+    ).not.toBeNull();
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+
+    const initiallySafe = createInitialLedgerData();
+    initiallySafe.trades = [buy];
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable
+        ledgerData={initiallySafe}
+        ledgerEpoch={2}
+        mutationVersion={0}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={0}
+        persistenceStatus="saved"
+        todayKey="2026-07-25"
+      />,
+    );
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable
+        ledgerData={dependentLedger}
+        ledgerEpoch={2}
+        mutationVersion={0}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={0}
+        persistenceStatus="saved"
+        todayKey="2026-07-25"
+      />,
+    );
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
+      ),
+    ).not.toBeNull();
+  });
+
+  it("shows success only after authenticated persistence and keeps failure retryable", async () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      createUsdtSimpleTrade("safe-buy", "buy", "BTC", "1", "2026-07-20"),
+    ];
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    const view = renderWorkspace({ ledgerData, onDeleteTrade });
+    const buttonName = "删除 买入 BTC 2026-07-20";
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.queryByText("交易已删除")).toBeNull();
+
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable={false}
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={1}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={0}
+        persistenceStatus="error"
+        todayKey="2026-07-25"
+      />,
+    );
+    expect(
+      screen.getByText("删除已应用到内存，但尚未保存；请重试保存"),
+    ).not.toBeNull();
+    expect(screen.queryByText("交易已删除")).toBeNull();
+
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={1}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={1}
+        persistenceStatus="saved"
+        todayKey="2026-07-25"
+      />,
+    );
+    expect(screen.getByText("交易已删除")).not.toBeNull();
+    act(() => vi.advanceTimersByTime(3_999));
+    expect(screen.getByText("交易已删除")).not.toBeNull();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.queryByText("交易已删除")).toBeNull();
+  });
+
+  it("requires a second confirmation when deleting a trade would make cash negative", () => {
+    const ledgerData = createNegativeDeletionLedger();
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    renderWorkspace({ ledgerData, onDeleteTrade });
+    const buttonName = "删除 卖出 BTC 2026-07-21";
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    act(() => vi.advanceTimersByTime(5_000));
+
+    const dialog = screen.getByRole("dialog", {
+      name: "确认删除交易后的负现金",
+    });
+    expect(dialog.textContent).toContain("当前余额0.50 USDT");
+    expect(dialog.textContent).toContain("本次变化-1.00 USDT");
+    expect(dialog.textContent).toContain("保存后余额-0.50 USDT");
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "确认并删除" }));
+    expect(onDeleteTrade).toHaveBeenCalledOnce();
+    expect(onDeleteTrade).toHaveBeenCalledWith("cash-sell");
+  });
+
+  it("invalidates the negative-cash deletion confirmation after a version change", () => {
+    const ledgerData = createNegativeDeletionLedger();
+    const onDeleteTrade = vi.fn(() => "applied" as const);
+    const view = renderWorkspace({ ledgerData, onDeleteTrade });
+    const buttonName = "删除 卖出 BTC 2026-07-21";
+
+    fireEvent.click(deleteButton(buttonName));
+    fireEvent.click(deleteButton(buttonName));
+    act(() => vi.advanceTimersByTime(5_000));
+    expect(screen.getByRole("dialog")).not.toBeNull();
+
+    view.rerender(
+      <TransactionsWorkspace
+        active
+        intent={null}
+        isWritable
+        ledgerData={ledgerData}
+        ledgerEpoch={1}
+        mutationVersion={1}
+        onDeleteTrade={onDeleteTrade}
+        onIntentConsumed={vi.fn()}
+        persistedVersion={0}
+        persistenceStatus="saving"
+        todayKey="2026-07-25"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认并删除" }));
+
+    expect(onDeleteTrade).not.toHaveBeenCalled();
+    expect(screen.getByText(/旧确认已失效/)).not.toBeNull();
+  });
+});
