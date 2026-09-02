@@ -110,7 +110,7 @@ export function buildAllocationChartOption(
           datum.source === "grouped"
             ? (datum.groupedMembers ?? []).map(
                 (member) =>
-                  `${member.assetSymbol}：${formatMoney(member.marketValue)} ${valuationLabel}`,
+                  `${member.assetSymbol}${t("charts.option.allocation.memberSeparator")}${formatMoney(member.marketValue)} ${valuationLabel}`,
               )
             : [];
         return [
@@ -159,13 +159,13 @@ export function buildHoldingHistoryChartOption(
         }
         const marketValue =
           point.totalMarketValue === undefined
-            ? `${t("charts.option.history.missingPricePrefix")}${point.missingPriceAssets.join("、")}`
+            ? `${t("charts.option.history.missingPricePrefix")}${point.missingPriceAssets.join(t("charts.option.history.listSeparator"))}`
             : `${formatMoney(point.totalMarketValue)} ${point.valuation.label}`;
         return [
           `<strong>${date}</strong>`,
           `${t("charts.option.history.costBasis")}${
             point.totalCostBasis === undefined
-              ? `${t("charts.option.history.feeIssuePrefix")}${point.unreliableFeeAssets.join("、")}`
+              ? `${t("charts.option.history.feeIssuePrefix")}${point.unreliableFeeAssets.join(t("charts.option.history.listSeparator"))}`
               : `${formatMoney(point.totalCostBasis)} ${point.valuation.label}`
           }`,
           `${t("charts.option.history.totalAssets")}${marketValue}`,
