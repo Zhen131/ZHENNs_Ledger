@@ -82,6 +82,7 @@ import {
 import {
   doRegisterAcceptedPersistence,
   doRetryPersistence,
+  runAutomaticPersistenceEffect,
 } from "./usePersistentLedgerPersistence";
 import { doApplyLedgerMutation } from "./usePersistentLedgerActions";
 
@@ -676,82 +677,24 @@ export function usePersistentLedger(
     setHydrationStatus("ready");
   }, [activeRepository, hydrationStatus, ledgerData]);
 
-  useEffect(() => {
-    if (
-      !acceptingOperationsRef.current ||
-      hydrationStatus !== "ready" ||
-      readOnlyRef.current ||
-      operationRef.current !== "idle" ||
-      hydratedRepositoryRef.current !== activeRepository
-    ) {
-      return;
-    }
-
-    const { mutationVersion, persistedVersion } =
-      persistenceVersionStateRef.current;
-    const generation = generationRef.current;
-    const latestScheduledSnapshot =
-      latestScheduledSnapshotRef.current;
-    const requiresRepositoryNoOpVerification =
-      isLedgerFileBackedRepository(
-        activeRepository,
-        activeSession,
-      );
-
-    if (mutationVersion === persistedVersion) {
-      return;
-    }
-
-    if (
-      latestScheduledSnapshot?.generation === generation &&
-      latestScheduledSnapshot.version === mutationVersion
-    ) {
-      return;
-    }
-
-    const failedSnapshot = failedSnapshotRef.current;
-
-    // A failed version is retried only by the explicit retry action or a new mutation.
-    // Re-rendering after an unrelated failed import must not enqueue it again.
-    if (
-      failedSnapshot?.generation === generation &&
-      failedSnapshot.version === mutationVersion
-    ) {
-      return;
-    }
-
-    const serialized = requiresRepositoryNoOpVerification
-      ? null
-      : JSON.stringify(ledgerData);
-
-    if (
-      serialized === lastPersistedSnapshotRef.current &&
-      latestScheduledSnapshot?.generation !== generation &&
-      !requiresRepositoryNoOpVerification
-    ) {
-      publishPersistenceVersionState({
-        mutationVersion,
-        persistedVersion: mutationVersion,
-        persistenceStatus: "saved",
-      });
-      return;
-    }
-
-    const scheduledSnapshot: ScheduledSnapshot = {
-      generation,
-      version: mutationVersion,
-      serializedLedger: serialized,
-    };
-    const ledgerSnapshot = ledgerData;
-    const scheduledRepository = activeRepository;
-
-    void enqueuePersistence(
-      scheduledSnapshot,
-      ledgerSnapshot,
-      scheduledRepository,
+  useEffect(() =>
+    runAutomaticPersistenceEffect({
+      acceptingOperationsRef,
+      activeRepository,
       activeSession,
-    );
-  }, [
+      enqueuePersistence,
+      failedSnapshotRef,
+      generationRef,
+      hydratedRepositoryRef,
+      hydrationStatus,
+      lastPersistedSnapshotRef,
+      latestScheduledSnapshotRef,
+      ledgerData,
+      operationRef,
+      persistenceVersionStateRef,
+      publishPersistenceVersionState,
+      readOnlyRef,
+    }), [
     enqueuePersistence,
     hydrationStatus,
     ledgerData,

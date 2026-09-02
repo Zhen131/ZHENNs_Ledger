@@ -7,6 +7,7 @@ import type { LedgerAction } from "@/core/state";
 import type { HydrationStatus } from "./hydrationState";
 import type {
   PersistenceAttemptResult,
+  PersistenceOperation,
   PersistenceVersionState,
   RetryAttempt,
   ScheduledSnapshot,
@@ -189,4 +190,123 @@ export function doRetryPersistence(
     });
 
     return retryPromise;
+}
+
+type RunAutomaticPersistenceEffectDeps = {
+  acceptingOperationsRef: { current: boolean };
+  activeRepository: LedgerRepository;
+  activeSession: LedgerSession | undefined;
+  enqueuePersistence: (
+    scheduledSnapshot: ScheduledSnapshot,
+    ledgerSnapshot: LedgerData,
+    scheduledRepository: LedgerRepository,
+    scheduledSession: LedgerSession | undefined,
+  ) => unknown;
+  failedSnapshotRef: { current: ScheduledSnapshot | null };
+  generationRef: { current: number };
+  hydratedRepositoryRef: { current: LedgerRepository | null };
+  hydrationStatus: HydrationStatus;
+  lastPersistedSnapshotRef: { current: string | null };
+  latestScheduledSnapshotRef: { current: ScheduledSnapshot | null };
+  ledgerData: LedgerData;
+  operationRef: { current: PersistenceOperation };
+  persistenceVersionStateRef: { current: PersistenceVersionState };
+  publishPersistenceVersionState: (nextState: PersistenceVersionState) => void;
+  readOnlyRef: { current: boolean };
+};
+
+export function runAutomaticPersistenceEffect(
+  deps: RunAutomaticPersistenceEffectDeps,
+): void {
+  const {
+    acceptingOperationsRef,
+    activeRepository,
+    activeSession,
+    enqueuePersistence,
+    failedSnapshotRef,
+    generationRef,
+    hydratedRepositoryRef,
+    hydrationStatus,
+    lastPersistedSnapshotRef,
+    latestScheduledSnapshotRef,
+    ledgerData,
+    operationRef,
+    persistenceVersionStateRef,
+    publishPersistenceVersionState,
+    readOnlyRef,
+  } = deps;
+    if (
+      !acceptingOperationsRef.current ||
+      hydrationStatus !== "ready" ||
+      readOnlyRef.current ||
+      operationRef.current !== "idle" ||
+      hydratedRepositoryRef.current !== activeRepository
+    ) {
+      return;
+    }
+
+    const { mutationVersion, persistedVersion } =
+      persistenceVersionStateRef.current;
+    const generation = generationRef.current;
+    const latestScheduledSnapshot =
+      latestScheduledSnapshotRef.current;
+    const requiresRepositoryNoOpVerification =
+      isLedgerFileBackedRepository(
+        activeRepository,
+        activeSession,
+      );
+
+    if (mutationVersion === persistedVersion) {
+      return;
+    }
+
+    if (
+      latestScheduledSnapshot?.generation === generation &&
+      latestScheduledSnapshot.version === mutationVersion
+    ) {
+      return;
+    }
+
+    const failedSnapshot = failedSnapshotRef.current;
+
+    // A failed version is retried only by the explicit retry action or a new mutation.
+    // Re-rendering after an unrelated failed import must not enqueue it again.
+    if (
+      failedSnapshot?.generation === generation &&
+      failedSnapshot.version === mutationVersion
+    ) {
+      return;
+    }
+
+    const serialized = requiresRepositoryNoOpVerification
+      ? null
+      : JSON.stringify(ledgerData);
+
+    if (
+      serialized === lastPersistedSnapshotRef.current &&
+      latestScheduledSnapshot?.generation !== generation &&
+      !requiresRepositoryNoOpVerification
+    ) {
+      publishPersistenceVersionState({
+        mutationVersion,
+        persistedVersion: mutationVersion,
+        persistenceStatus: "saved",
+      });
+      return;
+    }
+
+    const scheduledSnapshot: ScheduledSnapshot = {
+      generation,
+      version: mutationVersion,
+      serializedLedger: serialized,
+    };
+    const ledgerSnapshot = ledgerData;
+    const scheduledRepository = activeRepository;
+
+    void enqueuePersistence(
+      scheduledSnapshot,
+      ledgerSnapshot,
+      scheduledRepository,
+      activeSession,
+    );
 }
