@@ -54,7 +54,7 @@ export function formatBackupImportReportMarkdown(
     lines.push("", "## Warnings", "");
     result.warnings.forEach((warning) => {
       lines.push(
-        `- \`${inline(warning.code)}\`：${singleLine(warning.message)}`,
+        `- \`${inline(warning.code)}\`${translateDefault("backup.markdown.lineColonSeparator")}${singleLine(warning.message)}`,
       );
     });
   }
@@ -62,7 +62,7 @@ export function formatBackupImportReportMarkdown(
   if (result.skippedChecks.length > 0) {
     lines.push("", translateDefault("backup.markdown.skippedChecks"), "");
     result.skippedChecks.forEach(({ check, reason }) => {
-      lines.push(`- \`${inline(check)}\`：${singleLine(reason)}`);
+      lines.push(`- \`${inline(check)}\`${translateDefault("backup.markdown.lineColonSeparator")}${singleLine(reason)}`);
     });
   }
 
@@ -152,10 +152,10 @@ function appendSuspiciousGroup(
     "",
     `${translateDefault("backup.markdown.sourcePaths")}${detail.group.tradeIndices
       .map((index) => `\`trades[${index}]\``)
-      .join("、")}`,
+      .join(translateDefault("backup.markdown.listSeparator"))}`,
     `${translateDefault("backup.markdown.tradeIds")}${detail.group.tradeIds
       .map((id) => `\`${inline(id)}\``)
-      .join("、")}`,
+      .join(translateDefault("backup.markdown.listSeparator"))}`,
     `${translateDefault("backup.markdown.triggerRelations")}${detail.group.triggerEdges
       .map(
         (edge) =>
@@ -165,7 +165,7 @@ function appendSuspiciousGroup(
               : translateDefault("backup.markdown.sameDay")
           }）`,
       )
-      .join("；")}`,
+      .join(translateDefault("backup.markdown.summarySeparator"))}`,
   );
   detail.summaries.forEach((summary, index) => {
     lines.push(
@@ -241,7 +241,7 @@ function formatMissingMappings(value: readonly string[] | undefined): string {
   if (value === undefined) return translateDefault("backup.markdown.unavailable");
   return value.length === 0
     ? translateDefault("backup.markdown.none")
-    : value.map((symbol) => `\`${inline(symbol)}\``).join("、");
+    : value.map((symbol) => `\`${inline(symbol)}\``).join(translateDefault("backup.markdown.listSeparator"));
 }
 
 function inline(value: string): string {
