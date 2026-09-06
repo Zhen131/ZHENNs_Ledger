@@ -240,7 +240,10 @@ export function ActivityTable({
                       <span data-activity-sequence>{sequence}</span>
                     </ActivityCell>
                     <ActivityCell label={t("activity.table.date")}>
-                      {item.occurredAt}
+                      {formatRecordedOccurredAt(
+                        item.occurredAt,
+                        getActivityOccurredTimeZone(item),
+                      )}
                       {isLedgerFactInFuture(item.occurredAt, todayKey) ? (
                         <span className="ml-2 font-medium text-red-700">
                           {t("activity.table.futureFact")}
@@ -401,6 +404,13 @@ function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
           ) : `${t("activity.details.unreliablePrefix")}${t("activity.details.unreliableSeparator")}${cashImpact.feeCurrency} ${t("activity.details.unconvertedFee")}`}
         />
         <Detail label={t("activity.details.note")} value={item.trade.note ?? t("activity.details.notFilled")} />
+        <Detail label={t("activity.details.occurredAt")} value={item.trade.occurredAt} />
+        {item.trade.occurredTimeZone ? (
+          <Detail
+            label={t("activity.details.occurredTimeZone")}
+            value={item.trade.occurredTimeZone}
+          />
+        ) : null}
         <Detail label={t("activity.details.timePrecision")} value={item.trade.timePrecision} />
         <Detail label={t("activity.details.createdAt")} value={item.trade.createdAt} />
         <Detail label={t("activity.details.updatedAt")} value={item.trade.updatedAt} />
@@ -414,6 +424,9 @@ function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
     { label: t("activity.details.type"), value: cashEventTypeLabel(event, t) },
     { label: t("activity.details.currency"), value: event.currency },
     { label: t("activity.details.occurredAt"), value: event.occurredAt },
+    ...(event.occurredTimeZone
+      ? [{ label: t("activity.details.occurredTimeZone"), value: event.occurredTimeZone }]
+      : []),
     { label: t("activity.details.timePrecision"), value: event.timePrecision },
     ...(event.type === "balance-adjustment"
       ? [
@@ -508,4 +521,27 @@ function activityBadgeClass(item: LedgerActivityItem): string {
           ? "bg-red-50 text-red-800"
           : "bg-sky-50 text-sky-800";
   return `inline-flex rounded-full px-2 py-1 text-xs font-semibold ${tone}`;
+}
+
+function getActivityOccurredTimeZone(item: LedgerActivityItem): string | undefined {
+  return item.kind === "trade"
+    ? item.trade.occurredTimeZone
+    : item.cashEvent.occurredTimeZone;
+}
+
+export function formatRecordedOccurredAt(
+  occurredAt: string,
+  occurredTimeZone?: string,
+): string {
+  if (occurredAt.length === 10) return occurredAt;
+
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}):\d{2}(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.exec(
+    occurredAt,
+  );
+  if (!match) return occurredAt;
+
+  const [, date, time, rawOffset] = match;
+  const offset = rawOffset === "Z" ? "+00:00" : rawOffset;
+  const place = occurredTimeZone ? ` · ${occurredTimeZone}` : "";
+  return `${date} ${time} (${offset})${place}`;
 }

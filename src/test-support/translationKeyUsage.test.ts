@@ -20,6 +20,10 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "activity.details.createdAt",
   // Activity detail variants share the Fact-ID label.
   "activity.details.factId",
+  // Activity detail variants share the occurred-at label.
+  "activity.details.occurredAt",
+  // Activity detail variants share the occurred-time-zone label.
+  "activity.details.occurredTimeZone",
   // Activity detail variants share the Note label.
   "activity.details.note",
   // Activity detail variants use the same not-filled placeholder.

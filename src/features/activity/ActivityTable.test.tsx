@@ -6,7 +6,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createUsdtSimpleTrade } from "@/test-support";
-import { ActivityTable, type ActivityDeleteState } from "./ActivityTable";
+import {
+  ActivityTable,
+  formatRecordedOccurredAt,
+  type ActivityDeleteState,
+} from "./ActivityTable";
 import type { LedgerActivityItem } from "./activityService";
 
 afterEach(cleanup);
@@ -40,7 +44,20 @@ const TRADE_ITEM: LedgerActivityItem = {
   ),
 };
 
-function Harness() {
+const TIMED_TRADE_ITEM: LedgerActivityItem = {
+  ...TRADE_ITEM,
+  occurredAt: "2026-08-20T05:40:00+08:00",
+  trade: {
+    ...TRADE_ITEM.trade,
+    occurredAt: "2026-08-20T05:40:00+08:00",
+    occurredTimeZone: "Asia/Shanghai",
+    timePrecision: "minute",
+  },
+};
+
+function Harness({
+  items = [CASH_ITEM, TRADE_ITEM],
+}: Readonly<{ items?: readonly LedgerActivityItem[] }>) {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [armedItemId, setArmedItemId] = useState<string | null>(null);
   const deleteState: ActivityDeleteState = {
@@ -54,7 +71,7 @@ function Harness() {
     <ActivityTable
       deleteState={deleteState}
       expandedItemId={expandedItemId}
-      items={[CASH_ITEM, TRADE_ITEM]}
+      items={items}
       locateRequest={null}
       onArmDelete={(item) => setArmedItemId(item.id)}
       onCancelDelete={() => setArmedItemId(null)}
@@ -107,5 +124,48 @@ describe("ActivityTable keyboard controls", () => {
       tradeQuantityCell?.querySelector('[title="1234.56789"]')?.textContent,
     ).toBe("1 234.5679");
     expect(cashQuantityCell?.textContent).toBe("数量—");
+  });
+});
+
+describe("formatRecordedOccurredAt", () => {
+  it("keeps a pure date exactly as stored", () => {
+    expect(formatRecordedOccurredAt("2026-08-20")).toBe("2026-08-20");
+  });
+
+  it("shows the stored minute, offset, and known place without seconds", () => {
+    expect(
+      formatRecordedOccurredAt(
+        "2026-08-20T05:40:00+08:00",
+        "Asia/Shanghai",
+      ),
+    ).toBe("2026-08-20 05:40 (+08:00) · Asia/Shanghai");
+  });
+
+  it("omits seconds from a stored second-precision record", () => {
+    expect(formatRecordedOccurredAt("2026-08-20T05:40:32.123Z")).toBe(
+      "2026-08-20 05:40 (+00:00)",
+    );
+  });
+
+  it("does not infer a place when the record has none", () => {
+    expect(formatRecordedOccurredAt("2026-08-20T05:40:00+08:00")).toBe(
+      "2026-08-20 05:40 (+08:00)",
+    );
+  });
+});
+
+describe("ActivityTable recorded-time display", () => {
+  it("shows the formatted record time and keeps the raw time and place in details", async () => {
+    render(<Harness items={[TIMED_TRADE_ITEM]} />);
+    const user = userEvent.setup();
+
+    expect(
+      screen.getByText("2026-08-20 05:40 (+08:00) · Asia/Shanghai"),
+    ).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "详情" }));
+
+    expect(screen.getByText("2026-08-20T05:40:00+08:00")).not.toBeNull();
+    expect(screen.getByText("Asia/Shanghai")).not.toBeNull();
   });
 });
