@@ -83,6 +83,12 @@ function visibleSequences(): number[] {
   );
 }
 
+function visibleSequenceFor(itemId: string): number | undefined {
+  const row = document.querySelector(`[data-activity-id="${itemId}"]`);
+  const sequence = row?.querySelector("[data-activity-sequence]");
+  return sequence ? Number(sequence.textContent) : undefined;
+}
+
 function pageLabel(itemCount: number, page: number): string {
   return `共 ${itemCount} 条，第 ${page} / ${getActivityPageCount(itemCount)} 页`;
 }
@@ -96,7 +102,7 @@ describe("TransactionsWorkspace activity pagination", () => {
     render(workspace(createPagedLedger()));
 
     expect(visibleSequences()).toHaveLength(ACTIVITY_PAGE_SIZE);
-    expect(visibleSequences().at(-1)).toBe(ACTIVITY_PAGE_SIZE);
+    expect(visibleSequences().at(-1)).toBe(ACTIVITY_PAGE_SIZE + 4);
   });
 
   it("T2-02 handles the first, middle, last, and short last pages", () => {
@@ -108,13 +114,13 @@ describe("TransactionsWorkspace activity pagination", () => {
     expect(screen.getByText(pageLabel(itemCount, 2))).not.toBeNull();
     expect(visibleSequences()).toEqual(
       Array.from({ length: ACTIVITY_PAGE_SIZE }, (_, index) =>
-        ACTIVITY_PAGE_SIZE + index + 1,
+        ACTIVITY_PAGE_SIZE + 3 - index,
       ),
     );
     nextPage();
     expect(screen.getByText(pageLabel(itemCount, 3))).not.toBeNull();
     expect(visibleSequences()).toEqual(
-      Array.from({ length: 3 }, (_, index) => ACTIVITY_PAGE_SIZE * 2 + index + 1),
+      [3, 2, 1],
     );
   });
 
@@ -152,7 +158,7 @@ describe("TransactionsWorkspace activity pagination", () => {
       nextPage();
       expect(screen.getByText(pageLabel(itemCount, 2))).not.toBeNull();
       change();
-      expect(visibleSequences().at(0)).toBe(1);
+      expect(visibleSequences().at(0)).toBe(itemCount);
     };
 
     assertFilterResetsPage(() =>
@@ -193,7 +199,7 @@ describe("TransactionsWorkspace activity pagination", () => {
     view.rerender(workspace(after, { mutationVersion: 1 }));
 
     expect(screen.getByText(pageLabel(after.trades.length, 2))).not.toBeNull();
-    expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE + 1);
+    expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE + 2);
     expect(
       document.querySelector("[data-activity-id]")?.getAttribute("data-activity-id"),
     ).toBe(tradeId(ACTIVITY_PAGE_SIZE + 2));
@@ -235,11 +241,7 @@ describe("TransactionsWorkspace activity pagination", () => {
     );
 
     expect(screen.getByText(pageLabel(ledgerData.trades.length, 3))).not.toBeNull();
-    expect(visibleSequences()).toEqual([
-      ACTIVITY_PAGE_SIZE * 2 + 1,
-      ACTIVITY_PAGE_SIZE * 2 + 2,
-      ACTIVITY_PAGE_SIZE * 2 + 3,
-    ]);
+    expect(visibleSequences()).toEqual([3, 2, 1]);
     expect(scrollIntoView).toHaveBeenCalledWith({
       behavior: "smooth",
       block: "center",
@@ -281,25 +283,25 @@ describe("TransactionsWorkspace activity pagination", () => {
     expect(page).toEqual([ACTIVITY_PAGE_SIZE]);
   });
 
-  it("T-B1 assigns the first two page starts their absolute position sequences", () => {
+  it("T-B1 assigns the first two page starts their full-ledger descending sequences", () => {
     render(workspace(createPagedLedger()));
 
-    expect(visibleSequences().at(0)).toBe(1);
+    expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE * 2 + 3);
     nextPage();
-    expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE + 1);
+    expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE + 3);
   });
 
-  it("T-B2 makes the final sequence equal the displayed filtered total", () => {
+  it("T-B2 makes the oldest item's sequence equal one", () => {
     const itemCount = ACTIVITY_PAGE_SIZE * 2 + 3;
     render(workspace(createPagedLedger(itemCount)));
 
     nextPage();
     nextPage();
     expect(screen.getByText(pageLabel(itemCount, 3))).not.toBeNull();
-    expect(visibleSequences().at(-1)).toBe(itemCount);
+    expect(visibleSequences().at(-1)).toBe(1);
   });
 
-  it("T-B3 resets filtered sequences to one and ends them at the new total", () => {
+  it("T-B3 preserves full-ledger sequences across filtering and pages", () => {
     const ledgerData = createPagedLedger();
     render(workspace(ledgerData));
 
@@ -307,12 +309,35 @@ describe("TransactionsWorkspace activity pagination", () => {
     fireEvent.change(screen.getByLabelText("资产筛选"), {
       target: { value: "BTC" },
     });
-    expect(visibleSequences().at(0)).toBe(1);
+    expect(visibleSequences().at(0)).toBe(ACTIVITY_PAGE_SIZE * 2 + 3);
     nextPage();
-    expect(visibleSequences().at(-1)).toBe(
-      buildLedgerActivityItems(ledgerData).filter(
-        (item) => item.kind === "trade" && item.trade.assetSymbol === "BTC",
-      ).length,
+    expect(visibleSequences().at(-1)).toBe(1);
+  });
+
+  it("T-B4 gives a new first item N+1 without renumbering existing items", () => {
+    const before = createPagedLedger();
+    const view = render(workspace(before));
+
+    expect(visibleSequenceFor(tradeId(1))).toBe(ACTIVITY_PAGE_SIZE * 2 + 3);
+
+    const after = {
+      ...before,
+      trades: [
+        ...before.trades,
+        createUsdtSimpleTrade(
+          "page-trade-newest",
+          "buy",
+          "BTC",
+          "1",
+          "2026-07-26",
+        ),
+      ],
+    };
+    view.rerender(workspace(after, { mutationVersion: 1 }));
+
+    expect(visibleSequenceFor("page-trade-newest")).toBe(
+      ACTIVITY_PAGE_SIZE * 2 + 4,
     );
+    expect(visibleSequenceFor(tradeId(1))).toBe(ACTIVITY_PAGE_SIZE * 2 + 3);
   });
 });

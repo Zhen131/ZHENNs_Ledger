@@ -73,7 +73,7 @@ describe("TransactionsWorkspace filters and intent", () => {
     );
 
     expect(screen.getByText(/日期：2026-07-22/)).not.toBeNull();
-    expect(within(screen.getByRole("table")).getByText("2")).not.toBeNull();
+    expect(within(screen.getByRole("table")).getByText("事实 ID")).not.toBeNull();
     expect(within(screen.getByRole("table")).queryByText("ADA")).toBeNull();
     expect(onIntentConsumed).toHaveBeenCalledOnce();
 

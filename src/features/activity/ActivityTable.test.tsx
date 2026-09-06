@@ -48,6 +48,7 @@ function Harness() {
       onExpandedItemIdChange={setExpandedItemId}
       onLocateComplete={vi.fn()}
       onUndoDelete={vi.fn()}
+      sequenceByItemKey={new Map([["cash-event:cash-deposit", 1]])}
       todayKey="2026-08-19"
     />
   );

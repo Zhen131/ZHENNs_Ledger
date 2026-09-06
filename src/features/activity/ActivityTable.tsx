@@ -31,7 +31,7 @@ export type ActivityDeleteState = Readonly<{
 
 export function ActivityTable({
   items,
-  firstItemNumber = 1,
+  sequenceByItemKey,
   todayKey,
   deleteDisabled = false,
   expandedItemId,
@@ -45,7 +45,7 @@ export function ActivityTable({
   onLocateComplete,
 }: Readonly<{
   items: readonly LedgerActivityItem[];
-  firstItemNumber?: number;
+  sequenceByItemKey: ReadonlyMap<string, number>;
   todayKey: string;
   deleteDisabled?: boolean;
   expandedItemId: string | null;
@@ -171,8 +171,9 @@ export function ActivityTable({
               </td>
             </tr>
           ) : (
-            items.map((item, pageIndex) => {
-              const sequence = firstItemNumber + pageIndex;
+            items.map((item) => {
+              const sequence =
+                sequenceByItemKey.get(`${item.kind}:${item.id}`) ?? "—";
               const expanded = expandedItemId === item.id;
               const isPending = deleteState.pendingItemId === item.id;
               const phase: TradeDeletePhase =

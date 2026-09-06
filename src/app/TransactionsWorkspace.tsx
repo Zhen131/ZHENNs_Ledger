@@ -493,10 +493,18 @@ export function TransactionsWorkspace({
     applyReviewedDelete(item);
   }
 
-  const allItems = useMemo(
-    () => buildLedgerActivityItems(ledgerData),
-    [ledgerData],
-  );
+  const { allItems, sequenceByItemKey } = useMemo(() => {
+    const items = buildLedgerActivityItems(ledgerData);
+    return {
+      allItems: items,
+      sequenceByItemKey: new Map(
+        items.map((item, index) => [
+          `${item.kind}:${item.id}`,
+          items.length - index,
+        ]),
+      ),
+    };
+  }, [ledgerData]);
   const filteredItems = useMemo(() => {
     const earliestDate =
       timeFilter === "7d"
@@ -683,7 +691,6 @@ export function TransactionsWorkspace({
             remainingMs,
           }}
           expandedItemId={expandedItemId}
-          firstItemNumber={(currentPage - 1) * ACTIVITY_PAGE_SIZE + 1}
           items={currentPageItems}
           locateRequest={locateRequestForCurrentPage}
           onArmDelete={armDelete}
@@ -695,6 +702,7 @@ export function TransactionsWorkspace({
             clearPendingDelete();
             setFeedback(t("transactions.delete.undone"));
           }}
+          sequenceByItemKey={sequenceByItemKey}
           todayKey={todayKey}
         />
         {filteredItems.length > 0 ? (
