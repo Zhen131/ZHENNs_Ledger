@@ -75,6 +75,8 @@ const initialDraft: TradeWorkspaceDraft = {
   totalValue: "",
   totalValueMode: "auto",
   occurredAt: "2026-07-25",
+  occurredTime: "",
+  occurredTimeZone: "UTC",
   fee: "0",
   feeCurrency: "USDT",
   platform: "",
@@ -88,14 +90,16 @@ function ControlledTradeForm({
   persistedVersion = 0,
   persistenceStatus = "saved",
   onTradeCreated = vi.fn(() => "applied" as const),
+  initialDraft: initialDraftOverride = initialDraft,
 }: Readonly<{
   ledgerData?: LedgerData;
   mutationVersion?: number;
   persistedVersion?: number;
   persistenceStatus?: PersistenceStatus;
   onTradeCreated?: Parameters<typeof TradeForm>[0]["onTradeCreated"];
+  initialDraft?: TradeWorkspaceDraft;
 }>) {
-  const [draft, setDraft] = useState(initialDraft);
+  const [draft, setDraft] = useState(initialDraftOverride);
 
   return (
     <>
@@ -202,6 +206,44 @@ describe("TradeForm", () => {
       expect.anything(),
     );
   });
+
+  it.each([
+    ["2026-01-15", "+01:00"],
+    ["2026-07-15", "+02:00"],
+  ] as const)(
+    "records a Budapest wall time using the offset for %s",
+    async (occurredAt, offset) => {
+      const onTradeCreated = vi.fn(() => "applied" as const);
+      const ledgerData = createInitialLedgerData();
+      ledgerData.cashEvents = [cashDeposit("time-zone-cover", "100")];
+      render(
+        <ControlledTradeForm
+          initialDraft={{ ...initialDraft, occurredAt }}
+          ledgerData={ledgerData}
+          onTradeCreated={onTradeCreated}
+        />,
+      );
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText("时刻"), "09:30");
+      await user.selectOptions(
+        screen.getByLabelText("地点"),
+        "Europe/Budapest",
+      );
+      await user.type(screen.getByLabelText("数量"), "1");
+      await user.type(screen.getByLabelText("成交均价"), "10");
+      await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+      expect(onTradeCreated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          occurredAt: `${occurredAt}T09:30:00${offset}`,
+          occurredTimeZone: "Europe/Budapest",
+          timePrecision: "minute",
+        }),
+        expect.anything(),
+      );
+    },
+  );
 
   it("deduplicates platform suggestions while preserving freehand input", async () => {
     render(<ControlledTradeForm />);

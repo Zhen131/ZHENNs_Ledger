@@ -81,6 +81,7 @@ export type Trade = {
 
 export type TradeDraft = {
   occurredAt: ISODateString | ISODateTimeString;
+  occurredTimeZone?: string;
   timePrecision: TimePrecision;
   type: TradeType;
   assetSymbol: string;

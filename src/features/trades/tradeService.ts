@@ -193,6 +193,9 @@ function createStructuredTradeRawText(
 ): string {
   return `Structured ledger entry: ${JSON.stringify({
     occurredAt: trade.occurredAt,
+    ...(trade.occurredTimeZone === undefined
+      ? {}
+      : { occurredTimeZone: trade.occurredTimeZone }),
     timePrecision: trade.timePrecision,
     type: trade.type,
     assetSymbol: trade.assetSymbol,

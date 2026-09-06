@@ -11,6 +11,8 @@ export type TradeWorkspaceDraft = {
   totalValue: string;
   totalValueMode: "auto" | "manual";
   occurredAt: string;
+  occurredTime: string;
+  occurredTimeZone: string;
   fee: string;
   feeCurrency: string;
   platform: string;
@@ -37,6 +39,8 @@ export function createTradeWorkspaceDraft(
     totalValue: "",
     totalValueMode: "auto",
     occurredAt: todayKey,
+    occurredTime: "",
+    occurredTimeZone: "",
     fee: "0",
     feeCurrency: "USDT",
     platform: "",

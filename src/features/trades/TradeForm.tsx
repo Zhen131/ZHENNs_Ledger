@@ -27,6 +27,8 @@ import type {
 } from "@/core/validation";
 import {
   captureLedgerTime,
+  getLedgerTimeZone,
+  getTimeZoneOffsetAt,
   absolute,
   add,
   isNegative,
@@ -50,6 +52,7 @@ import {
 } from "@/ui";
 
 const SUCCESS_FEEDBACK_MS = 4_000;
+const TIME_ZONE_OPTIONS = ["Asia/Shanghai", "Europe/Budapest", "UTC"];
 
 type PendingTradeRisk = Readonly<{
   trade: Trade;
@@ -85,6 +88,7 @@ type TradeFormField = keyof TradeFormState | "form";
 
 const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
   occurredAt: "trades.form.field.date",
+  occurredTimeZone: "trades.form.field.timeZone",
   timePrecision: "trades.form.field.timePrecision",
   type: "trades.form.field.type",
   assetSymbol: "trades.form.field.asset",
@@ -103,6 +107,7 @@ const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
 function createInitialFormState(
   assetSymbol: string,
   todayKey: string,
+  timeZone: string,
 ): TradeFormState {
   return {
     type: "buy",
@@ -112,12 +117,52 @@ function createInitialFormState(
     totalValue: "",
     totalValueMode: "auto",
     occurredAt: todayKey,
+    occurredTime: "",
+    occurredTimeZone: timeZone,
     fee: "0",
     feeCurrency: "USDT",
     platform: "",
     note: "",
     noteExpanded: false,
   };
+}
+
+function createOccurredTimeDraft(
+  form: TradeFormState,
+):
+  | { ok: true; value: Pick<TradeDraft, "occurredAt" | "timePrecision"> & { occurredTimeZone?: string } }
+  | { ok: false } {
+  if (form.occurredTime === "") {
+    return {
+      ok: true,
+      value: {
+        occurredAt: form.occurredAt,
+        timePrecision: "day",
+      },
+    };
+  }
+
+  if (!/^\d{2}:\d{2}$/.test(form.occurredTime) || form.occurredTimeZone === "") {
+    return { ok: false };
+  }
+
+  try {
+    const wallTime = `${form.occurredAt}T${form.occurredTime}:00`;
+    const offset = getTimeZoneOffsetAt(
+      new Date(`${wallTime}Z`),
+      form.occurredTimeZone,
+    );
+    return {
+      ok: true,
+      value: {
+        occurredAt: `${wallTime}${offset}`,
+        occurredTimeZone: form.occurredTimeZone,
+        timePrecision: "minute",
+      },
+    };
+  } catch {
+    return { ok: false };
+  }
 }
 
 function formatValidationError(
@@ -169,6 +214,7 @@ function toTradeFormField(field: TradeValidationField): TradeFormField {
     case "price":
     case "totalValue":
     case "occurredAt":
+    case "occurredTimeZone":
     case "fee":
     case "note":
       return field;
@@ -203,6 +249,7 @@ export function TradeForm({
     createInitialFormState(
       defaultAssetSymbol,
       captureLedgerTime(clock).todayKey,
+      getLedgerTimeZone(clock),
     ),
   );
   const form = draft ?? localForm;
@@ -258,6 +305,7 @@ export function TradeForm({
         createInitialFormState(
           ledgerData.assets[0]?.symbol ?? "",
           captureLedgerTime(clock).todayKey,
+          getLedgerTimeZone(clock),
         ),
       );
     }
@@ -282,6 +330,7 @@ export function TradeForm({
             ...createInitialFormState(
               preserve.assetSymbol,
               captureLedgerTime(clock).todayKey,
+              getLedgerTimeZone(clock),
             ),
             platform: preserve.platform,
           });
@@ -433,10 +482,16 @@ export function TradeForm({
     if (pendingMutationVersion !== null) return;
     const timeSnapshot = captureLedgerTime(clock);
 
+    const occurredTime = createOccurredTimeDraft(form);
+    if (!occurredTime.ok) {
+      setErrors({ occurredAt: t("trades.form.error.invalidInput") });
+      setSuccessState("");
+      return;
+    }
+
     const result = createValidatedTrade(
       {
-        occurredAt: form.occurredAt,
-        timePrecision: "day",
+        ...occurredTime.value,
         type: form.type,
         assetSymbol: form.assetSymbol,
         quantity: form.quantity,
@@ -560,6 +615,34 @@ export function TradeForm({
         >
           <option value="buy">{t("trades.type.buy")}</option>
           <option value="sell">{t("trades.type.sell")}</option>
+        </select>
+      </label>
+
+      <label className="grid gap-2 text-sm font-medium">
+        {t("trades.form.field.time")}
+        <input
+          className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
+          onChange={(event) => updateField("occurredTime", event.target.value)}
+          type="time"
+          value={form.occurredTime}
+        />
+      </label>
+
+      <label className="grid gap-2 text-sm font-medium">
+        {t("trades.form.field.timeZone")}
+        <select
+          className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
+          onChange={(event) => updateField("occurredTimeZone", event.target.value)}
+          value={form.occurredTimeZone}
+        >
+          <option value={getLedgerTimeZone(clock)}>
+            {t("trades.form.timeZone.device")}: {getLedgerTimeZone(clock)}
+          </option>
+          {TIME_ZONE_OPTIONS.filter((timeZone) => timeZone !== getLedgerTimeZone(clock)).map((timeZone) => (
+            <option key={timeZone} value={timeZone}>
+              {timeZone}
+            </option>
+          ))}
         </select>
       </label>
 

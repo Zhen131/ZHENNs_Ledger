@@ -7,6 +7,7 @@ const LEDGER_DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}/;
 
 export type LedgerClock = {
   now(): Date;
+  timeZone?(): string;
 };
 
 export type LedgerTimeSnapshot = Readonly<{
@@ -49,7 +50,14 @@ export function formatLocalDateKey(date: Date): ISODateString {
 export function createSystemLedgerClock(
   now: () => Date = () => new Date(),
 ): LedgerClock {
-  return { now };
+  return {
+    now,
+    timeZone: () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+}
+
+export function getLedgerTimeZone(clock: LedgerClock): string {
+  return clock.timeZone?.() ?? "UTC";
 }
 
 export const systemLedgerClock = createSystemLedgerClock();

@@ -17,7 +17,7 @@ import {
   isWithinTolerance,
   multiply,
 } from "@/core/shared";
-import { isLedgerFactInFuture } from "@/core/shared";
+import { isLedgerFactInFuture, isSupportedTimeZone } from "@/core/shared";
 import { isSupportedValuationCurrency } from "@/core/policies";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
 
@@ -135,6 +135,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   const errors: TradeValidationError[] = [];
   const occurredAt = readOccurredAt(input.occurredAt, errors);
   const timePrecision = readTimePrecision(input.timePrecision, errors);
+  const occurredTimeZone = readOptionalOccurredTimeZone(input, errors);
   const type = readTradeType(input.type, errors);
   const assetSymbol = readAssetSymbol(input.assetSymbol, context.assets, errors);
   const quantity = readPositiveDecimal(input.quantity, "quantity", errors);
@@ -302,6 +303,7 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
     ok: true,
     value: {
       occurredAt,
+      ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
       timePrecision,
       type,
       assetSymbol,
@@ -321,6 +323,23 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readOptionalOccurredTimeZone(
+  input: Record<string, unknown>,
+  errors: TradeValidationError[],
+): string | undefined {
+  const value = input.occurredTimeZone;
+  if (value === undefined) return undefined;
+  if (typeof value === "string" && isSupportedTimeZone(value)) return value;
+  errors.push(
+    createError(
+      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
+      "occurredTimeZone",
+      "occurredTimeZone must be a runtime-supported IANA time zone",
+    ),
+  );
+  return undefined;
 }
 
 function readRequiredString(
