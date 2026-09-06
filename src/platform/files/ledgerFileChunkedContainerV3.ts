@@ -585,6 +585,13 @@ function validateHeader(
   if (!isExactObject(input, HEADER_KEYS)) {
     return invalid("header", "Header must contain exactly the V3 S-3 fields");
   }
+  if (input.ledgerSchemaVersion === 4) {
+    return invalidWithCode(
+      "LEDGER_FILE_RETIRED_LEDGER_SCHEMA_V4",
+      "header.ledgerSchemaVersion",
+      "This file contains a V4 ledger; V5 does not provide migration",
+    );
+  }
   if (
     input.fileFormatVersion !== 3 ||
     input.cryptoVersion !== 1 ||
@@ -1238,4 +1245,12 @@ function contractError(path: string, message: string, cause?: unknown): LedgerFi
 
 function invalid(path: string, message: string, cause?: unknown): { ok: false; errors: LedgerFileContractError[] } {
   return { ok: false, errors: [contractError(path, message, cause)] };
+}
+
+function invalidWithCode(
+  code: LedgerFileContractError["code"],
+  path: string,
+  message: string,
+): { ok: false; errors: LedgerFileContractError[] } {
+  return { ok: false, errors: [{ code, path, message }] };
 }

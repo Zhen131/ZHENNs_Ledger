@@ -375,9 +375,13 @@ function validateGeneration(
   }
   if (input.ledgerSchemaVersion !== SUPPORTED_LEDGER_SCHEMA_VERSION) {
     return failure(
-      "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
+      input.ledgerSchemaVersion === 4
+        ? "LEDGER_FILE_RETIRED_LEDGER_SCHEMA_V4"
+        : "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
       `${path}.ledgerSchemaVersion`,
-      typeof input.ledgerSchemaVersion === "number" &&
+      input.ledgerSchemaVersion === 4
+        ? "This file contains a V4 ledger; V5 does not provide migration"
+        : typeof input.ledgerSchemaVersion === "number" &&
         (input.ledgerSchemaVersion === 2 || input.ledgerSchemaVersion === 3)
         ? `This file contains a V${input.ledgerSchemaVersion} ledger; V5 does not provide migration`
         : "The ledger schema version is unsupported",

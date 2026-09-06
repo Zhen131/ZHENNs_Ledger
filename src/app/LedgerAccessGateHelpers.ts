@@ -45,6 +45,8 @@ export function getFileAccessErrorMessage(
       return t("access.fileError.unsupportedFileVersion");
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA:
       return t("access.fileError.unsupportedLedgerSchema");
+    case LEDGER_FILE_ACCESS_ERROR_CODES.RETIRED_LEDGER_SCHEMA_V4:
+      return t("access.fileError.retiredLedgerSchemaV4");
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:
       return t("access.fileError.invalidFile");
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNLOCK_FAILED:

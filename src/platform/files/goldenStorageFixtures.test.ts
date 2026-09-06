@@ -158,17 +158,17 @@ describe("storage golden fixtures", () => {
     );
     const before = handle.snapshot();
     const adapter = new LedgerFileHandleAdapter();
-    const v3HeaderCause = {
-      code: "LEDGER_FILE_INVALID_STRUCTURE",
-      path: "header",
+    const v3SchemaCause = {
+      code: "LEDGER_FILE_RETIRED_LEDGER_SCHEMA_V4",
+      path: "header.ledgerSchemaVersion",
     };
-    await expectFrozenFileRejection(() => inspectLedgerFile(adapter, handle), v3HeaderCause);
+    await expectFrozenFileRejection(() => inspectLedgerFile(adapter, handle), v3SchemaCause);
     await expectFrozenFileRejection(() => LedgerFileRepository.open(
       adapter,
       handle,
       GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
       { sessionLease: TEST_SESSION_LEASE },
-    ), v3HeaderCause);
+    ), v3SchemaCause);
 
     expect(handle.writeAttempts).toBe(0);
     const after = handle.snapshot();

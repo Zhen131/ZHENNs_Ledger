@@ -78,6 +78,7 @@ export type LedgerFileContractErrorCode =
   | "LEDGER_FILE_INVALID_STRUCTURE"
   | "LEDGER_FILE_UNSUPPORTED_VERSION"
   | "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA"
+  | "LEDGER_FILE_RETIRED_LEDGER_SCHEMA_V4"
   | "LEDGER_FILE_INVALID_CRYPTO_PARAMETERS"
   | "LEDGER_FILE_INVALID_ENCODING"
   | "LEDGER_FILE_INVALID_REVISION_CHAIN"
@@ -425,9 +426,13 @@ function validateGeneration(
 
   if (input.ledgerSchemaVersion !== SUPPORTED_LEDGER_SCHEMA_VERSION) {
     return failure(
-      "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
+      input.ledgerSchemaVersion === 4
+        ? "LEDGER_FILE_RETIRED_LEDGER_SCHEMA_V4"
+        : "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
       `${path}.ledgerSchemaVersion`,
-      input.ledgerSchemaVersion === 2 || input.ledgerSchemaVersion === 3
+      input.ledgerSchemaVersion === 4
+        ? "This file contains a V4 ledger; V5 does not provide migration"
+        : input.ledgerSchemaVersion === 2 || input.ledgerSchemaVersion === 3
         ? `This file contains a V${input.ledgerSchemaVersion} ledger; V5 does not provide migration`
         : "The ledger schema version is unsupported",
     );

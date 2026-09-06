@@ -117,6 +117,12 @@ export function mapSelectionError(error: unknown): LedgerFileAccessErrorCode {
   ) {
     if (hasLedgerFileContractError(
       error.cause,
+      "LEDGER_FILE_RETIRED_LEDGER_SCHEMA_V4",
+    )) {
+      return LEDGER_FILE_ACCESS_ERROR_CODES.RETIRED_LEDGER_SCHEMA_V4;
+    }
+    if (hasLedgerFileContractError(
+      error.cause,
       "LEDGER_FILE_UNSUPPORTED_VERSION",
     )) {
       return LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION;
