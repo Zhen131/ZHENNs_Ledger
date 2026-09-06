@@ -58,6 +58,7 @@ export type Asset = {
 export type Trade = {
   id: string;
   occurredAt: ISODateString | ISODateTimeString;
+  occurredTimeZone?: string;
   timePrecision: TimePrecision;
   type: TradeType;
   assetSymbol: string;
@@ -102,6 +103,7 @@ export type PriceSnapshot = {
   price: DecimalString;
   currency: "USDT";
   recordedAt: ISODateString | ISODateTimeString;
+  occurredTimeZone?: string;
   source: PriceSource;
   binanceProvenance?: BinancePriceProvenance;
   note?: string;
@@ -154,6 +156,7 @@ export type CashEventType =
 export type CashEventBase = {
   id: string;
   occurredAt: ISODateString | ISODateTimeString;
+  occurredTimeZone?: string;
   timePrecision: TimePrecision;
   currency: "USDT";
   note?: string;
@@ -178,6 +181,7 @@ export type CashEvent = CashFlowEvent | CashBalanceAdjustmentEvent;
 export type AssetTransfer = {
   id: string;
   occurredAt: ISODateString | ISODateTimeString;
+  occurredTimeZone?: string;
   timePrecision: TimePrecision;
   assetSymbol: string;
   quantity: DecimalString;

@@ -13,7 +13,14 @@ import type {
   PriceSnapshot,
   Trade,
 } from "@/core/models";
-import { add, isEqual, isNegative, isPositive, isZero } from "@/core/shared";
+import {
+  add,
+  isEqual,
+  isNegative,
+  isPositive,
+  isSupportedTimeZone,
+  isZero,
+} from "@/core/shared";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
 import { validatePriceSnapshotDraft } from "./priceSnapshotValidator";
 import { validateTradeDraft } from "./tradeValidator";
@@ -80,6 +87,7 @@ const BINANCE_MAPPING_KEYS = [
 const TRADE_KEYS = [
   "id",
   "occurredAt",
+  "occurredTimeZone",
   "timePrecision",
   "type",
   "assetSymbol",
@@ -101,6 +109,7 @@ const TRADE_KEYS = [
 const CASH_BASE_KEYS = [
   "id",
   "occurredAt",
+  "occurredTimeZone",
   "timePrecision",
   "type",
   "currency",
@@ -118,6 +127,7 @@ const CASH_ADJUSTMENT_KEYS = [
 const ASSET_TRANSFER_KEYS = [
   "id",
   "occurredAt",
+  "occurredTimeZone",
   "timePrecision",
   "assetSymbol",
   "quantity",
@@ -137,6 +147,7 @@ const PRICE_KEYS = [
   "price",
   "currency",
   "recordedAt",
+  "occurredTimeZone",
   "source",
   "binanceProvenance",
   "note",
@@ -504,6 +515,11 @@ function readTrade(
     `${path}.occurredAt`,
     errors,
   );
+  const occurredTimeZone = readOptionalOccurredTimeZone(
+    record.occurredTimeZone,
+    `${path}.occurredTimeZone`,
+    errors,
+  );
   const createdAt = readTechnicalTimestamp(
     record.createdAt,
     `${path}.createdAt`,
@@ -617,6 +633,7 @@ function readTrade(
   return {
     id,
     occurredAt,
+    ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
     timePrecision: normalized.timePrecision,
     type: normalized.type,
     assetSymbol: normalized.assetSymbol,
@@ -682,6 +699,11 @@ function readCashEvent(
     `${path}.occurredAt`,
     errors,
   );
+  const occurredTimeZone = readOptionalOccurredTimeZone(
+    record.occurredTimeZone,
+    `${path}.occurredTimeZone`,
+    errors,
+  );
   const timePrecision = readTimePrecision(
     record.timePrecision,
     `${path}.timePrecision`,
@@ -723,6 +745,7 @@ function readCashEvent(
     return {
       id,
       occurredAt,
+      ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
       timePrecision,
       type: record.type as "deposit" | "withdrawal" | "external-expense",
       currency,
@@ -780,6 +803,7 @@ function readCashEvent(
   return {
     id,
     occurredAt,
+    ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
     timePrecision,
     type: "balance-adjustment",
     currency,
@@ -807,6 +831,11 @@ function readAssetTransfer(
   const occurredAt = readFactTimestamp(
     record.occurredAt,
     `${path}.occurredAt`,
+    errors,
+  );
+  const occurredTimeZone = readOptionalOccurredTimeZone(
+    record.occurredTimeZone,
+    `${path}.occurredTimeZone`,
     errors,
   );
   const timePrecision = readTimePrecision(
@@ -904,6 +933,7 @@ function readAssetTransfer(
   return {
     id,
     occurredAt,
+    ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
     timePrecision,
     assetSymbol,
     quantity,
@@ -1043,6 +1073,11 @@ function readPriceSnapshot(
     `${path}.recordedAt`,
     errors,
   );
+  const occurredTimeZone = readOptionalOccurredTimeZone(
+    record.occurredTimeZone,
+    `${path}.occurredTimeZone`,
+    errors,
+  );
   const createdAt = readTechnicalTimestamp(
     record.createdAt,
     `${path}.createdAt`,
@@ -1103,6 +1138,7 @@ function readPriceSnapshot(
   }
   return {
     ...validationResult.value,
+    ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
     id,
     price,
     currency: "USDT",
@@ -1610,6 +1646,27 @@ function readOptionalString(
       LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
       path,
       `${path} must be a string when provided`,
+    ),
+  );
+  return undefined;
+}
+
+function readOptionalOccurredTimeZone(
+  value: unknown,
+  path: string,
+  errors: LedgerDataValidationError[],
+): string | undefined {
+  if (value === undefined) return undefined;
+
+  if (typeof value === "string" && isSupportedTimeZone(value)) {
+    return value;
+  }
+
+  errors.push(
+    createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      path,
+      "occurredTimeZone must be an IANA time zone recognized by the runtime",
     ),
   );
   return undefined;

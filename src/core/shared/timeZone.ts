@@ -63,8 +63,8 @@ export function isSupportedTimeZone(timeZone: string): boolean {
   try {
     new Intl.DateTimeFormat("en", { timeZone });
     return true;
-  } catch (error) {
-    return error instanceof RangeError ? false : (() => { throw error; })();
+  } catch {
+    return false;
   }
 }
 

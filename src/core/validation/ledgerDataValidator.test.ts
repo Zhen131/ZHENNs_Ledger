@@ -77,6 +77,40 @@ describe("validateLedgerData", () => {
     expect(validateLedgerData(createInitialLedgerData()).ok).toBe(true);
   });
 
+  it("accepts optional runtime-recognized time zones on all four fact types", () => {
+    const input = createCompleteLedger();
+    input.trades[0] = { ...input.trades[0], occurredTimeZone: "Asia/Shanghai" };
+    input.cashEvents = [
+      { ...cashFlow("deposit", "1", "cash-time-zone"), occurredTimeZone: "UTC" },
+    ];
+    input.assetTransfers = [
+      {
+        ...transferForCategory("external-in"),
+        occurredTimeZone: "Europe/Budapest",
+      },
+    ];
+    input.priceSnapshots[0] = {
+      ...input.priceSnapshots[0],
+      occurredTimeZone: "Asia/Kathmandu",
+    };
+
+    expect(validateLedgerData(input)).toEqual({ ok: true, value: input });
+  });
+
+  it("rejects a time zone that the runtime does not recognize", () => {
+    const input = createCompleteLedger();
+    input.trades[0] = {
+      ...input.trades[0],
+      occurredTimeZone: "Not/A-Time-Zone",
+    };
+
+    expectError(
+      input,
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      "trades[0].occurredTimeZone",
+    );
+  });
+
   it("preserves a non-zero fee paid in another local asset", () => {
     const input = createCompleteLedger();
     input.trades[0] = {
