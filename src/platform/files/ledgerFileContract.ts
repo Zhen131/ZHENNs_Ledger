@@ -28,7 +28,7 @@ export const LEDGER_FILE_OUTER_V2_CONSTANTS = {
   maximumTechnicalIdLength: DEFAULT_LEDGER_RESOURCE_LIMITS.id,
 } as const;
 
-export const SUPPORTED_LEDGER_SCHEMA_VERSION = 4 as const;
+export const SUPPORTED_LEDGER_SCHEMA_VERSION = 5 as const;
 
 export const MAX_LEDGER_FILE_V2_BYTES = 384 * 1024 * 1024;
 
@@ -50,7 +50,7 @@ export type LedgerFileCryptoV2 = {
 export type EncryptedLedgerGenerationV4 = {
   revisionId: string;
   parentRevisionId: string | null;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   ivBase64Url: string;
   ciphertextBase64Url: string;
 };
@@ -428,7 +428,7 @@ function validateGeneration(
       "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
       `${path}.ledgerSchemaVersion`,
       input.ledgerSchemaVersion === 2 || input.ledgerSchemaVersion === 3
-        ? `This file contains a V${input.ledgerSchemaVersion} ledger; V4 does not provide migration`
+        ? `This file contains a V${input.ledgerSchemaVersion} ledger; V5 does not provide migration`
         : "The ledger schema version is unsupported",
     );
   }

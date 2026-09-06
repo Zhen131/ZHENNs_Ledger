@@ -268,7 +268,7 @@ export async function preflightBackupJson(
       : isRecord(parsed) &&
           parsed.backupFormatVersion === 3 &&
           typeof parsed.ledgerSchemaVersion === "number" &&
-          parsed.ledgerSchemaVersion < 4
+          parsed.ledgerSchemaVersion < 5
         ? translateDefault("backup.preflight.schemaVersionPrefix") +
           parsed.ledgerSchemaVersion
         : null;

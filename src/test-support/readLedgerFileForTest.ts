@@ -54,7 +54,7 @@ type V3S3GenerationSource = {
 type LedgerFileV3ForTest = {
   fileFormatVersion: 3;
   cryptoVersion: 1;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   backupFormatVersion: 3;
   fileId: string;
   sequence: number;
@@ -152,7 +152,7 @@ export function readLedgerFileSlotViewForTest(
     value: {
       fileFormatVersion: 3 as const,
       cryptoVersion: 1 as const,
-      ledgerSchemaVersion: 4 as const,
+      ledgerSchemaVersion: 5 as const,
       backupFormatVersion: 3 as const,
       fileId: source.file.fileId,
       sequence: source.file.sequence,
@@ -163,7 +163,7 @@ export function readLedgerFileSlotViewForTest(
       current: {
         revisionId: source.file.current.revisionId,
         parentRevisionId: source.file.current.parentRevisionId,
-        ledgerSchemaVersion: 4 as const,
+        ledgerSchemaVersion: 5 as const,
         bodySlot: current.bodySlots[0] as 0 | 1 | 2,
         ivBase64Url: current.ivBase64Url,
         ciphertextBytes: current.ciphertextBytes,
@@ -172,7 +172,7 @@ export function readLedgerFileSlotViewForTest(
         ? {
             revisionId: source.file.previous.revisionId,
             parentRevisionId: source.file.previous.parentRevisionId,
-            ledgerSchemaVersion: 4 as const,
+            ledgerSchemaVersion: 5 as const,
             bodySlot: previous.bodySlots[0] as 0 | 1 | 2,
             ivBase64Url: previous.ivBase64Url,
             ciphertextBytes: previous.ciphertextBytes,
@@ -273,7 +273,7 @@ export async function encryptLedgerFileGenerationForTest(
   revision: {
     revisionId: string;
     parentRevisionId: string | null;
-    ledgerSchemaVersion: 4;
+    ledgerSchemaVersion: 5;
   },
   serializedPayload: string,
 ) {
@@ -396,7 +396,7 @@ function toTestLedgerFileV3S3(
   return {
     fileFormatVersion: 3,
     cryptoVersion: 1,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     backupFormatVersion: 3,
     fileId: file.fileId,
     sequence: file.sequence,
@@ -422,7 +422,7 @@ function toTestGenerationV3S3(
   return {
     revisionId: generation.revisionId,
     parentRevisionId: generation.parentRevisionId,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     bodySlot: control.bodySlots[0],
     ivBase64Url: control.ivBase64Url,
     ciphertextBase64Url: bytesToBase64Url(control.ciphertextBytes),
@@ -671,7 +671,7 @@ function toProductLedgerFileV3S2(
   return {
     fileFormatVersion: 3,
     cryptoVersion: 1,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     backupFormatVersion: 3,
     fileId: file.fileId,
     sequence: file.sequence,

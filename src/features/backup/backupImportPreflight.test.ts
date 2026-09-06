@@ -25,7 +25,7 @@ import {
 const TODAY = "2026-07-31";
 
 describe("preflightBackupJson", () => {
-  it("round-trips a structured V4 ledger trade through export and strict rawText preflight", async () => {
+  it("round-trips a structured V5 ledger trade through export and strict rawText preflight", async () => {
     const ledger = createInitialLedgerData();
     const created = createValidatedTrade(
       {
@@ -164,7 +164,7 @@ describe("preflightBackupJson", () => {
     expect(result.metadata).toMatchObject({
       sourceFileName: "fictional-negative-cash.backup.json",
       backupFormatVersion: 3,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       assetCount: ledger.assets.length,
       tradeCount: 0,
       cashEventCount: 1,
@@ -239,7 +239,14 @@ describe("preflightBackupJson", () => {
       backupFormatVersion: 3,
       code: "BACKUP_SCHEMA_VERSION_MISMATCH",
       path: "ledgerSchemaVersion",
-      message: "这是账本 schema V3 的备份；当前账本 schema 为 V4，且不提供迁移",
+      message: "这是账本 schema V3 的备份；当前账本 schema 为 V5，且不提供迁移",
+    },
+    {
+      legacyLedgerSchemaVersion: 4,
+      backupFormatVersion: 3,
+      code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+      path: "ledgerSchemaVersion",
+      message: "这是账本 schema V4 的备份；当前账本 schema 为 V5，且不提供迁移",
     },
   ] as const)(
     "short-circuits a V$legacyLedgerSchemaVersion ledger backup at the version stage without candidate, warnings, duplicate grouping, or network",
@@ -646,10 +653,10 @@ function readFixture(name: string): string {
   );
   const parsed = JSON.parse(serialized);
   parsed.backupFormatVersion = 3;
-  parsed.ledgerSchemaVersion = 4;
+  parsed.ledgerSchemaVersion = 5;
   parsed.ledgerData = {
     ...parsed.ledgerData,
-    schemaVersion: 4,
+    schemaVersion: 5,
     assetTransfers: parsed.ledgerData.assetTransfers ?? [],
   };
   return `${JSON.stringify(parsed, null, 2)}\n`;

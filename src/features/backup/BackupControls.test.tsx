@@ -149,10 +149,10 @@ function readPermanentFixture(name: string): string {
   );
   const parsed = JSON.parse(serialized);
   parsed.backupFormatVersion = 3;
-  parsed.ledgerSchemaVersion = 4;
+  parsed.ledgerSchemaVersion = 5;
   parsed.ledgerData = {
     ...parsed.ledgerData,
-    schemaVersion: 4,
+    schemaVersion: 5,
     assetTransfers: parsed.ledgerData.assetTransfers ?? [],
   };
   return `${JSON.stringify(parsed, null, 2)}\n`;
@@ -777,7 +777,12 @@ describe("BackupControls", () => {
     {
       legacyLedgerSchemaVersion: 3,
       backupFormatVersion: 3,
-      message: "这是账本 schema V3 的备份；当前账本 schema 为 V4，且不提供迁移",
+      message: "这是账本 schema V3 的备份；当前账本 schema 为 V5，且不提供迁移",
+    },
+    {
+      legacyLedgerSchemaVersion: 4,
+      backupFormatVersion: 3,
+      message: "这是账本 schema V4 的备份；当前账本 schema 为 V5，且不提供迁移",
     },
   ] as const)(
     "rejects a V$legacyLedgerSchemaVersion ledger backup before import, file mutation, or Binance calls",

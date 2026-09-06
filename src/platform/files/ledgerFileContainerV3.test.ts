@@ -32,21 +32,21 @@ function createFile(): LedgerFileV3S1 {
   return {
     fileFormatVersion: 3,
     cryptoVersion: 1,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     backupFormatVersion: 3,
     fileId: "v3-s1-test-file",
     crypto: CRYPTO,
     current: {
       revisionId: "revision-b",
       parentRevisionId: "revision-a",
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ivBase64Url: bytesToBase64Url(new Uint8Array(12).fill(8)),
       ciphertextBytes: new Uint8Array(19).fill(0xff),
     },
     previous: {
       revisionId: "revision-a",
       parentRevisionId: null,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ivBase64Url: bytesToBase64Url(new Uint8Array(12).fill(9)),
       ciphertextBytes: new Uint8Array(17).fill(0x80),
     },
@@ -88,7 +88,7 @@ describe("LedgerFileV3 S-1 container", () => {
     expect(header).toMatchObject({
       fileFormatVersion: 3,
       cryptoVersion: 1,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       backupFormatVersion: 3,
     });
     expect(JSON.stringify(header)).not.toContain("ciphertextBase64Url");
@@ -121,7 +121,7 @@ describe("LedgerFileV3 S-1 container", () => {
     }).toEqual({
       fileFormatVersion: 3,
       cryptoVersion: LEDGER_FILE_OUTER_V2_CONSTANTS.cryptoVersion,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       backupFormatVersion: 3,
     });
   });

@@ -69,7 +69,7 @@ export function generateSyntheticLedger(
   const assets = createAssets(assetCount, startKey);
 
   const ledgerData: LedgerData = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     assets,
     trades: createTrades(tradeCount, assets, startKey, spanDays, rng),
     cashEvents: createCashEvents(
@@ -105,7 +105,7 @@ export function createSyntheticBackupEnvelope(
     backupFormatVersion: 3,
     appVersion: "0.1.0-benchmark",
     exportedAt: `${result.todayKey}T12:00:00.000Z`,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     ledgerData: result.ledgerData,
   };
 }

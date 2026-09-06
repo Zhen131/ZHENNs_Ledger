@@ -385,7 +385,7 @@ function createLedgerWithCashEvents(count: number): LedgerData {
     }),
   );
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     assets: [],
     trades: [],
     cashEvents,

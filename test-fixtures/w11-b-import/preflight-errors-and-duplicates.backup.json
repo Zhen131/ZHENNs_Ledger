@@ -2,9 +2,9 @@
   "backupFormatVersion": 3,
   "appVersion": "0.1.0",
   "exportedAt": "2026-07-30T12:00:00Z",
-  "ledgerSchemaVersion": 4,
+  "ledgerSchemaVersion": 5,
   "ledgerData": {
-    "schemaVersion": 4,
+    "schemaVersion": 5,
     "assets": [
       {
         "id": "asset-btc",

@@ -31,7 +31,7 @@ function createFeeRule(id = "fee-okx-btc-v1"): FixedFeeRule {
 
 test("creates an in-memory ledger with built-in assets", () => {
   expect(createInitialLedgerData()).toEqual({
-    schemaVersion: 4,
+    schemaVersion: 5,
     assets: createBuiltInAssets(),
     trades: [],
     cashEvents: [],

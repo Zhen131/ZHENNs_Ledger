@@ -222,7 +222,7 @@ export type Position = {
 };
 
 export type LedgerData = {
-  schemaVersion: 4;
+  schemaVersion: 5;
   assets: Asset[];
   trades: Trade[];
   cashEvents: CashEvent[];

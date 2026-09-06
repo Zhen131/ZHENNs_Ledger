@@ -1,0 +1,86 @@
+{
+  "backupFormatVersion": 3,
+  "appVersion": "0.1.0-golden-v5",
+  "exportedAt": "2026-09-06T12:00:00.000Z",
+  "ledgerSchemaVersion": 5,
+  "ledgerData": {
+    "schemaVersion": 5,
+    "assets": [
+      {
+        "id": "asset-fictional-time-zone",
+        "symbol": "FICTZ",
+        "name": "Fictional Time Zone Asset",
+        "quoteCurrency": "USDT",
+        "binanceMapping": null,
+        "createdAt": "2026-09-01T00:00:00Z",
+        "updatedAt": "2026-09-01T00:00:00Z"
+      }
+    ],
+    "trades": [
+      {
+        "id": "trade-fictional-time-zone",
+        "occurredAt": "2026-09-01T09:15:00+08:00",
+        "occurredTimeZone": "Asia/Shanghai",
+        "timePrecision": "second",
+        "type": "buy",
+        "assetSymbol": "FICTZ",
+        "quantity": "2",
+        "price": "3",
+        "totalValue": "6",
+        "currency": "USDT",
+        "fee": "0",
+        "feeCurrency": "USDT",
+        "platform": "Fictional Venue",
+        "note": "Fictional V5 trade with a recorded location.",
+        "rawText": "Fictional golden fixture trade.",
+        "createdAt": "2026-09-01T09:15:00+08:00",
+        "updatedAt": "2026-09-01T09:15:00+08:00"
+      }
+    ],
+    "cashEvents": [
+      {
+        "id": "cash-fictional-without-time-zone",
+        "occurredAt": "2026-09-02",
+        "timePrecision": "day",
+        "type": "deposit",
+        "currency": "USDT",
+        "amount": "20",
+        "note": "Fictional V5 cash fact without a recorded location.",
+        "createdAt": "2026-09-02T00:00:00Z",
+        "updatedAt": "2026-09-02T00:00:00Z"
+      }
+    ],
+    "assetTransfers": [
+      {
+        "id": "transfer-fictional-time-zone",
+        "occurredAt": "2026-09-03T10:30:00+02:00",
+        "occurredTimeZone": "Europe/Budapest",
+        "timePrecision": "second",
+        "assetSymbol": "FICTZ",
+        "quantity": "1",
+        "category": "internal",
+        "reason": "internal-move",
+        "fromLocation": "exchange",
+        "toLocation": "cold-wallet",
+        "note": "Fictional V5 transfer with a recorded location.",
+        "createdAt": "2026-09-03T10:30:00+02:00",
+        "updatedAt": "2026-09-03T10:30:00+02:00"
+      }
+    ],
+    "priceSnapshots": [
+      {
+        "id": "price-fictional-time-zone",
+        "assetSymbol": "FICTZ",
+        "price": "4",
+        "currency": "USDT",
+        "recordedAt": "2026-09-04T11:00:00Z",
+        "occurredTimeZone": "UTC",
+        "source": "manual",
+        "note": "Fictional V5 price with a recorded location.",
+        "createdAt": "2026-09-04T11:00:00Z",
+        "updatedAt": "2026-09-04T11:00:00Z"
+      }
+    ],
+    "feeRules": []
+  }
+}

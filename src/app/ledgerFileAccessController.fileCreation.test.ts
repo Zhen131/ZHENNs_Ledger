@@ -153,7 +153,7 @@ describe("DefaultLedgerFileAccessController", () => {
   it("rejects a V1 .lftl before password or connection-record publication", async () => {
     const handle = new MemoryFileHandle(
       "retired-v1.lftl",
-      createInspectableLedgerFile(4, 1),
+      createInspectableLedgerFile(5, 1),
     );
     const before = handle.bytes.slice();
     const connection = createConnectionAdapter();

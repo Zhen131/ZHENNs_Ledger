@@ -14,7 +14,7 @@ const metadata = {
   exportedAt: "2026-07-23T12:34:56.789Z",
 };
 
-describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
+describe("BackupEnvelopeV3 carrying ledger schema V5", () => {
   it("creates a detached, versioned backup envelope", () => {
     const ledger = createInitialLedgerData();
     const result = createBackupEnvelope(ledger, metadata);
@@ -25,7 +25,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
         backupFormatVersion: BACKUP_FORMAT_VERSION,
         appVersion: "0.1.0",
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
         ledgerData: ledger,
       },
     });
@@ -52,7 +52,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
     expect(parseBackupJson(serialized)).toEqual(created);
   });
 
-  it("round-trips ledger schema V4 facts through backup format V3", () => {
+  it("round-trips ledger schema V5 facts through backup format V3", () => {
     const ledger = createInitialLedgerData();
     ledger.trades = [
       {
@@ -79,7 +79,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
 
     const serialized = serializeBackupEnvelope(created.value);
     expect(parseBackupJson(serialized, "2026-07-23")).toEqual(created);
-    expect(JSON.parse(serialized).ledgerData.schemaVersion).toBe(4);
+    expect(JSON.parse(serialized).ledgerData.schemaVersion).toBe(5);
   });
 
   it("exports only LedgerData facts and strips chart or session-derived fields", () => {
@@ -166,7 +166,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
       backupFormatVersion: 3,
       appVersion: "",
       exportedAt: "2026-07-23",
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ledgerData: ledger,
     });
 
@@ -185,7 +185,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
       backupFormatVersion: 3,
       appVersion: metadata.appVersion,
       exportedAt: metadata.exportedAt,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ledgerData: ledger,
       unexpected: true,
     });
@@ -193,14 +193,14 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
       appVersion: metadata.appVersion,
       backupFormatVersion: 3,
       exportedAt: metadata.exportedAt,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ledgerData: ledger,
     });
     const invalidAppVersion = validateBackupEnvelope({
       backupFormatVersion: 3,
       appVersion: ` ${"x".repeat(128)}`,
       exportedAt: metadata.exportedAt,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ledgerData: ledger,
     });
 
@@ -227,7 +227,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
     {
       boundary: "backup format V1",
       backupFormatVersion: 1,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
       path: "backupFormatVersion",
       message: "这是备份格式 V1；当前备份格式为 V3，且不提供迁移",
@@ -235,7 +235,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
     {
       boundary: "backup format V2",
       backupFormatVersion: 2,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       code: "BACKUP_UNSUPPORTED_FORMAT_VERSION",
       path: "backupFormatVersion",
       message: "这是备份格式 V2；当前备份格式为 V3，且不提供迁移",
@@ -246,7 +246,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
       ledgerSchemaVersion: 1,
       code: "BACKUP_SCHEMA_VERSION_MISMATCH",
       path: "ledgerSchemaVersion",
-      message: "这是账本 schema V1 的备份；当前账本 schema 为 V4，且不提供迁移",
+      message: "这是账本 schema V1 的备份；当前账本 schema 为 V5，且不提供迁移",
     },
     {
       boundary: "ledger schema V3",
@@ -254,7 +254,15 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
       ledgerSchemaVersion: 3,
       code: "BACKUP_SCHEMA_VERSION_MISMATCH",
       path: "ledgerSchemaVersion",
-      message: "这是账本 schema V3 的备份；当前账本 schema 为 V4，且不提供迁移",
+      message: "这是账本 schema V3 的备份；当前账本 schema 为 V5，且不提供迁移",
+    },
+    {
+      boundary: "ledger schema V4",
+      backupFormatVersion: 3,
+      ledgerSchemaVersion: 4,
+      code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+      path: "ledgerSchemaVersion",
+      message: "这是账本 schema V4 的备份；当前账本 schema 为 V5，且不提供迁移",
     },
   ] as const)(
     "rejects retired $boundary before inspecting ledgerData",
@@ -304,6 +312,11 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
           path: "backupFormatVersion",
           message: "Unsupported backup format version: 4",
         },
+        {
+          code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+          path: "ledgerSchemaVersion",
+          message: "Unsupported ledger schema version: 4",
+        },
       ],
     });
   });
@@ -317,7 +330,7 @@ describe("BackupEnvelopeV3 carrying ledger schema V4", () => {
         backupFormatVersion: 3,
         appVersion: metadata.appVersion,
         exportedAt: metadata.exportedAt,
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
         ledgerData: ledger,
       }),
     ).toEqual({

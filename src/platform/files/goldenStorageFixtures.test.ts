@@ -3,9 +3,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { parseBackupJson, serializeBackupEnvelope } from "@/features/backup";
+import { parseBackupJson } from "@/features/backup";
 import {
-  createGoldenStorageScenario,
   GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
   GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
 } from "@/test-support";
@@ -38,6 +37,14 @@ const GOLDEN_LEDGER_FILE_SHA256 =
   "d143d621cb2dbb4404d254114294132a54213c70fbd445c6bc0fb49b42447427";
 const GOLDEN_LEDGER_FILE_V3_SHA256 =
   "116bbeab8d8a9c610bd2946319dbcc1d243264601a772d0f8c78dd15704f0668";
+const GOLDEN_LEDGER_FILE_V5_URL = new URL(
+  "../../../test-fixtures/golden/golden-ledger-file-format-v3-crypto-v1-ledger-schema-v5-time-zone.lftl",
+  import.meta.url,
+);
+const GOLDEN_LEDGER_FILE_V5_SHA256 =
+  "7a02c017f3f7edc3b54ffb52620aebd7a4057a71cf0afe63e00f6db91701ca65";
+const GOLDEN_LEDGER_FILE_V5_PASSPHRASE =
+  "W16-Golden-V5-Fictional-Ledger";
 
 const TEST_SESSION_LEASE: LedgerFileSessionLease = {
   sessionId: "golden-storage-fixture-test",
@@ -75,37 +82,35 @@ class ReadOnlyGoldenLedgerHandle implements LedgerFileHandle {
   }
 }
 
-async function expectV2Rejection(
+async function expectFrozenFileRejection(
   operation: () => Promise<unknown>,
+  expectedCause: Record<string, unknown>,
 ): Promise<void> {
   await expect(operation()).rejects.toMatchObject({
     code: LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
-    message: expect.stringContaining("V2"),
-    cause: expect.arrayContaining([
-      expect.objectContaining({
-        code: "LEDGER_FILE_UNSUPPORTED_VERSION",
-        path: "fileFormatVersion",
-        message: expect.stringContaining("V2"),
-      }),
-    ]),
+    cause: expect.arrayContaining([expect.objectContaining(expectedCause)]),
   });
 }
 
 describe("storage golden fixtures", () => {
-  it("freezes and parses the rich backup format V3 schema V4 fixture", () => {
+  it("freezes and rejects the rich V4 backup fixture", () => {
     const serialized = readFileSync(GOLDEN_BACKUP_URL, "utf8");
 
     expect(createHash("sha256").update(serialized).digest("hex")).toBe(
       GOLDEN_BACKUP_SHA256,
     );
     const result = parseBackupJson(serialized, "2026-08-31");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-
-    expect(result.value.backupFormatVersion).toBe(3);
-    expect(result.value.ledgerSchemaVersion).toBe(4);
-    expect(result.value.ledgerData).toEqual(createGoldenStorageScenario());
-    expect(serializeBackupEnvelope(result.value)).toBe(serialized);
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+          path: "ledgerSchemaVersion",
+          message: "这是账本 schema V4 的备份；当前账本 schema 为 V5，且不提供迁移",
+        }),
+      ],
+    });
+    expect(readFileSync(GOLDEN_BACKUP_URL, "utf8")).toBe(serialized);
   });
 
   it("freezes and rejects the product-path file format V2 fixture without mutation", async () => {
@@ -118,14 +123,18 @@ describe("storage golden fixtures", () => {
     const before = handle.snapshot();
     const adapter = new LedgerFileHandleAdapter();
 
-    await expectV2Rejection(() => inspectLedgerFile(adapter, handle));
-    await expectV2Rejection(() =>
+    const v2SchemaCause = {
+      code: "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
+      path: "current.ledgerSchemaVersion",
+    };
+    await expectFrozenFileRejection(() => inspectLedgerFile(adapter, handle), v2SchemaCause);
+    await expectFrozenFileRejection(() =>
       LedgerFileRepository.open(
         adapter,
         handle,
         GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
         { sessionLease: TEST_SESSION_LEASE },
-      ),
+      ), v2SchemaCause,
     );
 
     expect(handle.writeAttempts).toBe(0);
@@ -137,7 +146,7 @@ describe("storage golden fixtures", () => {
     expect(after).toEqual(before);
   });
 
-  it("freezes and opens the product-path file format V3 fixture without mutation", async () => {
+  it("freezes and rejects the product-path V4 file without mutation", async () => {
     const bytes = new Uint8Array(readFileSync(GOLDEN_LEDGER_FILE_V3_URL));
 
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(
@@ -149,23 +158,17 @@ describe("storage golden fixtures", () => {
     );
     const before = handle.snapshot();
     const adapter = new LedgerFileHandleAdapter();
-    const inspected = await inspectLedgerFile(adapter, handle);
-
-    expect(inspected.fileFormatVersion).toBe(3);
-    expect(inspected.cryptoVersion).toBe(1);
-    expect(inspected.ledgerSchemaVersion).toBe(4);
-    expect(inspected.backupFormatVersion).toBe(3);
-    expect(inspected.previous).not.toBeNull();
-
-    const repository = await LedgerFileRepository.open(
+    const v3HeaderCause = {
+      code: "LEDGER_FILE_INVALID_STRUCTURE",
+      path: "header",
+    };
+    await expectFrozenFileRejection(() => inspectLedgerFile(adapter, handle), v3HeaderCause);
+    await expectFrozenFileRejection(() => LedgerFileRepository.open(
       adapter,
       handle,
       GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
       { sessionLease: TEST_SESSION_LEASE },
-    );
-    await expect(repository.load()).resolves.toEqual(
-      createGoldenStorageScenario(),
-    );
+    ), v3HeaderCause);
 
     expect(handle.writeAttempts).toBe(0);
     const after = handle.snapshot();
@@ -174,5 +177,35 @@ describe("storage golden fixtures", () => {
       GOLDEN_LEDGER_FILE_V3_SHA256,
     );
     expect(after).toEqual(before);
+  });
+
+  it("opens the immutable V5 product-path file with optional fact time zones", async () => {
+    const bytes = new Uint8Array(readFileSync(GOLDEN_LEDGER_FILE_V5_URL));
+
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+      GOLDEN_LEDGER_FILE_V5_SHA256,
+    );
+    const handle = new ReadOnlyGoldenLedgerHandle(
+      bytes,
+      "golden-ledger-file-format-v3-crypto-v1-ledger-schema-v5-time-zone.lftl",
+    );
+    const before = handle.snapshot();
+    const repository = await LedgerFileRepository.open(
+      new LedgerFileHandleAdapter(),
+      handle,
+      GOLDEN_LEDGER_FILE_V5_PASSPHRASE,
+      { sessionLease: TEST_SESSION_LEASE },
+    );
+    const ledger = await repository.load();
+
+    expect(ledger.schemaVersion).toBe(5);
+    expect(ledger.trades[0]?.occurredTimeZone).toBe("Asia/Shanghai");
+    expect(ledger.cashEvents[0]).not.toHaveProperty("occurredTimeZone");
+    expect(ledger.assetTransfers[0]?.occurredTimeZone).toBe(
+      "Europe/Budapest",
+    );
+    expect(ledger.priceSnapshots[0]?.occurredTimeZone).toBe("UTC");
+    expect(handle.writeAttempts).toBe(0);
+    expect(handle.snapshot()).toEqual(before);
   });
 });

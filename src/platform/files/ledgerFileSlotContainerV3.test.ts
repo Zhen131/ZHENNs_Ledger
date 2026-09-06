@@ -40,7 +40,7 @@ function generation(
   return {
     revisionId,
     parentRevisionId,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     bodySlot,
     ivBase64Url: fill === 1
       ? "AQEBAQEBAQEBAQEB"
@@ -56,7 +56,7 @@ function initialFile(): LedgerFileV3S2 {
   return {
     fileFormatVersion: 3,
     cryptoVersion: 1,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     backupFormatVersion: 3,
     fileId: "file-slot-test",
     sequence: 1,

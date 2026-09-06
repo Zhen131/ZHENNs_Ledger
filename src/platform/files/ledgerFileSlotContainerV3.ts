@@ -22,7 +22,7 @@ const HEADER_JSON_LENGTH_BYTES = Uint32Array.BYTES_PER_ELEMENT;
 export const LEDGER_FILE_OUTER_V3_S2_CONSTANTS = {
   fileFormatVersion: 3,
   cryptoVersion: 1,
-  ledgerSchemaVersion: 4,
+  ledgerSchemaVersion: 5,
   backupFormatVersion: 3,
   headerSlotBytes: LEDGER_FILE_HEADER_SLOT_BYTES,
   bodySlotCount: LEDGER_FILE_BODY_SLOT_COUNT,
@@ -36,7 +36,7 @@ export type LedgerFileBodySlotV3S2 = 0 | 1 | 2;
 export type EncryptedLedgerGenerationV3S2 = {
   revisionId: string;
   parentRevisionId: string | null;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   bodySlot: LedgerFileBodySlotV3S2;
   ivBase64Url: string;
   ciphertextBytes: Uint8Array;
@@ -45,7 +45,7 @@ export type EncryptedLedgerGenerationV3S2 = {
 export type LedgerFileV3S2 = {
   fileFormatVersion: 3;
   cryptoVersion: 1;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   backupFormatVersion: 3;
   fileId: string;
   sequence: number;
@@ -756,7 +756,7 @@ function validateHeader(
   if (
     input.fileFormatVersion !== 3 ||
     input.cryptoVersion !== 1 ||
-    input.ledgerSchemaVersion !== 4 ||
+    input.ledgerSchemaVersion !== 5 ||
     input.backupFormatVersion !== 3
   ) {
     return invalidVersion();
@@ -785,7 +785,7 @@ function validateHeader(
     value: {
       fileFormatVersion: 3,
       cryptoVersion: 1,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       backupFormatVersion: 3,
       fileId: input.fileId as string,
       sequence: input.sequence as number,

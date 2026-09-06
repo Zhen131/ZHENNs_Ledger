@@ -129,7 +129,7 @@ export function createLedgerGenerationPlanV3S3(
         order,
         sealed: entries.length === RECORDS_PER_LEDGER_BLOCK,
         recordCount: entries.length,
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
         ivBase64Url: "",
         plaintextByteLength: 0,
         bodySlots: [],
@@ -344,7 +344,7 @@ export function parseLedgerBlockPayloadV3S3(
       "schemaVersion",
       "trades",
     ] as const) ||
-    parsed.ledgerData.schemaVersion !== 4 ||
+    parsed.ledgerData.schemaVersion !== 5 ||
     !LEDGER_FACT_COLLECTIONS.every((key) =>
       Array.isArray(
         (parsed.ledgerData as Record<LedgerFactCollection, unknown>)[key],
@@ -469,7 +469,7 @@ function factKey(entry: FactEntry): string {
 
 function emptyLedgerData(): LedgerData {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     assets: [],
     trades: [],
     cashEvents: [],

@@ -24,7 +24,7 @@ export type BackupEnvelopeV3 = {
   backupFormatVersion: 3;
   appVersion: string;
   exportedAt: string;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   ledgerData: LedgerData;
 };
 
@@ -162,7 +162,7 @@ export function validateBackupEnvelope(
   if (
     input.backupFormatVersion === BACKUP_FORMAT_VERSION &&
     typeof input.ledgerSchemaVersion === "number" &&
-    input.ledgerSchemaVersion < 4
+    input.ledgerSchemaVersion < 5
   ) {
     return {
       ok: false,
@@ -172,7 +172,7 @@ export function validateBackupEnvelope(
           "ledgerSchemaVersion",
           translateDefault("backup.envelope.schemaVersionPrefix") +
             input.ledgerSchemaVersion +
-            translateDefault("backup.envelope.schemaVersionMiddle"),
+            translateDefault("backup.envelope.schemaVersionMiddleV5"),
         ),
       ],
     };
@@ -211,7 +211,7 @@ export function validateBackupEnvelope(
   });
   errors.push(...metadataErrors);
 
-  const hasSupportedLedgerSchemaVersion = input.ledgerSchemaVersion === 4;
+  const hasSupportedLedgerSchemaVersion = input.ledgerSchemaVersion === 5;
   if (!hasSupportedLedgerSchemaVersion) {
     errors.push(
       createError(
@@ -263,7 +263,7 @@ export function validateBackupEnvelope(
       backupFormatVersion: BACKUP_FORMAT_VERSION,
       appVersion: input.appVersion as string,
       exportedAt: input.exportedAt as string,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ledgerData: ledgerResult.value,
     },
   };

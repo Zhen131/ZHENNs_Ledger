@@ -215,7 +215,7 @@ export function validateLedgerData(input: unknown): LedgerDataValidationResult {
 
   const errors: LedgerDataValidationError[] = [];
   checkExactKeys(input, ROOT_KEYS, "ledgerData", errors);
-  if (input.schemaVersion !== 4) {
+  if (input.schemaVersion !== 5) {
     errors.push(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION,
@@ -306,7 +306,7 @@ export function validateLedgerData(input: unknown): LedgerDataValidationResult {
   return {
     ok: true,
     value: {
-      schemaVersion: 4,
+      schemaVersion: 5,
       assets,
       trades,
       cashEvents,

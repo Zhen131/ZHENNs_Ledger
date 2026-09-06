@@ -15,7 +15,7 @@ export const LEDGER_FILE_V3_MAGIC = new Uint8Array([
 export const LEDGER_FILE_OUTER_V3_CONSTANTS = {
   fileFormatVersion: 3,
   cryptoVersion: 1,
-  ledgerSchemaVersion: 4,
+  ledgerSchemaVersion: 5,
   backupFormatVersion: 3,
   headerLengthBytes: 4,
   maximumHeaderBytes: 256 * 1024,
@@ -25,7 +25,7 @@ export const LEDGER_FILE_OUTER_V3_CONSTANTS = {
 export type LedgerFileV3S1 = {
   fileFormatVersion: 3;
   cryptoVersion: 1;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   backupFormatVersion: 3;
   fileId: string;
   crypto: LedgerFileCryptoV2;
@@ -36,7 +36,7 @@ export type LedgerFileV3S1 = {
 export type EncryptedLedgerGenerationV3S1 = {
   revisionId: string;
   parentRevisionId: string | null;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   ivBase64Url: string;
   ciphertextBytes: Uint8Array;
 };
@@ -379,7 +379,7 @@ function validateGeneration(
       `${path}.ledgerSchemaVersion`,
       typeof input.ledgerSchemaVersion === "number" &&
         (input.ledgerSchemaVersion === 2 || input.ledgerSchemaVersion === 3)
-        ? `This file contains a V${input.ledgerSchemaVersion} ledger; V4 does not provide migration`
+        ? `This file contains a V${input.ledgerSchemaVersion} ledger; V5 does not provide migration`
         : "The ledger schema version is unsupported",
     );
   }
@@ -505,7 +505,7 @@ function validateHeader(
     value: {
       fileFormatVersion: 3,
       cryptoVersion: 1,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       backupFormatVersion: 3,
       fileId: input.fileId as string,
       crypto: input.crypto as LedgerFileCryptoV2,

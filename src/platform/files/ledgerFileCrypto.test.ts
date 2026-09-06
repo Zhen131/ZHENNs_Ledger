@@ -19,7 +19,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
       },
       '{"savedAt":"2026-07-28T10:00:00.000Z","ledgerData":{"trades":[]}}',
     );
@@ -28,7 +28,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-b",
         parentRevisionId: "revision-a",
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
       },
       '{"savedAt":"2026-07-28T10:01:00.000Z","ledgerData":{"trades":[1]}}',
     );
@@ -56,7 +56,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "revision-a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
       },
       "secret payload",
     );
@@ -126,7 +126,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "a",
         parentRevisionId: null,
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
       },
       "first",
     );
@@ -135,7 +135,7 @@ describe("LedgerFileCrypto", () => {
       {
         revisionId: "b",
         parentRevisionId: "a",
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
       },
       "second",
     );
@@ -175,7 +175,7 @@ describe("LedgerFileCrypto", () => {
     const generation: EncryptedLedgerGenerationV4 = {
       revisionId: "fixture-revision",
       parentRevisionId: null,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       ivBase64Url: "CQkJCQkJCQkJCQkJ",
       ciphertextBase64Url:
         "9zhn4OlMwPmw33DWGPkNJm1YjvAmEOulk7Hfig8ONwFt8kUmMLcJkwwEDBIJ3KIVBPOP4kMWp7TgDWoGyM7h05jLEJ6yt7vGksvXJ8OCnfLyPRpr_cLE7bamZ9FBu1OSv7LpiUFVqvVLdGjpEnBBG90RuplgmJTElLEZo7KCHXnWap0dpalQmD4SyfsICT5Akw",

@@ -23,7 +23,7 @@ const HEADER_JSON_LENGTH_BYTES = Uint32Array.BYTES_PER_ELEMENT;
 export const LEDGER_FILE_OUTER_V3_S3_CONSTANTS = {
   fileFormatVersion: 3,
   cryptoVersion: 1,
-  ledgerSchemaVersion: 4,
+  ledgerSchemaVersion: 5,
   backupFormatVersion: 3,
   headerSlotBytes: LEDGER_FILE_V3_S3_HEADER_SLOT_BYTES,
   bodySlotBytes: LEDGER_FILE_V3_S3_BODY_SLOT_BYTES,
@@ -39,7 +39,7 @@ export type EncryptedLedgerBlockV3S3 = {
   order: number;
   sealed: boolean;
   recordCount: number;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   ivBase64Url: string;
   plaintextByteLength: number;
   bodySlots: number[];
@@ -57,7 +57,7 @@ export type LedgerGenerationV3S3 = {
 export type LedgerFileV3S3 = {
   fileFormatVersion: 3;
   cryptoVersion: 1;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   backupFormatVersion: 3;
   fileId: string;
   sequence: number;
@@ -98,7 +98,7 @@ type LedgerPreviousHeaderV3S3 = {
 type LedgerFileHeaderV3S3 = {
   fileFormatVersion: 3;
   cryptoVersion: 1;
-  ledgerSchemaVersion: 4;
+  ledgerSchemaVersion: 5;
   backupFormatVersion: 3;
   fileId: string;
   sequence: number;
@@ -382,7 +382,7 @@ export function validateLedgerFileV3S3(
   if (
     input.fileFormatVersion !== 3 ||
     input.cryptoVersion !== 1 ||
-    input.ledgerSchemaVersion !== 4 ||
+    input.ledgerSchemaVersion !== 5 ||
     input.backupFormatVersion !== 3
   ) {
     return invalid("fileFormatVersion", "Unsupported V3 S-3 version tuple");
@@ -588,7 +588,7 @@ function validateHeader(
   if (
     input.fileFormatVersion !== 3 ||
     input.cryptoVersion !== 1 ||
-    input.ledgerSchemaVersion !== 4 ||
+    input.ledgerSchemaVersion !== 5 ||
     input.backupFormatVersion !== 3 ||
     !isTechnicalId(input.fileId) ||
     typeof input.sequence !== "number" ||
@@ -626,7 +626,7 @@ function validateHeader(
     value: {
       fileFormatVersion: 3,
       cryptoVersion: 1,
-      ledgerSchemaVersion: 4,
+      ledgerSchemaVersion: 5,
       backupFormatVersion: 3,
       fileId: input.fileId,
       sequence: input.sequence as number,

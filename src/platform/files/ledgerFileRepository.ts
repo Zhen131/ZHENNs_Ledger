@@ -2678,7 +2678,7 @@ function rejectUnsupportedJsonLedgerFile(bytes: Uint8Array): never {
           message:
             retiredLedgerSchemaVersion === 2 ||
             retiredLedgerSchemaVersion === 3
-              ? `This file contains a V${retiredLedgerSchemaVersion} ledger; V4 does not provide migration`
+              ? `This file contains a V${retiredLedgerSchemaVersion} ledger; V5 does not provide migration`
               : "The ledger schema version is unsupported",
         },
       ],
@@ -2778,7 +2778,7 @@ function createCanonicalPayloadAfterBuyTrade(
 ): CanonicalLedgerPayloadV4 | null {
   const focused = createCanonicalLedgerPayloadV4(
     {
-      schemaVersion: 4,
+      schemaVersion: 5,
       assets: base.assets,
       trades: [trade],
       cashEvents: [],
@@ -2793,7 +2793,7 @@ function createCanonicalPayloadAfterBuyTrade(
   if (!validatedTrade) return null;
 
   const ledgerData: LedgerData = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     assets: base.assets,
     trades: [...base.trades, validatedTrade],
     cashEvents: base.cashEvents,

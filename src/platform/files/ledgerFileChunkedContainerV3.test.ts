@@ -44,7 +44,7 @@ function block(
     order,
     sealed: true,
     recordCount,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     ivBase64Url: bytesToBase64Url(new Uint8Array(12).fill(fill)),
     plaintextByteLength: 16,
     bodySlots: [bodySlot],
@@ -69,7 +69,7 @@ function initialFile(): LedgerFileV3S3 {
   return {
     fileFormatVersion: 3,
     cryptoVersion: 1,
-    ledgerSchemaVersion: 4,
+    ledgerSchemaVersion: 5,
     backupFormatVersion: 3,
     fileId: "chunked-container-test",
     sequence: 1,

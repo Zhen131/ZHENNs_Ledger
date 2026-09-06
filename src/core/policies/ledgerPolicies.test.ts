@@ -232,14 +232,14 @@ describe("strict import policy", () => {
         backupFormatVersion: 3,
         appVersion: "0.1.0",
         exportedAt: "2026-07-25T12:00:00Z",
-        ledgerSchemaVersion: 4,
+        ledgerSchemaVersion: 5,
         ledgerData,
       },
       TODAY,
     );
     expect(backup.ok).toBe(true);
     if (backup.ok) {
-      expect(backup.value.ledgerData.schemaVersion).toBe(4);
+      expect(backup.value.ledgerData.schemaVersion).toBe(5);
       expect(
         backup.value.ledgerData.priceSnapshots[0].binanceProvenance?.symbol,
       ).toBe("BTCUSDT");

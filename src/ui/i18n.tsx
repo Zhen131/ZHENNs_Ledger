@@ -314,6 +314,7 @@ const chineseMessages = {
   "backup.envelope.formatVersionSuffix": "；当前备份格式为 V3，且不提供迁移",
   "backup.envelope.schemaVersionPrefix": "这是账本 schema V",
   "backup.envelope.schemaVersionMiddle": " 的备份；当前账本 schema 为 V4，且不提供迁移",
+  "backup.envelope.schemaVersionMiddleV5": " 的备份；当前账本 schema 为 V5，且不提供迁移",
   "backup.preflight.fileTooLarge": "文件超过 8 MiB，上限检查后停止。",
   "backup.preflight.jsonNotParsed": "JSON 未解析。",
   "backup.preflight.jsonSyntaxError": "JSON 语法错误。",
