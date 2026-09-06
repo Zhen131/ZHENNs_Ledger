@@ -36,7 +36,8 @@ describe("TransactionsWorkspace filters and intent", () => {
     fireEvent.change(screen.getByLabelText("类型筛选"), {
       target: { value: "sell" },
     });
-    expect(within(table).getByTitle("0.5").textContent).toBe("0.50");
+    const amountCell = within(table).getAllByRole("row")[1]?.querySelectorAll("td").item(5);
+    expect(amountCell?.querySelector('[title="0.5"]')?.textContent).toBe("0.50");
     expect(within(table).queryByText("ETH")).toBeNull();
     expect(
       screen.getByText(

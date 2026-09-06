@@ -155,6 +155,7 @@ export function ActivityTable({
             <th className="px-4 py-3 font-medium">{t("activity.table.date")}</th>
             <th className="px-3 py-3 font-medium">{t("activity.table.type")}</th>
             <th className="px-3 py-3 font-medium">{t("activity.table.asset")}</th>
+            <th className="px-3 py-3 font-medium">{t("activity.table.quantity")}</th>
             <th className="px-3 py-3 font-medium">{t("activity.table.amount")}</th>
             <th className="px-3 py-3 font-medium">{t("activity.table.fee")}</th>
             <th className="w-56 px-4 py-3 font-medium">{t("activity.table.actions")}</th>
@@ -165,7 +166,7 @@ export function ActivityTable({
             <tr className="block sm:table-row">
               <td
                 className="block px-4 py-12 text-center text-[var(--ledger-muted)] sm:table-cell"
-                colSpan={7}
+                colSpan={8}
               >
                 {t("activity.table.empty")}
               </td>
@@ -254,6 +255,11 @@ export function ActivityTable({
                     <ActivityCell label={t("activity.table.asset")}>
                       <strong>{activityAssetLabel(item, t)}</strong>
                     </ActivityCell>
+                    <ActivityCell label={t("activity.table.quantity")}>
+                      {item.kind === "trade" ? (
+                        <LedgerNumber kind="quantity" value={item.trade.quantity} />
+                      ) : t("activity.table.dash")}
+                    </ActivityCell>
                     <ActivityCell label={t("activity.table.amount")}>
                       {activityAmountLabel(item)}
                     </ActivityCell>
@@ -305,7 +311,7 @@ export function ActivityTable({
                   </tr>
                   {expanded ? (
                     <tr className="block bg-[#fbfaf7] sm:table-row">
-                      <td className="block px-4 py-4 sm:table-cell" colSpan={7}>
+                      <td className="block px-4 py-4 sm:table-cell" colSpan={8}>
                         <ActivityDetails item={item} />
                       </td>
                     </tr>

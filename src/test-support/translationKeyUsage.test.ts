@@ -32,10 +32,14 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "activity.table.amount",
   // Activity table contexts share the Asset column label.
   "activity.table.asset",
+  // Activity table contexts share the same dash placeholder.
+  "activity.table.dash",
   // Activity table contexts share the Date column label.
   "activity.table.date",
   // Activity table contexts share the Fee column label.
   "activity.table.fee",
+  // Activity table contexts share the Quantity column label.
+  "activity.table.quantity",
   // Activity table contexts share the Type column label.
   "activity.table.type",
   // Transfer controls and summaries use the same external-in category name.
