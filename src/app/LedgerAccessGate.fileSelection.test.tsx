@@ -25,7 +25,10 @@ import {
   type LedgerFileAccessController,
 } from "./ledgerFileAccessController";
 import { type SessionQuiesceToken } from "@/platform/persistence";
-import { LedgerFileRepository } from "@/platform/files";
+import {
+  LedgerFileRepository,
+  SUPPORTED_LEDGER_SCHEMA_VERSION,
+} from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import { LedgerAccessGate } from "./LedgerAccessGate";
 import type {
@@ -249,7 +252,11 @@ describe("LedgerAccessGate", () => {
     );
 
     expect(
-      screen.getByText(/该文件承载 V3、其他旧版或未知 schema 的账本；当前 V4 不兼容且不提供迁移/),
+      screen.getByText(
+        new RegExp(
+          `该文件承载 V3、其他旧版或未知 schema 的账本；当前 V${SUPPORTED_LEDGER_SCHEMA_VERSION} 不兼容且不提供迁移`,
+        ),
+      ),
     ).toBeTruthy();
     expect(
       screen.getByText(/原文件未被写入、删除或覆盖/),

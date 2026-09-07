@@ -27,7 +27,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: "V4 只支持 USDT 估值",
+        message: "V5 只支持 USDT 估值",
       });
     }
   });
@@ -44,7 +44,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `trades[${index}].currency`,
-        message: "V4 只支持 USDT 估值",
+        message: "V5 只支持 USDT 估值",
       });
     }
   });
@@ -82,7 +82,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `priceSnapshots[${index}].currency`,
-        message: "V4 只支持 USDT 估值",
+        message: "V5 只支持 USDT 估值",
       });
     }
 

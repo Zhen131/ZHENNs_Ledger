@@ -1,3 +1,4 @@
+import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import {
   LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessErrorCode,
@@ -44,7 +45,15 @@ export function getFileAccessErrorMessage(
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION:
       return t("access.fileError.unsupportedFileVersion");
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA:
-      return t("access.fileError.unsupportedLedgerSchema");
+      // The version is read from its definition so this sentence follows the
+      // next schema bump instead of quietly naming a retired one.
+      return (
+        t("access.fileError.unsupportedLedgerSchemaPrefix") +
+        SUPPORTED_LEDGER_SCHEMA_VERSION +
+        t("access.fileError.unsupportedLedgerSchemaMiddle") +
+        SUPPORTED_LEDGER_SCHEMA_VERSION +
+        t("access.fileError.unsupportedLedgerSchemaSuffix")
+      );
     case LEDGER_FILE_ACCESS_ERROR_CODES.RETIRED_LEDGER_SCHEMA_V4:
       return t("access.fileError.retiredLedgerSchemaV4");
     case LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE:

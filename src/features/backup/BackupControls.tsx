@@ -57,6 +57,7 @@ import {
   createBinanceMarketDataClient,
   type BinanceMarketDataClient,
 } from "@/platform/integrations";
+import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import { LedgerNumber, useLanguage } from "@/ui";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
@@ -694,7 +695,11 @@ export function BackupControls({
     }, exportTime.todayKey);
 
     if (!envelopeResult.ok) {
-      setMessage(t("backup.export.invalidLedger"));
+      setMessage(
+        t("backup.export.invalidLedgerPrefix") +
+          SUPPORTED_LEDGER_SCHEMA_VERSION +
+          t("backup.export.invalidLedgerSuffix"),
+      );
       return;
     }
 
@@ -702,7 +707,9 @@ export function BackupControls({
     const bytePolicy = evaluateLedgerJsonResourcePolicy(serialized);
     if (!bytePolicy.ok) {
       setMessage(
-        t("backup.export.tooLarge"),
+        t("backup.export.tooLargePrefix") +
+          SUPPORTED_LEDGER_SCHEMA_VERSION +
+          t("backup.export.tooLargeSuffix"),
       );
       return;
     }

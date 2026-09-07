@@ -28,6 +28,7 @@ import {
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
 } from "./backupImportPreflight";
+import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
@@ -424,7 +425,7 @@ describe("BackupControls", () => {
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(
       screen.getByText(
-        "无法导出：当前账本未通过 V4 结构、资源或业务校验。",
+        `无法导出：当前账本未通过 V${SUPPORTED_LEDGER_SCHEMA_VERSION} 结构、资源或业务校验。`,
       ),
     ).not.toBeNull();
   });
@@ -447,7 +448,7 @@ describe("BackupControls", () => {
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(
       screen.getByText(
-        "无法导出：当前账本未通过 V4 结构、资源或业务校验。",
+        `无法导出：当前账本未通过 V${SUPPORTED_LEDGER_SCHEMA_VERSION} 结构、资源或业务校验。`,
       ),
     ).not.toBeNull();
   });
