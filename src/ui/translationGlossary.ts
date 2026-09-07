@@ -59,6 +59,12 @@ export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
     note: "A custody location, not a transaction; listed so it consumes its characters before 交易.",
   },
   {
+    chinese: "交易对",
+    english: "trading pair",
+    status: "confirmed",
+    note: "A Binance market symbol, not a ledger transaction; listed so it consumes its characters before 交易.",
+  },
+  {
     chinese: "交易",
     english: "transaction",
     status: "confirmed",
