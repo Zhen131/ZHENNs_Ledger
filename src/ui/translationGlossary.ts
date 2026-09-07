@@ -243,6 +243,7 @@ export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
     english: "quantity",
     status: "confirmed",
     note: "How much of an asset; never 'amount', which is reserved for money.",
+    inflections: ["quantities"],
   },
   {
     chinese: "金额",
