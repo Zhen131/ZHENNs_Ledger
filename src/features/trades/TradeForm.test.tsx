@@ -210,6 +210,7 @@ describe("TradeForm", () => {
   it.each([
     ["2026-01-15", "+01:00"],
     ["2026-07-15", "+02:00"],
+    ["2026-03-29", "+02:00"],
   ] as const)(
     "records a Budapest wall time using the offset for %s",
     async (occurredAt, offset) => {
@@ -244,6 +245,46 @@ describe("TradeForm", () => {
       );
     },
   );
+
+  it.each([
+    ["2026-03-29", "02:30", "这个时刻不存在：当地当天钟往前跳。请把时间留空，这一笔只记到天；或改填别的时刻、改用 UTC。"],
+    ["2026-10-25", "02:30", "这个时刻当天出现两次：当地当天钟往回退。请把时间留空，这一笔只记到天；或改填别的时刻、改用 UTC。"],
+  ] as const)("rejects a Budapest %s %s wall time without creating a trade", async (occurredAt, occurredTime, message) => {
+    const onTradeCreated = vi.fn(() => "applied" as const);
+    render(<ControlledTradeForm initialDraft={{ ...initialDraft, occurredAt }} onTradeCreated={onTradeCreated} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("时刻"), occurredTime);
+    await user.selectOptions(screen.getByLabelText("地点"), "Europe/Budapest");
+    await user.type(screen.getByLabelText("数量"), "1");
+    await user.type(screen.getByLabelText("成交均价"), "10");
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(onTradeCreated).not.toHaveBeenCalled();
+    expect(screen.getByText(message)).not.toBeNull();
+  });
+
+  it.each([
+    ["Asia/Shanghai", "+08:00"],
+    ["UTC", "+00:00"],
+  ] as const)("accepts a transition-window wall time in %s", async (occurredTimeZone, offset) => {
+    const onTradeCreated = vi.fn(() => "applied" as const);
+    const ledgerData = createInitialLedgerData();
+    ledgerData.cashEvents = [cashDeposit("time-zone-no-dst-cover", "100")];
+    render(<ControlledTradeForm initialDraft={{ ...initialDraft, occurredAt: "2026-03-29" }} ledgerData={ledgerData} onTradeCreated={onTradeCreated} />);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText("时刻"), "02:30");
+    await user.selectOptions(screen.getByLabelText("地点"), occurredTimeZone);
+    await user.type(screen.getByLabelText("数量"), "1");
+    await user.type(screen.getByLabelText("成交均价"), "10");
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(onTradeCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ occurredAt: `2026-03-29T02:30:00${offset}`, occurredTimeZone }),
+      expect.anything(),
+    );
+  });
 
   it("deduplicates platform suggestions while preserving freehand input", async () => {
     render(<ControlledTradeForm />);

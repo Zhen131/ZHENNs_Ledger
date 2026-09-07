@@ -28,7 +28,7 @@ import type {
 import {
   captureLedgerTime,
   getLedgerTimeZone,
-  getTimeZoneOffsetAt,
+  resolveWallTimeInTimeZone,
   absolute,
   add,
   isNegative,
@@ -131,7 +131,7 @@ function createOccurredTimeDraft(
   form: TradeFormState,
 ):
   | { ok: true; value: Pick<TradeDraft, "occurredAt" | "timePrecision"> & { occurredTimeZone?: string } }
-  | { ok: false } {
+  | { ok: false; reason: "nonexistent" | "ambiguous" | "invalid" } {
   if (form.occurredTime === "") {
     return {
       ok: true,
@@ -143,25 +143,24 @@ function createOccurredTimeDraft(
   }
 
   if (!/^\d{2}:\d{2}$/.test(form.occurredTime) || form.occurredTimeZone === "") {
-    return { ok: false };
+    return { ok: false, reason: "invalid" };
   }
 
   try {
     const wallTime = `${form.occurredAt}T${form.occurredTime}:00`;
-    const offset = getTimeZoneOffsetAt(
-      new Date(`${wallTime}Z`),
-      form.occurredTimeZone,
-    );
+    const candidates = resolveWallTimeInTimeZone(wallTime, form.occurredTimeZone);
+    if (candidates.length === 0) return { ok: false, reason: "nonexistent" };
+    if (candidates.length !== 1) return { ok: false, reason: "ambiguous" };
     return {
       ok: true,
       value: {
-        occurredAt: `${wallTime}${offset}`,
+        occurredAt: `${wallTime}${candidates[0].offset}`,
         occurredTimeZone: form.occurredTimeZone,
         timePrecision: "minute",
       },
     };
   } catch {
-    return { ok: false };
+    return { ok: false, reason: "invalid" };
   }
 }
 
@@ -484,7 +483,13 @@ export function TradeForm({
 
     const occurredTime = createOccurredTimeDraft(form);
     if (!occurredTime.ok) {
-      setErrors({ occurredAt: t("trades.form.error.invalidInput") });
+      const message =
+        occurredTime.reason === "nonexistent"
+          ? t("trades.form.error.nonexistentWallTime")
+          : occurredTime.reason === "ambiguous"
+            ? t("trades.form.error.ambiguousWallTime")
+            : t("trades.form.error.invalidInput");
+      setErrors({ occurredAt: message });
       setSuccessState("");
       return;
     }
