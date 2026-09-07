@@ -831,6 +831,17 @@ const englishMessages: TranslationTable = {
   "policy.resource.ledgerFileLabel": "Ledger file",
   "policy.resource.overLimitMiddle": " exceeds the resource limit (",
   "policy.resource.overLimitSuffix": ")",
+  "persistence.externalChange": "The ledger file changed outside this page. The current edits are not saved yet; to avoid overwriting the newer version, open that file again.",
+  "persistence.saveFailed": "The local save failed and the page data is not saved yet; a refresh restores the last version that saved successfully",
+  "persistence.readFailed": "Reading the local ledger failed, so automatic saving stopped to avoid overwriting the original data",
+  "persistence.clearResultUnconfirmed": "The result of clearing the current ledger file is unconfirmed and the page reported no success; retry so the same clear operation can be checked",
+  "persistence.clearAuthorizationFailed": "Clearing the current ledger file did not pass its safety confirmation, and the file was not written",
+  "persistence.clearFailed": "Clearing the local ledger failed; neither the page nor the local data changed",
+  "persistence.importRecoveryBlocked": "The ledger file after the import cannot be confirmed, and there is no proof the original file was restored; the session is closing automatically. Keep that file for recovery.",
+  "persistence.importBaseRestored": "The import did not finish; a read-back confirmed the original ledger file is once again the complete version it was before the import, and the page was not replaced.",
+  "persistence.importExternalChange": "Before the import wrote anything, the ledger file was found to have changed outside this page; this import wrote nothing, so open that file again.",
+  "persistence.importWriteFailed": "The import failed before it wrote the ledger file and the page was not replaced; no after-the-fact evidence of “the original file was restored” was obtained.",
+  "persistence.importCandidateMismatch": "The ledger written back by the import does not match the preflight candidate; the session is closing automatically. Keep that file, select it again, and verify.",
 };
 
 const hungarianMessages: TranslationTable = {
