@@ -2070,7 +2070,16 @@ const hungarianMessages: TranslationTable = {
   "settings.language.optionHungarian": "Magyar",
 };
 
-const translations: Record<LedgerLanguage, TranslationTable> = {
+/**
+ * Exported so the guards in `src/test-support` can read the tables as data
+ * rather than re-parsing this file: an English entry that goes missing, gains a
+ * Chinese character, or drops one segment of a joined sentence has to be able
+ * to turn a test red (04A D-2).
+ */
+export const LEDGER_TRANSLATION_TABLES: Record<
+  LedgerLanguage,
+  TranslationTable
+> = {
   "zh-CN": chineseMessages,
   en: englishMessages,
   hu: hungarianMessages,
@@ -2080,7 +2089,7 @@ export function translate(
   language: LedgerLanguage,
   key: TranslationKey,
 ): string {
-  const translated = translations[language][key];
+  const translated = LEDGER_TRANSLATION_TABLES[language][key];
   if (translated !== undefined) return translated;
 
   if (process.env.NODE_ENV !== "production") {
