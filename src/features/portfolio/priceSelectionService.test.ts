@@ -110,14 +110,31 @@ describe("priceSelectionService", () => {
       "68000",
       "2026-07-25",
     );
+    // The correction is entered after the price it corrects, so it carries the
+    // later createdAt. Ordering no longer looks at array position, so that is
+    // what has to make it win.
     const corrected = {
       ...first,
       id: "corrected",
       price: "69000",
+      createdAt: "2026-07-26T00:00:00Z",
     };
     expect(
       selectPriceAsOf(
         [first, corrected],
+        asset,
+        "2026-07-25",
+        "auto",
+      ),
+    ).toEqual({
+      snapshot: corrected,
+      effectiveCurrency: "USDT",
+      actualSource: "manual",
+      asOf: "2026-07-25",
+    });
+    expect(
+      selectPriceAsOf(
+        [corrected, first],
         asset,
         "2026-07-25",
         "auto",

@@ -9,6 +9,7 @@ import {
 import {
   compareLedgerFactOrder,
   getLedgerDateKey,
+  toPriceSnapshotOrderInput,
 } from "@/core/shared";
 
 export type SelectedPrice = {
@@ -20,7 +21,6 @@ export type SelectedPrice = {
 
 type PriceCandidate = {
   snapshot: PriceSnapshot;
-  index: number;
 };
 
 export type PriceSelectionAccumulator = {
@@ -40,7 +40,6 @@ export function createPriceSelectionAccumulator(
 export function considerPriceSnapshot(
   accumulator: PriceSelectionAccumulator,
   snapshot: PriceSnapshot,
-  index: number,
 ): void {
   const source = classifyCandidate(snapshot, accumulator.asset);
   if (!source) {
@@ -51,14 +50,14 @@ export function considerPriceSnapshot(
   if (
     !current ||
     compareLedgerFactOrder(
-      { occurredAt: snapshot.recordedAt, arrayIndex: index },
-      { occurredAt: current.snapshot.recordedAt, arrayIndex: current.index },
-      "array-index",
+      toPriceSnapshotOrderInput(snapshot),
+      toPriceSnapshotOrderInput(current.snapshot),
     ) >= 0
   ) {
-    accumulator[source] = { snapshot, index };
+    accumulator[source] = { snapshot };
   }
 }
+
 
 export function getSelectedPrice(
   accumulator: PriceSelectionAccumulator,
@@ -93,9 +92,9 @@ export function selectPriceAsOf(
   }
 
   const accumulator = createPriceSelectionAccumulator(asset, mode);
-  snapshots.forEach((snapshot, index) => {
+  snapshots.forEach((snapshot) => {
     if (getLedgerDateKey(snapshot.recordedAt) <= dateKey) {
-      considerPriceSnapshot(accumulator, snapshot, index);
+      considerPriceSnapshot(accumulator, snapshot);
     }
   });
   return getSelectedPrice(accumulator);

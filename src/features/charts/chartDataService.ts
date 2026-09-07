@@ -30,6 +30,7 @@ import {
   multiply,
   subtract,
   toDecimalString,
+  toPriceSnapshotOrderInput,
 } from "@/core/shared";
 import {
   addLedgerDays,
@@ -278,15 +279,12 @@ export function buildHoldingHistory(
     ledgerData.assetTransfers,
   );
   const cashFacts = createHistoricalCashFacts(ledgerData);
-  const priceFacts = ledgerData.priceSnapshots
-    .map((snapshot, index) => ({ snapshot, index }))
-    .sort((left, right) =>
-      compareLedgerFactOrder(
-        { occurredAt: left.snapshot.recordedAt, arrayIndex: left.index },
-        { occurredAt: right.snapshot.recordedAt, arrayIndex: right.index },
-        "array-index",
-      ),
-    );
+  const priceFacts = [...ledgerData.priceSnapshots].sort((left, right) =>
+    compareLedgerFactOrder(
+      toPriceSnapshotOrderInput(left),
+      toPriceSnapshotOrderInput(right),
+    ),
+  );
   const positionState = createPositionReplayState();
   const priceAccumulators = new Map<string, PriceSelectionAccumulator>();
   for (const asset of ledgerData.assets) {
@@ -322,18 +320,12 @@ export function buildHoldingHistory(
     }
     while (
       priceIndex < priceFacts.length &&
-      getLedgerDateKey(priceFacts[priceIndex].snapshot.recordedAt) <= date
+      getLedgerDateKey(priceFacts[priceIndex].recordedAt) <= date
     ) {
       const candidate = priceFacts[priceIndex];
-      const accumulator = priceAccumulators.get(
-        candidate.snapshot.assetSymbol,
-      );
+      const accumulator = priceAccumulators.get(candidate.assetSymbol);
       if (accumulator) {
-        considerPriceSnapshot(
-          accumulator,
-          candidate.snapshot,
-          candidate.index,
-        );
+        considerPriceSnapshot(accumulator, candidate);
       }
       priceIndex += 1;
     }

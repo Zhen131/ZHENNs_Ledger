@@ -85,23 +85,61 @@ test("uses the latest recordedAt snapshot for each asset", () => {
   expect(positionFor(positions, "ETH").latestPrice).toBeUndefined();
 });
 
-test("uses the later input snapshot when recordedAt values are equal", () => {
-  const positions = calculatePositions(sampleTrades, [
-    createPriceSnapshot(
-      "price-btc-first",
-      "BTC",
-      "69000",
-      "2026-06-26T10:00:00Z",
-    ),
-    createPriceSnapshot(
+test("uses the later recorded correction when recordedAt values are equal", () => {
+  // A correction to an existing price is entered afterwards, so it carries the
+  // later createdAt. Ordering no longer looks at which snapshot the caller put
+  // later in the array, so the correction has to win on its own record.
+  const first = createPriceSnapshot(
+    "price-btc-first",
+    "BTC",
+    "69000",
+    "2026-06-26T10:00:00Z",
+  );
+  const correction = {
+    ...createPriceSnapshot(
       "price-btc-correction",
       "BTC",
       "70000",
       "2026-06-26T10:00:00Z",
     ),
-  ]);
+    createdAt: "2026-06-27T00:00:00Z",
+  };
 
-  expect(positionFor(positions, "BTC").latestPrice).toBe("70000");
+  expect(
+    positionFor(calculatePositions(sampleTrades, [first, correction]), "BTC")
+      .latestPrice,
+  ).toBe("70000");
+  expect(
+    positionFor(calculatePositions(sampleTrades, [correction, first]), "BTC")
+      .latestPrice,
+  ).toBe("70000");
+});
+
+test("settles equal recordedAt and equal createdAt on id, whatever the input order", () => {
+  // Nothing but the id separates these two. "price-btc-correction" sorts
+  // before "price-btc-first" under an "en" comparison, so the first one is the
+  // later of the two and supplies the price, from either input order.
+  const first = createPriceSnapshot(
+    "price-btc-first",
+    "BTC",
+    "69000",
+    "2026-06-26T10:00:00Z",
+  );
+  const other = createPriceSnapshot(
+    "price-btc-correction",
+    "BTC",
+    "70000",
+    "2026-06-26T10:00:00Z",
+  );
+
+  expect(
+    positionFor(calculatePositions(sampleTrades, [first, other]), "BTC")
+      .latestPrice,
+  ).toBe("69000");
+  expect(
+    positionFor(calculatePositions(sampleTrades, [other, first]), "BTC")
+      .latestPrice,
+  ).toBe("69000");
 });
 
 test("uses the latest matching-currency snapshot and ignores newer mismatches", () => {

@@ -8,7 +8,10 @@ import {
   multiply,
   subtract,
 } from "@/core/shared";
-import { compareLedgerFactOrder } from "@/core/shared";
+import {
+  compareLedgerFactOrder,
+  toPriceSnapshotOrderInput,
+} from "@/core/shared";
 import { replayPositions } from "./positionReplay";
 
 /**
@@ -30,9 +33,8 @@ function attachLegacyLatestPrice(
   priceSnapshots: readonly PriceSnapshot[],
 ): Position {
   let latest: PriceSnapshot | undefined;
-  let latestIndex = -1;
 
-  priceSnapshots.forEach((snapshot, index) => {
+  priceSnapshots.forEach((snapshot) => {
     if (
       snapshot.assetSymbol !== position.assetSymbol ||
       snapshot.currency !== position.currency
@@ -43,13 +45,11 @@ function attachLegacyLatestPrice(
     if (
       !latest ||
       compareLedgerFactOrder(
-        { occurredAt: snapshot.recordedAt, arrayIndex: index },
-        { occurredAt: latest.recordedAt, arrayIndex: latestIndex },
-        "array-index",
+        toPriceSnapshotOrderInput(snapshot),
+        toPriceSnapshotOrderInput(latest),
       ) >= 0
     ) {
       latest = snapshot;
-      latestIndex = index;
     }
   });
 
