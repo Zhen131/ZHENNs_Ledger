@@ -246,6 +246,52 @@ describe("TradeForm", () => {
     },
   );
 
+  // The only 60 minutes per switch day where reading the wall time as if it
+  // were already a UTC instant produces a different answer from resolving it
+  // in the zone. Every EU switch moves at 01:00 UTC, so local 01:00-01:59 is
+  // still on the old side of the move: 01:30 in spring is +01:00 and in autumn
+  // is +02:00, while the discarded rule returns exactly the other one. Every
+  // other wall time on these days agrees under both rules and cannot tell them
+  // apart, so this case is the form's only regression guard for it. The autumn
+  // day is the 2025 one because the form refuses a date after its clock.
+  it.each([
+    ["2026-03-29", "+01:00"],
+    ["2025-10-26", "+02:00"],
+  ] as const)(
+    "records a Budapest 01:30 on the %s switch day as %s",
+    async (occurredAt, offset) => {
+      const onTradeCreated = vi.fn(() => "applied" as const);
+      const ledgerData = createInitialLedgerData();
+      ledgerData.cashEvents = [cashDeposit("dst-switch-hour-cover", "100")];
+      render(
+        <ControlledTradeForm
+          initialDraft={{ ...initialDraft, occurredAt }}
+          ledgerData={ledgerData}
+          onTradeCreated={onTradeCreated}
+        />,
+      );
+      const user = userEvent.setup();
+
+      await user.type(screen.getByLabelText("时刻"), "01:30");
+      await user.selectOptions(
+        screen.getByLabelText("地点"),
+        "Europe/Budapest",
+      );
+      await user.type(screen.getByLabelText("数量"), "1");
+      await user.type(screen.getByLabelText("成交均价"), "10");
+      await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+      expect(onTradeCreated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          occurredAt: `${occurredAt}T01:30:00${offset}`,
+          occurredTimeZone: "Europe/Budapest",
+          timePrecision: "minute",
+        }),
+        expect.anything(),
+      );
+    },
+  );
+
   it.each([
     ["2026-03-29", "02:30", "这个时刻不存在：当地当天钟往前跳。请把时间留空，这一笔只记到天；或改填别的时刻、改用 UTC。"],
     ["2026-10-25", "02:30", "这个时刻当天出现两次：当地当天钟往回退。请把时间留空，这一笔只记到天；或改填别的时刻、改用 UTC。"],
