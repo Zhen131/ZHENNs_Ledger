@@ -132,9 +132,9 @@ export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
   },
   {
     chinese: "币种",
-    english: "asset",
+    english: "currency",
     status: "confirmed",
-    note: "The holdings column header; the same concept as 资产, so it takes the same word.",
+    note: "Which currency a fee or a valuation is denominated in; four of its five uses read this way.",
   },
   {
     chinese: "事实",
