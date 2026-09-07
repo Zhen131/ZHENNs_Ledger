@@ -28,7 +28,8 @@ import type {
 import {
   captureLedgerTime,
   getLedgerTimeZone,
-  resolveWallTimeInTimeZone,
+  FACT_TIME_ZONE_OPTIONS,
+  resolveFactMoment,
   absolute,
   add,
   isNegative,
@@ -52,7 +53,6 @@ import {
 } from "@/ui";
 
 const SUCCESS_FEEDBACK_MS = 4_000;
-const TIME_ZONE_OPTIONS = ["Asia/Shanghai", "Europe/Budapest", "UTC"];
 
 type PendingTradeRisk = Readonly<{
   trade: Trade;
@@ -125,43 +125,6 @@ function createInitialFormState(
     note: "",
     noteExpanded: false,
   };
-}
-
-function createOccurredTimeDraft(
-  form: TradeFormState,
-):
-  | { ok: true; value: Pick<TradeDraft, "occurredAt" | "timePrecision"> & { occurredTimeZone?: string } }
-  | { ok: false; reason: "nonexistent" | "ambiguous" | "invalid" } {
-  if (form.occurredTime === "") {
-    return {
-      ok: true,
-      value: {
-        occurredAt: form.occurredAt,
-        timePrecision: "day",
-      },
-    };
-  }
-
-  if (!/^\d{2}:\d{2}$/.test(form.occurredTime) || form.occurredTimeZone === "") {
-    return { ok: false, reason: "invalid" };
-  }
-
-  try {
-    const wallTime = `${form.occurredAt}T${form.occurredTime}:00`;
-    const candidates = resolveWallTimeInTimeZone(wallTime, form.occurredTimeZone);
-    if (candidates.length === 0) return { ok: false, reason: "nonexistent" };
-    if (candidates.length !== 1) return { ok: false, reason: "ambiguous" };
-    return {
-      ok: true,
-      value: {
-        occurredAt: `${wallTime}${candidates[0].offset}`,
-        occurredTimeZone: form.occurredTimeZone,
-        timePrecision: "minute",
-      },
-    };
-  } catch {
-    return { ok: false, reason: "invalid" };
-  }
 }
 
 function formatValidationError(
@@ -481,7 +444,11 @@ export function TradeForm({
     if (pendingMutationVersion !== null) return;
     const timeSnapshot = captureLedgerTime(clock);
 
-    const occurredTime = createOccurredTimeDraft(form);
+    const occurredTime = resolveFactMoment(
+      form.occurredAt,
+      form.occurredTime,
+      form.occurredTimeZone,
+    );
     if (!occurredTime.ok) {
       const message =
         occurredTime.reason === "nonexistent"
@@ -643,7 +610,7 @@ export function TradeForm({
           <option value={getLedgerTimeZone(clock)}>
             {t("trades.form.timeZone.device")}: {getLedgerTimeZone(clock)}
           </option>
-          {TIME_ZONE_OPTIONS.filter((timeZone) => timeZone !== getLedgerTimeZone(clock)).map((timeZone) => (
+          {FACT_TIME_ZONE_OPTIONS.filter((timeZone) => timeZone !== getLedgerTimeZone(clock)).map((timeZone) => (
             <option key={timeZone} value={timeZone}>
               {timeZone}
             </option>

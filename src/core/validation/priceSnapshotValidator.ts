@@ -4,7 +4,7 @@ import type {
   PriceSnapshotDraft,
   PriceSource,
 } from "@/core/models";
-import { isPositive } from "@/core/shared";
+import { isPositive, isSupportedTimeZone } from "@/core/shared";
 import { isLedgerFactInFuture } from "@/core/shared";
 import { isSupportedValuationCurrency } from "@/core/policies";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
@@ -93,6 +93,10 @@ export function validatePriceSnapshotDraft(
   const price = readPositivePrice(input.price, errors);
   const currency = readRequiredString(input.currency, "currency", errors);
   const recordedAt = readRecordedAt(input.recordedAt, errors);
+  const occurredTimeZone = readOptionalOccurredTimeZone(
+    input.occurredTimeZone,
+    errors,
+  );
   const source = readSource(input.source, errors);
   const binanceProvenance = readBinanceProvenance(
     input.binanceProvenance,
@@ -185,11 +189,28 @@ export function validatePriceSnapshotDraft(
       price,
       currency,
       recordedAt,
+      ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
       source,
       ...(binanceProvenance === undefined ? {} : { binanceProvenance }),
       ...(note === undefined ? {} : { note }),
     },
   };
+}
+
+function readOptionalOccurredTimeZone(
+  value: unknown,
+  errors: PriceSnapshotValidationError[],
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === "string" && isSupportedTimeZone(value)) return value;
+  errors.push(
+    createError(
+      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
+      "occurredTimeZone",
+      "occurredTimeZone must be a runtime-supported IANA time zone",
+    ),
+  );
+  return undefined;
 }
 
 function readBinanceProvenance(

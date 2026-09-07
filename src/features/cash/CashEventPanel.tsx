@@ -10,6 +10,9 @@ import { replayUsdtCash } from "@/core/calculations";
 import type { CashEvent, CashEventType, LedgerData } from "@/core/models";
 import {
   captureLedgerTime,
+  FACT_TIME_ZONE_OPTIONS,
+  getLedgerTimeZone,
+  resolveFactMoment,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
@@ -84,6 +87,10 @@ export function CashEventPanel({
   const [type, setType] = useState<CashEventType>("deposit");
   const [amountOrTarget, setAmountOrTarget] = useState("");
   const [occurredAt, setOccurredAt] = useState(initialTodayKey);
+  const [occurredTime, setOccurredTime] = useState("");
+  const [occurredTimeZone, setOccurredTimeZone] = useState(
+    getLedgerTimeZone(clock),
+  );
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -110,6 +117,8 @@ export function CashEventPanel({
     setType("deposit");
     setAmountOrTarget("");
     setOccurredAt(captureLedgerTime(clock).todayKey);
+    setOccurredTime("");
+    setOccurredTimeZone(getLedgerTimeZone(clock));
     setNote("");
     setError("");
     setFeedback("");
@@ -169,8 +178,22 @@ export function CashEventPanel({
     event.preventDefault();
     if (!isWritable || pendingMutationVersion !== null) return;
     const timeSnapshot = captureLedgerTime(clock);
+    const moment = resolveFactMoment(occurredAt, occurredTime, occurredTimeZone);
+    if (!moment.ok) {
+      setError(
+        t(
+          moment.reason === "nonexistent"
+            ? "cash.validation.nonexistentWallTime"
+            : moment.reason === "ambiguous"
+              ? "cash.validation.ambiguousWallTime"
+              : "cash.validation.invalidTimeZone",
+        ),
+      );
+      setFeedback("");
+      return;
+    }
     const result = createValidatedCashEvent(
-      { type, occurredAt, amountOrTarget, note },
+      { type, ...moment.value, amountOrTarget, note },
       ledgerData,
       {
         generateId: () => globalThis.crypto.randomUUID(),
@@ -361,6 +384,42 @@ export function CashEventPanel({
             type="date"
             value={occurredAt}
           />
+        </label>
+        <label className="grid gap-1 text-sm font-medium">
+          {t("cash.field.time")}
+          <input
+            className="rounded-md border border-slate-200 px-3 py-2 font-normal"
+            disabled={!isWritable || pendingMutationVersion !== null}
+            onChange={(event) => {
+              setOccurredTime(event.target.value);
+              setError("");
+            }}
+            type="time"
+            value={occurredTime}
+          />
+        </label>
+        <label className="grid gap-1 text-sm font-medium">
+          {t("cash.field.timeZone")}
+          <select
+            className="rounded-md border border-slate-200 px-3 py-2 font-normal"
+            disabled={!isWritable || pendingMutationVersion !== null}
+            onChange={(event) => {
+              setOccurredTimeZone(event.target.value);
+              setError("");
+            }}
+            value={occurredTimeZone}
+          >
+            <option value={getLedgerTimeZone(clock)}>
+              {t("cash.timeZone.device")}: {getLedgerTimeZone(clock)}
+            </option>
+            {FACT_TIME_ZONE_OPTIONS.filter(
+              (timeZone) => timeZone !== getLedgerTimeZone(clock),
+            ).map((timeZone) => (
+              <option key={timeZone} value={timeZone}>
+                {timeZone}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="grid gap-1 text-sm font-medium">
           {t("cash.field.noteOptional")}

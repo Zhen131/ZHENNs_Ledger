@@ -24,6 +24,8 @@ export type PriceWorkspaceDraft = {
   assetSymbol: string;
   price: string;
   recordedAt: string;
+  recordedTime: string;
+  recordedTimeZone: string;
   note: string;
 };
 
@@ -57,6 +59,8 @@ export function createPriceWorkspaceDraft(
     assetSymbol,
     price: "",
     recordedAt: todayKey,
+    recordedTime: "",
+    recordedTimeZone: "",
     note: "",
   };
 }

@@ -26,6 +26,8 @@ const initialDraft: PriceWorkspaceDraft = {
   assetSymbol: "BTC",
   price: "",
   recordedAt: "2026-07-25",
+  recordedTime: "",
+  recordedTimeZone: "UTC",
   note: "",
 };
 
@@ -179,6 +181,8 @@ describe("PriceForm", () => {
       assetSymbol: "BTC",
       price: "",
       recordedAt: "2026-07-24",
+      recordedTime: "",
+      recordedTimeZone: "UTC",
       note: "",
     });
   });

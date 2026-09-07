@@ -6,10 +6,13 @@ import type {
   CustodyLocation,
   ISODateTimeString,
   LedgerData,
+  TimePrecision,
 } from "@/core/models";
 import {
   captureLedgerTime,
   isPositive,
+  isSupportedTimeZone,
+  isTimePrecision,
   systemLedgerClock,
 } from "@/core/shared";
 import {
@@ -36,6 +39,8 @@ export type AssetTransferDraft = Readonly<{
   reason: AssetTransferReason;
   quantity: string;
   occurredAt: string;
+  occurredTimeZone?: string;
+  timePrecision?: TimePrecision;
   unitPrice?: string;
   networkFee?: string;
   fromLocation?: CustodyLocation;
@@ -165,6 +170,19 @@ export function createValidatedAssetTransfer(
   if (input.occurredAt.slice(0, 10) > todayKey) {
     return failure("FUTURE_FACT", "occurredAt", translateDefault("assetTransfer.validation.futureFact"));
   }
+  const occurredTimeZone = input.occurredTimeZone;
+  if (
+    occurredTimeZone !== undefined &&
+    (typeof occurredTimeZone !== "string" ||
+      !isSupportedTimeZone(occurredTimeZone))
+  ) {
+    return failure("INVALID_DATE", "occurredAt", translateDefault("assetTransfer.validation.invalidTimeZone"));
+  }
+  const timePrecision = input.timePrecision;
+  if (timePrecision !== undefined && !isTimePrecision(timePrecision)) {
+    return failure("INVALID_DATE", "occurredAt", translateDefault("assetTransfer.validation.invalidTimePrecision"));
+  }
+
 
   const unitPriceResult = readOptionalPositiveDecimal(
     input.unitPrice,
@@ -239,9 +257,12 @@ export function createValidatedAssetTransfer(
   const common = {
     id,
     occurredAt: input.occurredAt,
-    timePrecision: input.occurredAt.includes("T")
-      ? ("second" as const)
-      : ("day" as const),
+    ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
+    timePrecision:
+      timePrecision ??
+      (input.occurredAt.includes("T")
+        ? ("second" as const)
+        : ("day" as const)),
     assetSymbol: input.assetSymbol,
     quantity: input.quantity,
     category,

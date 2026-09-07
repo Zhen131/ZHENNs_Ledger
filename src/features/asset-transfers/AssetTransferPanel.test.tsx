@@ -235,6 +235,10 @@ describe("AssetTransferPanel", () => {
     await user.tab();
     expect(document.activeElement).toBe(screen.getByLabelText("日期"));
     await user.tab();
+    expect(document.activeElement).toBe(screen.getByLabelText("时刻"));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByLabelText("地点"));
+    await user.tab();
     expect(document.activeElement).toBe(screen.getByLabelText("备注（可选）"));
     await user.tab();
     expect(document.activeElement).toBe(

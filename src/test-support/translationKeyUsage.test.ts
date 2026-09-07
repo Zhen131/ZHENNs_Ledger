@@ -188,6 +188,8 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "prices.field.date",
   // Price form areas use the same Note field label.
   "prices.field.note",
+  // Price form areas use the same Place field label.
+  "prices.field.timeZone",
   // Both language selectors use the same language label.
   "settings.language.label",
   // Workspace navigation uses the same Home label.

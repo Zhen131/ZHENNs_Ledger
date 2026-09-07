@@ -15,6 +15,9 @@ import type {
 } from "@/core/models";
 import {
   captureLedgerTime,
+  FACT_TIME_ZONE_OPTIONS,
+  getLedgerTimeZone,
+  resolveFactMoment,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
@@ -85,6 +88,10 @@ export function AssetTransferPanel({
   );
   const [quantity, setQuantity] = useState("");
   const [occurredAt, setOccurredAt] = useState(initialTodayKey);
+  const [occurredTime, setOccurredTime] = useState("");
+  const [occurredTimeZone, setOccurredTimeZone] = useState(
+    getLedgerTimeZone(clock),
+  );
   const [unitPrice, setUnitPrice] = useState("");
   const [networkFee, setNetworkFee] = useState("");
   const [fromLocation, setFromLocation] = useState<CustodyLocation>(
@@ -118,6 +125,8 @@ export function AssetTransferPanel({
     setReason(firstReason(DEFAULT_CATEGORY));
     setQuantity("");
     setOccurredAt(captureLedgerTime(clock).todayKey);
+    setOccurredTime("");
+    setOccurredTimeZone(getLedgerTimeZone(clock));
     setUnitPrice("");
     setNetworkFee("");
     setFromLocation(DEFAULT_FROM_LOCATION);
@@ -194,12 +203,28 @@ export function AssetTransferPanel({
     event.preventDefault();
     if (disabled) return;
     const timeSnapshot = captureLedgerTime(clock);
+    const moment = resolveFactMoment(occurredAt, occurredTime, occurredTimeZone);
+    if (!moment.ok) {
+      setError({
+        code: "ASSET_TRANSFER_INVALID_DATE",
+        field: "occurredAt",
+        message: t(
+          moment.reason === "nonexistent"
+            ? "assetTransfer.validation.nonexistentWallTime"
+            : moment.reason === "ambiguous"
+              ? "assetTransfer.validation.ambiguousWallTime"
+              : "assetTransfer.validation.invalidTimeZone",
+        ),
+      });
+      setFeedback("");
+      return;
+    }
     const common = {
       category,
       assetSymbol,
       reason,
       quantity,
-      occurredAt,
+      ...moment.value,
       note,
     };
     const input =
@@ -459,6 +484,40 @@ export function AssetTransferPanel({
             type="date"
             value={occurredAt}
           />
+        </Field>
+        <Field label={t("assetTransfers.field.time")} error={null} field="occurredAt">
+          <input
+            className={controlClassName}
+            disabled={disabled}
+            onChange={(event) => {
+              setOccurredTime(event.target.value);
+              setError(null);
+            }}
+            type="time"
+            value={occurredTime}
+          />
+        </Field>
+        <Field label={t("assetTransfers.field.timeZone")} error={null} field="occurredAt">
+          <select
+            className={controlClassName}
+            disabled={disabled}
+            onChange={(event) => {
+              setOccurredTimeZone(event.target.value);
+              setError(null);
+            }}
+            value={occurredTimeZone}
+          >
+            <option value={getLedgerTimeZone(clock)}>
+              {t("assetTransfers.timeZone.device")}: {getLedgerTimeZone(clock)}
+            </option>
+            {FACT_TIME_ZONE_OPTIONS.filter(
+              (timeZone) => timeZone !== getLedgerTimeZone(clock),
+            ).map((timeZone) => (
+              <option key={timeZone} value={timeZone}>
+                {timeZone}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label={t("assetTransfers.field.note")} error={error} field="note">
           <input

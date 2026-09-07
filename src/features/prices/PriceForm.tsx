@@ -19,6 +19,9 @@ import type {
 } from "@/core/validation";
 import {
   captureLedgerTime,
+  FACT_TIME_ZONE_OPTIONS,
+  getLedgerTimeZone,
+  resolveFactMoment,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
@@ -55,11 +58,14 @@ type Translate = ReturnType<typeof useLanguage>["t"];
 function createInitialFormState(
   assetSymbol: string,
   todayKey: string,
+  timeZone: string,
 ): PriceFormState {
   return {
     assetSymbol,
     price: "",
     recordedAt: todayKey,
+    recordedTime: "",
+    recordedTimeZone: timeZone,
     note: "",
   };
 }
@@ -75,6 +81,7 @@ function toPriceFormField(
       return field;
     case "input":
     case "currency":
+    case "occurredTimeZone":
     case "source":
     case "binanceProvenance":
       return "form";
@@ -90,6 +97,7 @@ function formatValidationError(
     price: t("prices.field.currentPrice"),
     currency: t("prices.field.currency"),
     recordedAt: t("prices.field.date"),
+    occurredTimeZone: t("prices.field.timeZone"),
     source: t("prices.field.source"),
     binanceProvenance: t("prices.field.binanceProvenance"),
     note: t("prices.field.note"),
@@ -142,6 +150,7 @@ export function PriceForm({
     createInitialFormState(
       defaultAssetSymbol,
       captureLedgerTime(clock).todayKey,
+      getLedgerTimeZone(clock),
     ),
   );
   const form = draft ?? localForm;
@@ -188,6 +197,7 @@ export function PriceForm({
         createInitialFormState(
           ledgerData.assets[0]?.symbol ?? "",
           captureLedgerTime(clock).todayKey,
+          getLedgerTimeZone(clock),
         ),
       );
     }
@@ -217,6 +227,7 @@ export function PriceForm({
             ...createInitialFormState(
               preserve.assetSymbol,
               captureLedgerTime(clock).todayKey,
+              getLedgerTimeZone(clock),
             ),
             recordedAt: preserve.recordedAt,
           });
@@ -273,12 +284,34 @@ export function PriceForm({
     if (pendingMutationVersion !== null) return;
     const timeSnapshot = captureLedgerTime(clock);
 
+    const moment = resolveFactMoment(
+      form.recordedAt,
+      form.recordedTime,
+      form.recordedTimeZone,
+    );
+    if (!moment.ok) {
+      setErrors({
+        recordedAt: t(
+          moment.reason === "nonexistent"
+            ? "prices.validation.nonexistentWallTime"
+            : moment.reason === "ambiguous"
+              ? "prices.validation.ambiguousWallTime"
+              : "prices.validation.invalidTimeZone",
+        ),
+      });
+      setSuccessMessage("");
+      return;
+    }
+
     const result = createValidatedPriceSnapshot(
       {
         assetSymbol: form.assetSymbol,
         price: form.price,
         currency,
-        recordedAt: form.recordedAt,
+        recordedAt: moment.value.occurredAt,
+        ...(moment.value.occurredTimeZone === undefined
+          ? {}
+          : { occurredTimeZone: moment.value.occurredTimeZone }),
         source: "manual",
         ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
       },
@@ -331,6 +364,7 @@ export function PriceForm({
         ...createInitialFormState(
           form.assetSymbol,
           captureLedgerTime(clock).todayKey,
+          getLedgerTimeZone(clock),
         ),
         recordedAt: form.recordedAt,
       });
@@ -423,6 +457,38 @@ export function PriceForm({
             {errors.recordedAt}
           </span>
         ) : null}
+      </label>
+
+      <label className="grid gap-2 text-sm font-medium">
+        {t("prices.field.time")}
+        <input
+          className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
+          onChange={(event) => updateField("recordedTime", event.target.value)}
+          type="time"
+          value={form.recordedTime}
+        />
+      </label>
+
+      <label className="grid gap-2 text-sm font-medium">
+        {t("prices.field.timeZone")}
+        <select
+          className="rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
+          onChange={(event) =>
+            updateField("recordedTimeZone", event.target.value)
+          }
+          value={form.recordedTimeZone}
+        >
+          <option value={getLedgerTimeZone(clock)}>
+            {t("prices.timeZone.device")}: {getLedgerTimeZone(clock)}
+          </option>
+          {FACT_TIME_ZONE_OPTIONS.filter(
+            (timeZone) => timeZone !== getLedgerTimeZone(clock),
+          ).map((timeZone) => (
+            <option key={timeZone} value={timeZone}>
+              {timeZone}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label className="grid gap-2 text-sm font-medium">

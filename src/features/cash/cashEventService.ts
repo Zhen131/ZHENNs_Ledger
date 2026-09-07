@@ -3,10 +3,13 @@ import type {
   CashEventType,
   ISODateTimeString,
   LedgerData,
+  TimePrecision,
 } from "@/core/models";
 import {
   captureLedgerTime,
   isPositive,
+  isSupportedTimeZone,
+  isTimePrecision,
   subtract,
   systemLedgerClock,
 } from "@/core/shared";
@@ -26,6 +29,8 @@ const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 export type CashEventDraft = Readonly<{
   type: CashEventType;
   occurredAt: string;
+  occurredTimeZone?: string;
+  timePrecision?: TimePrecision;
   amountOrTarget: string;
   note?: string;
 }>;
@@ -102,6 +107,19 @@ export function createValidatedCashEvent(
   if (input.occurredAt.slice(0, 10) > todayKey) {
     return failure("FUTURE_FACT", "occurredAt", translateDefault("cash.validation.futureFact"));
   }
+  const occurredTimeZone = input.occurredTimeZone;
+  if (
+    occurredTimeZone !== undefined &&
+    (typeof occurredTimeZone !== "string" ||
+      !isSupportedTimeZone(occurredTimeZone))
+  ) {
+    return failure("INVALID_DATE", "occurredAt", translateDefault("cash.validation.invalidTimeZone"));
+  }
+  const timePrecision = input.timePrecision;
+  if (timePrecision !== undefined && !isTimePrecision(timePrecision)) {
+    return failure("INVALID_DATE", "occurredAt", translateDefault("cash.validation.invalidTimePrecision"));
+  }
+
   if (
     typeof input.amountOrTarget !== "string" ||
     !isCanonicalDecimal(input.amountOrTarget)
@@ -167,9 +185,12 @@ export function createValidatedCashEvent(
   const common = {
     id,
     occurredAt: input.occurredAt,
-    timePrecision: input.occurredAt.includes("T")
-      ? ("second" as const)
-      : ("day" as const),
+    ...(occurredTimeZone === undefined ? {} : { occurredTimeZone }),
+    timePrecision:
+      timePrecision ??
+      (input.occurredAt.includes("T")
+        ? ("second" as const)
+        : ("day" as const)),
     currency: "USDT" as const,
     ...(note === undefined ? {} : { note }),
     createdAt: timestamp,

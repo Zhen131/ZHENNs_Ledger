@@ -117,6 +117,7 @@ export type PriceSnapshotDraft = {
   price: DecimalString;
   currency: CurrencyCode;
   recordedAt: ISODateString | ISODateTimeString;
+  occurredTimeZone?: string;
   source: PriceSource;
   binanceProvenance?: BinancePriceProvenance;
   note?: string;
