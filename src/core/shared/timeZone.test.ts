@@ -4,6 +4,7 @@ import {
   formatWallTimeInTimeZone,
   getTimeZoneOffsetAt,
   isSupportedTimeZone,
+  resolveWallTimeInTimeZone,
 } from "./timeZone";
 
 describe("timeZone", () => {
@@ -29,5 +30,46 @@ describe("timeZone", () => {
     expect(isSupportedTimeZone("Asia/Shanghai")).toBe(true);
     expect(isSupportedTimeZone("Europe/Budapest")).toBe(true);
     expect(isSupportedTimeZone("Not/A-Time-Zone")).toBe(false);
+  });
+
+  it("resolves a unique Budapest wall time on the spring transition day outside the gap", () => {
+    expect(
+      resolveWallTimeInTimeZone("2026-03-29T01:30:00", "Europe/Budapest"),
+    ).toEqual([
+      {
+        instant: new Date("2026-03-29T00:30:00Z"),
+        offset: "+01:00",
+      },
+    ]);
+  });
+
+  it("finds no instant for a Budapest wall time skipped by the spring transition", () => {
+    expect(
+      resolveWallTimeInTimeZone("2026-03-29T02:30:00", "Europe/Budapest"),
+    ).toEqual([]);
+  });
+
+  it("resolves both instants for a Budapest wall time repeated by the autumn transition", () => {
+    expect(
+      resolveWallTimeInTimeZone("2026-10-25T02:30:00", "Europe/Budapest"),
+    ).toEqual([
+      {
+        instant: new Date("2026-10-25T00:30:00Z"),
+        offset: "+02:00",
+      },
+      {
+        instant: new Date("2026-10-25T01:30:00Z"),
+        offset: "+01:00",
+      },
+    ]);
+  });
+
+  it.each([
+    ["Asia/Shanghai", "2026-03-28T18:30:00Z", "+08:00"],
+    ["UTC", "2026-03-29T02:30:00Z", "+00:00"],
+  ] as const)("resolves the same wall time uniquely in %s", (timeZone, instant, offset) => {
+    expect(resolveWallTimeInTimeZone("2026-03-29T02:30:00", timeZone)).toEqual([
+      { instant: new Date(instant), offset },
+    ]);
   });
 });
