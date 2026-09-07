@@ -798,6 +798,18 @@ const englishMessages: TranslationTable = {
   "transfer.export.description": "Export does not modify the current ledger; whether the download reached the disk is still decided by your browser's download list.",
   "transfer.import.heading": "Preflight and replace completely",
   "transfer.import.description": "A read-only preflight runs first; the write happens only after the current file authorization, the preflight credential, and read-back verification all pass, and ledgers are never merged.",
+  "record.workspace.ariaLabel": "Recording workspace",
+  "record.heading": "Record cash, transactions, asset transfers in and out, and prices",
+  "record.description": "Choose cash, an asset transfer, or one local asset first; switching unmounts the other form and keeps no stale confirmation.",
+  "record.readOnlyNotice": "Recording is unavailable for now: the current ledger is read-only or a file operation has not finished. Check the file status at the top.",
+  "record.target.label": "Recording target",
+  "record.target.cash": "Cash USDT",
+  "record.target.assetTransfer": "Asset transfers in and out",
+  "record.trade.headingPrefix": "New ",
+  "record.trade.headingSuffix": " transaction",
+  "record.trade.description": "The amount is calculated automatically from quantity × average price by default; after a manual override it stays in manual mode.",
+  "record.price.heading": "Update current price",
+  "record.price.description": "A manual price is used only for valuation; the asset and date are kept after a certified save.",
 };
 
 const hungarianMessages: TranslationTable = {
