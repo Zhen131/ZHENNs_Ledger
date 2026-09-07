@@ -78,32 +78,6 @@ export function isLedgerFactInFuture(
   return getLedgerDateKey(value) > todayKey;
 }
 
-export function compareLedgerFactOrder(
-  left: string,
-  right: string,
-  leftIndex: number,
-  rightIndex: number,
-): number {
-  const leftDate = getLedgerDateKey(left);
-  const rightDate = getLedgerDateKey(right);
-
-  if (leftDate !== rightDate) {
-    return leftDate < rightDate ? -1 : 1;
-  }
-
-  const leftHasTime = left.length > 10;
-  const rightHasTime = right.length > 10;
-
-  if (leftHasTime && rightHasTime) {
-    const timeOrder = Date.parse(left) - Date.parse(right);
-    if (timeOrder !== 0) {
-      return timeOrder;
-    }
-  }
-
-  return leftIndex - rightIndex;
-}
-
 export function addLedgerDays(
   dateKey: string,
   amount: number,

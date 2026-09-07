@@ -51,10 +51,9 @@ export function considerPriceSnapshot(
   if (
     !current ||
     compareLedgerFactOrder(
-      snapshot.recordedAt,
-      current.snapshot.recordedAt,
-      index,
-      current.index,
+      { occurredAt: snapshot.recordedAt, arrayIndex: index },
+      { occurredAt: current.snapshot.recordedAt, arrayIndex: current.index },
+      "array-index",
     ) >= 0
   ) {
     accumulator[source] = { snapshot, index };

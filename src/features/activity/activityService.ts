@@ -1,5 +1,8 @@
 import type { CashEvent, LedgerData, Trade } from "@/core/models";
-import { getLedgerDateKey } from "@/core/shared";
+import {
+  compareLedgerFactOrder,
+  getLedgerDateKey,
+} from "@/core/shared";
 
 export type LedgerActivityItem =
   | Readonly<{
@@ -69,28 +72,19 @@ export function compareLedgerActivityItemsDescending(
   left: LedgerActivityItem,
   right: LedgerActivityItem,
 ): number {
-  return -compareLedgerActivityItemsAscending(left, right);
+  return -compareLedgerFactOrder(
+    toLedgerFactOrderInput(left),
+    toLedgerFactOrderInput(right),
+  );
 }
 
-function compareLedgerActivityItemsAscending(
-  left: LedgerActivityItem,
-  right: LedgerActivityItem,
-): number {
-  const leftDate = getLedgerDateKey(left.occurredAt);
-  const rightDate = getLedgerDateKey(right.occurredAt);
-  if (leftDate !== rightDate) return leftDate < rightDate ? -1 : 1;
-
-  if (left.occurredAt.length > 10 && right.occurredAt.length > 10) {
-    const instantOrder = Date.parse(left.occurredAt) - Date.parse(right.occurredAt);
-    if (instantOrder !== 0) return instantOrder;
-  }
-
-  const createdAtOrder =
-    Date.parse(getActivityCreatedAt(left)) -
-    Date.parse(getActivityCreatedAt(right));
-  if (createdAtOrder !== 0) return createdAtOrder;
-  if (left.kind !== right.kind) return left.kind === "trade" ? -1 : 1;
-  return left.id.localeCompare(right.id, "en");
+function toLedgerFactOrderInput(item: LedgerActivityItem) {
+  return {
+    occurredAt: item.occurredAt,
+    createdAt: getActivityCreatedAt(item),
+    kind: item.kind,
+    id: item.id,
+  } as const;
 }
 
 function getActivityCreatedAt(item: LedgerActivityItem): string {

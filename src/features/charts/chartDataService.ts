@@ -9,7 +9,6 @@ import {
   applyTradeToReplay,
   calculateCashEventUsdtDelta,
   calculateTradeUsdtCashDelta,
-  compareCashReplayCandidates,
   createPositionReplayState,
   getReplayPositions,
   sortPositionFactsForReplay,
@@ -283,10 +282,9 @@ export function buildHoldingHistory(
     .map((snapshot, index) => ({ snapshot, index }))
     .sort((left, right) =>
       compareLedgerFactOrder(
-        left.snapshot.recordedAt,
-        right.snapshot.recordedAt,
-        left.index,
-        right.index,
+        { occurredAt: left.snapshot.recordedAt, arrayIndex: left.index },
+        { occurredAt: right.snapshot.recordedAt, arrayIndex: right.index },
+        "array-index",
       ),
     );
   const positionState = createPositionReplayState();
@@ -682,7 +680,7 @@ function createHistoricalCashFacts(
         delta: calculateCashEventUsdtDelta(cashEvent),
       }),
     ),
-  ].sort(compareCashReplayCandidates);
+  ].sort((left, right) => compareLedgerFactOrder(left, right));
 }
 
 function valueHistoricalPositions(

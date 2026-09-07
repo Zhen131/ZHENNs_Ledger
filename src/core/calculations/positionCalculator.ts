@@ -43,10 +43,9 @@ function attachLegacyLatestPrice(
     if (
       !latest ||
       compareLedgerFactOrder(
-        snapshot.recordedAt,
-        latest.recordedAt,
-        index,
-        latestIndex,
+        { occurredAt: snapshot.recordedAt, arrayIndex: index },
+        { occurredAt: latest.recordedAt, arrayIndex: latestIndex },
+        "array-index",
       ) >= 0
     ) {
       latest = snapshot;

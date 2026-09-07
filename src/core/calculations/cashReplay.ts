@@ -4,7 +4,11 @@ import type {
   LedgerData,
   Trade,
 } from "@/core/models";
-import { add, getLedgerDateKey } from "@/core/shared";
+import {
+  add,
+  compareLedgerFactOrder,
+  getLedgerDateKey,
+} from "@/core/shared";
 import { calculateTradeUsdtCashDelta } from "./tradeCashImpact";
 
 export type UsdtCashReplayEffect = Readonly<{
@@ -47,7 +51,7 @@ export function replayUsdtCash(
       (candidate) =>
         asOf === undefined || getLedgerDateKey(candidate.occurredAt) <= asOf,
     )
-    .sort(compareCashReplayCandidates);
+    .sort((left, right) => compareLedgerFactOrder(left, right));
 
   let balance: DecimalString = "0";
   const effects = candidates.map((candidate) => {
@@ -92,30 +96,3 @@ export function calculateCashEventUsdtDelta(
   }
 }
 
-export function compareCashReplayCandidates(
-  left: LedgerReplayCandidate,
-  right: LedgerReplayCandidate,
-): number {
-  const leftDate = getLedgerDateKey(left.occurredAt);
-  const rightDate = getLedgerDateKey(right.occurredAt);
-  if (leftDate !== rightDate) {
-    return leftDate < rightDate ? -1 : 1;
-  }
-
-  if (left.occurredAt.length > 10 && right.occurredAt.length > 10) {
-    const instantOrder = Date.parse(left.occurredAt) - Date.parse(right.occurredAt);
-    if (instantOrder !== 0) {
-      return instantOrder;
-    }
-  }
-
-  const createdAtOrder = Date.parse(left.createdAt) - Date.parse(right.createdAt);
-  if (createdAtOrder !== 0) {
-    return createdAtOrder;
-  }
-  if (left.kind !== right.kind) {
-    if (left.kind === "trade") return -1;
-    if (right.kind === "trade") return 1;
-  }
-  return left.id.localeCompare(right.id, "en");
-}

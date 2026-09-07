@@ -1,7 +1,6 @@
 import {
   calculateCashEventUsdtDelta,
   calculateTradeUsdtCashDelta,
-  compareCashReplayCandidates,
   replayPositions,
   replayUsdtCash,
   updatePositionForAppendedTrade,
@@ -20,6 +19,7 @@ import { isSupportedValuationCurrency } from "@/core/policies";
 import {
   absolute,
   add,
+  compareLedgerFactOrder,
   getLedgerDateKey,
   isNegative,
   isZero,
@@ -251,7 +251,7 @@ function updateCashProjection(
     createdAt: appended.fact.createdAt,
   } as const;
   const last = previous.cash.effects.at(-1);
-  if (last && compareCashReplayCandidates(candidate, last) < 0) {
+  if (last && compareLedgerFactOrder(candidate, last) < 0) {
     return {
       value: replayUsdtCash(ledgerData, { asOf }),
       mode: "full-fallback",
@@ -362,7 +362,7 @@ function isLatestPositionFact(
       (trade) =>
         trade.id === appended.id ||
         trade.assetSymbol !== appended.assetSymbol ||
-        compareCashReplayCandidates(
+        compareLedgerFactOrder(
           {
             id: trade.id,
             kind: "trade",
@@ -375,7 +375,7 @@ function isLatestPositionFact(
     ledgerData.assetTransfers.every(
       (transfer) =>
         transfer.assetSymbol !== appended.assetSymbol ||
-        compareCashReplayCandidates(
+        compareLedgerFactOrder(
           {
             id: transfer.id,
             kind: "asset-transfer",

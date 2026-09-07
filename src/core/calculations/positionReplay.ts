@@ -9,6 +9,7 @@ import type {
 } from "@/core/models";
 import {
   add,
+  compareLedgerFactOrder,
   divide,
   isEqual,
   isGreaterThan,
@@ -18,10 +19,7 @@ import {
   subtract,
   toDecimalString,
 } from "@/core/shared";
-import {
-  compareCashReplayCandidates,
-  type LedgerReplayCandidate,
-} from "./cashReplay";
+import { type LedgerReplayCandidate } from "./cashReplay";
 import { calculateTradeCashImpact } from "./tradeCashImpact";
 
 const CUSTODY_LOCATIONS = [
@@ -93,7 +91,7 @@ export function sortPositionFactsForReplay(
         fact,
       }),
     ),
-  ].sort(compareCashReplayCandidates);
+  ].sort((left, right) => compareLedgerFactOrder(left, right));
 }
 
 /** @deprecated Prefer sortPositionFactsForReplay for position accounting. */

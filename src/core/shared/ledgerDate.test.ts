@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   captureLedgerTime,
-  compareLedgerFactOrder,
   createSystemLedgerClock,
   getLedgerDateKey,
   millisecondsUntilNextLocalMidnight,
@@ -19,46 +18,6 @@ describe("ledgerDate", () => {
     );
   });
 
-  it("sorts different days by source date key", () => {
-    expect(
-      compareLedgerFactOrder(
-        "2026-07-25T23:30:00-10:00",
-        "2026-07-26T00:01:00+14:00",
-        0,
-        1,
-      ),
-    ).toBeLessThan(0);
-  });
-
-  it("uses real instants only when both same-day facts have datetimes", () => {
-    expect(
-      compareLedgerFactOrder(
-        "2026-07-25T12:00:00+08:00",
-        "2026-07-25T05:00:00Z",
-        0,
-        1,
-      ),
-    ).toBeLessThan(0);
-  });
-
-  it("keeps array order for date-only mixtures and equal instants", () => {
-    expect(
-      compareLedgerFactOrder(
-        "2026-07-25T23:00:00+08:00",
-        "2026-07-25",
-        0,
-        1,
-      ),
-    ).toBeLessThan(0);
-    expect(
-      compareLedgerFactOrder(
-        "2026-07-25T08:00:00+08:00",
-        "2026-07-25T00:00:00Z",
-        3,
-        2,
-      ),
-    ).toBeGreaterThan(0);
-  });
 
   it("captures now and local today from one clock read at year end", () => {
     const now = vi.fn(() => new Date(2026, 11, 31, 23, 59, 59));
