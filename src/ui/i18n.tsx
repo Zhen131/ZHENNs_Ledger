@@ -15,6 +15,17 @@ import { getLedgerDateKey } from "@/core/shared";
 export const LEDGER_LANGUAGES = ["zh-CN", "en", "hu"] as const;
 export type LedgerLanguage = (typeof LEDGER_LANGUAGES)[number];
 
+/**
+ * The languages the settings page offers. Hungarian stays a supported language
+ * code with its translations intact, but it is withdrawn from the picker while
+ * it covers only a fraction of the interface: a language you can select and
+ * then find rendered almost entirely in Chinese is worse than one you cannot
+ * select at all (04A D-3). Putting it back is one entry in this list.
+ */
+export const SELECTABLE_LEDGER_LANGUAGES = ["zh-CN", "en"] as const;
+export type SelectableLedgerLanguage =
+  (typeof SELECTABLE_LEDGER_LANGUAGES)[number];
+
 export const DEFAULT_LEDGER_LANGUAGE: LedgerLanguage = "zh-CN";
 export const LANGUAGE_PREFERENCE_STORAGE_KEY =
   "local-first-trading-ledger.ui-language";
@@ -2094,7 +2105,12 @@ export function readLanguagePreference(
   if (!storage) return DEFAULT_LEDGER_LANGUAGE;
   try {
     const value = storage.getItem(LANGUAGE_PREFERENCE_STORAGE_KEY);
-    return isLedgerLanguage(value) ? value : DEFAULT_LEDGER_LANGUAGE;
+    // A browser that stored a language since withdrawn from the picker reads
+    // back as the default, so nobody is stranded in a language the settings
+    // page can no longer change away from (04A D-3c).
+    return isLedgerLanguage(value) && isSelectableLedgerLanguage(value)
+      ? value
+      : DEFAULT_LEDGER_LANGUAGE;
   } catch {
     return DEFAULT_LEDGER_LANGUAGE;
   }
@@ -2170,6 +2186,12 @@ export function useLanguage(): LanguageContextValue {
 
 function isLedgerLanguage(value: unknown): value is LedgerLanguage {
   return LEDGER_LANGUAGES.some((language) => language === value);
+}
+
+function isSelectableLedgerLanguage(
+  value: unknown,
+): value is SelectableLedgerLanguage {
+  return SELECTABLE_LEDGER_LANGUAGES.some((language) => language === value);
 }
 
 function getBrowserStorage(): Storage | undefined {

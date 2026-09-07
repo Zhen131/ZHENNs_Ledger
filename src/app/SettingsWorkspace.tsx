@@ -202,9 +202,6 @@ export function SettingsWorkspace({
               {t("settings.language.optionChinese")}
             </option>
             <option value="en">{t("settings.language.optionEnglish")}</option>
-            <option value="hu">
-              {t("settings.language.optionHungarian")}
-            </option>
           </select>
         </label>
       </SurfaceCard>

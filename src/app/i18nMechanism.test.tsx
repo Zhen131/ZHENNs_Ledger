@@ -77,10 +77,10 @@ describe("Week 15 language mechanism contracts", () => {
     await user.selectOptions(screen.getByLabelText("选择界面语言"), "en");
     expect(screen.getByRole("heading", { name: "Asset trend" })).toBeTruthy();
 
-    await user.selectOptions(
-      screen.getByLabelText("Select interface language"),
-      "hu",
-    );
+    // Hungarian is withdrawn from the picker but not from the mechanism
+    // (04A D-3), so the switch now goes through the same provider call the
+    // picker made. The rendered Hungarian heading assertion is unchanged.
+    await user.click(screen.getByRole("button", { name: "set hu" }));
     expect(
       screen.getByRole("heading", { name: "A vagyon alakulása" }),
     ).toBeTruthy();
@@ -193,9 +193,19 @@ describe("Week 15 language mechanism contracts", () => {
   });
 });
 
+function LanguageSwitchProbe({ language }: { language: "hu" }) {
+  const { setLanguage } = useLanguage();
+  return (
+    <button onClick={() => setLanguage(language)} type="button">
+      set {language}
+    </button>
+  );
+}
+
 function LanguageMechanismHarness() {
   return (
     <LanguageProvider>
+      <LanguageSwitchProbe language="hu" />
       <HomeWorkspace
         active
         allocation={allocation}
