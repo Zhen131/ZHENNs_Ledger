@@ -42,7 +42,7 @@ const GOLDEN_LEDGER_FILE_V5_URL = new URL(
   import.meta.url,
 );
 const GOLDEN_LEDGER_FILE_V5_SHA256 =
-  "7a02c017f3f7edc3b54ffb52620aebd7a4057a71cf0afe63e00f6db91701ca65";
+  "b2fc0e3fa1b22892bfc7539bdda70c40bbd6d1db1db3e7854b497a5b72044b14";
 const GOLDEN_LEDGER_FILE_V5_PASSPHRASE =
   "W16-Golden-V5-Fictional-Ledger";
 

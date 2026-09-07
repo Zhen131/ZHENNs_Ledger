@@ -12,7 +12,8 @@ export function createGoldenStorageScenario(): LedgerData {
     trades: [
       {
         id: "golden-storage-buy-001",
-        occurredAt: "2026-08-10T09:00:00Z",
+        occurredAt: "2026-08-10T17:00:00+08:00",
+        occurredTimeZone: "Asia/Shanghai",
         timePrecision: "second",
         type: "buy",
         assetSymbol: "BTC",
@@ -81,7 +82,8 @@ export function createGoldenStorageScenario(): LedgerData {
     assetTransfers: [
       {
         id: "golden-storage-internal-transfer",
-        occurredAt: "2026-08-13T09:00:00Z",
+        occurredAt: "2026-08-13T11:00:00+02:00",
+        occurredTimeZone: "Europe/Budapest",
         timePrecision: "second",
         assetSymbol: "BTC",
         quantity: "2",
@@ -102,6 +104,7 @@ export function createGoldenStorageScenario(): LedgerData {
         price: "31.25",
         currency: "USDT",
         recordedAt: "2026-08-14T09:00:00Z",
+        occurredTimeZone: "UTC",
         source: "manual",
         note: "Fictional BTC price for the golden fixture.",
         createdAt: "2026-08-14T09:00:00Z",
