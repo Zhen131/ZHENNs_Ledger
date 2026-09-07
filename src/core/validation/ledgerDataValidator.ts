@@ -589,7 +589,7 @@ function readTrade(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
         `${path}.currency`,
-        "V4 trade currency must be USDT",
+        "V5 trade currency must be USDT",
       ),
     );
   }
@@ -1105,7 +1105,7 @@ function readPriceSnapshot(
       createError(
         LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
         `${path}.currency`,
-        "V4 price currency must be USDT",
+        "V5 price currency must be USDT",
       ),
     );
   }
