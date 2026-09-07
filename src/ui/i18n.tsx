@@ -776,6 +776,10 @@ const englishMessages: TranslationTable = {
   "settings.language.optionChinese": "Chinese",
   "settings.language.optionEnglish": "English",
   "settings.language.optionHungarian": "Hungarian",
+  "home.metrics.excludedSeparator": ": ",
+  "home.metrics.joinSeparator": ", ",
+  "home.missingPrices.separator": ": ",
+  "home.missingPrices.joinSeparator": ", ",
 };
 
 const hungarianMessages: TranslationTable = {
