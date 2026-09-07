@@ -780,6 +780,15 @@ const englishMessages: TranslationTable = {
   "home.metrics.joinSeparator": ", ",
   "home.missingPrices.separator": ": ",
   "home.missingPrices.joinSeparator": ", ",
+  "shared.shell.navigationAriaLabel": "Ledger main navigation",
+  "shared.shell.home": "Home",
+  "shared.shell.record": "Record",
+  "shared.shell.transactions": "Transactions",
+  "shared.shell.transfer": "Import and export",
+  "shared.shell.settings": "Settings",
+  "shared.shell.lock": "Lock ledger",
+  "shared.shell.workspaceLabel": "Encrypted ledger workspace",
+  "shared.confirmDelete.confirm": "Click again to confirm",
 };
 
 const hungarianMessages: TranslationTable = {
