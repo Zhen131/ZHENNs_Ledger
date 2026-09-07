@@ -2667,7 +2667,15 @@ function rejectUnsupportedJsonLedgerFile(bytes: Uint8Array): never {
       typeof version === "number" &&
       version !== SUPPORTED_LEDGER_SCHEMA_VERSION,
   );
-  if (retiredLedgerSchemaVersion !== undefined) {
+  // Schemas 2 and 3 keep their own more specific retirement message. Anything
+  // else inside a retired V2 container is rejected for the container itself:
+  // no V2 file is opened whatever ledger it carries, and a reader of the
+  // message has to be able to tell that the file format generation is the
+  // problem rather than the ledger schema.
+  if (
+    retiredLedgerSchemaVersion === 2 ||
+    retiredLedgerSchemaVersion === 3
+  ) {
     throw new LedgerFileRepositoryError(
       LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
       "Ledger file uses an unsupported ledger schema",
@@ -2675,11 +2683,7 @@ function rejectUnsupportedJsonLedgerFile(bytes: Uint8Array): never {
         {
           code: "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
           path: "current.ledgerSchemaVersion",
-          message:
-            retiredLedgerSchemaVersion === 2 ||
-            retiredLedgerSchemaVersion === 3
-              ? `This file contains a V${retiredLedgerSchemaVersion} ledger; V5 does not provide migration`
-              : "The ledger schema version is unsupported",
+          message: `This file contains a V${retiredLedgerSchemaVersion} ledger; V5 does not provide migration`,
         },
       ],
     );
@@ -2689,27 +2693,43 @@ function rejectUnsupportedJsonLedgerFile(bytes: Uint8Array): never {
     parsed,
     "fileFormatVersion",
   );
-  if (fileFormatVersion !== 2) {
+  if (fileFormatVersion === 2) {
     throw new LedgerFileRepositoryError(
       LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
-      "Ledger file does not use the supported V3 container",
+      "Ledger file format V2 is retired and is not opened before migration is enabled",
       [
         {
           code: "LEDGER_FILE_UNSUPPORTED_VERSION",
           path: "fileFormatVersion",
-          message: "Unsupported ledger file format version",
+          message:
+            "Ledger file format V2 is retired; this file uses ledger file format V2 and the supported ledger file format is V3",
         },
       ],
     );
   }
+
+  if (retiredLedgerSchemaVersion !== undefined) {
+    throw new LedgerFileRepositoryError(
+      LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
+      "Ledger file uses an unsupported ledger schema",
+      [
+        {
+          code: "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
+          path: "current.ledgerSchemaVersion",
+          message: "The ledger schema version is unsupported",
+        },
+      ],
+    );
+  }
+
   throw new LedgerFileRepositoryError(
     LEDGER_FILE_REPOSITORY_ERROR_CODES.INVALID_FILE,
-    "Ledger file format V2 is retired and is not opened before migration is enabled",
+    "Ledger file does not use the supported V3 container",
     [
       {
         code: "LEDGER_FILE_UNSUPPORTED_VERSION",
         path: "fileFormatVersion",
-        message: "Ledger file format V2 is retired",
+        message: "Unsupported ledger file format version",
       },
     ],
   );

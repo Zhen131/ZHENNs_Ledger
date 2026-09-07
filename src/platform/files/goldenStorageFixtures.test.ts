@@ -123,18 +123,28 @@ describe("storage golden fixtures", () => {
     const before = handle.snapshot();
     const adapter = new LedgerFileHandleAdapter();
 
-    const v2SchemaCause = {
-      code: "LEDGER_FILE_UNSUPPORTED_LEDGER_SCHEMA",
-      path: "current.ledgerSchemaVersion",
+    const v2FileFormatCause = {
+      code: "LEDGER_FILE_UNSUPPORTED_VERSION",
+      path: "fileFormatVersion",
+      message:
+        "Ledger file format V2 is retired; this file uses ledger file format V2 and the supported ledger file format is V3",
     };
-    await expectFrozenFileRejection(() => inspectLedgerFile(adapter, handle), v2SchemaCause);
+    await expectFrozenFileRejection(() => inspectLedgerFile(adapter, handle), v2FileFormatCause);
     await expectFrozenFileRejection(() =>
       LedgerFileRepository.open(
         adapter,
         handle,
         GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
         { sessionLease: TEST_SESSION_LEASE },
-      ), v2SchemaCause,
+      ), v2FileFormatCause,
+    );
+    await expectFrozenFileRejection(() =>
+      LedgerFileRepository.open(
+        adapter,
+        handle,
+        "a-passphrase-this-fixture-was-never-sealed-with",
+        { sessionLease: TEST_SESSION_LEASE },
+      ), v2FileFormatCause,
     );
 
     expect(handle.writeAttempts).toBe(0);
