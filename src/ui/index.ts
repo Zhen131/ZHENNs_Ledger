@@ -6,3 +6,4 @@ export * from "./LedgerNumber";
 export * from "./SurfaceCard";
 export * from "./formatLedgerNumber";
 export * from "./i18n";
+export * from "./translationGlossary";
