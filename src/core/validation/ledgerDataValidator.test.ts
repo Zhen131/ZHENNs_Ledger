@@ -111,6 +111,24 @@ describe("validateLedgerData", () => {
     );
   });
 
+  it("rejects an offset that disagrees with its occurred time zone and accepts Z for UTC", () => {
+    const inconsistent = createCompleteLedger();
+    inconsistent.trades[0] = {
+      ...inconsistent.trades[0],
+      occurredAt: "2026-01-15T09:30:00+08:00",
+      occurredTimeZone: "Europe/Budapest",
+    };
+    expectError(inconsistent, LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY, "trades[0].occurredAt");
+
+    const consistent = createCompleteLedger();
+    consistent.priceSnapshots[0] = {
+      ...consistent.priceSnapshots[0],
+      recordedAt: "2026-01-15T09:30:00Z",
+      occurredTimeZone: "UTC",
+    };
+    expect(validateLedgerData(consistent)).toEqual({ ok: true, value: consistent });
+  });
+
   it("preserves a non-zero fee paid in another local asset", () => {
     const input = createCompleteLedger();
     input.trades[0] = {

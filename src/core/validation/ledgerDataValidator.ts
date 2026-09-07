@@ -18,6 +18,7 @@ import {
   isEqual,
   isNegative,
   isPositive,
+  getTimeZoneOffsetAt,
   isSupportedTimeZone,
   isZero,
 } from "@/core/shared";
@@ -520,6 +521,7 @@ function readTrade(
     `${path}.occurredTimeZone`,
     errors,
   );
+  validateOccurredTimeZoneOffset(occurredAt, occurredTimeZone, `${path}.occurredAt`, errors);
   const createdAt = readTechnicalTimestamp(
     record.createdAt,
     `${path}.createdAt`,
@@ -704,6 +706,7 @@ function readCashEvent(
     `${path}.occurredTimeZone`,
     errors,
   );
+  validateOccurredTimeZoneOffset(occurredAt, occurredTimeZone, `${path}.occurredAt`, errors);
   const timePrecision = readTimePrecision(
     record.timePrecision,
     `${path}.timePrecision`,
@@ -838,6 +841,7 @@ function readAssetTransfer(
     `${path}.occurredTimeZone`,
     errors,
   );
+  validateOccurredTimeZoneOffset(occurredAt, occurredTimeZone, `${path}.occurredAt`, errors);
   const timePrecision = readTimePrecision(
     record.timePrecision,
     `${path}.timePrecision`,
@@ -1078,6 +1082,7 @@ function readPriceSnapshot(
     `${path}.occurredTimeZone`,
     errors,
   );
+  validateOccurredTimeZoneOffset(recordedAt, occurredTimeZone, `${path}.recordedAt`, errors);
   const createdAt = readTechnicalTimestamp(
     record.createdAt,
     `${path}.createdAt`,
@@ -1670,6 +1675,29 @@ function readOptionalOccurredTimeZone(
     ),
   );
   return undefined;
+}
+
+/**
+ * Rejects a fact whose recorded offset disagrees with the location it claims.
+ * Date-only facts carry no offset and stay unconstrained; `Z` and `+00:00`
+ * name the same offset and must not be told apart.
+ */
+function validateOccurredTimeZoneOffset(
+  timestamp: string | undefined,
+  timeZone: string | undefined,
+  path: string,
+  errors: LedgerDataValidationError[],
+): void {
+  if (!timestamp || !timeZone || !/(Z|[+-]\d{2}:\d{2})$/.test(timestamp)) return;
+  const actualOffset = getTimeZoneOffsetAt(new Date(timestamp), timeZone);
+  const statedOffset = timestamp.endsWith("Z") ? "+00:00" : timestamp.slice(-6);
+  if (actualOffset !== statedOffset) {
+    errors.push(createError(
+      LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+      path,
+      `${path} offset must match occurredTimeZone at its instant`,
+    ));
+  }
 }
 
 function readAssetSymbol(
