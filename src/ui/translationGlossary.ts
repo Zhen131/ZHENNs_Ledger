@@ -31,6 +31,12 @@ export type GlossaryTerm = Readonly<{
   status: "confirmed" | "unconfirmed";
   /** Why this word is in the glossary, or why its wording is still open. */
   note: string;
+  /**
+   * Irregular English forms that also satisfy this term. The guard already
+   * accepts the regular "s"/"es"/"ed"/"d"/"ing" endings, so this is only for
+   * words whose stem changes, such as "undo" becoming "undone".
+   */
+  inflections?: readonly string[];
 }>;
 
 export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
@@ -291,6 +297,7 @@ export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
     english: "undo",
     status: "confirmed",
     note: "Taking back a deletion inside its countdown.",
+    inflections: ["undone", "undoes"],
   },
   {
     chinese: "未来",
