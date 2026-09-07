@@ -3,7 +3,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Zhenn's Ledger",
-  description: "只由你选择的加密文件承载的本地优先交易账本。",
+  // The server renders this before any language preference is readable, so it
+  // stays in one fixed language rather than following the interface (04A D-5d).
+  description:
+    "A local-first trading ledger carried only by the encrypted file you choose.",
 };
 
 export default function RootLayout({

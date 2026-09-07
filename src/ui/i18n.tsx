@@ -209,6 +209,7 @@ const chineseMessages = {
   "charts.option.allocation.cashReplay": "USDT 现金重放",
   "charts.option.allocation.grouped": "小额资产合并",
  "charts.option.allocation.manual": "手动价格",
+  "charts.series.cashUsdt": "现金 USDT", "charts.series.other": "其他",
   "charts.option.allocation.memberSeparator": "：",
   "charts.option.allocation.asOfPrefix": "截至 ",
   "charts.option.allocation.seriesPrefix": "当前 ",
@@ -324,6 +325,7 @@ const chineseMessages = {
   "assetTransfer.validation.positiveDecimalSuffix": "必须大于 0，且是最多 40 位有效数字、18 位小数的规范十进制",
   "portfolio.valuation.approximationLabel": "USD/USDT 近似等值",
   "portfolio.valuation.approximationDisclosure": "1 USDT ≈ 1 USD，未接实时汇率",
+  "backup.preflight.noMigrationSuffix": "且不提供迁移",
   "backup.envelope.formatVersionPrefix": "这是备份格式 V",
   "backup.envelope.formatVersionSuffix": "；当前备份格式为 V3，且不提供迁移",
   "backup.envelope.schemaVersionPrefix": "这是账本 schema V",
@@ -730,6 +732,9 @@ const chineseMessages = {
   "activity.table.sequence": "序号", "activity.table.date": "日期", "activity.table.type": "类型", "activity.table.asset": "资产", "activity.table.quantity": "数量", "activity.table.amount": "金额", "activity.table.fee": "手续费", "activity.table.actions": "操作", "activity.table.empty": "没有符合当前筛选的流水。", "activity.table.futureFact": "未来事实", "activity.table.dash": "—", "activity.table.details": "详情", "activity.table.cashUsdt": "现金 USDT", "activity.table.deletePrefix": "删除",
   "activity.details.factId": "事实 ID", "activity.details.quantity": "数量", "activity.details.averagePrice": "成交均价", "activity.details.totalValue": "成交金额", "activity.details.actualFee": "实际手续费", "activity.details.platform": "平台", "activity.details.notFilled": "未填写", "activity.details.feeSource": "手续费来源", "activity.details.manual": "手填", "activity.details.cashImpact": "现金影响与可靠性", "activity.details.buyOutflow": "买入总支出", "activity.details.sellProceeds": "卖出净到账", "activity.details.unreliablePrefix": "不可可靠计算", "activity.details.unconvertedFee": "手续费未换算", "activity.details.note": "备注", "activity.details.timePrecision": "时间精度", "activity.details.createdAt": "创建时间", "activity.details.updatedAt": "更新时间", "activity.details.type": "类型", "activity.details.currency": "币种", "activity.details.occurredAt": "发生时间", "activity.details.occurredTimeZone": "发生地点", "activity.details.balanceBefore": "校准前余额", "activity.details.targetBalance": "目标余额", "activity.details.adjustmentAmount": "本次差额",
   "activity.details.unreliableSeparator": "：",
+  "policy.compat.unsupportedValuationCurrencyMiddle": " 的 ", "policy.compat.unsupportedValuationCurrencySuffix": " 不进入 USD 等值估值", "policy.compat.futureTrade": "未来交易已隔离，必须删除、替换账本或清空后才能恢复普通写入", "policy.compat.futureCashEvent": "未来现金事件已隔离，必须删除、替换账本或清空后才能恢复普通写入", "policy.compat.futureAssetTransfer": "未来资产转入转出已隔离，必须删除、替换账本或清空后才能恢复普通写入", "policy.compat.futurePrice": "未来价格已隔离，必须删除、替换账本或清空后才能恢复普通写入", "policy.compat.legacyApiPriceWithoutProvenance": "旧 API 价格缺少来源证据，仅供救援查看，不参加 Binance 估值", "policy.compat.duplicateDailyBinancePricePrefix": "同日 Binance 价格重复；首次出现在 priceSnapshots[", "policy.compat.duplicateDailyBinancePriceSuffix": "]",
+  "policy.import.unsupportedValuationCurrency": "V5 只支持 USDT 估值", "policy.import.futureTradePrefix": "交易日期 ", "policy.import.futureCashEventPrefix": "现金事件日期 ", "policy.import.futureAssetTransferPrefix": "资产转入转出日期 ", "policy.import.futurePricePrefix": "价格日期 ", "policy.import.futureFactMiddle": " 晚于今天 ", "policy.import.apiPriceProvenanceRequired": "新导入的 API 价格必须保留 Binance 来源证据", "policy.import.duplicateDailyBinancePricePrefix": "同日 Binance 价格重复；首次出现在 priceSnapshots[", "policy.import.duplicateDailyBinancePriceSuffix": "]",
+  "policy.resource.ledgerFileLabel": "账本文件", "policy.resource.overLimitMiddle": " 超过资源上限（", "policy.resource.overLimitSuffix": "）",
 } as const;
 
 export type TranslationKey = keyof typeof chineseMessages;

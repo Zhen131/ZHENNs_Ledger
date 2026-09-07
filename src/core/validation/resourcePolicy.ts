@@ -1,4 +1,5 @@
 import type { LedgerData, Trade } from "@/core/models";
+import { translateDefault } from "@/ui";
 
 export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   fileBytes: 128 * 1024 * 1024,
@@ -430,13 +431,13 @@ function createError(
 ): LedgerResourcePolicyError {
   const label =
     code === LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE
-      ? "账本文件"
+      ? translateDefault("policy.resource.ledgerFileLabel")
       : path;
   return {
     code,
     path,
     limit,
     actual,
-    message: `${label} 超过资源上限（${actual} > ${limit}）`,
+    message: `${label}${translateDefault("policy.resource.overLimitMiddle")}${actual} > ${limit}${translateDefault("policy.resource.overLimitSuffix")}`,
   };
 }

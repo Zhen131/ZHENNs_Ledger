@@ -168,6 +168,10 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "marketData.assetFeedback.refreshFailedPrefix",
   // Backup and market-data flows share the same validation-unavailable message.
   "marketData.failure.validationUnavailable",
+  // Every future-fact import error shares the same later-than-today middle.
+  "policy.import.futureFactMiddle",
+  // Assets, trades, and price snapshots share the same valuation-currency error.
+  "policy.import.unsupportedValuationCurrency",
   // Holding detail entries use the same accessible detail label.
   "portfolio.details.ariaLabel",
   // Holding detail rows use the same dash separator.

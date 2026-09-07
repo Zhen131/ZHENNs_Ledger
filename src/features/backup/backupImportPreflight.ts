@@ -658,7 +658,9 @@ function toChineseErrorMessage(error: BackupEnvelopeError): string {
   if (
     (error.code === "BACKUP_UNSUPPORTED_FORMAT_VERSION" ||
       error.code === "BACKUP_SCHEMA_VERSION_MISMATCH") &&
-    error.message.endsWith("且不提供迁移")
+    error.message.endsWith(
+      translateDefault("backup.preflight.noMigrationSuffix"),
+    )
   ) {
     return error.message;
   }

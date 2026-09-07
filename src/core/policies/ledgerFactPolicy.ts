@@ -10,6 +10,7 @@ import {
   getLedgerDateKey,
   isLedgerFactInFuture,
 } from "@/core/shared";
+import { translateDefault } from "@/ui";
 
 export const SUPPORTED_VALUATION_CURRENCIES = ["USDT"] as const;
 
@@ -114,7 +115,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: `${asset.symbol} 的 ${asset.quoteCurrency} 不进入 USD 等值估值`,
+        message: `${asset.symbol}${translateDefault("policy.compat.unsupportedValuationCurrencyMiddle")}${asset.quoteCurrency}${translateDefault("policy.compat.unsupportedValuationCurrencySuffix")}`,
       });
     }
   });
@@ -124,7 +125,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `trades[${index}].occurredAt`,
-        message: "未来交易已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+        message: translateDefault("policy.compat.futureTrade"),
       });
     }
   });
@@ -134,8 +135,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `cashEvents[${index}].occurredAt`,
-        message:
-          "未来现金事件已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+        message: translateDefault("policy.compat.futureCashEvent"),
       });
     }
   });
@@ -145,8 +145,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `assetTransfers[${index}].occurredAt`,
-        message:
-          "未来资产转入转出已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+        message: translateDefault("policy.compat.futureAssetTransfer"),
       });
     }
   });
@@ -157,7 +156,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `priceSnapshots[${index}].recordedAt`,
-        message: "未来价格已隔离，必须删除、替换账本或清空后才能恢复普通写入",
+        message: translateDefault("policy.compat.futurePrice"),
       });
     }
 
@@ -165,7 +164,9 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_LEGACY_API_PRICE_WITHOUT_PROVENANCE",
         path: `priceSnapshots[${index}].binanceProvenance`,
-        message: "旧 API 价格缺少来源证据，仅供救援查看，不参加 Binance 估值",
+        message: translateDefault(
+          "policy.compat.legacyApiPriceWithoutProvenance",
+        ),
       });
       return;
     }
@@ -184,7 +185,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_DUPLICATE_DAILY_BINANCE_PRICE",
         path: `priceSnapshots[${index}]`,
-        message: `同日 Binance 价格重复；首次出现在 priceSnapshots[${firstIndex}]`,
+        message: `${translateDefault("policy.compat.duplicateDailyBinancePricePrefix")}${firstIndex}${translateDefault("policy.compat.duplicateDailyBinancePriceSuffix")}`,
       });
     } else {
       firstDailyBinanceIndex.set(key, index);

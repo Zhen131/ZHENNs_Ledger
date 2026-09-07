@@ -1,5 +1,6 @@
 import type { LedgerData } from "@/core/models";
 import { getLedgerDateKey, isLedgerFactInFuture } from "@/core/shared";
+import { translateDefault } from "@/ui";
 import { isSupportedValuationCurrency } from "./ledgerFactPolicy";
 
 export type LedgerImportPolicyError = {
@@ -27,7 +28,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: "V5 只支持 USDT 估值",
+        message: translateDefault("policy.import.unsupportedValuationCurrency"),
       });
     }
   });
@@ -37,14 +38,14 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `trades[${index}].occurredAt`,
-        message: `交易日期 ${getLedgerDateKey(trade.occurredAt)} 晚于今天 ${todayKey}`,
+        message: `${translateDefault("policy.import.futureTradePrefix")}${getLedgerDateKey(trade.occurredAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
     if (!isSupportedValuationCurrency(trade.currency)) {
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `trades[${index}].currency`,
-        message: "V5 只支持 USDT 估值",
+        message: translateDefault("policy.import.unsupportedValuationCurrency"),
       });
     }
   });
@@ -54,7 +55,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `cashEvents[${index}].occurredAt`,
-        message: `现金事件日期 ${getLedgerDateKey(cashEvent.occurredAt)} 晚于今天 ${todayKey}`,
+        message: `${translateDefault("policy.import.futureCashEventPrefix")}${getLedgerDateKey(cashEvent.occurredAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
   });
@@ -64,7 +65,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `assetTransfers[${index}].occurredAt`,
-        message: `资产转入转出日期 ${getLedgerDateKey(assetTransfer.occurredAt)} 晚于今天 ${todayKey}`,
+        message: `${translateDefault("policy.import.futureAssetTransferPrefix")}${getLedgerDateKey(assetTransfer.occurredAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
   });
@@ -75,14 +76,14 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `priceSnapshots[${index}].recordedAt`,
-        message: `价格日期 ${getLedgerDateKey(snapshot.recordedAt)} 晚于今天 ${todayKey}`,
+        message: `${translateDefault("policy.import.futurePricePrefix")}${getLedgerDateKey(snapshot.recordedAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
     if (!isSupportedValuationCurrency(snapshot.currency)) {
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `priceSnapshots[${index}].currency`,
-        message: "V5 只支持 USDT 估值",
+        message: translateDefault("policy.import.unsupportedValuationCurrency"),
       });
     }
 
@@ -90,7 +91,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_API_PRICE_PROVENANCE_REQUIRED",
         path: `priceSnapshots[${index}].binanceProvenance`,
-        message: "新导入的 API 价格必须保留 Binance 来源证据",
+        message: translateDefault("policy.import.apiPriceProvenanceRequired"),
       });
       return;
     }
@@ -109,7 +110,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_DUPLICATE_DAILY_BINANCE_PRICE",
         path: `priceSnapshots[${index}]`,
-        message: `同日 Binance 价格重复；首次出现在 priceSnapshots[${firstIndex}]`,
+        message: `${translateDefault("policy.import.duplicateDailyBinancePricePrefix")}${firstIndex}${translateDefault("policy.import.duplicateDailyBinancePriceSuffix")}`,
       });
     } else {
       firstDailyBinanceIndex.set(key, index);

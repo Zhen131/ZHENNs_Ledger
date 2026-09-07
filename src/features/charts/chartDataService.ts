@@ -48,6 +48,7 @@ import {
   type SelectedPrice,
   type ValuationDisplay,
 } from "@/features/portfolio";
+import { translateDefault } from "@/ui";
 
 export type HoldingAllocationGroupedMember = {
   assetSymbol: string;
@@ -149,7 +150,7 @@ export function buildHoldingAllocation(
     : add(projection.valuation.pricedAssetMarketValue, cashBalance);
   if (!isNegative(cashBalance) && !isZero(cashBalance)) {
     valued.push({
-      assetSymbol: "现金 USDT",
+      assetSymbol: translateDefault("charts.series.cashUsdt"),
       marketValue: cashBalance,
       source: "cash",
       asOf: options.todayKey,
@@ -243,7 +244,7 @@ function createGroupedAllocationSlice(
     "0",
   );
   return {
-    assetSymbol: "其他",
+    assetSymbol: translateDefault("charts.series.other"),
     marketValue,
     ratio: toDecimalString(divide(marketValue, geometryTotal)),
     source: "grouped",
