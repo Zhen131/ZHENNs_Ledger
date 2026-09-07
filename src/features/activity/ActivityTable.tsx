@@ -11,9 +11,13 @@ import {
 import { calculateTradeCashImpact } from "@/core/calculations";
 import type { CashEvent } from "@/core/models";
 import {
+  formatWallTimeInTimeZone,
   getLedgerDateKey,
+  getLedgerTimeZone,
   isLedgerFactInFuture,
   subtract,
+  systemLedgerClock,
+  type LedgerClock,
 } from "@/core/shared";
 import {
   TradeDeleteControl,
@@ -21,6 +25,15 @@ import {
 } from "@/features/trades/ui";
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { LedgerActivityItem } from "./activityService";
+
+/**
+ * Which place a recorded moment is shown in. "recorded" shows it in the place
+ * it was recorded in, which is what the ledger stores; "current" shows the same
+ * moment on the reader's own clock.
+ */
+export type ActivityTimeZoneView = "recorded" | "current";
+
+export const DEFAULT_ACTIVITY_TIME_ZONE_VIEW: ActivityTimeZoneView = "recorded";
 
 export type ActivityDeleteState = Readonly<{
   armedItemId: string | null;
@@ -43,6 +56,7 @@ export function ActivityTable({
   onUndoDelete,
   locateRequest,
   onLocateComplete,
+  clock = systemLedgerClock,
 }: Readonly<{
   items: readonly LedgerActivityItem[];
   sequenceByItemKey: ReadonlyMap<string, number>;
@@ -60,8 +74,13 @@ export function ActivityTable({
     requestId: number,
     result: "found" | "missing",
   ) => void;
+  clock?: LedgerClock;
 }>) {
   const { t } = useLanguage();
+  const [timeZoneView, setTimeZoneView] = useState<ActivityTimeZoneView>(
+    DEFAULT_ACTIVITY_TIME_ZONE_VIEW,
+  );
+  const currentTimeZone = getLedgerTimeZone(clock);
   const detailButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
   const [locatedDate, setLocatedDate] = useState<string | null>(null);
@@ -148,6 +167,30 @@ export function ActivityTable({
 
   return (
     <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--ledger-border)]">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--ledger-border)] bg-[var(--ledger-surface-muted)] px-4 py-3 text-sm">
+        <label
+          className="font-medium text-[var(--ledger-muted)]"
+          htmlFor="activity-time-zone-view"
+        >
+          {t("activity.timeZoneView.label")}
+        </label>
+        <select
+          className="rounded-md border border-slate-200 bg-white px-3 py-1.5 outline-none focus:border-slate-400"
+          id="activity-time-zone-view"
+          onChange={(event) =>
+            setTimeZoneView(event.target.value as ActivityTimeZoneView)
+          }
+          value={timeZoneView}
+        >
+          <option value="recorded">{t("activity.timeZoneView.recorded")}</option>
+          <option value="current">
+            {t("activity.timeZoneView.current")}: {currentTimeZone}
+          </option>
+        </select>
+        <p className="text-[var(--ledger-muted)]">
+          {t("activity.timeZoneView.hint")}
+        </p>
+      </div>
       <table className="block w-full text-left text-sm sm:table">
         <thead className="hidden bg-[var(--ledger-surface-muted)] text-[var(--ledger-muted)] sm:table-header-group">
           <tr>
@@ -240,9 +283,11 @@ export function ActivityTable({
                       <span data-activity-sequence>{sequence}</span>
                     </ActivityCell>
                     <ActivityCell label={t("activity.table.date")}>
-                      {formatRecordedOccurredAt(
+                      {formatOccurredAtForView(
                         item.occurredAt,
                         getActivityOccurredTimeZone(item),
+                        timeZoneView,
+                        currentTimeZone,
                       )}
                       {isLedgerFactInFuture(item.occurredAt, todayKey) ? (
                         <span className="ml-2 font-medium text-red-700">
@@ -527,6 +572,38 @@ function getActivityOccurredTimeZone(item: LedgerActivityItem): string | undefin
   return item.kind === "trade"
     ? item.trade.occurredTimeZone
     : item.cashEvent.occurredTimeZone;
+}
+
+/**
+ * Renders a moment in the chosen view. Switching views changes nothing but the
+ * text: `occurredAt` and `occurredTimeZone` are read, never written.
+ *
+ * A fact recorded only to the day has no moment to move, so both views show the
+ * same date. Converting it would invent a time nobody recorded.
+ */
+export function formatOccurredAtForView(
+  occurredAt: string,
+  occurredTimeZone: string | undefined,
+  view: ActivityTimeZoneView,
+  currentTimeZone: string,
+): string {
+  if (view === "recorded" || occurredAt.length === 10) {
+    return formatRecordedOccurredAt(occurredAt, occurredTimeZone);
+  }
+
+  const instant = new Date(occurredAt);
+  if (Number.isNaN(instant.getTime())) {
+    return formatRecordedOccurredAt(occurredAt, occurredTimeZone);
+  }
+
+  let wallTime: string;
+  try {
+    wallTime = formatWallTimeInTimeZone(instant, currentTimeZone);
+  } catch {
+    return formatRecordedOccurredAt(occurredAt, occurredTimeZone);
+  }
+
+  return formatRecordedOccurredAt(wallTime, currentTimeZone);
 }
 
 export function formatRecordedOccurredAt(
