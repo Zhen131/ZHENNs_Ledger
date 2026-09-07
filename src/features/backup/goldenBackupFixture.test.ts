@@ -19,7 +19,7 @@ const GOLDEN_V5_BACKUP_URL = new URL(
   import.meta.url,
 );
 const GOLDEN_V5_BACKUP_SHA256 =
-  "8b13ef69be9f6482db8341813e68f63dc764247181e72675b73df7366fb64baf";
+  "6111e5d69c2d2c455fdd8f91eb8b2014f6271eb4e05d918c55430e07ae22cb32";
 
 describe("versioned golden backup fixture", () => {
   it("freezes the exact backup format V3 and ledger schema V4 bytes", () => {
@@ -71,4 +71,120 @@ describe("versioned golden backup fixture", () => {
     );
     expect(readFileSync(GOLDEN_V5_BACKUP_URL, "utf8")).toBe(serialized);
   });
+
+  it("parses the whole V5 backup fixture into exactly what its text says", () => {
+    const serialized = readFileSync(GOLDEN_V5_BACKUP_URL, "utf8");
+
+    const result = parseBackupJson(serialized, "2026-09-06");
+
+    // Every value below is transcribed by hand from the fixture's JSON text,
+    // never taken from a parse. Comparing the whole envelope is what catches a
+    // parser that alters content on the way in; a few field assertions cannot.
+    expect(result).toEqual({
+      ok: true,
+      value: GOLDEN_V5_BACKUP_TEXT_TRANSCRIPT,
+    });
+  });
+
+  it("keeps a high-precision decimal canary in the V5 backup fixture", () => {
+    const serialized = readFileSync(GOLDEN_V5_BACKUP_URL, "utf8");
+    const result = parseBackupJson(serialized, "2026-09-06");
+    if (!result.ok) throw new Error("V5 golden backup must validate");
+
+    const price = result.value.ledgerData.priceSnapshots[0]?.price;
+
+    // The deepest decimal in the V4 fixtures carries 18 fraction digits. This
+    // canary must not be shallower, or the fixture stops proving that a
+    // decimal survives a round trip without being rounded through a float.
+    expect(price).toBe("4.000000000000000003");
+    expect(price?.split(".")[1]?.length).toBeGreaterThanOrEqual(18);
+    expect(serialized).toContain('"price": "4.000000000000000003"');
+  });
 });
+
+const GOLDEN_V5_BACKUP_TEXT_TRANSCRIPT = {
+  backupFormatVersion: 3,
+  appVersion: "0.1.0-golden-v5",
+  exportedAt: "2026-09-06T12:00:00.000Z",
+  ledgerSchemaVersion: 5,
+  ledgerData: {
+    schemaVersion: 5,
+    assets: [
+      {
+        id: "asset-fictional-time-zone",
+        symbol: "FICTZ",
+        name: "Fictional Time Zone Asset",
+        quoteCurrency: "USDT",
+        binanceMapping: null,
+        createdAt: "2026-09-01T00:00:00Z",
+        updatedAt: "2026-09-01T00:00:00Z",
+      },
+    ],
+    trades: [
+      {
+        id: "trade-fictional-time-zone",
+        occurredAt: "2026-09-01T09:15:00+08:00",
+        occurredTimeZone: "Asia/Shanghai",
+        timePrecision: "second",
+        type: "buy",
+        assetSymbol: "FICTZ",
+        quantity: "2",
+        price: "3",
+        totalValue: "6",
+        currency: "USDT",
+        fee: "0",
+        feeCurrency: "USDT",
+        platform: "Fictional Venue",
+        note: "Fictional V5 trade with a recorded location.",
+        rawText: "Fictional golden fixture trade.",
+        createdAt: "2026-09-01T09:15:00+08:00",
+        updatedAt: "2026-09-01T09:15:00+08:00",
+      },
+    ],
+    cashEvents: [
+      {
+        id: "cash-fictional-without-time-zone",
+        occurredAt: "2026-09-02",
+        timePrecision: "day",
+        type: "deposit",
+        currency: "USDT",
+        amount: "20",
+        note: "Fictional V5 cash fact without a recorded location.",
+        createdAt: "2026-09-02T00:00:00Z",
+        updatedAt: "2026-09-02T00:00:00Z",
+      },
+    ],
+    assetTransfers: [
+      {
+        id: "transfer-fictional-time-zone",
+        occurredAt: "2026-09-03T10:30:00+02:00",
+        occurredTimeZone: "Europe/Budapest",
+        timePrecision: "second",
+        assetSymbol: "FICTZ",
+        quantity: "1",
+        category: "internal",
+        reason: "internal-move",
+        fromLocation: "exchange",
+        toLocation: "cold-wallet",
+        note: "Fictional V5 transfer with a recorded location.",
+        createdAt: "2026-09-03T10:30:00+02:00",
+        updatedAt: "2026-09-03T10:30:00+02:00",
+      },
+    ],
+    priceSnapshots: [
+      {
+        id: "price-fictional-time-zone",
+        assetSymbol: "FICTZ",
+        price: "4.000000000000000003",
+        currency: "USDT",
+        recordedAt: "2026-09-04T11:00:00Z",
+        occurredTimeZone: "UTC",
+        source: "manual",
+        note: "Fictional V5 price with a recorded location.",
+        createdAt: "2026-09-04T11:00:00Z",
+        updatedAt: "2026-09-04T11:00:00Z",
+      },
+    ],
+    feeRules: [],
+  },
+};

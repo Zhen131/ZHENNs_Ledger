@@ -71,7 +71,7 @@
       {
         "id": "price-fictional-time-zone",
         "assetSymbol": "FICTZ",
-        "price": "4",
+        "price": "4.000000000000000003",
         "currency": "USDT",
         "recordedAt": "2026-09-04T11:00:00Z",
         "occurredTimeZone": "UTC",

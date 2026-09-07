@@ -5,8 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import { parseBackupJson } from "@/features/backup";
 import {
+  createGoldenStorageScenario,
   GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
   GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
+  ledgerFileTestStringToBytes,
+  readLedgerFileForTest,
+  serializeLedgerFileForTest,
 } from "@/test-support";
 import {
   LedgerFileHandleAdapter,
@@ -217,5 +221,39 @@ describe("storage golden fixtures", () => {
     expect(ledger.priceSnapshots[0]?.occurredTimeZone).toBe("UTC");
     expect(handle.writeAttempts).toBe(0);
     expect(handle.snapshot()).toEqual(before);
+  });
+
+  it("reads back the whole V5 ledger the fixture was written from", async () => {
+    const bytes = new Uint8Array(readFileSync(GOLDEN_LEDGER_FILE_V5_URL));
+    const handle = new ReadOnlyGoldenLedgerHandle(
+      bytes,
+      "golden-ledger-file-format-v3-crypto-v1-ledger-schema-v5-time-zone.lftl",
+    );
+    const repository = await LedgerFileRepository.open(
+      new LedgerFileHandleAdapter(),
+      handle,
+      GOLDEN_LEDGER_FILE_V5_PASSPHRASE,
+      { sessionLease: TEST_SESSION_LEASE },
+    );
+
+    // The expected value is the very scenario this fixture was written from,
+    // hand-written in `goldenStorageScenario.ts` and never derived from the
+    // reader. Comparing the whole ledger is what catches a reader that quietly
+    // alters content; asserting a handful of fields cannot.
+    expect(await repository.load()).toEqual(createGoldenStorageScenario());
+  });
+
+  it("serializes the V5 fixture back to the exact bytes on disk", () => {
+    const bytes = new Uint8Array(readFileSync(GOLDEN_LEDGER_FILE_V5_URL));
+
+    const reserialized = ledgerFileTestStringToBytes(
+      serializeLedgerFileForTest(readLedgerFileForTest(bytes)),
+    );
+
+    expect(reserialized.byteLength).toBe(bytes.byteLength);
+    expect(reserialized).toEqual(bytes);
+    expect(createHash("sha256").update(reserialized).digest("hex")).toBe(
+      GOLDEN_LEDGER_FILE_V5_SHA256,
+    );
   });
 });
