@@ -789,6 +789,15 @@ const englishMessages: TranslationTable = {
   "shared.shell.lock": "Lock ledger",
   "shared.shell.workspaceLabel": "Encrypted ledger workspace",
   "shared.confirmDelete.confirm": "Click again to confirm",
+  "transfer.workspace.ariaLabel": "Import and export workspace",
+  "transfer.heading": "Import and export",
+  "transfer.description.file": "The current .lftl is the encrypted ledger of record; the backup file imported or exported here is always a separate plaintext JSON.",
+  "transfer.description.indexedDb": "The backup file imported or exported here is plaintext JSON, which is not the same as the local ledger record in this browser.",
+  "transfer.privacyWarning": "⚠ A plaintext backup contains every asset, transaction, price, and fee rule. Check where your browser actually puts downloads; a sync folder may upload the file on its own, so delete it safely once you no longer need it.",
+  "transfer.export.heading": "Export plaintext ledger",
+  "transfer.export.description": "Export does not modify the current ledger; whether the download reached the disk is still decided by your browser's download list.",
+  "transfer.import.heading": "Preflight and replace completely",
+  "transfer.import.description": "A read-only preflight runs first; the write happens only after the current file authorization, the preflight credential, and read-back verification all pass, and ledgers are never merged.",
 };
 
 const hungarianMessages: TranslationTable = {
