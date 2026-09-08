@@ -132,3 +132,74 @@ Benchmarks are separate and each has a contract test beside it:
 - **Prices are only as good as what you record.** Automatic prices come from Binance
   Spot for assets you mapped yourself; everything else needs a manual price, and
   without one the affected numbers are reported as uncomputable rather than guessed.
+
+## Where your data lives
+
+Two kinds of file, with completely different jobs.
+
+| | The ledger file (`.lftl`) | A backup file (`.json`) |
+| --- | --- | --- |
+| What it is for | The ledger of record you work in every day | Backup, moving to another machine, reading it yourself |
+| Encryption | AES-GCM, 256-bit key, 128-bit tag | **None. It is plaintext.** |
+| Where it goes | Wherever you point the system file picker | Wherever you choose to export it |
+| How it is protected | Two generations kept side by side, every write read back and verified, and the file's identity checked before it is trusted | Identified by the SHA-256 of its contents, and inspected by a read-only preflight before any import writes anything |
+
+The password never leaves the page, and neither does the key derived from it. The key
+comes from PBKDF2-SHA-256 at 600,000 iterations over a salt stored in that one file, so
+two ledgers with the same password still have different keys. Both the password and the
+key exist only for as long as the tab is unlocked; closing or reloading the page means
+unlocking again.
+
+Inside the ledger file, two generations are kept: the current one and the previous one.
+A write lands in the inactive generation and is read back and verified before it counts,
+so an interrupted write leaves the last good generation intact.
+
+What the browser stores locally is deliberately small, and none of it is your ledger:
+
+- **IndexedDB** holds exactly one record — the file handle the browser gave you for the
+  ledger file, plus the file identity it expects to find there. No ledger contents, no
+  password, no key.
+- **Local storage** holds your interface language.
+
+That is the whole list. The encryption code never touches browser storage at all.
+
+## Security boundary
+
+**What this promises**
+
+- The complete ledger is only ever written to the file you picked. There is no account,
+  no server, no sync, and no telemetry of any kind.
+- The only outbound request the app makes is to Binance's public market-data endpoint,
+  only when you click validate or refresh, and it carries nothing but a public trading
+  pair symbol.
+- Untrusted input — forms, ledger files, backup JSON, even the browser's own stored
+  record — is validated at runtime before anything acts on it.
+- An import replaces the ledger with the candidate that passed validation. It never
+  merges, never imports part of a file, and never silently drops a record it disliked.
+- A file the app refuses is refused before your password is used: nothing is decrypted,
+  nothing is written back, and your original file is left exactly as it was.
+- The four version numbers live in the file's plaintext outer layer, so the app can tell
+  you precisely what it is refusing without needing the password.
+- When the browser cannot prove what is actually on disk, the app stops and says so
+  rather than guessing which version should win.
+
+**What this does not promise**
+
+- **Backup files are plaintext, and are outside the encryption guarantee entirely.**
+  Anyone who can open the file can read your whole trading history. Nothing in this app
+  protects an exported backup — where you put it is the only protection it has, and a
+  sync folder may upload it without asking you.
+- **Nothing here defends a machine that is already compromised.** While the ledger is
+  unlocked, it is plaintext in the browser's memory, and anyone with your password and
+  your file has your ledger.
+- **There is no password recovery.** No reset, no escrow, no recovery code, no back
+  door. A forgotten password means the ledger file is unreadable, including to you.
+- **The write-and-verify sequence is not an operating-system-level atomic transaction.**
+  It is the strongest thing a browser can do, which is not the same as a guarantee. Keep
+  a separate backup of anything you cannot afford to lose.
+- **Coordination between tabs relies on Web Locks and the file's identity.** It cannot
+  constrain a program outside the browser that edits the same file without taking part.
+- **None of this has been reviewed by an outside security auditor.** The cryptography is
+  the browser's own Web Crypto API used in a straightforward way; that is a reasonable
+  starting point, not a reviewed design.
+- **This is Alpha,** so any of the above can still change.
