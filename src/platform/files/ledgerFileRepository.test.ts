@@ -26,6 +26,7 @@ import type { CashEvent, LedgerData, Trade } from "@/core/models";
 import { createInitialLedgerData, ledgerReducer } from "@/core/state";
 import {
   createLedgerSession,
+  READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
   LEDGER_FILE_CAPABILITIES,
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   LedgerSessionLifecycleError,
@@ -2796,7 +2797,7 @@ describe("LedgerFileRepository", () => {
       repository.authorizeReadyClear({
         sessionId: "forged-direct-call",
         generation: 0,
-        confirmationNonce: "清空当前C账本",
+        confirmationNonce: "清空当前账本",
       }),
     ).toBeNull();
     const session = createReadyClearSession(
@@ -2808,7 +2809,7 @@ describe("LedgerFileRepository", () => {
     ).toBeNull();
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2888,7 +2889,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -2907,6 +2908,55 @@ describe("LedgerFileRepository", () => {
     );
     expect(after.file.previous).toEqual(before.file.current);
     expect(handle.writeCount).toBe(2);
+  });
+
+  it("never writes the clear confirmation nonce into the file", async () => {
+    // The nonce is an in-memory authorization token. Renaming it has to be a
+    // display-level change with no stored value behind it, so this test looks
+    // for it in both places it could hide: the raw bytes on disk, and the
+    // decrypted payload inside them (04A D-17d).
+    const handle = new AtomicLedgerHandle();
+    const repository = await LedgerFileRepository.create(
+      new LedgerFileHandleAdapter(),
+      handle,
+      PASSPHRASE,
+      createLedgerWithTrades(1),
+      {
+        generateId: createIdGenerator([
+          "nonce-never-stored",
+          "revision-before-nonce-clear",
+          "revision-after-nonce-clear",
+        ]),
+        now: createClock([
+          "2026-07-28T10:00:00.000Z",
+          "2026-07-28T10:01:00.000Z",
+        ]),
+        sessionLease: TEST_SESSION_LEASE,
+      },
+    );
+    const session = createReadyClearSession(
+      repository,
+      "ready-clear-nonce-never-stored",
+    );
+    const authorization = session.readyClearPort?.authorizeReadyClear(
+      READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
+    );
+    expect(authorization).not.toBeNull();
+    if (!authorization || !session.readyClearPort) return;
+
+    await session.readyClearPort.clearReadyLedger(authorization);
+
+    // Anchor first, so a scan of an empty or unreadable buffer cannot pass by
+    // finding nothing.
+    expect(handle.text()).toContain("fileFormatVersion");
+    expect(handle.text()).not.toContain(READY_LEDGER_CLEAR_CONFIRMATION_TEXT);
+    expect(handle.text()).not.toContain("confirmationNonce");
+    const after = await readVerifiedFile(handle);
+    expect(JSON.stringify(after)).not.toContain(
+      READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
+    );
+    expect(JSON.stringify(after)).not.toContain("confirmationNonce");
+    expect(after.current.ledgerData.trades).toEqual([]);
   });
 
   it("clears only the selected C and the same file reopens with the verified empty current", async () => {
@@ -2952,7 +3002,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -3022,7 +3072,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       firstSession.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (
@@ -3073,7 +3123,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -3122,7 +3172,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -3180,7 +3230,7 @@ describe("LedgerFileRepository", () => {
       );
       const authorization =
         session.readyClearPort?.authorizeReadyClear(
-          "清空当前C账本",
+          "清空当前账本",
         );
       expect(authorization).not.toBeNull();
       if (!authorization || !session.readyClearPort) return;
@@ -3199,7 +3249,7 @@ describe("LedgerFileRepository", () => {
       await expect(repository.load()).resolves.toEqual(original);
       const retryAuthorization =
         session.readyClearPort.authorizeReadyClear(
-          "清空当前C账本",
+          "清空当前账本",
         );
       expect(retryAuthorization).toBe(authorization);
       if (!retryAuthorization) return;
@@ -3246,7 +3296,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -3259,7 +3309,7 @@ describe("LedgerFileRepository", () => {
     });
     const retriedAuthorization =
       session.readyClearPort.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(retriedAuthorization).toBe(authorization);
     if (!retriedAuthorization) return;
@@ -3311,7 +3361,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;
@@ -3324,7 +3374,7 @@ describe("LedgerFileRepository", () => {
     expect(handle.writeCount).toBe(writesBeforeClear);
     const retryAuthorization =
       session.readyClearPort.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(retryAuthorization).toBe(authorization);
     if (!retryAuthorization) return;
@@ -3378,7 +3428,7 @@ describe("LedgerFileRepository", () => {
     );
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;

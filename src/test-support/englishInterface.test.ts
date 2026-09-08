@@ -102,9 +102,9 @@ const SHIPPED_CHINESE_EXEMPTIONS: readonly Readonly<{
 }>[] = [
   {
     file: "platform/persistence/ledgerRepository.ts",
-    text: "清空当前C账本",
+    text: "清空当前账本",
     reason:
-      "The clear-authorization nonce two repository layers compare against; translating it would change an authorization protocol, not wording.",
+      "The clear-authorization nonce two repository layers compare against. It is no longer shown to anyone — the panel displays dashboard.dataManagement.confirmPhrase instead — so this is a protocol value, not wording, and translating it would change what the repository accepts.",
   },
   {
     file: "test-support/fixtures.ts",

@@ -415,7 +415,7 @@ describe("LedgerSession lifecycle", () => {
     });
     const authorization =
       sessionA.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization) return;
@@ -431,7 +431,7 @@ describe("LedgerSession lifecycle", () => {
     sessionA.beginQuiesce("immediate-lock");
     expect(() =>
       sessionA.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       ),
     ).toThrow(LedgerSessionLifecycleError);
     expect(() =>
@@ -475,7 +475,7 @@ describe("LedgerSession lifecycle", () => {
     });
     const authorization =
       session.readyClearPort?.authorizeReadyClear(
-        "清空当前C账本",
+        "清空当前账本",
       );
     expect(authorization).not.toBeNull();
     if (!authorization || !session.readyClearPort) return;

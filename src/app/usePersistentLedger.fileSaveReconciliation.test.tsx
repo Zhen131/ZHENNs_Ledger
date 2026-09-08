@@ -91,7 +91,7 @@ describe("usePersistentLedger file session capabilities", () => {
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("清空当前账本"),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",
@@ -105,7 +105,7 @@ describe("usePersistentLedger file session capabilities", () => {
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("清空当前账本"),
       ).resolves.toEqual({ ok: true });
     });
     expect(handle.writeCount).toBe(writesAfterUncertainClear);
@@ -182,7 +182,7 @@ describe("usePersistentLedger file session capabilities", () => {
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("清空当前账本"),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",
@@ -244,7 +244,7 @@ describe("usePersistentLedger file session capabilities", () => {
 
     await act(async () => {
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("清空当前账本"),
       ).resolves.toEqual({
         ok: false,
         code: "LEDGER_REPOSITORY_CLEAR_FAILED",

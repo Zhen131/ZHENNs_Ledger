@@ -60,7 +60,7 @@ export type LedgerSessionCapabilities = {
 };
 
 export const READY_LEDGER_CLEAR_CONFIRMATION_TEXT =
-  "清空当前C账本";
+  "清空当前账本";
 
 const readyLedgerClearAuthorizationBrand = Symbol(
   "ready-ledger-clear-authorization",

@@ -185,7 +185,7 @@ describe("DashboardShell data management", () => {
     });
     expect(authorizeReadyClear).toHaveBeenCalledWith(
       expect.objectContaining({
-        confirmationNonce: "清空当前C账本",
+        confirmationNonce: "清空当前账本",
         sessionId: "dashboard-ready-clear",
         generation: 0,
       }),

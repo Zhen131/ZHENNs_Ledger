@@ -74,7 +74,7 @@ describe("SettingsWorkspace", () => {
       screen.getByRole("button", { name: "打开清空账本操作" }),
     );
     const input = screen.getByLabelText("输入清空确认文本");
-    await user.type(input, "清空当前C账本");
+    await user.type(input, "清空当前账本");
     await user.click(
       screen.getByRole("button", { name: "确认清空账本内容" }),
     );

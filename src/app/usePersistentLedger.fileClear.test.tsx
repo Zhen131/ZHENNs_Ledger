@@ -131,7 +131,7 @@ describe("usePersistentLedger file session capabilities", () => {
       });
       expect(handle.writeCount).toBe(1);
       await expect(
-        result.current.clearLedger("清空当前C账本"),
+        result.current.clearLedger("清空当前账本"),
       ).resolves.toEqual({ ok: true });
     });
 
@@ -216,7 +216,7 @@ describe("usePersistentLedger file session capabilities", () => {
       | undefined;
     const clearPromise = act(async () => {
       clearResult = await result.current.clearLedger(
-        "清空当前C账本",
+        "清空当前账本",
       );
     });
     expect(handle.writeCount).toBe(2);
@@ -291,7 +291,7 @@ describe("usePersistentLedger file session capabilities", () => {
     let clearPromise!: ReturnType<typeof result.current.clearLedger>;
     act(() => {
       clearPromise = result.current.clearLedger(
-        "清空当前C账本",
+        "清空当前账本",
       );
     });
     await operationGate.started;
