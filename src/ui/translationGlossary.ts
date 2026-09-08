@@ -181,7 +181,7 @@ export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
   {
     chinese: "复读验证",
     english: "read-back verification",
-    status: "unconfirmed",
+    status: "confirmed",
     note: "Reading the write back to prove it landed; no settled English term exists for it.",
   },
   {
