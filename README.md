@@ -1,219 +1,134 @@
-# Local-First 个人交易账本
+# Local-First Trading Ledger
 
-一个跑在浏览器里的加密货币现货账本。账本文件由你自己保管、由你自己的密码加密，程序不设服务器、不设账号、不上传任何一笔交易。
+## What this is
 
-## 这是什么
+A personal trading ledger that keeps everything in one encrypted file you choose.
 
-交易所能告诉你现在有多少币，但很难告诉你**这些币的成本是多少**——尤其当你的资产散落在交易所、冷钱包和理财里，中间还夹着充币、提币、空投和利息的时候。
+There is no account, no server, and no sync. The complete ledger lives in a single
+`.lftl` file on your own disk, encrypted with a password only you know. The browser
+remembers which file you last opened and a little connection information; it never
+keeps a second copy of the ledger.
 
-这个账本只做一件事：**把你所有的真实动作记成事实，然后由事实推导出一切。**
+Everything the app shows — holdings, profit and loss, charts — is derived on the fly
+from the facts you recorded. Nothing derived is stored, so a derived number can never
+drift away from the facts behind it.
 
-- 你录入的是发生过的事：买、卖、现金进出、币的转入转出、价格快照。
-- 持仓数量、平均购价、剩余成本、已实现与未实现盈亏、图表，全部是**推导结果**，不单独存储、不手工修改。
-- 想知道任何一个数字怎么来的，回溯它依赖的事实即可。
+## Core trade-offs
 
-因为派生值不落盘，账本永远不会出现"数字对不上但不知道哪儿错了"的状态。
+**One file is the ledger of record.** If that file is lost, the ledger is lost. In
+exchange, nobody else ever holds your trading history, and the app cannot silently
+substitute a different ledger for the one you picked.
 
-## 核心取舍
+**Facts in, everything else derived.** Only what actually happened is stored: assets,
+trades, cash events, asset transfers, price snapshots, and fee rules. Positions, cost
+basis, and profit and loss are recomputed from those, never written down.
 
-| 取舍 | 说明 |
+**A refusal beats a guess.** When a number cannot be computed honestly — a missing
+price, a fee in a currency that cannot be converted — the interface says so instead of
+filling in a zero. Historical rules are superseded by new versions rather than edited
+in place.
+
+**Safety over convenience at every gate.** Writes go through explicit authorization and
+are read back and verified afterwards. A file from an older format or schema is refused
+outright rather than migrated, so a wrong guess can never quietly damage your data.
+
+**The network is opt-in.** The app reaches out only when you click validate or refresh,
+and such a request carries nothing but a public trading pair symbol.
+
+## What it does today
+
+- **Record the facts.** Trades, USDT cash events, asset transfers in and out between
+  places you hold assets, and manual price snapshots. A negative cash balance can be
+  saved, but only after a second confirmation that shows the shortfall.
+- **See the position.** Total assets, remaining cost basis, realized and unrealized
+  profit and loss, and a holdings table with average cost basis per asset.
+- **Charts.** An allocation pie, a daily step line for total assets against cost basis,
+  and a 365-day trade activity heatmap you can click to filter the activity list.
+- **One unified activity list.** Trades and cash facts on one timeline, filterable by
+  time range, exact date, asset, and type, with a five-second undo window on deletion.
+- **Fee rules.** Named rules matched to a platform, versioned rather than edited, with
+  the matched rule recorded as the source of a trade's fee.
+- **Binance market data.** Map an asset to a Binance Spot trading pair, validate it, and
+  refresh prices for mapped non-zero holdings on demand.
+- **Plaintext backups.** Export the whole ledger as JSON, or import one after a
+  read-only preflight that reports hard errors and suspicious duplicates. An import
+  replaces the ledger completely; it never merges.
+- **Chinese and English interface**, switchable in settings and remembered per browser.
+
+Current formats: ledger schema version 5, ledger file format version 3, crypto version
+1, backup format version 3.
+
+Encryption is AES-GCM with a 256-bit key and a 128-bit tag, over a key derived with
+PBKDF2-SHA-256 at 600,000 iterations and a per-file salt.
+
+## Source layout
+
+`src/` holds six areas, and each area has a stable entry point that the rest of the
+code imports through:
+
+| Area | What lives there |
 | --- | --- |
-| 本地优先 | 完整账本只存在你选择的那个 `.lftl` 文件里。没有服务器，没有账号，关掉浏览器什么都不留 |
-| 事实驱动 | 只存事实，不存派生值。任何金额都能追到它的来源事实 |
-| 缺就是缺 | 缺少行情就明确显示缺少，不用成交价、成本价、零或未来价格顶替 |
-| 精确优先 | 金额与数量用十进制高精度运算，不用 JavaScript 浮点数 |
-| 出错就停 | 无法确认磁盘状态、无法换算手续费、规则冲突时一律 fail closed，不猜 |
+| `src/core` | Pure domain logic, no I/O and no React: `calculations`, `catalog`, `models`, `policies`, `shared`, `state`, `validation` |
+| `src/platform` | Everything that touches the outside world: `coordination`, `encryption`, `files`, `integrations`, `legacy`, `persistence` |
+| `src/features` | One flat folder per feature surface, each with its own logic and UI entry: `activity`, `asset-transfers`, `assets`, `backup`, `cash`, `charts`, `fees`, `market-data`, `portfolio`, `prices`, `trades` |
+| `src/app` | The Next.js app router entry, the dashboard shell, and the workspaces that compose features |
+| `src/ui` | Shared presentation pieces, number formatting, and the message tables for both languages |
+| `src/test-support` | Fixtures and the guards that hold the layout, the wording, and the translations in place |
 
-## 功能
+`benchmarks/` holds the synthetic-ledger generator and the performance probes.
+`test-fixtures/golden/` holds frozen sample files that must never be edited; they are
+the only evidence of what older formats looked like.
 
-**记账**
+The layout itself is enforced by a test: areas may not import each other's internals,
+no area may import its own entry point, and the dependency graph must stay acyclic.
 
-- 买卖录入、运行期校验、确定性排序、全时间线超卖保护、可撤回的安全删除
-- 单一 USDT 现金池：入金、出金、外部支出、余额校准；买卖自动流转现金，负余额需二次确认
-- 资产转入转出：内部转移、外部转入、外部转出、白拿（空投／利息／平台赠送）
-- 三个存放位置：交易所、冷钱包、冷钱包理财
-- 币本位链上手续费；奖励类按到账当日单价计入成本，不按零成本
+## Running it locally
 
-**资产与行情**
-
-- 离线创建本地资产，不受内置清单限制
-- 可选 Binance 交易对映射；没有映射也能记账并录入手动价格
-- 行情只在你点击时请求，8 秒超时，不重试、不轮询、不使用 WebSocket
-
-**手续费规则**
-
-- 固定金额与百分比两种规则，按平台加资产精确匹配
-- 多条规则同时精确匹配时 fail closed，不选第一条
-- 规则更新创建新版本并停用旧版本，绝不原地改写历史交易
-
-**分析**
-
-- 首页展示前五持仓的当前价格、平均购价、涨跌幅、盈亏金额、持仓量、剩余持仓成本与市值；同一列在首页各处使用同一个名字
-- 累计买入流出属于另一套口径，不与同表其他列相减，因此只出现在「完整持仓详情」面板并单独标注
-- 资产分配饼图、含费成本与市值历史曲线、365 日交易热力图
-- 所有只读数字按有效数字自动格式化，悬停可查看完整原值，读屏软件同样可读
-
-**界面语言**
-
-- 支持中文／英文／匈牙利语切换，在设置页切换，默认中文
-- 语言偏好只保存在这台浏览器的 `localStorage` 独立 key 中，不写进账本文件，也不写进备份文件
-- 数字与日期不随语言变化，始终使用普通空格作千分位、点号作小数点
-
-## 你的数据在哪
-
-两种文件，职责完全不同：
-
-| | C 文件（`.lftl`） | B 文件（`.json`） |
-| --- | --- | --- |
-| 用途 | 日常使用的正式账本 | 备份、跨设备迁移、自己查看 |
-| 加密 | AES-256-GCM 加密 | **明文** |
-| 位置 | 你用系统文件选择器指定 | 你导出到任何地方 |
-| 保护 | current / previous 双代、写后复读、身份校验 | SHA-256 内容身份、导入前零写预检 |
-
-**B 文件是明文的，请自行确保存放位置安全。** 它不属于加密静态存储的保证范围。
-
-密码与密钥只存在于当前会话，刷新或关闭页面后必须重新解锁。IndexedDB 只保存最小连接记录，不保存密码、密钥或账本内容。
-
-## 安全边界
-
-**承诺**
-
-- 完整账本只写入你选择的文件；导入成功后整本等于校验通过的候选，不合并、不部分导入、不跳错、不自动去重
-- 不可信输入（表单、文件、JSON、IndexedDB）必须先过运行期校验
-- 浏览器无法证明磁盘状态时 repository fail closed，不猜新旧版本谁获胜
-- 拒绝一个文件时不读密码、不解密、不写回、不删除你的原文件
-
-**不承诺**
-
-- 浏览器补偿流程不是操作系统级原子事务，重要旧版数据仍应另存备份
-- 多标签协调依靠 Web Locks 与文件身份，无法约束不参与协议的原生应用
-- 大账本性能已完成三轮优化，10²～10⁵ 四个档位现已全部可用；10⁶ 笔仍不可用。当前不宣称任意规模都流畅
-
-## 版本与迁移
-
-账本有**四个互相独立的版本号**，各管各的，不合并、不同步升级：
-
-| 版本号 | 管什么 | 当前 |
-| --- | --- | --- |
-| `ledgerSchemaVersion` | 账本数据形状：有哪些事实、哪些字段 | 4 |
-| `backupFormatVersion` | B 文件信封结构 | 3 |
-| `fileFormatVersion` | C 文件外壳结构与双代布局 | **3** |
-| `cryptoVersion` | KDF 与加密参数 | 1 |
-
-只升真正变化的那一个。换个加密参数不该让全世界的账本数据升版本；加一类事实也不该让加密算法升版本。
-
-**四个版本号全部保存在明文外层，永不进入加密载荷。** 这样程序不用密码、不用解密就能判断版本，能给出准确的不兼容提示，将来的迁移链也有入口判断。
-
-### 当前阶段：一律拒绝，不迁移
-
-产品处于 Alpha。遇到任何低版本文件：
-
-```text
-按明文版本号识别旧版本
-→ 显示明确的中文不兼容提示，说明不提供迁移
-→ 不读密码、不解密、不迁移、不写回、不自动删除原文件
-→ 拒绝后仍可新建账本并进入导入流程
-```
-
-### 进入 Beta 前切换为「读旧，写新」
-
-只维护单向升级链，不做双向兼容，不做降级。每个迁移器必须满足四条：
-
-1. **纯函数**：输入旧形状输出新形状，不读文件、不联网、不读系统时间
-2. **发布即冻结，永不修改**：否则早迁移与晚迁移的用户结果不同，且几乎无法排查
-3. **只在内存中迁移**：结果须由用户确认后另存为新文件，绝不自动覆盖原文件
-4. **失败 fail closed**：不写、不删，原文件保持原样
-
-### 黄金样例（硬性要求）
-
-**任何一个版本号升级时，必须在同一次改动中把该版本的完整样例存入 `test-fixtures/golden/`。**
-
-- 全部使用虚构数据，文件名写明所有相关版本号
-- 已提交的黄金样例永不修改，只能新增
-
-理由：迁移器的正确性只能靠真实的旧格式样例验证。没有样例，将来只能凭推测还原旧结构，推错就是无人能发现的静默数据损坏。
-
-## 计算口径
-
-- `Trade.totalValue` 不含手续费。会计币种内的买入手续费增加成本，卖出手续费减少净收入与已实现盈亏
-- 异币种的非零手续费不会被当成零，也不会猜成 USDT；缺少换算合同时，相关成本与盈亏明确标记为不可靠
-- 内部转移不改变总量与成本，只改变位置分布；链上手续费对应的成本转为已实现亏损
-- 白拿类按到账当日单价计入成本，并单独累计为白拿收益，不压低平均购价
-- 缺失的 Binance 映射在保存与导出中继续缺失，运行期回退不改写账本数据
-
-## 源码结构
-
-```text
-src/
-  app/           Next.js 入口、访问控制、工作区组合与持久化流程
-  core/          账本事实、计算、策略、状态、共享基础和校验
-  features/      资产转移、备份、图表、手续费、行情、持仓、价格和交易
-  platform/      文件、持久化、加密、协调、外部集成和旧格式边界
-  ui/            跨功能复用的界面原语
-  test-support/  共享夹具、测试替身和永久结构守卫
-
-benchmarks/      合成账本生成器与性能量尺，不属于产品代码，不进入打包产物
-```
-
-跨区域使用登记后的稳定入口，同一区域使用精确相对引用。TypeScript AST 结构守卫与 ESLint 会拒绝自身稳定入口、未登记深层 alias、跨边界 `../` 和静态依赖环。详细放置与 import 合同见 [`src/README.md`](src/README.md)。
-
-## 本地运行
-
-需要 Node.js 20、22 或 24+：
+Requires Node.js and npm, and a Chromium-based browser — the ledger file is opened
+through the File System Access API, which other browsers do not implement.
 
 ```bash
-npm ci
+npm install
 npm run dev
 ```
 
-打开 `http://127.0.0.1:3000`。
+`npm run dev` serves on `127.0.0.1` only. Open it, create a ledger, and choose where the
+`.lftl` file goes.
 
-完整质量门：
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Development server on `127.0.0.1` |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build on `127.0.0.1` |
+| `npm test` | The whole test suite once |
+| `npm run test:watch` | The test suite in watch mode |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint, warnings treated as failures |
 
-```bash
-npm test
-npm run typecheck
-npm run lint
-npm run build
-git diff --check
-```
+Benchmarks are separate and each has a contract test beside it:
+`bench:test:generator`, `bench:test:node`, `bench:node`, `bench:test:browser`,
+`bench:browser`, `bench:test:m9`, `bench:m9`, `bench:m3-breakdown`, `bench:probe`.
 
-性能量尺（不随 `npm test` 运行，不改动产品代码）：
+## Limits at this stage
 
-```bash
-npm run bench:test:generator
-npm run bench:node -- --scale=S-100
-npx playwright install chromium
-npm run bench:browser -- --mode=production --scale=S-100
-npm run bench:probe -- --scale=S-100K
-```
-
-生成器使用固定种子 `w15-main-perf-baseline-v1` 与固定合成日期，同种子同档位逐字段可复现；生成出的账本与结果文件一律不入库。用法与指标定义见 [`benchmarks/README.md`](benchmarks/README.md)。
-
-## 当前阶段与已知限制
-
-产品处于 **Alpha**，唯一使用者为作者本人。
-
-- **界面文案已全部接入多语言机制，但英文与匈牙利语译文远未补齐。** 中文文案表现有 **1,219 键**，英文与匈牙利语**各仅 32 键（覆盖率 2.6%）**，其余在切换语言后经回落机制仍显示中文。**因此本版本不具备英文交付能力**；英、匈译文亦未经母语者审校。
-- 全仓仅 `src/app/layout.tsx` 的服务端静态 metadata 保留硬编码中文，客户端 i18n 调用会使 build 失败，属合格例外。
-- 手续费只支持会计币种内的实际手续费；阶梯费率、最低手续费、交易所专属舍入与异币换算尚未实现
-- Binance 只提供最新公开价格；历史 K 线、轮询与 WebSocket 尚未实现
-- 已完成三轮性能优化。第一轮「不重复算」加入派生结果缓存、写入前单次扫描、输入草稿隔离与增量派生更新；第二轮「只画看得见的」把交易流水、现金事实与资产转移三张列表改为分页，并让非活动工作区真正卸载；第三轮「存盘成本」把 C 文件外壳从「纯 JSON 内嵌 base64 密文」改为「JSON 头 + 原始加密字节」，改用轮换的固定槽写入，并把账本事实按数量切分为独立加密、独立认证的块，普通保存只重写发生变化的块与一个头槽。production 模式下四档实测（每档取中位数，10⁵ 为小样本）：
-
-  | 档位 | 冷启动 | 记一笔 | 查询筛选 | 页面切换（最差） | 单字符输入 | 交易页元素数 | 判定 |
-  | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-  | 10² | 0.20 s | 0.09 s | 0.03 s | 0.07 s | 0.03 s | 2,932 | 可用 |
-  | 10³ | 0.38 s | 0.22 s | 0.03 s | 0.06 s | 0.03 s | 2,962 | 可用 |
-  | 10⁴ | 0.86 s | 0.35 s | 0.03 s | 0.07 s | 0.03 s | 2,926 | 可用 |
-  | 10⁵ | 6.63 s | **1.56 s** | 0.03 s | 0.11 s | 0.03 s | 2,930 | **可用** |
-
-  「记一笔」在 10⁵ 档的历史轨迹为 7,652 ms（优化前）→ 15,979 ms（曾因资源上限放宽而进入该档）→ **1,556 ms**（当前）。同时渲染的元素数已与账本规模脱钩：四档均在 3,000 上下，而第二轮优化前 10⁴ 档为 346,060。
-
-  **10⁶ 笔仍不可用**：明文 B 文件在 JSON 序列化阶段触及 JavaScript 单条字符串上限，该路径不在第三轮范围内，因此 10⁶ 的写入耗时未取得，不据此宣称可用或不可用。虚拟列表未实现，也不在当前计划内。
-
-- **版本 2 的 `.lftl` 文件不再能被打开。** 本版本处于 Alpha，遇到版本 2 只在解密前识别其明文版本号并明确拒绝——不验证密文、不派生密钥、不解密、不写回，原文件原样保留不被修改。**本版本不提供迁移器**；持有版本 2 账本者需用旧版本导出 B 文件，再在本版本新建账本后导入。由拒绝切换为迁移的时点尚未到来。
-
-- 桌面端仍是产品讨论方向，不是已实现的代码
-- 本项目区分「开发执行 PASS」与「独立验收通过」。README 不把主线合入表述为独立验收通过；各批次的验收结论、历史 `FAIL` 与证据边界以开发日志为准，不被后续开发绿灯覆盖
-
-分支、远端与发布状态以 Git 实时结果为准。逐周进展、提交坐标与逐批验收结论见开发日志 `01一些进度/日志/00-当前开发状态.md`。
+- **This is Alpha.** Formats and behaviour can still change, and there is no upgrade
+  path promised between Alpha revisions.
+- **Older files are refused, not migrated.** A ledger file or backup written against an
+  earlier schema or container version is rejected before the password is even used. No
+  migration is provided, and the original file is left untouched.
+- **The interface switches between Chinese and English, but the English has not been
+  reviewed by a native speaker.** Domain terms are pinned by a glossary the tests
+  enforce; tone and idiom are not vouched for. The English layout has not been checked
+  page by page either, so longer English labels may crowd a table or a button.
+- **Hungarian is unfinished and withdrawn.** The language code and its translations are
+  still in the source so it can return in one line, but the option is not offered in
+  settings, and a browser that stored it falls back to the default language.
+- **One file, one person, one machine.** There is no sync, no sharing, and no
+  multi-device story. Two pages open on the same file coordinate to avoid corrupting
+  it, but that is a safety measure, not collaboration.
+- **Backups are plaintext.** An exported backup is unencrypted JSON, readable by anyone
+  who can reach the file. Keep it somewhere safe, and remember that a sync folder may
+  upload it on its own.
+- **Prices are only as good as what you record.** Automatic prices come from Binance
+  Spot for assets you mapped yourself; everything else needs a manual price, and
+  without one the affected numbers are reported as uncomputable rather than guessed.
