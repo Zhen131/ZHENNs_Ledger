@@ -90,9 +90,9 @@ export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
   },
   {
     chinese: "持仓均价",
-    english: "average holding cost",
-    status: "unconfirmed",
-    note: "Fee-inclusive average cost of what is still held; 'average cost' alone reads as a market average.",
+    english: "average cost basis",
+    status: "confirmed",
+    note: "Fee-inclusive average cost of what is still held; 'cost basis' is the accounting term and already carries the acquisition costs.",
   },
   {
     chinese: "持仓",
