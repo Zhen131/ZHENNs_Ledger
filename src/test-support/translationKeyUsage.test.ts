@@ -128,6 +128,9 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "charts.option.history.totalAssetsSeries",
   // Dashboard controls all expose the same Cancel action.
   "dashboard.action.cancel",
+  // The legacy clear phrase is both what the reader types and the value the
+  // legacy path hands on, so the panel reads it twice.
+  "dashboard.clearConfirmation.legacy",
   // Dashboard asset rows use the same unreliable marker.
   "dashboard.assets.unreliable",
   // Dashboard delete paths use the same ledger-not-writable sentence.
@@ -195,6 +198,9 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   // Price form areas use the same Place field label.
   "prices.field.timeZone",
   // Both language selectors use the same language label.
+  // The settings clear phrase is read once for the panel's own language and
+  // once for the default-language export other callers use.
+  "settings.clear.confirmation.phrase",
   "settings.language.label",
   // Workspace navigation uses the same Home label.
   "shared.shell.home",

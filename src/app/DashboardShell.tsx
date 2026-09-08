@@ -107,7 +107,17 @@ export function DashboardShell({
     session?.capabilities ?? providedCapabilities;
   const storageKind =
     session?.storageKind ?? providedStorageKind;
-  const clearConfirmationText =
+  // What the reader is shown and must type: the phrase for the language on
+  // screen (04A D-16a). It is deliberately NOT what gets handed to the
+  // repository.
+  const clearConfirmationPhrase =
+    storageKind === "ledger-file"
+      ? t("dashboard.dataManagement.confirmPhrase")
+      : t("dashboard.clearConfirmation.legacy");
+  // What the repository is handed once the typed phrase matches: the one
+  // canonical value it has always accepted. Widening what the repository
+  // accepts is out of bounds (04A D-16b).
+  const clearConfirmationNonce =
     storageKind === "ledger-file"
       ? READY_LEDGER_CLEAR_CONFIRMATION_TEXT
       : t("dashboard.clearConfirmation.legacy");
@@ -422,9 +432,9 @@ export function DashboardShell({
   }
 
   async function handleClearLedger() {
-    if (clearConfirmationValue !== clearConfirmationText) {
+    if (clearConfirmationValue !== clearConfirmationPhrase) {
       setClearConfirmationError(
-        `${t("dashboard.clearConfirmation.errorPrefix")}“${clearConfirmationText}”`,
+        `${t("dashboard.clearConfirmation.errorPrefix")}“${clearConfirmationPhrase}”`,
       );
       return;
     }
@@ -432,7 +442,7 @@ export function DashboardShell({
     const operationRepository = repository;
     setClearConfirmationError("");
     setClearSuccessMessage("");
-    const result = await clearLedger(clearConfirmationValue);
+    const result = await clearLedger(clearConfirmationNonce);
 
     if (
       !mountedRef.current ||
@@ -466,7 +476,7 @@ export function DashboardShell({
       return false;
     }
     const operationRepository = repository;
-    const result = await clearLedger(clearConfirmationText);
+    const result = await clearLedger(clearConfirmationNonce);
     if (
       !mountedRef.current ||
       currentRepositoryRef.current !== operationRepository ||
@@ -1018,7 +1028,7 @@ export function DashboardShell({
                         : t("dashboard.dataManagement.clearRecoveryWarning")}
                     </p>
                     <label className="grid gap-2 font-medium text-red-900">
-                      {t("dashboard.dataManagement.confirmPrefix")}“{clearConfirmationText}”{t("dashboard.dataManagement.confirmSuffix")}
+                      {t("dashboard.dataManagement.confirmPrefix")}“{clearConfirmationPhrase}”{t("dashboard.dataManagement.confirmSuffix")}
                       <input
                         aria-label={t("dashboard.dataManagement.confirmAriaLabel")}
                         className="rounded-md border border-red-300 bg-white px-3 py-2 font-normal text-slate-950 outline-none focus:border-red-500"

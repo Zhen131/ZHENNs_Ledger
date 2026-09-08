@@ -101,12 +101,6 @@ const SHIPPED_CHINESE_EXEMPTIONS: readonly Readonly<{
   reason: string;
 }>[] = [
   {
-    file: "app/SettingsWorkspace.tsx",
-    text: "清空账本",
-    reason:
-      "A confirmation phrase the reader types verbatim; translating it changes what the gate accepts, so it is declared rather than moved (04B X-8).",
-  },
-  {
     file: "platform/persistence/ledgerRepository.ts",
     text: "清空当前C账本",
     reason:

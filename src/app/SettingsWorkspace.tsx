@@ -8,11 +8,20 @@ import {
   type ReactNode,
 } from "react";
 
-import { SurfaceCard, useLanguage } from "@/ui";
+import { SurfaceCard, translateDefault, useLanguage } from "@/ui";
 import type { HydrationStatus } from "./hydrationState";
 import type { PersistenceOperation } from "./usePersistentLedger";
 
-export const PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT = "清空账本";
+/**
+ * The Chinese reading of the phrase this panel asks the reader to type. The
+ * panel itself compares against the phrase for the language on screen (04A
+ * D-16a), so this export exists for callers that want the default-language
+ * wording; it is derived from the message table rather than duplicated, so the
+ * two can never drift apart.
+ */
+export const PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT = translateDefault(
+  "settings.clear.confirmation.phrase",
+);
 const SUCCESS_FEEDBACK_MS = 4_000;
 
 type SettingsTab = "market" | "fees" | "danger";
@@ -46,6 +55,7 @@ export function SettingsWorkspace({
   onClear: (mode: ClearMode) => Promise<boolean>;
 }>) {
   const { language, setLanguage, t } = useLanguage();
+  const clearConfirmationPhrase = t("settings.clear.confirmation.phrase");
   const [tab, setTab] = useState<SettingsTab>("market");
   const [dangerExpanded, setDangerExpanded] = useState(false);
   const [confirmationValue, setConfirmationValue] = useState("");
@@ -136,9 +146,11 @@ export function SettingsWorkspace({
 
   async function confirmClear() {
     if (!clearMode || clearDisabled) return;
-    if (confirmationValue !== PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT) {
+    // Only the phrase for the language on screen is accepted; the other
+    // language's phrase is as wrong as any other typo (04A D-16a, D-16c).
+    if (confirmationValue !== clearConfirmationPhrase) {
       setError(
-        `${t("settings.clear.error.confirmationPrefix")}“${PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT}”`,
+        `${t("settings.clear.error.confirmationPrefix")}“${clearConfirmationPhrase}”`,
       );
       return;
     }
@@ -337,7 +349,7 @@ export function SettingsWorkspace({
                 <p>{t("settings.clear.confirmation.backupAdvice")}</p>
               </div>
               <label className="grid gap-2 text-sm font-medium text-red-900">
-                {t("settings.clear.confirmation.inputPrefix")}“{PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT}”{t("settings.clear.confirmation.inputSuffix")}
+                {t("settings.clear.confirmation.inputPrefix")}“{clearConfirmationPhrase}”{t("settings.clear.confirmation.inputSuffix")}
                 <input
                   aria-label={t("settings.clear.confirmation.inputAriaLabel")}
                   className="rounded-md border border-red-300 bg-white px-3 py-2 font-normal text-slate-950"
