@@ -1,5 +1,13 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, extname, join, relative, resolve, sep } from "node:path";
+import {
+  basename,
+  dirname,
+  extname,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
@@ -34,16 +42,21 @@ const LEGACY_TOP_LEVEL_AREAS = [
   "utils",
   "validators",
 ] as const;
-const FEATURES = [
-  "asset-transfers",
-  "backup",
-  "charts",
-  "fees",
-  "market-data",
-  "portfolio",
-  "prices",
-  "trades",
-] as const;
+const FEATURES = directoryNames(join(SRC_ROOT, "features"));
+const APP_AREAS = directoryNames(join(SRC_ROOT, "app")).filter(
+  (name) => name !== "fonts",
+);
+const NEXT_RESERVED_FILE_NAMES = new Set([
+  "default",
+  "error",
+  "global-error",
+  "layout",
+  "loading",
+  "not-found",
+  "page",
+  "route",
+  "template",
+]);
 const CORE_AREAS = [
   "calculations",
   "catalog",
@@ -116,6 +129,28 @@ describe("source layout", () => {
     for (const area of ["app", "ui", "test-support"] as const) {
       expect(fileNames(join(SRC_ROOT, area))).toContain("index.ts");
     }
+    for (const area of APP_AREAS) {
+      const entries = readdirSync(join(SRC_ROOT, "app", area), {
+        withFileTypes: true,
+      });
+
+      expect(fileNames(join(SRC_ROOT, "app", area)), area).toContain(
+        "index.ts",
+      );
+      expect(
+        entries.filter((entry) => entry.isDirectory()).map(({ name }) => name),
+        `app/${area} must remain flat`,
+      ).toEqual([]);
+      expect(
+        entries
+          .filter((entry) => entry.isFile())
+          .map(({ name }) => name)
+          .filter((name) =>
+            NEXT_RESERVED_FILE_NAMES.has(basename(name, extname(name))),
+          ),
+        `app/${area} must not hold Next.js reserved files`,
+      ).toEqual([]);
+    }
   });
 
   it("keeps tracked TypeScript imports on the stable source contract", () => {
@@ -179,6 +214,13 @@ type SourceDependencyGraph = Readonly<{
   files: readonly string[];
 }>;
 
+function directoryNames(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => entry.name)
+    .sort();
+}
+
 function fileNames(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true })
     .filter((entry) => entry.isFile())
@@ -201,12 +243,16 @@ function importViolation(specifier: string): string | undefined {
   if (/^@\/features\/[^/]+\/(?!ui$).+/.test(specifier)) {
     return "deep feature import";
   }
-  if (/^@\/(?:app|ui|test-support)\/.+/.test(specifier)) {
+  if (/^@\/(?:ui|test-support)\/.+/.test(specifier)) {
     return "deep top-level entry import";
+  }
+  const appChild = /^@\/app\/(.+)$/.exec(specifier)?.[1];
+  if (appChild !== undefined && !APP_AREAS.includes(appChild)) {
+    return "deep app import";
   }
   if (
     specifier.startsWith("@/") &&
-    !/^@\/(?:core\/[^/]+|platform\/(?:[^/]+|persistence\/identity)|features\/[^/]+(?:\/ui)?|app|ui|test-support)$/.test(
+    !/^@\/(?:core\/[^/]+|platform\/(?:[^/]+|persistence\/identity)|features\/[^/]+(?:\/ui)?|app(?:\/[^/]+)?|ui|test-support)$/.test(
       specifier,
     )
   ) {
@@ -219,17 +265,26 @@ function importViolation(specifier: string): string | undefined {
 }
 
 function isSelfStableEntryImport(file: string, specifier: string): boolean {
+  if (sourcePath(file).startsWith("app/") && specifier === "@/app") {
+    return true;
+  }
   const stableEntry = owningStableEntry(file);
-  return (
-    stableEntry !== undefined &&
-    (specifier === stableEntry || specifier.startsWith(`${stableEntry}/`))
-  );
+  if (stableEntry === undefined) {
+    return false;
+  }
+  if (stableEntry === "@/app") {
+    return specifier === stableEntry;
+  }
+  return specifier === stableEntry || specifier.startsWith(`${stableEntry}/`);
 }
 
 function owningStableEntry(file: string): string | undefined {
-  const [area, child] = sourcePath(file).split("/");
+  const [area, child, grandchild] = sourcePath(file).split("/");
   if (["core", "features", "platform"].includes(area) && child) {
     return `@/${area}/${child}`;
+  }
+  if (area === "app" && grandchild !== undefined) {
+    return `@/app/${child}`;
   }
   if (["app", "test-support", "ui"].includes(area)) {
     return `@/${area}`;

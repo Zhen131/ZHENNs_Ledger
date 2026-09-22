@@ -1,4 +1,5 @@
 import { FlatCompat } from "@eslint/eslintrc";
+import { readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,6 +7,20 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const compat = new FlatCompat({
   baseDirectory: currentDirectory,
 });
+
+function directoryNames(relativeDirectory) {
+  return readdirSync(path.join(currentDirectory, relativeDirectory), {
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+const featureNames = directoryNames("src/features");
+const appAreas = directoryNames("src/app").filter((name) => name !== "fonts");
+const appAreaPattern =
+  appAreas.length > 0 ? `(?:${appAreas.map(escapeRegex).join("|")})` : "(?!)";
 
 const stableImportPatterns = [
   {
@@ -25,12 +40,15 @@ const stableImportPatterns = [
     message: "Import feature logic through @/features/<feature> and UI through its /ui entry.",
   },
   {
-    regex: "^@/(?:app|ui|test-support)/.+",
+    regex: "^@/(?:ui|test-support)/.+",
     message: "Import this area through its top-level stable entry.",
   },
   {
-    regex:
-      "^@/(?!core/[^/]+$|platform/(?:[^/]+|persistence/identity)$|features/[^/]+(?:/ui)?$|app$|ui$|test-support$).+",
+    regex: `^@/app/(?!${appAreaPattern}$).+`,
+    message: "Import app code through @/app or an app area entry @/app/<area>.",
+  },
+  {
+    regex: `^@/(?!core/[^/]+$|platform/(?:[^/]+|persistence/identity)$|features/[^/]+(?:/ui)?$|app(?:/${appAreaPattern})?$|ui$|test-support$).+`,
     message: "This source alias is not part of the stable entry-point contract.",
   },
   {
@@ -63,21 +81,23 @@ const sourceAreaEntries = [
     files: [`src/platform/${area}/**/*.{ts,tsx}`],
     entry: `@/platform/${area}`,
   })),
-  ...[
-    "backup",
-    "charts",
-    "fees",
-    "market-data",
-    "portfolio",
-    "prices",
-    "trades",
-  ].map((feature) => ({
+  ...featureNames.map((feature) => ({
     files: [`src/features/${feature}/**/*.{ts,tsx}`],
     entry: `@/features/${feature}`,
   })),
-  ...["app", "test-support", "ui"].map((area) => ({
+  ...["test-support", "ui"].map((area) => ({
     files: [`src/${area}/**/*.{ts,tsx}`],
     entry: `@/${area}`,
+  })),
+  {
+    files: ["src/app/*.{ts,tsx}"],
+    entry: "@/app",
+    selfImportRegexes: ["^@/app$"],
+  },
+  ...appAreas.map((area) => ({
+    files: [`src/app/${area}/**/*.{ts,tsx}`],
+    entry: `@/app/${area}`,
+    selfImportRegexes: ["^@/app$", `^${escapeRegex(`@/app/${area}`)}(?:$|/)`],
   })),
 ];
 
@@ -107,7 +127,7 @@ const eslintConfig = [
       ],
     },
   },
-  ...sourceAreaEntries.map(({ files, entry }) => ({
+  ...sourceAreaEntries.map(({ files, entry, selfImportRegexes }) => ({
     files,
     rules: {
       "no-restricted-imports": [
@@ -115,10 +135,12 @@ const eslintConfig = [
         {
           patterns: [
             ...stableImportPatterns,
-            {
-              regex: `^${escapeRegex(entry)}(?:$|/)`,
-              message: `Code inside ${entry} must use same-directory ./file imports instead of its own stable entry.`,
-            },
+            ...(selfImportRegexes ?? [`^${escapeRegex(entry)}(?:$|/)`]).map(
+              (regex) => ({
+                regex,
+                message: `Code inside ${entry} must use same-directory ./file imports instead of its own stable entry.`,
+              }),
+            ),
           ],
         },
       ],
