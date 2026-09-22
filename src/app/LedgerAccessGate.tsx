@@ -29,7 +29,7 @@ import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,
 } from "@/app/persistence";
-import { DashboardShell } from "./DashboardShell";
+import { DashboardShell } from "@/app/dashboard";
 import { useLanguage } from "@/ui";
 import { PasswordField } from "./PasswordField";
 import type {

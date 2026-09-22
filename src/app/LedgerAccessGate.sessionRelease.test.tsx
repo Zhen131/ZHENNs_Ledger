@@ -34,7 +34,7 @@ import {
   repository,
 } from "./LedgerAccessGate.testHelpers";
 
-vi.mock("./DashboardShell", () => ({
+vi.mock("@/app/dashboard", () => ({
   DashboardShell: ({
     session,
     onFinalLock,
