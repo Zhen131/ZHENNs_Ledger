@@ -4,7 +4,7 @@ The source tree has six responsibility areas. Keep new code in the area that own
 
 ```text
 src/
-  app/           Next.js entries, access control, Dashboard, composition, and runtime persistence flow
+  app/           Next.js entries plus five application areas: gate, dashboard, workspaces, persistence, file access
   core/          Framework-free ledger facts, calculations, policies, state, shared primitives, and validation
   features/      Flat product capabilities with separate logic and UI entries
   platform/      Browser files, persistence, encryption, coordination, integrations, and retained legacy boundaries
@@ -16,7 +16,22 @@ src/
 
 ### `app`
 
-`app` owns the Next.js entry files, the ledger access gate, Dashboard composition, file-access controllers, hydration state, and `usePersistentLedger`. It coordinates features and platform capabilities but does not duplicate their calculations, validation, or persistence contracts. `app/index.ts` exposes only stable application types needed by features, plus the workspace draft factories that give a new record form its one initial state.
+`app` coordinates features and platform capabilities but does not duplicate their calculations, validation, or persistence contracts. It has two levels.
+
+The root holds only the Next.js entry files and the type entry for code outside `app`: `layout.tsx`, `page.tsx`, `index.ts`, `globals.css`, `favicon.ico`, and `fonts/`. `app/index.ts` re-exports only types, taken from `@/app/persistence`.
+
+Everything else lives in one of five flat areas:
+
+```text
+app/
+  gate/          Ledger access gate: checking, unlocking, creating, recovering, and locking a ledger file, and the panels only it uses
+  dashboard/     Dashboard shell, its derivations, the workspace frame, and the panels only the shell uses
+  workspaces/    Home, Record, Transactions, Transfer, and Settings workspaces, their session hook, and the record target
+  persistence/   usePersistentLedger and its helpers, and hydration state
+  file-access/   Ledger file access controller
+```
+
+Each area has one `index.ts` as its only entry, holds no subdirectory, and holds no Next.js reserved file name (`page`, `layout`, `route`, `loading`, `error`, `not-found`, `template`, `default`, `global-error`), so no area becomes a URL. Inside an area use `./file`; from the root or another area use `@/app/<area>`. Code inside `app` never imports `@/app`, and an area never imports its own `@/app/<area>`. Areas depend in one direction: `gate` uses `dashboard`, `file-access`, and `persistence`; `dashboard` uses `persistence` and `workspaces`; `workspaces` uses `persistence`; `persistence` and `file-access` use no other area. The source-layout test rejects any import that closes a loop.
 
 ### `core`
 
@@ -30,7 +45,7 @@ src/
 
 ### `features`
 
-The eight current features are `asset-transfers`, `backup`, `charts`, `fees`, `market-data`, `portfolio`, `prices`, and `trades`. Asset transfers own category-driven draft validation and the authenticated-save panel for custody movements, external transfers, and gains. Each feature is flat:
+Every directory under `src/features/` is one feature. The source-layout test and ESLint read that list from the file system, so a new feature is held to the rules below from its first file. `trades` and `prices` own the initial draft of their record forms (`createTradeWorkspaceDraft`, `createPriceWorkspaceDraft`); the Record workspace starts from the same drafts. Asset transfers own category-driven draft validation and the authenticated-save panel for custody movements, external transfers, and gains. Each feature is flat:
 
 - `index.ts` exports logic only.
 - `ui.ts` exports UI only; it may be an empty module when a feature has no independent UI component.
@@ -49,7 +64,7 @@ The active IndexedDB boundary stores only `connectionFormatVersion`, the browser
 
 ### `ui` and `test-support`
 
-`ui` contains reusable visual primitives such as `ConfirmDeleteButton`. `test-support` contains deterministic fixtures and test-only doubles; production composition must never import the test-only `NoopEncryptionService`.
+`ui` contains reusable visual primitives such as `ConfirmDeleteButton`, and the interface language mechanism in `i18n.tsx`; the Chinese, English, and Hungarian message tables sit beside it in `i18nMessages.zh.ts`, `i18nMessages.en.ts`, and `i18nMessages.hu.ts`. `test-support` contains deterministic fixtures and test-only doubles; production composition must never import the test-only `NoopEncryptionService`.
 
 ## Import contract
 
@@ -62,12 +77,13 @@ Use `./file` within one directory. Across boundaries, use only:
 @/features/<feature>
 @/features/<feature>/ui
 @/app
+@/app/<area>
 @/ui
 @/test-support
 @root/package.json
 ```
 
-Parent-relative imports, internal deep aliases, and other `@root` targets are rejected by ESLint and the source-layout test.
+Parent-relative imports, internal deep aliases, and other `@root` targets are rejected by ESLint and the source-layout test. `@/app/<area>` names exactly one existing area; anything deeper, or any other name after `@/app/`, is a deep alias.
 
 `@/platform/persistence/identity` is the only narrow platform sub-entry. It exposes only ledger-content identity functions so backup preflight can use them without loading the persistence repository barrel. Code already inside an area must use exact same-directory `./file` imports instead of re-entering its own stable entry.
 
