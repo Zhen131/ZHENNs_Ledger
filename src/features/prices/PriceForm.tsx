@@ -7,6 +7,7 @@ import type {
   PersistenceStatus,
   PriceWorkspaceDraft,
 } from "@/app";
+import { createPriceWorkspaceDraft } from "@/app";
 import type {
   LedgerData,
   PriceSnapshot,
@@ -54,21 +55,6 @@ type PriceFormState = PriceWorkspaceDraft;
 type PriceFormField = keyof PriceFormState | "form";
 
 type Translate = ReturnType<typeof useLanguage>["t"];
-
-function createInitialFormState(
-  assetSymbol: string,
-  todayKey: string,
-  timeZone: string,
-): PriceFormState {
-  return {
-    assetSymbol,
-    price: "",
-    recordedAt: todayKey,
-    recordedTime: "",
-    recordedTimeZone: timeZone,
-    note: "",
-  };
-}
 
 function toPriceFormField(
   field: PriceSnapshotValidationField,
@@ -147,10 +133,10 @@ export function PriceForm({
   const savingMessage = t("prices.status.saving");
   const defaultAssetSymbol = ledgerData.assets[0]?.symbol ?? "";
   const [localForm, setLocalForm] = useState<PriceFormState>(() =>
-    createInitialFormState(
+    createPriceWorkspaceDraft(
       defaultAssetSymbol,
       captureLedgerTime(clock).todayKey,
-      getLedgerTimeZone(clock),
+      clock,
     ),
   );
   const form = draft ?? localForm;
@@ -194,10 +180,10 @@ export function PriceForm({
     setSuccessMessage("");
     if (!draft) {
       setLocalForm(
-        createInitialFormState(
+        createPriceWorkspaceDraft(
           ledgerData.assets[0]?.symbol ?? "",
           captureLedgerTime(clock).todayKey,
-          getLedgerTimeZone(clock),
+          clock,
         ),
       );
     }
@@ -224,10 +210,10 @@ export function PriceForm({
           onReset(preserve);
         } else {
           setLocalForm({
-            ...createInitialFormState(
+            ...createPriceWorkspaceDraft(
               preserve.assetSymbol,
               captureLedgerTime(clock).todayKey,
-              getLedgerTimeZone(clock),
+              clock,
             ),
             recordedAt: preserve.recordedAt,
           });
@@ -361,10 +347,10 @@ export function PriceForm({
       persistenceStatus === undefined
     ) {
       setLocalForm({
-        ...createInitialFormState(
+        ...createPriceWorkspaceDraft(
           form.assetSymbol,
           captureLedgerTime(clock).todayKey,
-          getLedgerTimeZone(clock),
+          clock,
         ),
         recordedAt: form.recordedAt,
       });

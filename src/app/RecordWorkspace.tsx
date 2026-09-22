@@ -123,12 +123,12 @@ export function RecordWorkspace({
       createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
     );
   const [localPriceDraft, setPriceDraft] = useState<PriceWorkspaceDraft>(() =>
-    createPriceWorkspaceDraft(defaultAssetSymbol, todayKey),
+    createPriceWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
   );
   const [sessionPriceDraft, setSessionPriceDraft] =
     useState<PriceWorkspaceDraft>(() =>
       initialPriceDraft ??
-      createPriceWorkspaceDraft(defaultAssetSymbol, todayKey),
+      createPriceWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
     );
   const recordTarget = controlledRecordTarget ?? localRecordTarget;
   const updateRecordTarget = onRecordTargetChange ?? setRecordTarget;
@@ -185,6 +185,7 @@ export function RecordWorkspace({
     const nextDraft = createPriceWorkspaceDraft(
       preserve.assetSymbol,
       preserve.recordedAt,
+      clock,
     );
     updatePriceDraft(nextDraft);
     onPriceDraftChange?.(nextDraft);
@@ -196,7 +197,7 @@ export function RecordWorkspace({
   useEffect(() => {
     setRecordTarget({ kind: "cash", currency: "USDT" });
     setTradeDraft(createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock));
-    setPriceDraft(createPriceWorkspaceDraft(defaultAssetSymbol, todayKey));
+    setPriceDraft(createPriceWorkspaceDraft(defaultAssetSymbol, todayKey, clock));
     onDraftStatusChange(false);
     // A ledger epoch is the only event that clears session-local drafts.
     // eslint-disable-next-line react-hooks/exhaustive-deps

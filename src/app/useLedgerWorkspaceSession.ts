@@ -58,7 +58,7 @@ export function useLedgerWorkspaceSession({
     createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
   );
   const priceDraftRef = useRef<PriceWorkspaceDraft>(
-    createPriceWorkspaceDraft(defaultAssetSymbol, todayKey),
+    createPriceWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
   );
   const recordResetDefaultsRef = useRef({ defaultAssetSymbol, todayKey, clock });
   recordResetDefaultsRef.current = { defaultAssetSymbol, todayKey, clock };
@@ -74,6 +74,7 @@ export function useLedgerWorkspaceSession({
     priceDraftRef.current = createPriceWorkspaceDraft(
       defaults.defaultAssetSymbol,
       defaults.todayKey,
+      defaults.clock,
     );
   }, []);
 

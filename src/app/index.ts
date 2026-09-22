@@ -9,4 +9,7 @@ export type {
   PriceWorkspaceDraft,
   TradeWorkspaceDraft,
 } from "./workspaceDrafts";
-export { createTradeWorkspaceDraft } from "./workspaceDrafts";
+export {
+  createPriceWorkspaceDraft,
+  createTradeWorkspaceDraft,
+} from "./workspaceDrafts";

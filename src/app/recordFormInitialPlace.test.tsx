@@ -174,6 +174,12 @@ describe("a new record form saves a filled time without the place being touched"
     expect(trade?.timePrecision).toBe("minute");
   });
 
+  it("price", async () => {
+    const price = await recordPrice("09:30");
+    expect(price?.recordedAt).toBe(`${FACT_DATE}T09:30:00+02:00`);
+    expect(price?.occurredTimeZone).toBe("Europe/Budapest");
+  });
+
   it("cash event", async () => {
     const cashEvent = await recordCashEvent("09:30");
     expect(cashEvent?.occurredAt).toBe(`${FACT_DATE}T09:30:00+02:00`);
