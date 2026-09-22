@@ -11,7 +11,7 @@ import {
   usePersistentLedger,
   type LedgerSessionFatalSignal,
   type PersistentLedgerState,
-} from "./usePersistentLedger";
+} from "@/app/persistence";
 import { LedgerWorkspaceFrame } from "./LedgerWorkspaceFrame";
 import { HomeWorkspace } from "./HomeWorkspace";
 import { RecordWorkspace } from "./RecordWorkspace";

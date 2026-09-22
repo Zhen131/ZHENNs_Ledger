@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
 import { useLanguage } from "@/ui";
-import type { PersistenceOperation } from "./usePersistentLedger";
+import type { PersistenceOperation } from "@/app/persistence";
 
 export function LockConfirmationPanel({
   canRetryPersistence,

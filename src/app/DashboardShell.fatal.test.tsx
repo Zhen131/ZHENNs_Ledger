@@ -9,11 +9,11 @@ import {
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   type LedgerRepository,
 } from "@/platform/persistence";
-import type { PersistentLedgerState } from "./usePersistentLedger";
-import { usePersistentLedger } from "./usePersistentLedger";
+import type { PersistentLedgerState } from "@/app/persistence";
+import { usePersistentLedger } from "@/app/persistence";
 import { DashboardShell } from "./DashboardShell";
 
-vi.mock("./usePersistentLedger", () => ({
+vi.mock("@/app/persistence", () => ({
   usePersistentLedger: vi.fn(),
 }));
 

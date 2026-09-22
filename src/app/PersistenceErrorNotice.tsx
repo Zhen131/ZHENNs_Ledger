@@ -1,5 +1,5 @@
 import { useLanguage } from "@/ui";
-import type { PersistenceOperation } from "./usePersistentLedger";
+import type { PersistenceOperation } from "@/app/persistence";
 
 export function PersistenceErrorNotice({
   canRetryPersistence,

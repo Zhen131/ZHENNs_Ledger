@@ -28,7 +28,7 @@ import type { LedgerWorkspaceIntent } from "./useLedgerWorkspaceSession";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
-} from "./usePersistentLedger";
+} from "@/app/persistence";
 
 type TimeFilter = "all" | "today" | "7d" | "1y";
 type ActivityKind = LedgerActivityItem["kind"];

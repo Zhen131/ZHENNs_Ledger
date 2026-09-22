@@ -28,7 +28,7 @@ import { validatePassphrase } from "@/platform/encryption";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,
-} from "./usePersistentLedger";
+} from "@/app/persistence";
 import { DashboardShell } from "./DashboardShell";
 import { useLanguage } from "@/ui";
 import { PasswordField } from "./PasswordField";

@@ -34,7 +34,7 @@ import { LedgerAccessGate } from "./LedgerAccessGate";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,
-} from "./usePersistentLedger";
+} from "@/app/persistence";
 import {
   GATE_TEST_LEASE,
   MemoryLedgerFileHandle,

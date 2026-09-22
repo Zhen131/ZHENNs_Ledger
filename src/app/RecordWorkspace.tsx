@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
-} from "./usePersistentLedger";
+} from "@/app/persistence";
 import type {
   AssetTransfer,
   CashEvent,

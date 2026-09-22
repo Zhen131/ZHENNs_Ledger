@@ -17,7 +17,7 @@ import { LedgerAccessGate } from "./LedgerAccessGate";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,
-} from "./usePersistentLedger";
+} from "@/app/persistence";
 import {
   createController,
   createFileController,

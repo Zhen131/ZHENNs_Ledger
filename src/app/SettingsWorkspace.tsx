@@ -9,8 +9,8 @@ import {
 } from "react";
 
 import { SurfaceCard, translateDefault, useLanguage } from "@/ui";
-import type { HydrationStatus } from "./hydrationState";
-import type { PersistenceOperation } from "./usePersistentLedger";
+import type { HydrationStatus } from "@/app/persistence";
+import type { PersistenceOperation } from "@/app/persistence";
 
 /**
  * The Chinese reading of the phrase this panel asks the reader to type. The

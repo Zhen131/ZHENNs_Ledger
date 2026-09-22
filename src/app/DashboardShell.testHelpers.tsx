@@ -23,7 +23,7 @@ import type {
   LedgerStorageKind,
   SessionQuiesceReason,
 } from "@/platform/persistence";
-import type { PersistentLedgerState } from "./usePersistentLedger";
+import type { PersistentLedgerState } from "@/app/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createAsset as createUsdAssetFixture,

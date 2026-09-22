@@ -20,7 +20,7 @@ import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,
 } from "@/platform/persistence";
-import type { PersistentLedgerState } from "./usePersistentLedger";
+import type { PersistentLedgerState } from "@/app/persistence";
 import {
   DashboardShell,
   confirmNegativeCashIfNeeded,

@@ -3,5 +3,5 @@ export type {
   PersistenceOperation,
   PersistenceStatus,
   PersistentLedgerState,
-} from "./usePersistentLedger";
-export type { HydrationStatus } from "./hydrationState";
+} from "@/app/persistence";
+export type { HydrationStatus } from "@/app/persistence";
