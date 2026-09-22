@@ -5,15 +5,13 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  PersistenceStatus,
-  TradeWorkspaceDraft,
-} from "@/app";
+import type { PersistenceStatus } from "@/app";
 import type { LedgerData } from "@/core/models";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade } from "@/test-support";
 import { TradeForm } from "./TradeForm";
+import type { TradeWorkspaceDraft } from "./tradeWorkspaceDraft";
 
 afterEach(cleanup);
 

@@ -5,9 +5,11 @@ import { useEffect, useRef, useState, type FormEvent, type Ref } from "react";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
-  PriceWorkspaceDraft,
 } from "@/app";
-import { createPriceWorkspaceDraft } from "@/app";
+import {
+  createPriceWorkspaceDraft,
+  type PriceWorkspaceDraft,
+} from "./priceWorkspaceDraft";
 import type {
   LedgerData,
   PriceSnapshot,

@@ -7,11 +7,13 @@ import { systemLedgerClock, type LedgerClock } from "@/core/shared";
 import type { ChartRange } from "@/features/charts";
 import {
   createPriceWorkspaceDraft,
-  createTradeWorkspaceDraft,
   type PriceWorkspaceDraft,
-  type RecordTarget,
+} from "@/features/prices";
+import {
+  createTradeWorkspaceDraft,
   type TradeWorkspaceDraft,
-} from "./workspaceDrafts";
+} from "@/features/trades";
+import type { RecordTarget } from "./workspaceDrafts";
 
 export type LedgerWorkspacePage =
   | "home"

@@ -5,13 +5,11 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  PersistenceStatus,
-  PriceWorkspaceDraft,
-} from "@/app";
+import type { PersistenceStatus } from "@/app";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import { PriceForm } from "./PriceForm";
+import type { PriceWorkspaceDraft } from "./priceWorkspaceDraft";
 
 afterEach(() => {
   cleanup();

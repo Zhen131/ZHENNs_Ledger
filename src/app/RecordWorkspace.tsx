@@ -23,16 +23,16 @@ import { PriceForm } from "@/features/prices/ui";
 import { TradeForm } from "@/features/trades/ui";
 import { CashEventPanel } from "@/features/cash/ui";
 import { SurfaceCard, useLanguage } from "@/ui";
-import type {
-  PriceWorkspaceDraft,
-  RecordTarget,
-  TradeWorkspaceDraft,
-} from "./workspaceDrafts";
 import {
   createPriceWorkspaceDraft,
+  type PriceWorkspaceDraft,
+} from "@/features/prices";
+import {
   createTradeWorkspaceDraft,
-  workspaceDraftsHaveUserInput,
-} from "./workspaceDrafts";
+  type TradeWorkspaceDraft,
+} from "@/features/trades";
+import type { RecordTarget } from "./workspaceDrafts";
+import { workspaceDraftsHaveUserInput } from "./workspaceDrafts";
 
 export function RecordWorkspace({
   active,

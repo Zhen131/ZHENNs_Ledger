@@ -18,7 +18,7 @@ import { createMemoryRepository } from "./DashboardShell.testHelpers";
 import {
   createTradeWorkspaceDraft,
   type TradeWorkspaceDraft,
-} from "./workspaceDrafts";
+} from "@/features/trades";
 
 vi.mock("echarts/core", () => ({
   init: vi.fn(() => ({

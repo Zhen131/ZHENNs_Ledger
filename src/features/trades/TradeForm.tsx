@@ -12,9 +12,11 @@ import {
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
-  TradeWorkspaceDraft,
 } from "@/app";
-import { createTradeWorkspaceDraft } from "@/app";
+import {
+  createTradeWorkspaceDraft,
+  type TradeWorkspaceDraft,
+} from "./tradeWorkspaceDraft";
 import type { LedgerData, Trade, TradeDraft } from "@/core/models";
 import { calculateTradeUsdtCashDelta, replayUsdtCash } from "@/core/calculations";
 import {
