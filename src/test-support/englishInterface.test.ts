@@ -28,7 +28,7 @@ const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
 // The two files that hold Chinese as data rather than as interface wording:
 // the message table itself, and the glossary whose left-hand column is by
 // definition Chinese words. Both are named individually, not by directory.
-const MESSAGE_TABLE_FILE = "ui/i18n.tsx";
+const MESSAGE_TABLE_FILE = "ui/i18nMessages.zh.ts";
 const GLOSSARY_FILE = "ui/translationGlossary.ts";
 const HAN = /[㐀-䶿一-鿿]/;
 
