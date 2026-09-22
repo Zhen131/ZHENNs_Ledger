@@ -13,12 +13,12 @@ import {
   type PersistentLedgerState,
 } from "@/app/persistence";
 import { LedgerWorkspaceFrame } from "./LedgerWorkspaceFrame";
-import { HomeWorkspace } from "./HomeWorkspace";
-import { RecordWorkspace } from "./RecordWorkspace";
-import { TransactionsWorkspace } from "./TransactionsWorkspace";
-import { TransferWorkspace } from "./TransferWorkspace";
-import { SettingsWorkspace } from "./SettingsWorkspace";
-import { useLedgerWorkspaceSession } from "./useLedgerWorkspaceSession";
+import { HomeWorkspace } from "@/app/workspaces";
+import { RecordWorkspace } from "@/app/workspaces";
+import { TransactionsWorkspace } from "@/app/workspaces";
+import { TransferWorkspace } from "@/app/workspaces";
+import { SettingsWorkspace } from "@/app/workspaces";
+import { useLedgerWorkspaceSession } from "@/app/workspaces";
 import {
   INDEXED_DB_LEDGER_CAPABILITIES,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,

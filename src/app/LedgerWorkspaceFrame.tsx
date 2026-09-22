@@ -9,7 +9,7 @@ import {
   type FileStatusTone,
   type LedgerIconName,
 } from "@/ui";
-import type { LedgerWorkspacePage } from "./useLedgerWorkspaceSession";
+import type { LedgerWorkspacePage } from "@/app/workspaces";
 
 export function LedgerWorkspaceFrame({
   currentPage,

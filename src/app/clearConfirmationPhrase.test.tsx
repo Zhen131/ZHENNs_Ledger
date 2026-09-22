@@ -25,7 +25,7 @@ import {
   createCompleteLedger,
   createMemoryRepository,
 } from "./DashboardShell.testHelpers";
-import { SettingsWorkspace } from "./SettingsWorkspace";
+import { SettingsWorkspace } from "@/app/workspaces";
 
 /**
  * Both "type this phrase to confirm" gates used to demand a Chinese sentence
