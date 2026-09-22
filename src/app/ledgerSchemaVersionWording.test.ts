@@ -18,7 +18,7 @@ import {
   translateDefault,
 } from "@/ui";
 
-import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
+import { LEDGER_FILE_ACCESS_ERROR_CODES } from "@/app/file-access";
 import { getFileAccessErrorMessage } from "./LedgerAccessGateHelpers";
 
 /**

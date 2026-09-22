@@ -7,7 +7,7 @@ import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
   type LedgerFileAccessErrorCode,
-} from "./ledgerFileAccessController";
+} from "@/app/file-access";
 import { useLanguage } from "@/ui";
 import type { PendingSessionCompletion } from "./LedgerAccessGateTypes";
 

@@ -15,7 +15,7 @@ import {
 import {
   DefaultLedgerFileAccessController,
   type LedgerFileAccessController,
-} from "./ledgerFileAccessController";
+} from "@/app/file-access";
 
 let defaultAccessController: LedgerAccessController | undefined;
 let defaultFileAccessController: LedgerFileAccessController | undefined;

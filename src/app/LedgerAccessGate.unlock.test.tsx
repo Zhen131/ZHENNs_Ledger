@@ -15,7 +15,7 @@ import {
 import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
-} from "./ledgerFileAccessController";
+} from "@/app/file-access";
 import { type SessionQuiesceToken } from "@/platform/persistence";
 import { LedgerAccessGate } from "./LedgerAccessGate";
 import type {

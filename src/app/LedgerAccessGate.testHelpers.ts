@@ -14,7 +14,7 @@ import {
 import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
-} from "./ledgerFileAccessController";
+} from "@/app/file-access";
 import {
   claimLedgerSessionPersistencePort,
   createLedgerSession,

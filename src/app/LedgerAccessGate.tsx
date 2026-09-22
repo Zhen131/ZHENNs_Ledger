@@ -19,7 +19,7 @@ import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
   type LedgerFileAccessErrorCode,
-} from "./ledgerFileAccessController";
+} from "@/app/file-access";
 import {
   type LedgerSession,
   type SessionQuiesceReason,

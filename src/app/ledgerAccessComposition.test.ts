@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LedgerFileHandle } from "@/platform/files";
 import { IndexedDbStorageAdapter } from "@/platform/legacy";
 import { createNoopStoredLedgerEnvelope } from "@/test-support";
-import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
+import { LEDGER_FILE_ACCESS_ERROR_CODES } from "@/app/file-access";
 import {
   createApplicationLedgerAccessController,
   createApplicationLedgerFileAccessController,
