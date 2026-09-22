@@ -23,7 +23,7 @@ import {
   createUsdtSimpleTrade,
   createWeek14V3Scenario,
   WEEK14_V3_TODAY,
-} from "@/test-support";
+} from "./index";
 
 afterEach(() => {
   vi.unstubAllGlobals();
