@@ -214,8 +214,6 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "shared.shell.transfer",
   // Trade-form saving variants use the same Saving action text.
   "trades.form.action.saving",
-  // Trade-form validation paths use the same invalid-input sentence.
-  "trades.form.error.invalidInput",
   // Trade-form fields use the same Total-value label.
   "trades.form.field.totalValue",
   // Trade table contexts use the same Actions column label.

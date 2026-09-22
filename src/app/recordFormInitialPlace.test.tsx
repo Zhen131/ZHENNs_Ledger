@@ -2,17 +2,23 @@
 
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { LedgerData } from "@/core/models";
+import type { LedgerData, Trade } from "@/core/models";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
+import { TradeForm } from "@/features/trades/ui";
 import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,
 } from "@/platform/persistence";
 import { DashboardShell } from "./DashboardShell";
 import { createMemoryRepository } from "./DashboardShell.testHelpers";
+import {
+  createTradeWorkspaceDraft,
+  type TradeWorkspaceDraft,
+} from "./workspaceDrafts";
 
 vi.mock("echarts/core", () => ({
   init: vi.fn(() => ({
@@ -208,5 +214,46 @@ describe("a new record form with the time left empty still records the plain dat
     const price = await recordPrice("");
     expect(price?.recordedAt).toBe(FACT_DATE);
     expect(price).not.toHaveProperty("occurredTimeZone");
+  });
+});
+
+describe("the trade form names the place when a filled time has none", () => {
+  // D-4：地点缺失时说清是地点的问题。修好之后产品路径不会再造出空地点，
+  // 所以这里用产品的工厂函数造草稿，只把地点抹掉来模拟「地点缺失」。
+  it("shows the place message instead of the generic empty-field one", async () => {
+    const ledgerData = ledgerWithCash();
+    const onTradeCreated = vi.fn<(trade: Trade) => "applied">(() => "applied");
+    function TradeFormWithoutPlace() {
+      const [draft, setDraft] = useState<TradeWorkspaceDraft>(() => ({
+        ...createTradeWorkspaceDraft("BTC", FACT_DATE, clock),
+        occurredTimeZone: "",
+      }));
+      return (
+        <TradeForm
+          clock={clock}
+          draft={draft}
+          ledgerData={ledgerData}
+          ledgerEpoch={0}
+          mutationVersion={0}
+          onDraftChange={setDraft}
+          onTradeCreated={onTradeCreated}
+          persistedVersion={0}
+          persistenceStatus="saved"
+        />
+      );
+    }
+    render(<TradeFormWithoutPlace />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("数量"), "1");
+    await user.type(screen.getByLabelText("成交均价"), "100");
+    await user.type(screen.getByLabelText("时刻"), "09:30");
+    await user.click(screen.getByRole("button", { name: "保存交易" }));
+
+    expect(onTradeCreated).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "地点无效，无法确定这是哪个时刻。请把时间留空，这一笔只记到天；或重新选择地点。",
+      ),
+    ).not.toBeNull();
   });
 });

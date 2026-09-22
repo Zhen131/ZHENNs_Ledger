@@ -433,7 +433,7 @@ export function TradeForm({
           ? t("trades.form.error.nonexistentWallTime")
           : occurredTime.reason === "ambiguous"
             ? t("trades.form.error.ambiguousWallTime")
-            : t("trades.form.error.invalidInput");
+            : t("trades.form.error.invalidTimeZone");
       setErrors({ occurredAt: message });
       setSuccessState("");
       return;
