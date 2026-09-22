@@ -16,7 +16,7 @@ src/
 
 ### `app`
 
-`app` owns the Next.js entry files, the ledger access gate, Dashboard composition, file-access controllers, hydration state, and `usePersistentLedger`. It coordinates features and platform capabilities but does not duplicate their calculations, validation, or persistence contracts. `app/index.ts` exposes only stable application types needed by features.
+`app` owns the Next.js entry files, the ledger access gate, Dashboard composition, file-access controllers, hydration state, and `usePersistentLedger`. It coordinates features and platform capabilities but does not duplicate their calculations, validation, or persistence contracts. `app/index.ts` exposes only stable application types needed by features, plus the workspace draft factories that give a new record form its one initial state.
 
 ### `core`
 

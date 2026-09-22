@@ -167,6 +167,13 @@ async function recordAssetTransfer(time: string) {
 }
 
 describe("a new record form saves a filled time without the place being touched", () => {
+  it("trade", async () => {
+    const trade = await recordTrade("09:30");
+    expect(trade?.occurredAt).toBe(`${FACT_DATE}T09:30:00+02:00`);
+    expect(trade?.occurredTimeZone).toBe("Europe/Budapest");
+    expect(trade?.timePrecision).toBe("minute");
+  });
+
   it("cash event", async () => {
     const cashEvent = await recordCashEvent("09:30");
     expect(cashEvent?.occurredAt).toBe(`${FACT_DATE}T09:30:00+02:00`);

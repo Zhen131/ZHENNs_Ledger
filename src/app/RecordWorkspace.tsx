@@ -115,12 +115,12 @@ export function RecordWorkspace({
     currency: "USDT",
   });
   const [localTradeDraft, setTradeDraft] = useState<TradeWorkspaceDraft>(() =>
-    createTradeWorkspaceDraft(defaultAssetSymbol, todayKey),
+    createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
   );
   const [sessionTradeDraft, setSessionTradeDraft] =
     useState<TradeWorkspaceDraft>(() =>
       initialTradeDraft ??
-      createTradeWorkspaceDraft(defaultAssetSymbol, todayKey),
+      createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
     );
   const [localPriceDraft, setPriceDraft] = useState<PriceWorkspaceDraft>(() =>
     createPriceWorkspaceDraft(defaultAssetSymbol, todayKey),
@@ -169,7 +169,7 @@ export function RecordWorkspace({
     preserve: Pick<TradeWorkspaceDraft, "assetSymbol" | "platform">,
   ) {
     const nextDraft = {
-      ...createTradeWorkspaceDraft(preserve.assetSymbol, todayKey),
+      ...createTradeWorkspaceDraft(preserve.assetSymbol, todayKey, clock),
       platform: preserve.platform,
     };
     updateTradeDraft(nextDraft);
@@ -195,7 +195,7 @@ export function RecordWorkspace({
 
   useEffect(() => {
     setRecordTarget({ kind: "cash", currency: "USDT" });
-    setTradeDraft(createTradeWorkspaceDraft(defaultAssetSymbol, todayKey));
+    setTradeDraft(createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock));
     setPriceDraft(createPriceWorkspaceDraft(defaultAssetSymbol, todayKey));
     onDraftStatusChange(false);
     // A ledger epoch is the only event that clears session-local drafts.

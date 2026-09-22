@@ -14,6 +14,7 @@ import type {
   PersistenceStatus,
   TradeWorkspaceDraft,
 } from "@/app";
+import { createTradeWorkspaceDraft } from "@/app";
 import type { LedgerData, Trade, TradeDraft } from "@/core/models";
 import { calculateTradeUsdtCashDelta, replayUsdtCash } from "@/core/calculations";
 import {
@@ -104,29 +105,6 @@ const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
   rawText: "trades.form.field.rawText",
 };
 
-function createInitialFormState(
-  assetSymbol: string,
-  todayKey: string,
-  timeZone: string,
-): TradeFormState {
-  return {
-    type: "buy",
-    assetSymbol,
-    quantity: "",
-    price: "",
-    totalValue: "",
-    totalValueMode: "auto",
-    occurredAt: todayKey,
-    occurredTime: "",
-    occurredTimeZone: timeZone,
-    fee: "0",
-    feeCurrency: "USDT",
-    platform: "",
-    note: "",
-    noteExpanded: false,
-  };
-}
-
 function formatValidationError(
   error: TradeValidationError,
   t: ReturnType<typeof useLanguage>["t"],
@@ -208,10 +186,10 @@ export function TradeForm({
   const { t } = useLanguage();
   const defaultAssetSymbol = ledgerData.assets[0]?.symbol ?? "";
   const [localForm, setLocalForm] = useState<TradeFormState>(() =>
-    createInitialFormState(
+    createTradeWorkspaceDraft(
       defaultAssetSymbol,
       captureLedgerTime(clock).todayKey,
-      getLedgerTimeZone(clock),
+      clock,
     ),
   );
   const form = draft ?? localForm;
@@ -264,10 +242,10 @@ export function TradeForm({
     pendingResetRef.current = undefined;
     if (!draft) {
       setLocalForm(
-        createInitialFormState(
+        createTradeWorkspaceDraft(
           ledgerData.assets[0]?.symbol ?? "",
           captureLedgerTime(clock).todayKey,
-          getLedgerTimeZone(clock),
+          clock,
         ),
       );
     }
@@ -289,10 +267,10 @@ export function TradeForm({
           onReset(preserve);
         } else {
           setLocalForm({
-            ...createInitialFormState(
+            ...createTradeWorkspaceDraft(
               preserve.assetSymbol,
               captureLedgerTime(clock).todayKey,
-              getLedgerTimeZone(clock),
+              clock,
             ),
             platform: preserve.platform,
           });

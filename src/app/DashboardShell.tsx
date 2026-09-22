@@ -154,6 +154,7 @@ export function DashboardShell({
     session,
   );
   const workspace = useLedgerWorkspaceSession({
+    clock,
     defaultAssetSymbol: ledgerData.assets[0]?.symbol ?? "",
     ledgerEpoch,
     todayKey,

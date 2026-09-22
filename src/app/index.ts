@@ -9,3 +9,4 @@ export type {
   PriceWorkspaceDraft,
   TradeWorkspaceDraft,
 } from "./workspaceDrafts";
+export { createTradeWorkspaceDraft } from "./workspaceDrafts";

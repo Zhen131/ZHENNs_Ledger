@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ValuationPriceMode } from "@/core/models";
+import { systemLedgerClock, type LedgerClock } from "@/core/shared";
 import type { ChartRange } from "@/features/charts";
 import {
   createPriceWorkspaceDraft,
@@ -35,10 +36,12 @@ export function useLedgerWorkspaceSession({
   ledgerEpoch,
   defaultAssetSymbol = "",
   todayKey = "",
+  clock = systemLedgerClock,
 }: Readonly<{
   ledgerEpoch: number;
   defaultAssetSymbol?: string;
   todayKey?: string;
+  clock?: LedgerClock;
 }>) {
   const [currentPage, setCurrentPage] =
     useState<LedgerWorkspacePage>("home");
@@ -52,13 +55,13 @@ export function useLedgerWorkspaceSession({
   });
   const [homeDetailsOpen, setHomeDetailsOpen] = useState(false);
   const tradeDraftRef = useRef<TradeWorkspaceDraft>(
-    createTradeWorkspaceDraft(defaultAssetSymbol, todayKey),
+    createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock),
   );
   const priceDraftRef = useRef<PriceWorkspaceDraft>(
     createPriceWorkspaceDraft(defaultAssetSymbol, todayKey),
   );
-  const recordResetDefaultsRef = useRef({ defaultAssetSymbol, todayKey });
-  recordResetDefaultsRef.current = { defaultAssetSymbol, todayKey };
+  const recordResetDefaultsRef = useRef({ defaultAssetSymbol, todayKey, clock });
+  recordResetDefaultsRef.current = { defaultAssetSymbol, todayKey, clock };
 
   const resetRecordSession = useCallback(() => {
     const defaults = recordResetDefaultsRef.current;
@@ -66,6 +69,7 @@ export function useLedgerWorkspaceSession({
     tradeDraftRef.current = createTradeWorkspaceDraft(
       defaults.defaultAssetSymbol,
       defaults.todayKey,
+      defaults.clock,
     );
     priceDraftRef.current = createPriceWorkspaceDraft(
       defaults.defaultAssetSymbol,
