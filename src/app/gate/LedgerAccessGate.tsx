@@ -53,6 +53,7 @@ import {
   runGateLifecycleEffect,
 } from "./ledgerAccessGateSession";
 import {
+  doRequestRememberedConnection,
   doSelectFileToOpen,
   doSubmitFileCreate,
 } from "./ledgerAccessGateActions";
@@ -213,27 +214,19 @@ export function LedgerAccessGate({
   }
 
   async function requestRememberedConnection() {
-    if (operationRef.current) {
-      return;
-    }
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    const result =
-      await fileAccessController.requestRememberedPermission();
-
-    if (isCurrentOperation(operation)) {
-      if (result.status === "ready") {
-        setReconnectError(null);
-        setAccessPath("file-open-unlock");
-      } else if (result.status === "permission-prompt") {
-        setAccessPath("file-reconnect-prompt");
-      } else if (result.status === "error") {
-        setReconnectError(result.code);
-        setAccessPath("file-reconnect-error");
-      }
-    }
-    finishOperation(operation);
+    return doRequestRememberedConnection(
+      {
+        beginOperation,
+        fileAccessController,
+        finishOperation,
+        isCurrentOperation,
+        operationRef,
+        setAccessPath,
+        setFormError,
+        setIsSubmitting,
+        setReconnectError,
+      },
+    );
   }
 
   async function reselectRememberedConnection() {

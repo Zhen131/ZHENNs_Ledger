@@ -1,5 +1,8 @@
 import type { LedgerSession } from "@/platform/persistence";
-import type { LedgerFileAccessController } from "@/app/file-access";
+import type {
+  LedgerFileAccessController,
+  LedgerFileAccessErrorCode,
+} from "@/app/file-access";
 import type {
   Dispatch,
   FormEvent,
@@ -125,6 +128,55 @@ export async function doSelectFileToOpen(
         result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
       ) {
         setFormError(getFileAccessErrorMessage(result.code, t));
+      }
+    }
+    finishOperation(operation);
+}
+
+type RequestRememberedConnectionDeps = {
+  beginOperation: () => number;
+  fileAccessController: LedgerFileAccessController;
+  finishOperation: (operation: number) => void;
+  isCurrentOperation: (operation: number) => boolean;
+  operationRef: RefObject<boolean>;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>;
+};
+
+export async function doRequestRememberedConnection(
+  deps: RequestRememberedConnectionDeps,
+) {
+  const {
+    beginOperation,
+    fileAccessController,
+    finishOperation,
+    isCurrentOperation,
+    operationRef,
+    setAccessPath,
+    setFormError,
+    setIsSubmitting,
+    setReconnectError,
+  } = deps;
+    if (operationRef.current) {
+      return;
+    }
+    const operation = beginOperation();
+    setIsSubmitting(true);
+    setFormError("");
+    const result =
+      await fileAccessController.requestRememberedPermission();
+
+    if (isCurrentOperation(operation)) {
+      if (result.status === "ready") {
+        setReconnectError(null);
+        setAccessPath("file-open-unlock");
+      } else if (result.status === "permission-prompt") {
+        setAccessPath("file-reconnect-prompt");
+      } else if (result.status === "error") {
+        setReconnectError(result.code);
+        setAccessPath("file-reconnect-error");
       }
     }
     finishOperation(operation);
