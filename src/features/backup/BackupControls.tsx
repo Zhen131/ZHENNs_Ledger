@@ -68,6 +68,7 @@ import type {
   PostImportPairingOperation,
 } from "./backupControlsTypes";
 import { PreflightReportView } from "./PreflightReportView";
+import { doPairingOperationIsCurrent } from "./backupControlsPairing";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
 
@@ -286,13 +287,13 @@ export function BackupControls({
   function pairingOperationIsCurrent(
     operation: PostImportPairingOperation,
   ): boolean {
-    const latest = pairingLatestRef.current;
-    return (
-      mountedRef.current &&
-      pairingOperationRef.current === operation &&
-      latest.isWritable &&
-      latest.ledgerEpoch === operation.ledgerEpoch &&
-      latest.sessionGeneration === operation.sessionGeneration
+    return doPairingOperationIsCurrent(
+      {
+        mountedRef,
+        pairingLatestRef,
+        pairingOperationRef,
+      },
+      operation,
     );
   }
 
