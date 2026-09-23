@@ -289,3 +289,63 @@ export async function doForgetRememberedConnection(
     }
     finishOperation(operation);
 }
+
+type SubmitFileUnlockDeps = {
+  beginOperation: () => number;
+  enterUnlockedSession: (session: LedgerSession) => void;
+  fileAccessController: LedgerFileAccessController;
+  finishOperation: (operation: number) => void;
+  isCurrentOperation: (operation: number) => boolean;
+  operationRef: RefObject<boolean>;
+  passphrase: string;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setPassphrase: Dispatch<SetStateAction<string>>;
+  setRecoveryId: Dispatch<SetStateAction<string | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doSubmitFileUnlock(
+  deps: SubmitFileUnlockDeps,
+  event: FormEvent<HTMLFormElement>,
+) {
+  const {
+    beginOperation,
+    enterUnlockedSession,
+    fileAccessController,
+    finishOperation,
+    isCurrentOperation,
+    operationRef,
+    passphrase,
+    setAccessPath,
+    setFormError,
+    setIsSubmitting,
+    setPassphrase,
+    setRecoveryId,
+    t,
+  } = deps;
+    event.preventDefault();
+    if (operationRef.current) {
+      return;
+    }
+
+    const operation = beginOperation();
+    setIsSubmitting(true);
+    setFormError("");
+    const result =
+      await fileAccessController.unlockSelected(passphrase);
+
+    if (isCurrentOperation(operation)) {
+      setPassphrase("");
+      if (result.status === "unlocked") {
+        enterUnlockedSession(result.session);
+      } else if (result.status === "recovery-required") {
+        setRecoveryId(result.recoveryId);
+        setAccessPath("file-recovery");
+      } else {
+        setFormError(getFileAccessErrorMessage(result.code, t));
+      }
+    }
+    finishOperation(operation);
+}

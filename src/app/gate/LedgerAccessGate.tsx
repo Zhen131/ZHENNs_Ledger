@@ -58,6 +58,7 @@ import {
   doReselectRememberedConnection,
   doSelectFileToOpen,
   doSubmitFileCreate,
+  doSubmitFileUnlock,
 } from "./ledgerAccessGateActions";
 
 export function LedgerAccessGate({
@@ -270,29 +271,24 @@ export function LedgerAccessGate({
   async function submitFileUnlock(
     event: FormEvent<HTMLFormElement>,
   ) {
-    event.preventDefault();
-    if (operationRef.current) {
-      return;
-    }
-
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    const result =
-      await fileAccessController.unlockSelected(passphrase);
-
-    if (isCurrentOperation(operation)) {
-      setPassphrase("");
-      if (result.status === "unlocked") {
-        enterUnlockedSession(result.session);
-      } else if (result.status === "recovery-required") {
-        setRecoveryId(result.recoveryId);
-        setAccessPath("file-recovery");
-      } else {
-        setFormError(getFileAccessErrorMessage(result.code, t));
-      }
-    }
-    finishOperation(operation);
+    return doSubmitFileUnlock(
+      {
+        beginOperation,
+        enterUnlockedSession,
+        fileAccessController,
+        finishOperation,
+        isCurrentOperation,
+        operationRef,
+        passphrase,
+        setAccessPath,
+        setFormError,
+        setIsSubmitting,
+        setPassphrase,
+        setRecoveryId,
+        t,
+      },
+      event,
+    );
   }
 
   async function confirmFileRecovery() {
