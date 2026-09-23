@@ -68,6 +68,7 @@ import {
   doPairingOperationIsCurrent,
   doStartPostImportPairing,
   runPairingInvalidationEffect,
+  runPairingPersistenceEffect,
 } from "./backupControlsPairing";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
@@ -207,50 +208,20 @@ export function BackupControls({
   }, [isWritable, ledgerEpoch, sessionGeneration, t]);
 
   useEffect(() => {
-    const operation = pairingOperationRef.current;
-    if (
-      !operation ||
-      operation.expectedPersistedVersion === null ||
-      !pairingOperationIsCurrent(operation)
-    ) {
-      return;
-    }
-
-    if (
-      persistenceStatus === "error" &&
-      mutationVersion >= operation.expectedPersistedVersion
-    ) {
-      finishPostImportPairing(
-        operation,
-        "error",
-        operation.phase === "saving-mappings"
-          ? t("backup.pairing.mappingNotPersisted")
-          : t("backup.pairing.priceNotPersisted"),
-      );
-      return;
-    }
-
-    if (
-      persistenceStatus === "saved" &&
-      persistedVersion >= operation.expectedPersistedVersion
-    ) {
-      operation.expectedPersistedVersion = null;
-      if (operation.phase === "saving-mappings") {
-        operation.phase = "fetching-prices";
-        setPostImportPairing((current) =>
-          current
-            ? {
-                ...current,
-                status: "fetching-prices",
-                message: t("backup.pairing.mappingSavedFetching"),
-              }
-            : current,
-        );
-        void fetchPostImportPrices(operation);
-      } else if (operation.phase === "saving-prices") {
-        completePostImportPairing(operation);
-      }
-    }
+    return runPairingPersistenceEffect(
+      {
+        completePostImportPairing,
+        fetchPostImportPrices,
+        finishPostImportPairing,
+        mutationVersion,
+        pairingOperationIsCurrent,
+        pairingOperationRef,
+        persistedVersion,
+        persistenceStatus,
+        setPostImportPairing,
+        t,
+      },
+    );
     // Mutable operation tokens deliberately advance only on persistence facts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mutationVersion, persistedVersion, persistenceStatus]);

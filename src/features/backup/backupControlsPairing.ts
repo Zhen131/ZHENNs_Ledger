@@ -495,3 +495,77 @@ export function runPairingInvalidationEffect(
       }
     }
 }
+
+type PairingPersistenceEffectDeps = {
+  completePostImportPairing: (operation: PostImportPairingOperation) => void;
+  fetchPostImportPrices: (operation: PostImportPairingOperation) => Promise<void>;
+  finishPostImportPairing: (operation: PostImportPairingOperation, status: "success" | "partial" | "error", message: string) => void;
+  mutationVersion: number;
+  pairingOperationIsCurrent: (operation: PostImportPairingOperation) => boolean;
+  pairingOperationRef: RefObject<PostImportPairingOperation | null>;
+  persistedVersion: number;
+  persistenceStatus: "error" | "idle" | "saving" | "saved";
+  setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function runPairingPersistenceEffect(
+  deps: PairingPersistenceEffectDeps,
+) {
+  const {
+    completePostImportPairing,
+    fetchPostImportPrices,
+    finishPostImportPairing,
+    mutationVersion,
+    pairingOperationIsCurrent,
+    pairingOperationRef,
+    persistedVersion,
+    persistenceStatus,
+    setPostImportPairing,
+    t,
+  } = deps;
+    const operation = pairingOperationRef.current;
+    if (
+      !operation ||
+      operation.expectedPersistedVersion === null ||
+      !pairingOperationIsCurrent(operation)
+    ) {
+      return;
+    }
+
+    if (
+      persistenceStatus === "error" &&
+      mutationVersion >= operation.expectedPersistedVersion
+    ) {
+      finishPostImportPairing(
+        operation,
+        "error",
+        operation.phase === "saving-mappings"
+          ? t("backup.pairing.mappingNotPersisted")
+          : t("backup.pairing.priceNotPersisted"),
+      );
+      return;
+    }
+
+    if (
+      persistenceStatus === "saved" &&
+      persistedVersion >= operation.expectedPersistedVersion
+    ) {
+      operation.expectedPersistedVersion = null;
+      if (operation.phase === "saving-mappings") {
+        operation.phase = "fetching-prices";
+        setPostImportPairing((current) =>
+          current
+            ? {
+                ...current,
+                status: "fetching-prices",
+                message: t("backup.pairing.mappingSavedFetching"),
+              }
+            : current,
+        );
+        void fetchPostImportPrices(operation);
+      } else if (operation.phase === "saving-prices") {
+        completePostImportPairing(operation);
+      }
+    }
+}
