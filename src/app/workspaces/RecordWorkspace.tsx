@@ -33,6 +33,7 @@ import {
 } from "@/features/trades";
 import type { RecordTarget } from "./workspaceDrafts";
 import { workspaceDraftsHaveUserInput } from "./workspaceDrafts";
+import { doResetTradeDraft } from "./recordWorkspaceActions";
 
 export function RecordWorkspace({
   active,
@@ -168,14 +169,16 @@ export function RecordWorkspace({
   function resetTradeDraft(
     preserve: Pick<TradeWorkspaceDraft, "assetSymbol" | "platform">,
   ) {
-    const nextDraft = {
-      ...createTradeWorkspaceDraft(preserve.assetSymbol, todayKey, clock),
-      platform: preserve.platform,
-    };
-    updateTradeDraft(nextDraft);
-    onTradeDraftChange?.(nextDraft);
-    onDraftStatusChange(
-      workspaceDraftsHaveUserInput(nextDraft, priceDraft),
+    return doResetTradeDraft(
+      {
+        clock,
+        onDraftStatusChange,
+        onTradeDraftChange,
+        priceDraft,
+        todayKey,
+        updateTradeDraft,
+      },
+      preserve,
     );
   }
 
