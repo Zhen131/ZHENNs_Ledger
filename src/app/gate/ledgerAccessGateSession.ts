@@ -4,7 +4,10 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import type { LedgerSession } from "@/platform/persistence";
+import type {
+  LedgerSession,
+  SessionQuiesceReason,
+} from "@/platform/persistence";
 import type {
   LedgerFileAccessController,
   LedgerFileAccessErrorCode,
@@ -15,6 +18,7 @@ import type {
 } from "./LedgerAccessGateTypes";
 import { pendingSessionCompletions } from "./LedgerAccessGateHelpers";
 import { LEDGER_ACCESS_ERROR_CODES } from "@/platform/legacy";
+import type { PersistentLedgerState } from "@/app/persistence";
 
 type InitializeDeps = {
   accessController: LedgerAccessController;
@@ -132,4 +136,90 @@ export async function doInitialize(
     } else {
       setAccessPath("choice");
     }
+}
+
+type GateLifecycleEffectDeps = {
+  activeSessionRef: RefObject<LedgerSession | null>;
+  fileAccessController: LedgerFileAccessController;
+  finalLockRef: RefObject<{
+    session: LedgerSession;
+    promise: Promise<void>;
+  } | null>;
+  initialize: () => Promise<void>;
+  mountedRef: RefObject<boolean>;
+  operationGenerationRef: RefObject<number>;
+  operationRef: RefObject<boolean>;
+  sessionDrainRef: RefObject<{
+    session: LedgerSession;
+    drain: PersistentLedgerState["drainForSessionQuiesce"];
+  } | null>;
+  sessionLifecycleStarterRef: RefObject<(args: {
+      session: LedgerSession;
+      drain: PersistentLedgerState["drainForSessionQuiesce"];
+      reason: SessionQuiesceReason;
+      fatal?: boolean;
+    }) => Promise<void>>;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setConfirmation: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setPassphrase: Dispatch<SetStateAction<string>>;
+  setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>;
+  setRecoveryId: Dispatch<SetStateAction<string | null>>;
+};
+
+export function runGateLifecycleEffect(
+  deps: GateLifecycleEffectDeps,
+) {
+  const {
+    activeSessionRef,
+    fileAccessController,
+    finalLockRef,
+    initialize,
+    mountedRef,
+    operationGenerationRef,
+    operationRef,
+    sessionDrainRef,
+    sessionLifecycleStarterRef,
+    setAccessPath,
+    setConfirmation,
+    setIsSubmitting,
+    setPassphrase,
+    setReconnectError,
+    setRecoveryId,
+  } = deps;
+    mountedRef.current = true;
+    operationRef.current = false;
+    setIsSubmitting(false);
+    setPassphrase("");
+    setConfirmation("");
+    setRecoveryId(null);
+    setReconnectError(null);
+    setAccessPath("choice");
+    void initialize();
+
+    return () => {
+      mountedRef.current = false;
+      operationGenerationRef.current += 1;
+      operationRef.current = false;
+      const activeSession = activeSessionRef.current;
+      const registeredDrain = sessionDrainRef.current;
+      const finalLock = finalLockRef.current;
+      if (
+        activeSession &&
+        registeredDrain?.session === activeSession &&
+        finalLock?.session !== activeSession
+      ) {
+        void sessionLifecycleStarterRef.current({
+          session: activeSession,
+          drain: registeredDrain.drain,
+          reason: "route-leave",
+        });
+      } else if (!activeSession) {
+        try {
+          fileAccessController.cancelPendingSelection();
+        } catch {
+          // Cleanup remains fail-closed if a custom controller reports failure.
+        }
+      }
+    };
 }

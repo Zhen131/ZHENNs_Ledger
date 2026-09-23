@@ -46,7 +46,10 @@ import { LegacyRetiredPanel } from "./LegacyRetiredPanel";
 import { AccessCheckingPanel } from "./AccessCheckingPanel";
 import { SessionLockingPanel } from "./SessionLockingPanel";
 import { FormError } from "./FormError";
-import { doInitialize } from "./ledgerAccessGateSession";
+import {
+  doInitialize,
+  runGateLifecycleEffect,
+} from "./ledgerAccessGateSession";
 
 export function LedgerAccessGate({
   accessController = getDefaultLedgerAccessController(),
@@ -107,41 +110,25 @@ export function LedgerAccessGate({
   }, [accessController, fileAccessController]);
 
   useEffect(() => {
-    mountedRef.current = true;
-    operationRef.current = false;
-    setIsSubmitting(false);
-    setPassphrase("");
-    setConfirmation("");
-    setRecoveryId(null);
-    setReconnectError(null);
-    setAccessPath("choice");
-    void initialize();
-
-    return () => {
-      mountedRef.current = false;
-      operationGenerationRef.current += 1;
-      operationRef.current = false;
-      const activeSession = activeSessionRef.current;
-      const registeredDrain = sessionDrainRef.current;
-      const finalLock = finalLockRef.current;
-      if (
-        activeSession &&
-        registeredDrain?.session === activeSession &&
-        finalLock?.session !== activeSession
-      ) {
-        void sessionLifecycleStarterRef.current({
-          session: activeSession,
-          drain: registeredDrain.drain,
-          reason: "route-leave",
-        });
-      } else if (!activeSession) {
-        try {
-          fileAccessController.cancelPendingSelection();
-        } catch {
-          // Cleanup remains fail-closed if a custom controller reports failure.
-        }
-      }
-    };
+    return runGateLifecycleEffect(
+      {
+        activeSessionRef,
+        fileAccessController,
+        finalLockRef,
+        initialize,
+        mountedRef,
+        operationGenerationRef,
+        operationRef,
+        sessionDrainRef,
+        sessionLifecycleStarterRef,
+        setAccessPath,
+        setConfirmation,
+        setIsSubmitting,
+        setPassphrase,
+        setReconnectError,
+        setRecoveryId,
+      },
+    );
   }, [fileAccessController, initialize]);
 
   function beginOperation(): number {
