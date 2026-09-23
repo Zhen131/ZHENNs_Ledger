@@ -230,3 +230,62 @@ export async function doReselectRememberedConnection(
     }
     finishOperation(operation);
 }
+
+type ForgetRememberedConnectionDeps = {
+  beginOperation: () => number;
+  fileAccessController: LedgerFileAccessController;
+  finishOperation: (operation: number) => void;
+  isCurrentOperation: (operation: number) => boolean;
+  operationRef: RefObject<boolean>;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setConfirmation: Dispatch<SetStateAction<string>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setPassphrase: Dispatch<SetStateAction<string>>;
+  setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>;
+  setRecoveryId: Dispatch<SetStateAction<string | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doForgetRememberedConnection(
+  deps: ForgetRememberedConnectionDeps,
+) {
+  const {
+    beginOperation,
+    fileAccessController,
+    finishOperation,
+    isCurrentOperation,
+    operationRef,
+    setAccessPath,
+    setConfirmation,
+    setFormError,
+    setIsSubmitting,
+    setPassphrase,
+    setReconnectError,
+    setRecoveryId,
+    t,
+  } = deps;
+    if (operationRef.current) {
+      return;
+    }
+    const operation = beginOperation();
+    setIsSubmitting(true);
+    setFormError("");
+    try {
+      await fileAccessController.forgetRememberedConnection();
+      if (isCurrentOperation(operation)) {
+        setPassphrase("");
+        setConfirmation("");
+        setRecoveryId(null);
+        setReconnectError(null);
+        setAccessPath("choice");
+      }
+    } catch {
+      if (isCurrentOperation(operation)) {
+        setFormError(
+          t("access.error.forgetConnection"),
+        );
+      }
+    }
+    finishOperation(operation);
+}
