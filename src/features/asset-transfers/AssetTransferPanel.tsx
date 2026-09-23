@@ -47,6 +47,7 @@ import {
   reasonLabel,
   transferLocationSummary,
 } from "./assetTransferPanelHelpers";
+import { runTransferPersistenceEffect } from "./assetTransferPanelActions";
 
 export function AssetTransferPanel({
   clock = systemLedgerClock,
@@ -156,32 +157,25 @@ export function AssetTransferPanel({
   }, [assetSymbol, ledgerData.assets]);
 
   useEffect(() => {
-    if (pendingMutationVersion === null) return;
-    if (persistenceStatus === "error") {
-      setError({
-        code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
-        field: "form",
-        message: t("assetTransfers.status.unsaved"),
-      });
-      return;
-    }
-    if (
-      persistenceStatus === "saved" &&
-      persistedVersion >= pendingMutationVersion
-    ) {
-      if (pendingOperation === "add") {
-        setQuantity("");
-        setUnitPrice("");
-        setNetworkFee("");
-        setNote("");
-        setFeedback(savedFeedback);
-      } else {
-        setFeedback(deletedFeedback);
-      }
-      setError(null);
-      setPendingMutationVersion(null);
-      setPendingOperation(null);
-    }
+    return runTransferPersistenceEffect(
+      {
+        deletedFeedback,
+        pendingMutationVersion,
+        pendingOperation,
+        persistedVersion,
+        persistenceStatus,
+        savedFeedback,
+        setError,
+        setFeedback,
+        setNetworkFee,
+        setNote,
+        setPendingMutationVersion,
+        setPendingOperation,
+        setQuantity,
+        setUnitPrice,
+        t,
+      },
+    );
   }, [deletedFeedback, pendingMutationVersion, pendingOperation, persistedVersion, persistenceStatus, savedFeedback, t]);
 
   useEffect(() => {
