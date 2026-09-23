@@ -424,3 +424,37 @@ export function doCompletePostImportPairing(
       `${t("backup.pairing.completePrefix")}${operation.appliedMappingSymbols.length}${t("backup.pairing.completeMappingMiddle")}${operation.appliedPriceCount}${t("backup.pairing.completePriceMiddle")}${failures.length}${t("backup.pairing.completeSuffix")}`,
     );
 }
+
+type FinishPostImportPairingDeps = {
+  pairingOperationIsCurrent: (operation: PostImportPairingOperation) => boolean;
+  pairingOperationRef: RefObject<PostImportPairingOperation | null>;
+  setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
+};
+
+export function doFinishPostImportPairing(
+  deps: FinishPostImportPairingDeps,
+  operation: PostImportPairingOperation,
+  status: "success" | "partial" | "error",
+  message: string,
+) {
+  const {
+    pairingOperationIsCurrent,
+    pairingOperationRef,
+    setPostImportPairing,
+  } = deps;
+    if (!pairingOperationIsCurrent(operation)) return;
+    pairingOperationRef.current = null;
+    setPostImportPairing((current) =>
+      current
+        ? {
+            ...current,
+            status,
+            message,
+            failures: [
+              ...operation.mappingFailures,
+              ...operation.priceFailures,
+            ],
+          }
+        : current,
+    );
+}

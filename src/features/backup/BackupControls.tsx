@@ -64,6 +64,7 @@ import { PreflightReportView } from "./PreflightReportView";
 import {
   doCompletePostImportPairing,
   doFetchPostImportPrices,
+  doFinishPostImportPairing,
   doPairingOperationIsCurrent,
   doStartPostImportPairing,
 } from "./backupControlsPairing";
@@ -355,20 +356,15 @@ export function BackupControls({
     status: "success" | "partial" | "error",
     message: string,
   ) {
-    if (!pairingOperationIsCurrent(operation)) return;
-    pairingOperationRef.current = null;
-    setPostImportPairing((current) =>
-      current
-        ? {
-            ...current,
-            status,
-            message,
-            failures: [
-              ...operation.mappingFailures,
-              ...operation.priceFailures,
-            ],
-          }
-        : current,
+    return doFinishPostImportPairing(
+      {
+        pairingOperationIsCurrent,
+        pairingOperationRef,
+        setPostImportPairing,
+      },
+      operation,
+      status,
+      message,
     );
   }
 
