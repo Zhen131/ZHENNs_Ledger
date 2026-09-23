@@ -65,6 +65,7 @@ import {
   runOperationInvalidationEffect,
   runPersistenceProgressEffect,
 } from "./marketDataControlsEffects";
+import { MarketDataControlsRefreshBar } from "./MarketDataControlsRefreshBar";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -439,51 +440,17 @@ export function MarketDataControls({
       ) : null}
 
       {showRefresh ? (
-        <>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium">{t("marketData.priceMode.label")}</span>
-            {(["auto", "manual"] as const).map((value) => (
-              <button
-                aria-pressed={mode === value}
-                className={
-                  mode === value
-                    ? "rounded-md bg-slate-950 px-3 py-2 text-sm font-medium text-white"
-                    : "rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800"
-                }
-                key={value}
-                onClick={() => onModeChange(value)}
-                type="button"
-              >
-                {value === "auto" ? t("marketData.priceMode.auto") : t("marketData.priceMode.manual")}
-              </button>
-            ))}
-            <button
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={
-                !isWritable ||
-                !hasRefreshableHolding ||
-                globalBusy ||
-                anyAssetOperation
-              }
-              onClick={() => void refreshNonZeroHoldings()}
-              type="button"
-            >
-              {globalBusy
-                ? t("marketData.refresh.updating")
-                : t("marketData.refresh.action")}
-            </button>
-          </div>
-          <p
-            aria-live="polite"
-            className={
-              refreshState.status === "error"
-                ? "text-sm text-red-800"
-                : "text-sm text-slate-700"
-            }
-          >
-            {refreshState.message}
-          </p>
-        </>
+        <MarketDataControlsRefreshBar
+          anyAssetOperation={anyAssetOperation}
+          globalBusy={globalBusy}
+          hasRefreshableHolding={hasRefreshableHolding}
+          isWritable={isWritable}
+          mode={mode}
+          onModeChange={onModeChange}
+          refreshNonZeroHoldings={refreshNonZeroHoldings}
+          refreshState={refreshState}
+          t={t}
+        />
       ) : null}
 
       <div className="grid gap-2 text-sm text-slate-700">
