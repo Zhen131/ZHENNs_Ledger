@@ -6,16 +6,15 @@ import type {
 
 import type { LedgerData } from "@/core/models";
 import type {
+  ApplyLedgerMutation,
   PostImportPairingFailure,
   PostImportPairingOperation,
   PostImportPairingState,
 } from "./backupControlsTypes";
 import type {
   LedgerClock,
-  LedgerTimeSnapshot,
 } from "@/core/shared";
 import { captureLedgerTime } from "@/core/shared";
-import type { ApplyLedgerActionResult } from "@/app";
 import type { BinanceMarketDataClient } from "@/platform/integrations";
 import type { useLanguage } from "@/ui";
 import {
@@ -27,12 +26,6 @@ import {
 } from "@/features/market-data";
 import { normalizePairingFailure } from "./backupControlsHelpers";
 import type { BinanceRefreshSuccess } from "@/features/market-data";
-
-// BackupControls' `applyLedgerMutation` prop.
-type ApplyLedgerMutation = (
-  mutation: (current: LedgerData) => LedgerData,
-  timeSnapshot?: LedgerTimeSnapshot,
-) => ApplyLedgerActionResult;
 
 // Shape of BackupControls' `pairingLatestRef` (inferred there from its useRef initial value).
 type PairingLatest = {

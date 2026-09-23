@@ -1,5 +1,8 @@
 import { type BinanceAutoPairSuccess } from "@/features/market-data";
 import type { useLanguage } from "@/ui";
+import type { LedgerData } from "@/core/models";
+import type { LedgerTimeSnapshot } from "@/core/shared";
+import type { ApplyLedgerActionResult } from "@/app";
 
 export type Translate = ReturnType<typeof useLanguage>["t"];
 
@@ -55,3 +58,9 @@ export type PostImportPairingOperation = {
   appliedPriceCount: number;
   priceFailures: PostImportPairingFailure[];
 };
+
+// BackupControls' `applyLedgerMutation` prop (without the optional `undefined`).
+export type ApplyLedgerMutation = (
+  mutation: (current: LedgerData) => LedgerData,
+  timeSnapshot?: LedgerTimeSnapshot,
+) => ApplyLedgerActionResult;
