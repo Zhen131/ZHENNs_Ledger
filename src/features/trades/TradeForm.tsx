@@ -34,7 +34,6 @@ import {
 import {
   NegativeCashConfirmationDialog,
 } from "@/features/cash/ui";
-import { projectLedgerCashMutation } from "@/features/cash";
 import { formatMoney, LedgerNumber, useLanguage } from "@/ui";
 import {
   SUCCESS_FEEDBACK_MS,
@@ -54,6 +53,7 @@ import {
 } from "./tradeFormEffects";
 import {
   doApplyTrade,
+  doConfirmNegativeBalance,
   doHandleSubmit,
   doUpdateField,
 } from "./tradeFormActions";
@@ -309,36 +309,19 @@ export function TradeForm({
   }
 
   function confirmNegativeBalance() {
-    const pending = pendingRisk;
-    if (!pending) return;
-    if (
-      pending.ledgerEpoch !== ledgerEpoch ||
-      pending.mutationVersion !== mutationVersion ||
-      pending.persistedVersion !== persistedVersion
-    ) {
-      setPendingRisk(null);
-      setErrors({ form: t("trades.form.error.ledgerVersionChanged") });
-      return;
-    }
-    const nextLedger = {
-      ...ledgerData,
-      trades: [...ledgerData.trades, pending.trade],
-    };
-    const latest = projectLedgerCashMutation(
-      ledgerData,
-      nextLedger,
-      pending.timeSnapshot.todayKey,
+    return doConfirmNegativeBalance(
+      {
+        applyTrade,
+        ledgerData,
+        ledgerEpoch,
+        mutationVersion,
+        pendingRisk,
+        persistedVersion,
+        setErrors,
+        setPendingRisk,
+        t,
+      },
     );
-    if (
-      !latest.requiresNegativeBalanceConfirmation ||
-      latest.nextBalance !== pending.projection.nextBalance
-    ) {
-      setPendingRisk(null);
-      setErrors({ form: t("trades.form.error.cashResultChanged") });
-      return;
-    }
-    setPendingRisk(null);
-    applyTrade(pending.trade, pending.timeSnapshot);
   }
 
   return (

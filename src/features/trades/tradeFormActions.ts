@@ -265,3 +265,61 @@ export function doHandleSubmit(
 
     applyTrade(result.trade, timeSnapshot);
 }
+
+type ConfirmNegativeBalanceDeps = {
+  applyTrade: (trade: Trade, timeSnapshot: LedgerTimeSnapshot) => void;
+  ledgerData: LedgerData;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  pendingRisk: PendingTradeRisk | null;
+  persistedVersion: number;
+  setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
+  setPendingRisk: Dispatch<SetStateAction<PendingTradeRisk | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doConfirmNegativeBalance(
+  deps: ConfirmNegativeBalanceDeps,
+) {
+  const {
+    applyTrade,
+    ledgerData,
+    ledgerEpoch,
+    mutationVersion,
+    pendingRisk,
+    persistedVersion,
+    setErrors,
+    setPendingRisk,
+    t,
+  } = deps;
+    const pending = pendingRisk;
+    if (!pending) return;
+    if (
+      pending.ledgerEpoch !== ledgerEpoch ||
+      pending.mutationVersion !== mutationVersion ||
+      pending.persistedVersion !== persistedVersion
+    ) {
+      setPendingRisk(null);
+      setErrors({ form: t("trades.form.error.ledgerVersionChanged") });
+      return;
+    }
+    const nextLedger = {
+      ...ledgerData,
+      trades: [...ledgerData.trades, pending.trade],
+    };
+    const latest = projectLedgerCashMutation(
+      ledgerData,
+      nextLedger,
+      pending.timeSnapshot.todayKey,
+    );
+    if (
+      !latest.requiresNegativeBalanceConfirmation ||
+      latest.nextBalance !== pending.projection.nextBalance
+    ) {
+      setPendingRisk(null);
+      setErrors({ form: t("trades.form.error.cashResultChanged") });
+      return;
+    }
+    setPendingRisk(null);
+    applyTrade(pending.trade, pending.timeSnapshot);
+}
