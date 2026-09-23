@@ -12,7 +12,6 @@ import {
   getDefaultLedgerFileAccessController,
 } from "./ledgerAccessComposition";
 import {
-  LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
 } from "@/platform/legacy";
 import {
@@ -47,6 +46,7 @@ import { LegacyRetiredPanel } from "./LegacyRetiredPanel";
 import { AccessCheckingPanel } from "./AccessCheckingPanel";
 import { SessionLockingPanel } from "./SessionLockingPanel";
 import { FormError } from "./FormError";
+import { doInitialize } from "./ledgerAccessGateSession";
 
 export function LedgerAccessGate({
   accessController = getDefaultLedgerAccessController(),
@@ -90,94 +90,20 @@ export function LedgerAccessGate({
   >(() => Promise.resolve());
 
   const initialize = useCallback(async () => {
-    const operation = operationGenerationRef.current + 1;
-    operationGenerationRef.current = operation;
-    setAccessState({ status: "checking" });
-    setFormError("");
-    setReconnectError(null);
-
-    const interruptedCompletion =
-      pendingSessionCompletions.get(fileAccessController);
-    if (interruptedCompletion) {
-      activeSessionRef.current = interruptedCompletion.session;
-      retryReleaseRef.current = interruptedCompletion.retry;
-      try {
-        await interruptedCompletion.completion;
-      } catch {
-        if (
-          mountedRef.current &&
-          operationGenerationRef.current === operation
-        ) {
-          setAccessState({
-            status: "lock-error",
-            fatal: interruptedCompletion.fatal,
-          });
-        }
-        return;
-      }
-      if (
-        !mountedRef.current ||
-        operationGenerationRef.current !== operation
-      ) {
-        return;
-      }
-      if (
-        pendingSessionCompletions.get(fileAccessController) ===
-        interruptedCompletion
-      ) {
-        pendingSessionCompletions.delete(fileAccessController);
-      }
-      activeSessionRef.current = null;
-      retryReleaseRef.current = null;
-      if (interruptedCompletion.fatal) {
-        setAccessPath("choice");
-        setAccessState({ status: "fatal-closed" });
-        return;
-      }
-    }
-
-    const reconnect =
-      await fileAccessController.inspectRememberedConnection();
-    if (
-      !mountedRef.current ||
-      operationGenerationRef.current !== operation
-    ) {
-      return;
-    }
-
-    const legacy = await accessController.inspect();
-    if (
-      !mountedRef.current ||
-      operationGenerationRef.current !== operation
-    ) {
-      return;
-    }
-
-    if (
-      legacy.status === "unlock-required" ||
-      legacy.status === "error"
-    ) {
-      setAccessState({
-        status: "error",
-        code:
-          legacy.status === "error"
-            ? legacy.code
-            : LEDGER_ACCESS_ERROR_CODES.UNSUPPORTED_FORMAT,
-      });
-      setAccessPath("legacy-retired");
-      return;
-    }
-    setAccessState(legacy);
-    if (reconnect.status === "ready") {
-      setAccessPath("file-open-unlock");
-    } else if (reconnect.status === "permission-prompt") {
-      setAccessPath("file-reconnect-prompt");
-    } else if (reconnect.status === "error") {
-      setReconnectError(reconnect.code);
-      setAccessPath("file-reconnect-error");
-    } else {
-      setAccessPath("choice");
-    }
+    return doInitialize(
+      {
+        accessController,
+        activeSessionRef,
+        fileAccessController,
+        mountedRef,
+        operationGenerationRef,
+        retryReleaseRef,
+        setAccessPath,
+        setAccessState,
+        setFormError,
+        setReconnectError,
+      },
+    );
   }, [accessController, fileAccessController]);
 
   useEffect(() => {
