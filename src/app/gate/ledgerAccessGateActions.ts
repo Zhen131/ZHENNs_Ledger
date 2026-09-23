@@ -349,3 +349,65 @@ export async function doSubmitFileUnlock(
     }
     finishOperation(operation);
 }
+
+type ConfirmFileRecoveryDeps = {
+  beginOperation: () => number;
+  enterUnlockedSession: (session: LedgerSession) => void;
+  fileAccessController: LedgerFileAccessController;
+  finishOperation: (operation: number) => void;
+  isCurrentOperation: (operation: number) => boolean;
+  operationRef: RefObject<boolean>;
+  recoveryId: string | null;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setRecoveryId: Dispatch<SetStateAction<string | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doConfirmFileRecovery(
+  deps: ConfirmFileRecoveryDeps,
+) {
+  const {
+    beginOperation,
+    enterUnlockedSession,
+    fileAccessController,
+    finishOperation,
+    isCurrentOperation,
+    operationRef,
+    recoveryId,
+    setFormError,
+    setIsSubmitting,
+    setRecoveryId,
+    t,
+  } = deps;
+    if (operationRef.current || recoveryId === null) {
+      return;
+    }
+    const operation = beginOperation();
+    setIsSubmitting(true);
+    setFormError("");
+    try {
+      const result =
+        await fileAccessController.confirmRecovery(recoveryId);
+
+      if (isCurrentOperation(operation)) {
+        if (result.status === "unlocked") {
+          setRecoveryId(null);
+          enterUnlockedSession(result.session);
+        } else if (result.status === "error") {
+          setFormError(getFileAccessErrorMessage(result.code, t));
+        }
+      }
+    } catch {
+      if (isCurrentOperation(operation)) {
+        setFormError(
+          getFileAccessErrorMessage(
+            LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_FAILED,
+            t,
+          ),
+        );
+      }
+    } finally {
+      finishOperation(operation);
+    }
+}

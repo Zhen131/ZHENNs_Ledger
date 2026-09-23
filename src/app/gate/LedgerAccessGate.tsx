@@ -15,7 +15,6 @@ import {
   type LedgerAccessController,
 } from "@/platform/legacy";
 import {
-  LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
   type LedgerFileAccessErrorCode,
 } from "@/app/file-access";
@@ -53,6 +52,7 @@ import {
   runGateLifecycleEffect,
 } from "./ledgerAccessGateSession";
 import {
+  doConfirmFileRecovery,
   doForgetRememberedConnection,
   doRequestRememberedConnection,
   doReselectRememberedConnection,
@@ -292,36 +292,21 @@ export function LedgerAccessGate({
   }
 
   async function confirmFileRecovery() {
-    if (operationRef.current || recoveryId === null) {
-      return;
-    }
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    try {
-      const result =
-        await fileAccessController.confirmRecovery(recoveryId);
-
-      if (isCurrentOperation(operation)) {
-        if (result.status === "unlocked") {
-          setRecoveryId(null);
-          enterUnlockedSession(result.session);
-        } else if (result.status === "error") {
-          setFormError(getFileAccessErrorMessage(result.code, t));
-        }
-      }
-    } catch {
-      if (isCurrentOperation(operation)) {
-        setFormError(
-          getFileAccessErrorMessage(
-            LEDGER_FILE_ACCESS_ERROR_CODES.RECOVERY_FAILED,
-            t,
-          ),
-        );
-      }
-    } finally {
-      finishOperation(operation);
-    }
+    return doConfirmFileRecovery(
+      {
+        beginOperation,
+        enterUnlockedSession,
+        fileAccessController,
+        finishOperation,
+        isCurrentOperation,
+        operationRef,
+        recoveryId,
+        setFormError,
+        setIsSubmitting,
+        setRecoveryId,
+        t,
+      },
+    );
   }
 
   async function cancelFileRecovery() {
