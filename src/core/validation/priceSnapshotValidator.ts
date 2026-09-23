@@ -1,50 +1,24 @@
-import type {
-  Asset,
-  BinancePriceProvenance,
-  PriceSnapshotDraft,
-  PriceSource,
-} from "@/core/models";
-import { isPositive, isSupportedTimeZone } from "@/core/shared";
+import type { Asset, PriceSnapshotDraft } from "@/core/models";
 import { isLedgerFactInFuture } from "@/core/shared";
 import { isSupportedValuationCurrency } from "@/core/policies";
-import { isValidISODateOrDateTime } from "./isoDateValidator";
-
-export const PRICE_SNAPSHOT_VALIDATION_ERROR_CODES = {
-  INVALID_INPUT: "PRICE_SNAPSHOT_INVALID_INPUT",
-  ASSET_NOT_FOUND: "PRICE_SNAPSHOT_ASSET_NOT_FOUND",
-  INVALID_DECIMAL: "PRICE_SNAPSHOT_INVALID_DECIMAL",
-  VALUE_MUST_BE_POSITIVE: "PRICE_SNAPSHOT_VALUE_MUST_BE_POSITIVE",
-  CURRENCY_MISMATCH: "PRICE_SNAPSHOT_CURRENCY_MISMATCH",
-  INVALID_SOURCE: "PRICE_SNAPSHOT_INVALID_SOURCE",
-  INVALID_BINANCE_PROVENANCE: "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE",
-  FUTURE_FACT: "PRICE_SNAPSHOT_FUTURE_FACT",
-  UNSUPPORTED_VALUATION_CURRENCY:
-    "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY",
-  BINANCE_PROVENANCE_REQUIRED:
-    "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED",
-  NEW_FACT_REQUIRES_USDT: "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT",
-} as const;
-
-export type PriceSnapshotValidationField =
-  | "input"
-  | keyof PriceSnapshotDraft;
-
-export type PriceSnapshotValidationError = {
-  code:
-    | "PRICE_SNAPSHOT_INVALID_INPUT"
-    | "PRICE_SNAPSHOT_ASSET_NOT_FOUND"
-    | "PRICE_SNAPSHOT_INVALID_DECIMAL"
-    | "PRICE_SNAPSHOT_VALUE_MUST_BE_POSITIVE"
-    | "PRICE_SNAPSHOT_CURRENCY_MISMATCH"
-    | "PRICE_SNAPSHOT_INVALID_SOURCE"
-    | "PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE"
-    | "PRICE_SNAPSHOT_FUTURE_FACT"
-    | "PRICE_SNAPSHOT_UNSUPPORTED_VALUATION_CURRENCY"
-    | "PRICE_SNAPSHOT_BINANCE_PROVENANCE_REQUIRED"
-    | "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT";
-  field: PriceSnapshotValidationField;
-  message: string;
-};
+import type {
+  PriceSnapshotValidationError,
+} from "./priceSnapshotValidatorErrors";
+import {
+  PRICE_SNAPSHOT_VALIDATION_ERROR_CODES,
+} from "./priceSnapshotValidatorErrors";
+import {
+  readOptionalOccurredTimeZone,
+  readBinanceProvenance,
+  isRecord,
+  readAssetSymbol,
+  readPositivePrice,
+  readRequiredString,
+  readRecordedAt,
+  readSource,
+  readOptionalNote,
+  createError,
+} from "./priceSnapshotValidatorReaders";
 
 export type ValidatedPriceSnapshotDraft = Omit<
   PriceSnapshotDraft,
@@ -195,218 +169,4 @@ export function validatePriceSnapshotDraft(
       ...(note === undefined ? {} : { note }),
     },
   };
-}
-
-function readOptionalOccurredTimeZone(
-  value: unknown,
-  errors: PriceSnapshotValidationError[],
-): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value === "string" && isSupportedTimeZone(value)) return value;
-  errors.push(
-    createError(
-      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      "occurredTimeZone",
-      "occurredTimeZone must be a runtime-supported IANA time zone",
-    ),
-  );
-  return undefined;
-}
-
-function readBinanceProvenance(
-  value: unknown,
-  source: PriceSource | undefined,
-  errors: PriceSnapshotValidationError[],
-): BinancePriceProvenance | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (source !== "api" || !isRecord(value)) {
-    errors.push(
-      createError(
-        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_BINANCE_PROVENANCE,
-        "binanceProvenance",
-        "binanceProvenance is only valid for api prices",
-      ),
-    );
-    return undefined;
-  }
-
-  if (
-    value.provider !== "binance" ||
-    typeof value.symbol !== "string" ||
-    value.symbol.length === 0 ||
-    value.sourceQuoteCurrency !== "USDT" ||
-    typeof value.fetchedAt !== "string" ||
-    !value.fetchedAt.includes("T") ||
-    !isValidISODateOrDateTime(value.fetchedAt)
-  ) {
-    errors.push(
-      createError(
-        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_BINANCE_PROVENANCE,
-        "binanceProvenance",
-        "binanceProvenance must contain provider, symbol, USDT quote and ISO fetchedAt",
-      ),
-    );
-    return undefined;
-  }
-
-  return {
-    provider: "binance",
-    symbol: value.symbol,
-    sourceQuoteCurrency: "USDT",
-    fetchedAt: value.fetchedAt,
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readAssetSymbol(
-  value: unknown,
-  assets: readonly Asset[],
-  errors: PriceSnapshotValidationError[],
-): string | undefined {
-  if (
-    typeof value === "string" &&
-    assets.some((asset) => asset.symbol === value)
-  ) {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.ASSET_NOT_FOUND,
-      "assetSymbol",
-      `Unknown asset: ${String(value)}`,
-    ),
-  );
-  return undefined;
-}
-
-function readPositivePrice(
-  value: unknown,
-  errors: PriceSnapshotValidationError[],
-): string | undefined {
-  if (typeof value !== "string") {
-    errors.push(
-      createError(
-        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_DECIMAL,
-        "price",
-        "price must be a valid finite decimal string",
-      ),
-    );
-    return undefined;
-  }
-
-  try {
-    if (!isPositive(value)) {
-      errors.push(
-        createError(
-          PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.VALUE_MUST_BE_POSITIVE,
-          "price",
-          "price must be greater than 0",
-        ),
-      );
-      return undefined;
-    }
-  } catch {
-    errors.push(
-      createError(
-        PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_DECIMAL,
-        "price",
-        "price must be a valid finite decimal string",
-      ),
-    );
-    return undefined;
-  }
-
-  return value;
-}
-
-function readRequiredString(
-  value: unknown,
-  field: "currency",
-  errors: PriceSnapshotValidationError[],
-): string | undefined {
-  if (typeof value === "string" && value.length > 0) {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      field,
-      `${field} must be a non-empty string`,
-    ),
-  );
-  return undefined;
-}
-
-function readRecordedAt(
-  value: unknown,
-  errors: PriceSnapshotValidationError[],
-): string | undefined {
-  if (isValidISODateOrDateTime(value)) {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      "recordedAt",
-      "recordedAt must be a valid ISO date or datetime string",
-    ),
-  );
-  return undefined;
-}
-
-function readSource(
-  value: unknown,
-  errors: PriceSnapshotValidationError[],
-): PriceSource | undefined {
-  if (value === "manual" || value === "api") {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_SOURCE,
-      "source",
-      "source must be manual or api",
-    ),
-  );
-  return undefined;
-}
-
-function readOptionalNote(
-  value: unknown,
-  errors: PriceSnapshotValidationError[],
-): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      PRICE_SNAPSHOT_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      "note",
-      "note must be a string when provided",
-    ),
-  );
-  return undefined;
-}
-
-function createError(
-  code: PriceSnapshotValidationError["code"],
-  field: PriceSnapshotValidationField,
-  message: string,
-): PriceSnapshotValidationError {
-  return { code, field, message };
 }

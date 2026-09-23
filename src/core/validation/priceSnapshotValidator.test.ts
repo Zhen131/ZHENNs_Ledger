@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { PriceSnapshotDraft } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
+import { validatePriceSnapshotDraft } from "./priceSnapshotValidator";
 import {
   PRICE_SNAPSHOT_VALIDATION_ERROR_CODES,
-  validatePriceSnapshotDraft,
-} from "./priceSnapshotValidator";
+} from "./priceSnapshotValidatorErrors";
 
 const assets = createInitialLedgerData().assets;
 const validDraft: PriceSnapshotDraft = {

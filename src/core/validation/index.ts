@@ -10,6 +10,7 @@ export {
 } from "./ledgerDataValidator";
 export { LEDGER_DATA_VALIDATION_ERROR_CODES } from "./ledgerDataValidatorSchema";
 export * from "./priceSnapshotValidator";
+export * from "./priceSnapshotValidatorErrors";
 export {
   DEFAULT_LEDGER_RESOURCE_LIMITS,
   LEDGER_RESOURCE_POLICY_ERROR_CODES,
