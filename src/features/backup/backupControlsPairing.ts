@@ -391,3 +391,36 @@ export async function doFetchPostImportPrices(
     );
     completePostImportPairing(operation);
 }
+
+type CompletePostImportPairingDeps = {
+  finishPostImportPairing: (operation: PostImportPairingOperation, status: "success" | "partial" | "error", message: string) => void;
+  pairingOperationIsCurrent: (operation: PostImportPairingOperation) => boolean;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doCompletePostImportPairing(
+  deps: CompletePostImportPairingDeps,
+  operation: PostImportPairingOperation,
+) {
+  const {
+    finishPostImportPairing,
+    pairingOperationIsCurrent,
+    t,
+  } = deps;
+    if (!pairingOperationIsCurrent(operation)) return;
+    const failures = [
+      ...operation.mappingFailures,
+      ...operation.priceFailures,
+    ];
+    const successfulMutationCount =
+      operation.appliedMappingSymbols.length + operation.appliedPriceCount;
+    finishPostImportPairing(
+      operation,
+      failures.length === 0
+        ? "success"
+        : successfulMutationCount > 0
+          ? "partial"
+          : "error",
+      `${t("backup.pairing.completePrefix")}${operation.appliedMappingSymbols.length}${t("backup.pairing.completeMappingMiddle")}${operation.appliedPriceCount}${t("backup.pairing.completePriceMiddle")}${failures.length}${t("backup.pairing.completeSuffix")}`,
+    );
+}

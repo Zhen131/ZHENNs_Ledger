@@ -62,6 +62,7 @@ import type {
 } from "./backupControlsTypes";
 import { PreflightReportView } from "./PreflightReportView";
 import {
+  doCompletePostImportPairing,
   doFetchPostImportPrices,
   doPairingOperationIsCurrent,
   doStartPostImportPairing,
@@ -339,21 +340,13 @@ export function BackupControls({
   function completePostImportPairing(
     operation: PostImportPairingOperation,
   ) {
-    if (!pairingOperationIsCurrent(operation)) return;
-    const failures = [
-      ...operation.mappingFailures,
-      ...operation.priceFailures,
-    ];
-    const successfulMutationCount =
-      operation.appliedMappingSymbols.length + operation.appliedPriceCount;
-    finishPostImportPairing(
+    return doCompletePostImportPairing(
+      {
+        finishPostImportPairing,
+        pairingOperationIsCurrent,
+        t,
+      },
       operation,
-      failures.length === 0
-        ? "success"
-        : successfulMutationCount > 0
-          ? "partial"
-          : "error",
-      `${t("backup.pairing.completePrefix")}${operation.appliedMappingSymbols.length}${t("backup.pairing.completeMappingMiddle")}${operation.appliedPriceCount}${t("backup.pairing.completePriceMiddle")}${failures.length}${t("backup.pairing.completeSuffix")}`,
     );
   }
 
