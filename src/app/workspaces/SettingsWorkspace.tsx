@@ -13,6 +13,7 @@ import type { HydrationStatus } from "@/app/persistence";
 import type { PersistenceOperation } from "@/app/persistence";
 import { doConfirmClear } from "./settingsWorkspaceActions";
 import { SettingsWorkspaceDangerPanel } from "./SettingsWorkspaceDangerPanel";
+import { SettingsWorkspaceTabBar } from "./SettingsWorkspaceTabBar";
 
 /**
  * The Chinese reading of the phrase this panel asks the reader to type. The
@@ -212,38 +213,12 @@ export function SettingsWorkspace({
         </label>
       </SurfaceCard>
 
-      <div
-        aria-label={t("settings.tabs.ariaLabel")}
-        className="grid grid-cols-1 gap-2 rounded-xl border border-[var(--ledger-border)] bg-[var(--ledger-surface-muted)] p-2 sm:grid-cols-3"
-        role="tablist"
-      >
-        {(
-          [
-            ["market", t("settings.tabs.market")],
-            ["fees", t("settings.tabs.fees")],
-            ["danger", t("settings.tabs.danger")],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            aria-controls={`settings-panel-${value}`}
-            aria-selected={tab === value}
-            className={
-              tab === value
-                ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[var(--ledger-ink)] shadow-sm"
-                : "rounded-lg px-4 py-2 text-sm font-medium text-[var(--ledger-muted)]"
-            }
-            key={value}
-            onClick={() => {
-              setTab(value);
-              if (value !== "danger") closeDanger();
-            }}
-            role="tab"
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SettingsWorkspaceTabBar
+        closeDanger={closeDanger}
+        setTab={setTab}
+        t={t}
+        tab={tab}
+      />
 
       {tab === "market" ? (
         <SurfaceCard
