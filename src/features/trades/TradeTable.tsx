@@ -3,16 +3,16 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 
 import { calculateTradeCashImpact } from "@/core/calculations";
-import { getLedgerDateKey, isLedgerFactInFuture } from "@/core/shared";
-import { LedgerNumber, useLanguage } from "@/ui";
+import { getLedgerDateKey } from "@/core/shared";
+import { useLanguage } from "@/ui";
 import {
-  TradeDeleteControl,
   type TradeDeletePhase,
 } from "./TradeDeleteControl";
 import { LegacyTradeTable } from "./LegacyTradeTable";
 import type { TradeTableProps } from "./tradeTableTypes";
 import { runTradeLocateEffect } from "./workspaceTradeTableEffects";
 import { WorkspaceTradeDetailRow } from "./WorkspaceTradeDetailRow";
+import { WorkspaceTradeRow } from "./WorkspaceTradeRow";
 
 const ignoreLocationResult = () => undefined;
 
@@ -132,109 +132,26 @@ function WorkspaceTradeTable({
 
               return (
                 <Fragment key={trade.id}>
-                  <tr
-                    aria-expanded={expanded}
-                    className={`${
-                      isPending ? "bg-slate-50 opacity-70" : "hover:bg-[#fbfaf7]"
-                    } ${locationClass} cursor-pointer`}
-                    data-locate-highlight={
-                      isLocated ? locationMode : undefined
-                    }
-                    data-trade-date={getLedgerDateKey(trade.occurredAt)}
-                    data-trade-id={trade.id}
-                    onClick={(event) => {
-                      if (
-                        isPending ||
-                        (event.target as HTMLElement).closest(
-                          "button, a, input, select",
-                        )
-                      ) {
-                        return;
-                      }
-                      onExpandedTradeIdChange(expanded ? null : trade.id);
-                    }}
-                    onKeyDown={(event) => {
-                      if (isPending || (event.key !== "Enter" && event.key !== " ")) {
-                        return;
-                      }
-                      event.preventDefault();
-                      onExpandedTradeIdChange(expanded ? null : trade.id);
-                    }}
-                    ref={(node) => {
-                      if (node) rowRefs.current.set(trade.id, node);
-                      else rowRefs.current.delete(trade.id);
-                    }}
-                    tabIndex={isPending ? -1 : 0}
-                  >
-                    <td className="px-4 py-3 text-[var(--ledger-muted)]">
-                      {trade.occurredAt}
-                      {todayKey && isLedgerFactInFuture(trade.occurredAt, todayKey) ? (
-                        <span className="ml-2 font-medium text-red-700">{t("trades.table.futureFact")}</span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-3">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                          trade.type === "buy"
-                            ? "bg-emerald-50 text-emerald-800"
-                            : "bg-amber-50 text-amber-900"
-                        }`}
-                      >
-                        {trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 font-semibold">{trade.assetSymbol}</td>
-                    <td className="px-3 py-3 text-[var(--ledger-muted)]">
-                      <LedgerNumber kind="money" value={trade.totalValue} />{" "}
-                      {trade.currency}
-                    </td>
-                    <td className="px-3 py-3 text-[var(--ledger-muted)]">
-                      <LedgerNumber
-                        kind={trade.feeCurrency === "USDT" ? "money" : "quantity"}
-                        value={trade.fee}
-                      />{" "}
-                      {trade.feeCurrency}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="grid grid-cols-2 gap-2">
-                        {phase === "idle" ? (
-                          <button
-                            aria-expanded={expanded}
-                            className="rounded-md border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700 disabled:opacity-50"
-                            disabled={isPending}
-                            onClick={() =>
-                              onExpandedTradeIdChange(expanded ? null : trade.id)
-                            }
-                            ref={(node) => {
-                              if (node) detailButtonRefs.current.set(trade.id, node);
-                              else detailButtonRefs.current.delete(trade.id);
-                            }}
-                            type="button"
-                          >
-                            {t("trades.table.details")}
-                          </button>
-                        ) : null}
-                        <TradeDeleteControl
-                          ariaLabel={`${t("trades.table.deletePrefix")} ${
-                            trade.type === "buy" ? t("trades.type.buy") : t("trades.type.sell")
-                          } ${trade.assetSymbol} ${trade.occurredAt}`}
-                          className={phase === "idle" ? "" : "col-span-2"}
-                          disabled={rowDeleteDisabled}
-                          onActivate={() =>
-                            phase === "armed"
-                              ? onConfirmDelete(trade.id)
-                              : onArmDelete(trade.id)
-                          }
-                          onCancel={onCancelDelete}
-                          onUndo={onUndoDelete}
-                          phase={phase}
-                          remainingMs={
-                            isPending ? deleteState.remainingMs : 0
-                          }
-                        />
-                      </div>
-                    </td>
-                  </tr>
+                  <WorkspaceTradeRow
+                    deleteState={deleteState}
+                    detailButtonRefs={detailButtonRefs}
+                    expanded={expanded}
+                    isLocated={isLocated}
+                    isPending={isPending}
+                    locationClass={locationClass}
+                    locationMode={locationMode}
+                    onArmDelete={onArmDelete}
+                    onCancelDelete={onCancelDelete}
+                    onConfirmDelete={onConfirmDelete}
+                    onExpandedTradeIdChange={onExpandedTradeIdChange}
+                    onUndoDelete={onUndoDelete}
+                    phase={phase}
+                    rowDeleteDisabled={rowDeleteDisabled}
+                    rowRefs={rowRefs}
+                    t={t}
+                    todayKey={todayKey}
+                    trade={trade}
+                  />
                   {expanded ? (
                     <WorkspaceTradeDetailRow
                       cashImpact={cashImpact}
