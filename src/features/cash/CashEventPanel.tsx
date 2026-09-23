@@ -28,6 +28,7 @@ import { SUCCESS_FEEDBACK_MS, cashTypeLabel } from "./cashEventPanelHelpers";
 import {
   doApplyDelete,
   doHandleSubmit,
+  doRequestDelete,
   runCashFormEpochResetEffect,
   runCashPersistenceEffect,
 } from "./cashEventPanelActions";
@@ -188,51 +189,27 @@ export function CashEventPanel({
   }
 
   function requestDelete(cashEvent: CashEvent, trigger: HTMLButtonElement) {
-    if (!isWritable || pendingMutationVersion !== null) return;
-    const timeSnapshot = captureLedgerTime(clock);
-    const nextLedger = {
-      ...ledgerData,
-      cashEvents: ledgerData.cashEvents.filter((item) => item.id !== cashEvent.id),
-    };
-    const projection = projectLedgerCashMutation(
-      ledgerData,
-      nextLedger,
-      timeSnapshot.todayKey,
+    return doRequestDelete(
+      {
+        applyDelete,
+        armedDelete,
+        clock,
+        isWritable,
+        lastRiskTriggerRef,
+        ledgerData,
+        ledgerEpoch,
+        mutationVersion,
+        pendingMutationVersion,
+        persistedVersion,
+        setArmedDelete,
+        setError,
+        setFeedback,
+        setPendingRisk,
+        t,
+      },
+      cashEvent,
+      trigger,
     );
-    if (projection.requiresNegativeBalanceConfirmation) {
-      lastRiskTriggerRef.current = trigger;
-      setPendingRisk({
-        operation: "delete",
-        cashEvent,
-        projection,
-        ledgerEpoch,
-        mutationVersion,
-        persistedVersion,
-        timeSnapshot,
-      });
-      setArmedDelete(null);
-      return;
-    }
-    if (armedDelete?.cashEventId !== cashEvent.id) {
-      setArmedDelete({
-        cashEventId: cashEvent.id,
-        ledgerEpoch,
-        mutationVersion,
-        persistedVersion,
-      });
-      setFeedback(t("cash.status.deleteArmed"));
-      return;
-    }
-    if (
-      armedDelete.ledgerEpoch !== ledgerEpoch ||
-      armedDelete.mutationVersion !== mutationVersion ||
-      armedDelete.persistedVersion !== persistedVersion
-    ) {
-      setArmedDelete(null);
-      setError(t("cash.status.deleteStale"));
-      return;
-    }
-    applyDelete(cashEvent.id, timeSnapshot);
   }
 
   function applyDelete(cashEventId: string, timeSnapshot: LedgerTimeSnapshot) {

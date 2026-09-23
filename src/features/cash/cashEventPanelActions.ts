@@ -28,6 +28,7 @@ import type {
 } from "@/app";
 import type { useLanguage } from "@/ui";
 import { createValidatedCashEvent } from "./cashEventService";
+import { projectLedgerCashMutation } from "./cashProjection";
 
 type CashFormEpochResetEffectDeps = {
   clock: LedgerClock;
@@ -270,4 +271,91 @@ export function doHandleSubmit(
       return;
     }
     applyAdd(result.cashEvent, timeSnapshot);
+}
+
+type RequestDeleteDeps = {
+  applyDelete: (cashEventId: string, timeSnapshot: LedgerTimeSnapshot) => void;
+  armedDelete: ArmedDelete | null;
+  clock: LedgerClock;
+  isWritable: boolean;
+  lastRiskTriggerRef: RefObject<HTMLElement | null>;
+  ledgerData: LedgerData;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  pendingMutationVersion: number | null;
+  persistedVersion: number;
+  setArmedDelete: Dispatch<SetStateAction<ArmedDelete | null>>;
+  setError: Dispatch<SetStateAction<string>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingRisk: Dispatch<SetStateAction<PendingRisk | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doRequestDelete(
+  deps: RequestDeleteDeps,
+  cashEvent: CashEvent,
+  trigger: HTMLButtonElement,
+) {
+  const {
+    applyDelete,
+    armedDelete,
+    clock,
+    isWritable,
+    lastRiskTriggerRef,
+    ledgerData,
+    ledgerEpoch,
+    mutationVersion,
+    pendingMutationVersion,
+    persistedVersion,
+    setArmedDelete,
+    setError,
+    setFeedback,
+    setPendingRisk,
+    t,
+  } = deps;
+    if (!isWritable || pendingMutationVersion !== null) return;
+    const timeSnapshot = captureLedgerTime(clock);
+    const nextLedger = {
+      ...ledgerData,
+      cashEvents: ledgerData.cashEvents.filter((item) => item.id !== cashEvent.id),
+    };
+    const projection = projectLedgerCashMutation(
+      ledgerData,
+      nextLedger,
+      timeSnapshot.todayKey,
+    );
+    if (projection.requiresNegativeBalanceConfirmation) {
+      lastRiskTriggerRef.current = trigger;
+      setPendingRisk({
+        operation: "delete",
+        cashEvent,
+        projection,
+        ledgerEpoch,
+        mutationVersion,
+        persistedVersion,
+        timeSnapshot,
+      });
+      setArmedDelete(null);
+      return;
+    }
+    if (armedDelete?.cashEventId !== cashEvent.id) {
+      setArmedDelete({
+        cashEventId: cashEvent.id,
+        ledgerEpoch,
+        mutationVersion,
+        persistedVersion,
+      });
+      setFeedback(t("cash.status.deleteArmed"));
+      return;
+    }
+    if (
+      armedDelete.ledgerEpoch !== ledgerEpoch ||
+      armedDelete.mutationVersion !== mutationVersion ||
+      armedDelete.persistedVersion !== persistedVersion
+    ) {
+      setArmedDelete(null);
+      setError(t("cash.status.deleteStale"));
+      return;
+    }
+    applyDelete(cashEvent.id, timeSnapshot);
 }
