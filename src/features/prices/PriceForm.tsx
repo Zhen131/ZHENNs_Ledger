@@ -28,7 +28,10 @@ import {
   toPriceFormField,
   formatValidationError,
 } from "./priceFormHelpers";
-import { runPriceAssetRepairEffect } from "./priceFormEffects";
+import {
+  runPriceAssetRepairEffect,
+  runPriceEpochResetEffect,
+} from "./priceFormEffects";
 
 type PriceFormProps = Readonly<{
   clock?: LedgerClock;
@@ -105,18 +108,17 @@ export function PriceForm({
   }, [ledgerData.assets]);
 
   useEffect(() => {
-    setPendingMutationVersion(null);
-    pendingResetRef.current = undefined;
-    setSuccessMessage("");
-    if (!draft) {
-      setLocalForm(
-        createPriceWorkspaceDraft(
-          ledgerData.assets[0]?.symbol ?? "",
-          captureLedgerTime(clock).todayKey,
-          clock,
-        ),
-      );
-    }
+    return runPriceEpochResetEffect(
+      {
+        clock,
+        draft,
+        ledgerData,
+        pendingResetRef,
+        setLocalForm,
+        setPendingMutationVersion,
+        setSuccessMessage,
+      },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledgerEpoch]);
 
