@@ -25,9 +25,7 @@ import {
   getActivityPageItems,
 } from "@/features/activity";
 import { useLanguage } from "@/ui";
-import {
-  type AssetTransferServiceError,
-} from "./assetTransferService";
+import { type AssetTransferServiceError } from "./assetTransferServiceContract";
 import type { ArmedDelete } from "./assetTransferPanelHelpers";
 import {
   SUCCESS_FEEDBACK_MS,

@@ -8,11 +8,13 @@ import type {
 } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import {
-  ASSET_TRANSFER_SERVICE_ERROR_CODES,
   createValidatedAssetTransfer,
   validateAssetTransferRemoval,
-  type AssetTransferServiceDependencies,
 } from "./assetTransferService";
+import {
+  ASSET_TRANSFER_SERVICE_ERROR_CODES,
+  type AssetTransferServiceDependencies,
+} from "./assetTransferServiceContract";
 
 const NOW = "2026-08-18T08:00:00.000Z";
 

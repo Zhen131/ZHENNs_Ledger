@@ -10,7 +10,7 @@ import {
   FACT_TIME_ZONE_OPTIONS,
   getLedgerTimeZone,
 } from "@/core/shared";
-import { ASSET_TRANSFER_REASONS_BY_CATEGORY } from "./assetTransferService";
+import { ASSET_TRANSFER_REASONS_BY_CATEGORY } from "./assetTransferServiceContract";
 import {
   Field,
   LocationSelect,
@@ -27,7 +27,7 @@ import type {
   SetStateAction,
 } from "react";
 import type { useLanguage } from "@/ui";
-import type { AssetTransferServiceError } from "./assetTransferService";
+import type { AssetTransferServiceError } from "./assetTransferServiceContract";
 
 export function AssetTransferPanelForm({
   assetSymbol,

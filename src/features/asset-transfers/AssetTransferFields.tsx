@@ -2,7 +2,7 @@
 
 import { type ReactNode } from "react";
 import type { CustodyLocation } from "@/core/models";
-import { type AssetTransferServiceError } from "./assetTransferService";
+import { type AssetTransferServiceError } from "./assetTransferServiceContract";
 import type { Translate } from "./assetTransferPanelHelpers";
 import { controlClassName } from "./assetTransferPanelHelpers";
 

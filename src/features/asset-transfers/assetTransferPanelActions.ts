@@ -7,7 +7,7 @@ import type {
   FormEvent,
   SetStateAction,
 } from "react";
-import type { AssetTransferServiceError } from "./assetTransferService";
+import type { AssetTransferServiceError } from "./assetTransferServiceContract";
 import type { useLanguage } from "@/ui";
 import type {
   AssetTransfer,

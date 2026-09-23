@@ -8,7 +8,7 @@ import type { useLanguage } from "@/ui";
 import {
   ASSET_TRANSFER_REASONS_BY_CATEGORY,
   type AssetTransferServiceError,
-} from "./assetTransferService";
+} from "./assetTransferServiceContract";
 
 export const SUCCESS_FEEDBACK_MS = 4_000;
 export const DEFAULT_CATEGORY: AssetTransferCategory = "internal";
