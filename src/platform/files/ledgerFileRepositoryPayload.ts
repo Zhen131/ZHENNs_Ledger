@@ -1,9 +1,9 @@
 import { byteArraysEqual } from "./byteArraysEqual";
+import { type CanonicalLedgerPayloadV4 } from "./ledgerFileContract";
 import {
   createCanonicalLedgerPayloadV4,
   evaluateLedgerFilePayloadByteLength,
-  type CanonicalLedgerPayloadV4,
-} from "./ledgerFileContract";
+} from "./ledgerFileContractPayload";
 import {
   type EncryptedLedgerBlockV3S3,
   type LedgerGenerationV3S3,

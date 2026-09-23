@@ -2,11 +2,13 @@ import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
   SUPPORTED_LEDGER_SCHEMA_VERSION,
-  createLedgerFileCryptoV2,
-  createLedgerFileGenerationAadV2,
   type EncryptedLedgerGenerationV4,
   type LedgerFileCryptoV2,
 } from "./ledgerFileContract";
+import {
+  createLedgerFileCryptoV2,
+  createLedgerFileGenerationAadV2,
+} from "./ledgerFileContractEncryption";
 import {
   deriveLedgerKeyWithParameters,
   type CryptoProvider,

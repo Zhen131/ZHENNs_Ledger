@@ -5,15 +5,19 @@ import { bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
   SUPPORTED_LEDGER_SCHEMA_VERSION,
-  createCanonicalLedgerPayloadV4,
-  createLedgerFileCryptoV2,
-  createLedgerFileGenerationAadV2,
-  evaluateLedgerFilePayloadByteLength,
   type EncryptedLedgerGenerationV4,
   type LedgerFileV2,
-  validateDecryptedLedgerPayloadV4,
-  validateLedgerFileV2,
 } from "./ledgerFileContract";
+import {
+  createLedgerFileCryptoV2,
+  createLedgerFileGenerationAadV2,
+} from "./ledgerFileContractEncryption";
+import {
+  createCanonicalLedgerPayloadV4,
+  evaluateLedgerFilePayloadByteLength,
+  validateDecryptedLedgerPayloadV4,
+} from "./ledgerFileContractPayload";
+import { validateLedgerFileV2 } from "./ledgerFileContractValidate";
 import { createInitialLedgerData } from "@/core/state";
 
 function createGeneration(

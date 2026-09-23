@@ -1,9 +1,7 @@
 import { type LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
 import { type LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
-import {
-  createCanonicalLedgerPayloadV4,
-  type CanonicalLedgerPayloadV4,
-} from "./ledgerFileContract";
+import { type CanonicalLedgerPayloadV4 } from "./ledgerFileContract";
+import { createCanonicalLedgerPayloadV4 } from "./ledgerFileContractPayload";
 import { type LedgerFileV3S3 } from "./ledgerFileChunkedContainerV3";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";

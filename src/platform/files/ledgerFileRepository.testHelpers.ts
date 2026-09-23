@@ -16,10 +16,8 @@ import {
   preflightBackupJson,
 } from "@/features/backup";
 import { bytesToBase64Url } from "@/platform/encryption";
-import {
-  type DecryptedLedgerPayloadV4,
-  validateDecryptedLedgerPayloadV4,
-} from "./ledgerFileContract";
+import { type DecryptedLedgerPayloadV4 } from "./ledgerFileContract";
+import { validateDecryptedLedgerPayloadV4 } from "./ledgerFileContractPayload";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import type { CashEvent, LedgerData, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";

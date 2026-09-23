@@ -2,10 +2,10 @@ import type { LedgerData } from "@/core/models";
 import type { LedgerAction } from "@/core/state";
 import { isValidISODateOrDateTime } from "@/core/validation";
 import {
-  createCanonicalLedgerPayloadV4,
   type CanonicalLedgerPayloadV4,
   type DecryptedLedgerPayloadV4,
 } from "./ledgerFileContract";
+import { createCanonicalLedgerPayloadV4 } from "./ledgerFileContractPayload";
 import {
   RECORDS_PER_LEDGER_BLOCK,
   type EncryptedLedgerBlockV3S3,
