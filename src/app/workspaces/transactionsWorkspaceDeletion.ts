@@ -16,7 +16,10 @@ import type { LedgerActivityItem } from "@/features/activity";
 import type { useLanguage } from "@/ui";
 import { validateTradeRemoval } from "@/features/trades";
 import { projectLedgerCashMutation } from "@/features/cash";
-import type { ApplyLedgerActionResult } from "@/app/persistence";
+import type {
+  ApplyLedgerActionResult,
+  PersistenceStatus,
+} from "@/app/persistence";
 import { DELETE_DELAY_MS } from "./transactionsWorkspaceHelpers";
 
 type FindCurrentItemDeps = {
@@ -379,4 +382,39 @@ export function runHiddenCancelEffect(
     document.addEventListener("visibilitychange", cancelWhenHidden);
     return () =>
       document.removeEventListener("visibilitychange", cancelWhenHidden);
+}
+
+type DeletionPersistenceEffectDeps = {
+  clearPendingDelete: () => void;
+  pendingDelete: PendingDelete | null;
+  persistedVersion: number;
+  persistenceStatus: PersistenceStatus;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function runDeletionPersistenceEffect(
+  deps: DeletionPersistenceEffectDeps,
+) {
+  const {
+    clearPendingDelete,
+    pendingDelete,
+    persistedVersion,
+    persistenceStatus,
+    setFeedback,
+    t,
+  } = deps;
+    if (pendingDelete?.phase !== "persisting") return;
+    if (persistenceStatus === "error") {
+      setFeedback(t("transactions.delete.notPersisted"));
+      return;
+    }
+    if (
+      persistenceStatus === "saved" &&
+      persistedVersion >= pendingDelete.expectedMutationVersion
+    ) {
+      const deletedKind = pendingDelete.itemKind;
+      clearPendingDelete();
+      setFeedback(deletedKind === "trade" ? t("transactions.delete.tradeDeleted") : t("transactions.delete.cashFactDeleted"));
+    }
 }

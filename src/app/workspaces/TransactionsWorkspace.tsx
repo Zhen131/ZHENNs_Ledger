@@ -47,6 +47,7 @@ import {
   doFindCurrentItem,
   doProjectRemoval,
   doReviewRemoval,
+  runDeletionPersistenceEffect,
   runHiddenCancelEffect,
 } from "./transactionsWorkspaceDeletion";
 
@@ -326,19 +327,16 @@ export function TransactionsWorkspace({
   }, [ledgerData.trades, ledgerData.cashEvents, pendingDelete, clearPendingDelete, t]);
 
   useEffect(() => {
-    if (pendingDelete?.phase !== "persisting") return;
-    if (persistenceStatus === "error") {
-      setFeedback(t("transactions.delete.notPersisted"));
-      return;
-    }
-    if (
-      persistenceStatus === "saved" &&
-      persistedVersion >= pendingDelete.expectedMutationVersion
-    ) {
-      const deletedKind = pendingDelete.itemKind;
-      clearPendingDelete();
-      setFeedback(deletedKind === "trade" ? t("transactions.delete.tradeDeleted") : t("transactions.delete.cashFactDeleted"));
-    }
+    return runDeletionPersistenceEffect(
+      {
+        clearPendingDelete,
+        pendingDelete,
+        persistedVersion,
+        persistenceStatus,
+        setFeedback,
+        t,
+      },
+    );
   }, [
     clearPendingDelete,
     pendingDelete,
