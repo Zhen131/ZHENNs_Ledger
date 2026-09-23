@@ -3,7 +3,7 @@
 import {
   type BackupImportPreflightResult,
   type BackupPreflightDetail,
-} from "./backupImportPreflight";
+} from "./backupImportPreflightResult";
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { CopyState } from "./backupControlsTypes";
 

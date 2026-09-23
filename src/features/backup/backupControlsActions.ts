@@ -11,17 +11,17 @@ import type {
   PostImportPairingOperation,
   PostImportPairingState,
 } from "./backupControlsTypes";
+import type { preflightBackupJson } from "./backupImportPreflight";
 import type {
   BackupImportPreflightResult,
   BackupSuspicionConfirmationReceipt,
   LedgerBackupImportEvidence,
-  preflightBackupJson,
-} from "./backupImportPreflight";
+} from "./backupImportPreflightResult";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   revokeBackupImportPreflightReceipt,
-} from "./backupImportPreflight";
+} from "./backupImportPreflightReceipts";
 import type { BackupEnvelopeError } from "./backupEnvelope";
 import type {
   LedgerClock,

@@ -9,12 +9,12 @@ import {
 import {
   type BackupEnvelopeError,
 } from "./backupEnvelope";
+import { preflightBackupJson } from "./backupImportPreflight";
 import {
-  preflightBackupJson,
   type BackupImportPreflightResult,
   type BackupSuspicionConfirmationReceipt,
   type LedgerBackupImportEvidence,
-} from "./backupImportPreflight";
+} from "./backupImportPreflightResult";
 import type {
   ApplyLedgerActionResult,
   PersistenceOperation,

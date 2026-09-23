@@ -1,8 +1,8 @@
+import { isBackupImportSuspicionConfirmationValid } from "./backupImportPreflightReceipts";
 import {
-  isBackupImportSuspicionConfirmationValid,
   type BackupImportPreflightResult,
   type BackupSuspicionConfirmationReceipt,
-} from "./backupImportPreflight";
+} from "./backupImportPreflightResult";
 import { type BinanceAutoPairFailure } from "@/features/market-data";
 import type {
   Translate,

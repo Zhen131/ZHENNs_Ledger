@@ -20,14 +20,16 @@ import {
   parseBackupJson,
   serializeBackupEnvelope,
 } from "./backupEnvelope";
+import { preflightBackupJson } from "./backupImportPreflight";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   inspectLedgerBackupImportEvidence,
-  preflightBackupJson,
+} from "./backupImportPreflightReceipts";
+import {
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
-} from "./backupImportPreflight";
+} from "./backupImportPreflightResult";
 import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";

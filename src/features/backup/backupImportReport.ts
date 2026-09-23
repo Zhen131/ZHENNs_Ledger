@@ -1,4 +1,4 @@
-import type { BackupImportPreflightResult } from "./backupImportPreflight";
+import type { BackupImportPreflightResult } from "./backupImportPreflightResult";
 import type {
   BackupPreflightHardError,
   BackupPreflightSuspiciousDetail,
