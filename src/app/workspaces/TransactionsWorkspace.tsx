@@ -50,6 +50,7 @@ import {
   runDeletionPersistenceEffect,
   runHiddenCancelEffect,
 } from "./transactionsWorkspaceDeletion";
+import { runIntentEffect } from "./transactionsWorkspaceIntent";
 
 export function TransactionsWorkspace({
   active,
@@ -261,29 +262,23 @@ export function TransactionsWorkspace({
   useEffect(() => resetPageState(), [ledgerEpoch, resetPageState]);
 
   useEffect(() => {
-    if (!active || !intent) return;
-    resetFilters();
-    setExpandedItemId(null);
-    setArmedItemId(null);
-    clearPendingDelete();
-    clearLocationRequest();
-    setFeedback("");
-    if ("filterDate" in intent && intent.filterDate) {
-      setExactDate(intent.filterDate);
-    }
-    if ("expandTradeId" in intent && intent.expandTradeId) {
-      setExpandedItemId(intent.expandTradeId);
-    }
-    if ("locateDate" in intent && intent.locateDate) {
-      const request = {
-        date: intent.locateDate,
-        requestId: locationSequenceRef.current + 1,
-      };
-      locationSequenceRef.current = request.requestId;
-      locationRequestRef.current = request;
-      setLocationRequest(request);
-    }
-    onIntentConsumed();
+    return runIntentEffect(
+      {
+        active,
+        clearLocationRequest,
+        clearPendingDelete,
+        intent,
+        locationRequestRef,
+        locationSequenceRef,
+        onIntentConsumed,
+        resetFilters,
+        setArmedItemId,
+        setExactDate,
+        setExpandedItemId,
+        setFeedback,
+        setLocationRequest,
+      },
+    );
   }, [
     active,
     clearLocationRequest,
