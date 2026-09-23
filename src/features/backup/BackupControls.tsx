@@ -70,6 +70,7 @@ import {
   runPairingInvalidationEffect,
   runPairingPersistenceEffect,
 } from "./backupControlsPairing";
+import { runBackupControlsMountEffect } from "./backupControlsActions";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
 
@@ -178,21 +179,16 @@ export function BackupControls({
   };
 
   useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      importAbortControllerRef.current?.abort();
-      pairingOperationRef.current?.controller.abort();
-      pairingOperationRef.current = null;
-      selectionGenerationRef.current += 1;
-      if (selectedPreflightRef.current) {
-        revokeBackupImportPreflightReceipt(
-          selectedPreflightRef.current,
-        );
-      }
-      selectedPreflightRef.current = null;
-      suspicionConfirmationRef.current = null;
-    };
+    return runBackupControlsMountEffect(
+      {
+        importAbortControllerRef,
+        mountedRef,
+        pairingOperationRef,
+        selectedPreflightRef,
+        selectionGenerationRef,
+        suspicionConfirmationRef,
+      },
+    );
   }, []);
 
   useEffect(() => {
