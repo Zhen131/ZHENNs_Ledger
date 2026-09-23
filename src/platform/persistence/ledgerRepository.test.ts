@@ -25,12 +25,9 @@ import { validateLedgerData } from "@/core/validation";
 import { sampleUsdtTrades } from "@/test-support";
 import {
   claimLedgerSessionPersistencePort,
-  claimReadyLedgerImportExecutionContextForDriver,
-  claimReadyLedgerClearExecutionContextForDriver,
-  createReadyLedgerImportAuthorizationForDriver,
-  createReadyLedgerClearAuthorizationForDriver,
   createLedgerSession,
-  DefaultLedgerRepository,
+} from "./ledgerRepository";
+import {
   LEDGER_FILE_CAPABILITIES,
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   LEDGER_REPOSITORY_ERROR_CODES,
@@ -40,7 +37,14 @@ import {
   type LedgerReadyImportDriver,
   type SessionQuiesceRequest,
   type SessionQuiesceToken,
-} from "./ledgerRepository";
+} from "./ledgerRepositoryContract";
+import { DefaultLedgerRepository } from "./ledgerRepositoryDefault";
+import {
+  claimReadyLedgerImportExecutionContextForDriver,
+  claimReadyLedgerClearExecutionContextForDriver,
+  createReadyLedgerImportAuthorizationForDriver,
+  createReadyLedgerClearAuthorizationForDriver,
+} from "./ledgerRepositoryReadyAuthorization";
 
 class MemoryStorageAdapter implements StorageAdapter {
   envelope: unknown | null = null;
