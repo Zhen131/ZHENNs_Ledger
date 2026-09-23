@@ -72,6 +72,7 @@ import {
   doHandleSettingsClear,
   doOpenClearConfirmation,
   doRemoveValidatedTrade,
+  doRequestImmediateLock,
 } from "./dashboardShellActions";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
 import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
@@ -457,24 +458,19 @@ export function DashboardShell({
   }
 
   function requestImmediateLock() {
-    if (!session || !onFinalLock || lifecycleStatus !== "active") {
-      return;
-    }
-    const hasDrafts = workspaceDraftsPresentRef.current;
-    if (
-      isDirty ||
-      hasDrafts ||
-      persistenceStatus === "saving" ||
-      persistenceStatus === "error"
-    ) {
-      setLockConfirmationHasDrafts(hasDrafts);
-      setShowLockConfirmation(true);
-      return;
-    }
-    workspace.resetSessionUi();
-    void onFinalLock(
-      drainForSessionQuiesce,
-      "immediate-lock",
+    return doRequestImmediateLock(
+      {
+        drainForSessionQuiesce,
+        isDirty,
+        lifecycleStatus,
+        onFinalLock,
+        persistenceStatus,
+        session,
+        setLockConfirmationHasDrafts,
+        setShowLockConfirmation,
+        workspace,
+        workspaceDraftsPresentRef,
+      },
     );
   }
 

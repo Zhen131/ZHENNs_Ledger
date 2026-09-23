@@ -12,8 +12,11 @@ import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 import type { ClearConfirmationMode } from "./DashboardShellTypes";
 import type {
   LedgerRepository,
+  LedgerSession,
   LedgerStorageKind,
+  SessionQuiesceReason,
 } from "@/platform/persistence";
+import type { useLedgerWorkspaceSession } from "@/app/workspaces";
 
 type RemoveValidatedTradeDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
@@ -308,4 +311,53 @@ export async function doHandleSettingsClear(
     setTradeRemovalError("");
     setSelectedTradeDate(null);
     return true;
+}
+
+type RequestImmediateLockDeps = {
+  drainForSessionQuiesce: PersistentLedgerState["drainForSessionQuiesce"];
+  isDirty: PersistentLedgerState["isDirty"];
+  lifecycleStatus: PersistentLedgerState["lifecycleStatus"];
+  onFinalLock: ((drain: PersistentLedgerState["drainForSessionQuiesce"], reason: SessionQuiesceReason) => Promise<void>) | undefined;
+  persistenceStatus: PersistentLedgerState["persistenceStatus"];
+  session: LedgerSession | undefined;
+  setLockConfirmationHasDrafts: Dispatch<SetStateAction<boolean>>;
+  setShowLockConfirmation: Dispatch<SetStateAction<boolean>>;
+  workspace: ReturnType<typeof useLedgerWorkspaceSession>;
+  workspaceDraftsPresentRef: RefObject<boolean>;
+};
+
+export function doRequestImmediateLock(
+  deps: RequestImmediateLockDeps,
+) {
+  const {
+    drainForSessionQuiesce,
+    isDirty,
+    lifecycleStatus,
+    onFinalLock,
+    persistenceStatus,
+    session,
+    setLockConfirmationHasDrafts,
+    setShowLockConfirmation,
+    workspace,
+    workspaceDraftsPresentRef,
+  } = deps;
+    if (!session || !onFinalLock || lifecycleStatus !== "active") {
+      return;
+    }
+    const hasDrafts = workspaceDraftsPresentRef.current;
+    if (
+      isDirty ||
+      hasDrafts ||
+      persistenceStatus === "saving" ||
+      persistenceStatus === "error"
+    ) {
+      setLockConfirmationHasDrafts(hasDrafts);
+      setShowLockConfirmation(true);
+      return;
+    }
+    workspace.resetSessionUi();
+    void onFinalLock(
+      drainForSessionQuiesce,
+      "immediate-lock",
+    );
 }
