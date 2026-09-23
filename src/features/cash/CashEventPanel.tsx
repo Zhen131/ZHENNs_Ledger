@@ -27,6 +27,7 @@ import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { PendingRisk, ArmedDelete } from "./cashEventPanelHelpers";
 import { SUCCESS_FEEDBACK_MS, cashTypeLabel } from "./cashEventPanelHelpers";
+import { runCashFormEpochResetEffect } from "./cashEventPanelActions";
 
 export function CashEventPanel({
   clock = systemLedgerClock,
@@ -93,19 +94,24 @@ export function CashEventPanel({
   );
 
   useEffect(() => {
-    setType("deposit");
-    setAmountOrTarget("");
-    setOccurredAt(captureLedgerTime(clock).todayKey);
-    setOccurredTime("");
-    setOccurredTimeZone(getLedgerTimeZone(clock));
-    setNote("");
-    setError("");
-    setFeedback("");
-    setPendingRisk(null);
-    setArmedDelete(null);
-    setPendingMutationVersion(null);
-    setPendingOperation(null);
-    setCurrentPage(1);
+    return runCashFormEpochResetEffect(
+      {
+        clock,
+        setAmountOrTarget,
+        setArmedDelete,
+        setCurrentPage,
+        setError,
+        setFeedback,
+        setNote,
+        setOccurredAt,
+        setOccurredTime,
+        setOccurredTimeZone,
+        setPendingMutationVersion,
+        setPendingOperation,
+        setPendingRisk,
+        setType,
+      },
+    );
   }, [clock, ledgerEpoch]);
 
   useEffect(() => {
