@@ -42,6 +42,7 @@ import type {
   PendingNegativeDelete,
   ActivityLocationRequest,
 } from "./transactionsWorkspaceTypes";
+import { doFindCurrentItem } from "./transactionsWorkspaceDeletion";
 
 export function TransactionsWorkspace({
   active,
@@ -151,24 +152,13 @@ export function TransactionsWorkspace({
     itemId: string,
     itemKind: ActivityKind,
   ): LedgerActivityItem | null {
-    const ledger = latestLedgerDataRef.current;
-    if (itemKind === "trade") {
-      const trade = ledger.trades.find((candidate) => candidate.id === itemId);
-      return trade
-        ? { kind: "trade", id: trade.id, occurredAt: trade.occurredAt, trade }
-        : null;
-    }
-    const cashEvent = ledger.cashEvents.find(
-      (candidate) => candidate.id === itemId,
+    return doFindCurrentItem(
+      {
+        latestLedgerDataRef,
+      },
+      itemId,
+      itemKind,
     );
-    return cashEvent
-      ? {
-          kind: "cash-event",
-          id: cashEvent.id,
-          occurredAt: cashEvent.occurredAt,
-          cashEvent,
-        }
-      : null;
   }
 
   function reviewRemoval(item: LedgerActivityItem): string | null {
