@@ -359,3 +359,75 @@ export function doRequestDelete(
     }
     applyDelete(cashEvent.id, timeSnapshot);
 }
+
+type ConfirmNegativeBalanceDeps = {
+  applyAdd: (cashEvent: CashEvent, timeSnapshot: LedgerTimeSnapshot) => void;
+  applyDelete: (cashEventId: string, timeSnapshot: LedgerTimeSnapshot) => void;
+  ledgerData: LedgerData;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  pendingRisk: PendingRisk | null;
+  persistedVersion: number;
+  setError: Dispatch<SetStateAction<string>>;
+  setPendingRisk: Dispatch<SetStateAction<PendingRisk | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doConfirmNegativeBalance(
+  deps: ConfirmNegativeBalanceDeps,
+) {
+  const {
+    applyAdd,
+    applyDelete,
+    ledgerData,
+    ledgerEpoch,
+    mutationVersion,
+    pendingRisk,
+    persistedVersion,
+    setError,
+    setPendingRisk,
+    t,
+  } = deps;
+    const pending = pendingRisk;
+    if (!pending) return;
+    if (
+      pending.ledgerEpoch !== ledgerEpoch ||
+      pending.mutationVersion !== mutationVersion ||
+      pending.persistedVersion !== persistedVersion
+    ) {
+      setPendingRisk(null);
+      setError(t("cash.status.confirmationStale"));
+      return;
+    }
+    const nextLedger =
+      pending.operation === "add"
+        ? {
+            ...ledgerData,
+            cashEvents: [...ledgerData.cashEvents, pending.cashEvent],
+          }
+        : {
+            ...ledgerData,
+            cashEvents: ledgerData.cashEvents.filter(
+              (item) => item.id !== pending.cashEvent.id,
+            ),
+          };
+    const latestProjection = projectLedgerCashMutation(
+      ledgerData,
+      nextLedger,
+      pending.timeSnapshot.todayKey,
+    );
+    if (
+      !latestProjection.requiresNegativeBalanceConfirmation ||
+      latestProjection.nextBalance !== pending.projection.nextBalance
+    ) {
+      setPendingRisk(null);
+      setError(t("cash.status.resultStale"));
+      return;
+    }
+    setPendingRisk(null);
+    if (pending.operation === "add") {
+      applyAdd(pending.cashEvent, pending.timeSnapshot);
+    } else {
+      applyDelete(pending.cashEvent.id, pending.timeSnapshot);
+    }
+}

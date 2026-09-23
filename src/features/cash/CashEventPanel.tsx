@@ -20,13 +20,13 @@ import {
   getActivityPageCount,
   getActivityPageItems,
 } from "@/features/activity";
-import { projectLedgerCashMutation } from "./cashProjection";
 import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog";
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { PendingRisk, ArmedDelete } from "./cashEventPanelHelpers";
 import { SUCCESS_FEEDBACK_MS, cashTypeLabel } from "./cashEventPanelHelpers";
 import {
   doApplyDelete,
+  doConfirmNegativeBalance,
   doHandleSubmit,
   doRequestDelete,
   runCashFormEpochResetEffect,
@@ -231,48 +231,20 @@ export function CashEventPanel({
   }
 
   function confirmNegativeBalance() {
-    const pending = pendingRisk;
-    if (!pending) return;
-    if (
-      pending.ledgerEpoch !== ledgerEpoch ||
-      pending.mutationVersion !== mutationVersion ||
-      pending.persistedVersion !== persistedVersion
-    ) {
-      setPendingRisk(null);
-      setError(t("cash.status.confirmationStale"));
-      return;
-    }
-    const nextLedger =
-      pending.operation === "add"
-        ? {
-            ...ledgerData,
-            cashEvents: [...ledgerData.cashEvents, pending.cashEvent],
-          }
-        : {
-            ...ledgerData,
-            cashEvents: ledgerData.cashEvents.filter(
-              (item) => item.id !== pending.cashEvent.id,
-            ),
-          };
-    const latestProjection = projectLedgerCashMutation(
-      ledgerData,
-      nextLedger,
-      pending.timeSnapshot.todayKey,
+    return doConfirmNegativeBalance(
+      {
+        applyAdd,
+        applyDelete,
+        ledgerData,
+        ledgerEpoch,
+        mutationVersion,
+        pendingRisk,
+        persistedVersion,
+        setError,
+        setPendingRisk,
+        t,
+      },
     );
-    if (
-      !latestProjection.requiresNegativeBalanceConfirmation ||
-      latestProjection.nextBalance !== pending.projection.nextBalance
-    ) {
-      setPendingRisk(null);
-      setError(t("cash.status.resultStale"));
-      return;
-    }
-    setPendingRisk(null);
-    if (pending.operation === "add") {
-      applyAdd(pending.cashEvent, pending.timeSnapshot);
-    } else {
-      applyDelete(pending.cashEvent.id, pending.timeSnapshot);
-    }
   }
 
   return (
