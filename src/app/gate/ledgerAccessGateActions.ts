@@ -181,3 +181,52 @@ export async function doRequestRememberedConnection(
     }
     finishOperation(operation);
 }
+
+type ReselectRememberedConnectionDeps = {
+  beginOperation: () => number;
+  fileAccessController: LedgerFileAccessController;
+  finishOperation: (operation: number) => void;
+  isCurrentOperation: (operation: number) => boolean;
+  operationRef: RefObject<boolean>;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>;
+};
+
+export async function doReselectRememberedConnection(
+  deps: ReselectRememberedConnectionDeps,
+) {
+  const {
+    beginOperation,
+    fileAccessController,
+    finishOperation,
+    isCurrentOperation,
+    operationRef,
+    setAccessPath,
+    setFormError,
+    setIsSubmitting,
+    setReconnectError,
+  } = deps;
+    if (operationRef.current) {
+      return;
+    }
+    const operation = beginOperation();
+    setIsSubmitting(true);
+    setFormError("");
+    const result =
+      await fileAccessController.reselectRememberedConnection();
+
+    if (isCurrentOperation(operation)) {
+      if (result.ok) {
+        setReconnectError(null);
+        setAccessPath("file-open-unlock");
+      } else if (
+        result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
+      ) {
+        setReconnectError(result.code);
+        setAccessPath("file-reconnect-error");
+      }
+    }
+    finishOperation(operation);
+}

@@ -54,6 +54,7 @@ import {
 } from "./ledgerAccessGateSession";
 import {
   doRequestRememberedConnection,
+  doReselectRememberedConnection,
   doSelectFileToOpen,
   doSubmitFileCreate,
 } from "./ledgerAccessGateActions";
@@ -230,27 +231,19 @@ export function LedgerAccessGate({
   }
 
   async function reselectRememberedConnection() {
-    if (operationRef.current) {
-      return;
-    }
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    const result =
-      await fileAccessController.reselectRememberedConnection();
-
-    if (isCurrentOperation(operation)) {
-      if (result.ok) {
-        setReconnectError(null);
-        setAccessPath("file-open-unlock");
-      } else if (
-        result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
-      ) {
-        setReconnectError(result.code);
-        setAccessPath("file-reconnect-error");
-      }
-    }
-    finishOperation(operation);
+    return doReselectRememberedConnection(
+      {
+        beginOperation,
+        fileAccessController,
+        finishOperation,
+        isCurrentOperation,
+        operationRef,
+        setAccessPath,
+        setFormError,
+        setIsSubmitting,
+        setReconnectError,
+      },
+    );
   }
 
   async function forgetRememberedConnection() {
