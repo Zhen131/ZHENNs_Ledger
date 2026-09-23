@@ -27,7 +27,10 @@ import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { PendingRisk, ArmedDelete } from "./cashEventPanelHelpers";
 import { SUCCESS_FEEDBACK_MS, cashTypeLabel } from "./cashEventPanelHelpers";
-import { runCashFormEpochResetEffect } from "./cashEventPanelActions";
+import {
+  runCashFormEpochResetEffect,
+  runCashPersistenceEffect,
+} from "./cashEventPanelActions";
 
 export function CashEventPanel({
   clock = systemLedgerClock,
@@ -119,26 +122,23 @@ export function CashEventPanel({
   }, [totalPages]);
 
   useEffect(() => {
-    if (pendingMutationVersion === null) return;
-    if (persistenceStatus === "error") {
-      setError(t("cash.status.unsaved"));
-      return;
-    }
-    if (
-      persistenceStatus === "saved" &&
-      persistedVersion >= pendingMutationVersion
-    ) {
-      if (pendingOperation === "add") {
-        setAmountOrTarget("");
-        setNote("");
-        setFeedback(certifiedSavedFeedback);
-      } else {
-        setFeedback(deletedFeedback);
-      }
-      setError("");
-      setPendingMutationVersion(null);
-      setPendingOperation(null);
-    }
+    return runCashPersistenceEffect(
+      {
+        certifiedSavedFeedback,
+        deletedFeedback,
+        pendingMutationVersion,
+        pendingOperation,
+        persistedVersion,
+        persistenceStatus,
+        setAmountOrTarget,
+        setError,
+        setFeedback,
+        setNote,
+        setPendingMutationVersion,
+        setPendingOperation,
+        t,
+      },
+    );
   }, [certifiedSavedFeedback, deletedFeedback, pendingMutationVersion, pendingOperation, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {

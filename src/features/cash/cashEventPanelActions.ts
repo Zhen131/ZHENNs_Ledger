@@ -12,6 +12,8 @@ import {
   captureLedgerTime,
   getLedgerTimeZone,
 } from "@/core/shared";
+import type { PersistenceStatus } from "@/app";
+import type { useLanguage } from "@/ui";
 
 type CashFormEpochResetEffectDeps = {
   clock: LedgerClock;
@@ -62,4 +64,60 @@ export function runCashFormEpochResetEffect(
     setPendingMutationVersion(null);
     setPendingOperation(null);
     setCurrentPage(1);
+}
+
+type CashPersistenceEffectDeps = {
+  certifiedSavedFeedback: string;
+  deletedFeedback: string;
+  pendingMutationVersion: number | null;
+  pendingOperation: "add" | "delete" | null;
+  persistedVersion: number;
+  persistenceStatus: PersistenceStatus;
+  setAmountOrTarget: Dispatch<SetStateAction<string>>;
+  setError: Dispatch<SetStateAction<string>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setNote: Dispatch<SetStateAction<string>>;
+  setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
+  setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function runCashPersistenceEffect(
+  deps: CashPersistenceEffectDeps,
+) {
+  const {
+    certifiedSavedFeedback,
+    deletedFeedback,
+    pendingMutationVersion,
+    pendingOperation,
+    persistedVersion,
+    persistenceStatus,
+    setAmountOrTarget,
+    setError,
+    setFeedback,
+    setNote,
+    setPendingMutationVersion,
+    setPendingOperation,
+    t,
+  } = deps;
+    if (pendingMutationVersion === null) return;
+    if (persistenceStatus === "error") {
+      setError(t("cash.status.unsaved"));
+      return;
+    }
+    if (
+      persistenceStatus === "saved" &&
+      persistedVersion >= pendingMutationVersion
+    ) {
+      if (pendingOperation === "add") {
+        setAmountOrTarget("");
+        setNote("");
+        setFeedback(certifiedSavedFeedback);
+      } else {
+        setFeedback(deletedFeedback);
+      }
+      setError("");
+      setPendingMutationVersion(null);
+      setPendingOperation(null);
+    }
 }
