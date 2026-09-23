@@ -65,7 +65,10 @@ import { SessionFatalPanel } from "./SessionFatalPanel";
 import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
-import { doRemoveValidatedTrade } from "./dashboardShellActions";
+import {
+  doHandleDeleteFuturePrice,
+  doRemoveValidatedTrade,
+} from "./dashboardShellActions";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
 import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
 import { PersistenceErrorNotice } from "./PersistenceErrorNotice";
@@ -345,17 +348,15 @@ export function DashboardShell({
   function handleDeleteFuturePrice(
     priceSnapshotId: string,
   ): ConfirmDeleteOutcome {
-    if (!canCorrectFutureFacts) {
-      return "rejected";
-    }
-    const outcome = applyLedgerAction({
-      type: "priceSnapshot/delete",
+    return doHandleDeleteFuturePrice(
+      {
+        applyLedgerAction,
+        canCorrectFutureFacts,
+        setFutureCorrectionError,
+        t,
+      },
       priceSnapshotId,
-    });
-    setFutureCorrectionError(
-      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
     );
-    return outcome;
   }
 
   function handleDeleteFutureAssetTransfer(
