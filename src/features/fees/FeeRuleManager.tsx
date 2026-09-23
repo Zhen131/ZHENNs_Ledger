@@ -22,7 +22,10 @@ import {
   validateForm,
   isValidNonNegativeDecimal,
 } from "./feeRuleManagerHelpers";
-import { runFeeRulePersistenceEffect } from "./feeRuleManagerActions";
+import {
+  doApply,
+  runFeeRulePersistenceEffect,
+} from "./feeRuleManagerActions";
 
 type FeeRuleManagerProps = Readonly<{
   clock?: LedgerClock;
@@ -101,19 +104,18 @@ export function FeeRuleManager({
   }, [certifiedSavedMessage, message]);
 
   function apply(action: LedgerAction, pendingMessage: string) {
-    setError("");
-    setMessage("");
-    const result = onAction(action);
-    if (result !== "applied") {
-      setError(
-        result === "rejected"
-          ? t("fees.status.ledgerNotWritable")
-          : t("fees.status.unchanged"),
-      );
-      return;
-    }
-    setPendingVersion(mutationVersion + 1);
-    setMessage(pendingMessage);
+    return doApply(
+      {
+        mutationVersion,
+        onAction,
+        setError,
+        setMessage,
+        setPendingVersion,
+        t,
+      },
+      action,
+      pendingMessage,
+    );
   }
 
   function submitNewRule(event: FormEvent<HTMLFormElement>) {
