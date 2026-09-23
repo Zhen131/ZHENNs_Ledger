@@ -42,10 +42,7 @@ import {
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
 import {
-  getBinanceMappingSignature,
   listAssetsMissingBinanceMapping,
-  mergeBinancePriceRefresh,
-  type BinanceRefreshSuccess,
 } from "@/features/market-data";
 import {
   createBinanceMarketDataClient,
@@ -60,12 +57,12 @@ import {
 import type {
   ImportState,
   CopyState,
-  PostImportPairingFailure,
   PostImportPairingState,
   PostImportPairingOperation,
 } from "./backupControlsTypes";
 import { PreflightReportView } from "./PreflightReportView";
 import {
+  doFetchPostImportPrices,
   doPairingOperationIsCurrent,
   doStartPostImportPairing,
 } from "./backupControlsPairing";
@@ -323,136 +320,20 @@ export function BackupControls({
   async function fetchPostImportPrices(
     operation: PostImportPairingOperation,
   ) {
-    if (!pairingOperationIsCurrent(operation)) return;
-    const marketSymbolToAsset = new Map(
-      operation.mappingSuccesses.map((success) => [
-        success.mapping.symbol,
-        success.assetSymbol,
-      ]),
-    );
-    let tickerResult;
-    try {
-      tickerResult = await marketDataClient.fetchLatestPrices(
-        [...marketSymbolToAsset.keys()],
-        operation.controller.signal,
-      );
-    } catch {
-      if (pairingOperationIsCurrent(operation)) {
-        operation.priceFailures = operation.mappingSuccesses.map(
-          ({ assetSymbol }) => ({
-            assetSymbol,
-            code: "BINANCE_NETWORK_ERROR",
-            message: t("backup.pairing.priceRequestFailed"),
-          }),
-        );
-        completePostImportPairing(operation);
-      }
-      return;
-    }
-    if (!pairingOperationIsCurrent(operation)) return;
-
-    const acceptedTime = captureLedgerTime(clock);
-    const successes: BinanceRefreshSuccess[] = [];
-    const failures: PostImportPairingFailure[] = tickerResult.failures.map(
-      (failure) => ({
-        assetSymbol:
-          marketSymbolToAsset.get(failure.symbol) ?? failure.symbol,
-        code: failure.code,
-        message: failure.message,
-      }),
-    );
-    const failedMarketSymbols = new Set(
-      tickerResult.failures.map((failure) => failure.symbol),
-    );
-    for (const mappingSuccess of operation.mappingSuccesses) {
-      if (failedMarketSymbols.has(mappingSuccess.mapping.symbol)) continue;
-      const ticker = tickerResult.prices.find(
-        (price) => price.symbol === mappingSuccess.mapping.symbol,
-      );
-      if (!ticker) {
-        failures.push({
-          assetSymbol: mappingSuccess.assetSymbol,
-          code: "BINANCE_SYMBOL_MISSING",
-          message: t("backup.pairing.tickerMissing"),
-        });
-        continue;
-      }
-      successes.push({
-        assetSymbol: mappingSuccess.assetSymbol,
-        mapping: mappingSuccess.mapping,
-        price: ticker.price,
-        recordedAt: acceptedTime.todayKey,
-        fetchedAt: acceptedTime.now.toISOString(),
-      });
-    }
-    operation.priceFailures = failures;
-    if (successes.length === 0) {
-      completePostImportPairing(operation);
-      return;
-    }
-
-    const expectedVersion = pairingLatestRef.current.mutationVersion + 1;
-    let appliedCount = 0;
-    let skippedSymbols: string[] = [];
-    const mutationResult = applyLedgerMutation?.(
-      (current) => {
-        if (
-          getBinanceMappingSignature(current) !==
-          operation.expectedMappingSignature
-        ) {
-          return current;
-        }
-        const merged = mergeBinancePriceRefresh(
-          current,
-          successes,
-          generateId,
-        );
-        appliedCount = merged.appliedAssetSymbols.length;
-        skippedSymbols = merged.skippedAssetSymbols;
-        return merged.ledgerData;
+    return doFetchPostImportPrices(
+      {
+        applyLedgerMutation,
+        clock,
+        completePostImportPairing,
+        generateId,
+        marketDataClient,
+        pairingLatestRef,
+        pairingOperationIsCurrent,
+        setPostImportPairing,
+        t,
       },
-      acceptedTime,
+      operation,
     );
-    if (!pairingOperationIsCurrent(operation)) return;
-    operation.appliedPriceCount = appliedCount;
-    operation.priceFailures.push(
-      ...skippedSymbols.map((assetSymbol) => ({
-        assetSymbol,
-        code: "BINANCE_PRICE_NOT_APPLIED",
-        message: t("backup.pairing.priceNotWritten"),
-      })),
-    );
-    if (mutationResult === "applied" && appliedCount > 0) {
-      operation.phase = "saving-prices";
-      operation.expectedPersistedVersion = expectedVersion;
-      setPostImportPairing((current) =>
-        current
-          ? {
-              ...current,
-              status: "saving-prices",
-              message: `${t("backup.pairing.pricesFetchedPrefix")}${appliedCount}${t("backup.pairing.pricesFetchedSuffix")}`,
-              failures: [
-                ...operation.mappingFailures,
-                ...operation.priceFailures,
-              ],
-            }
-          : current,
-      );
-      return;
-    }
-    const failedPriceAssets = new Set(
-      operation.priceFailures.map(({ assetSymbol }) => assetSymbol),
-    );
-    operation.priceFailures.push(
-      ...successes
-        .filter(({ assetSymbol }) => !failedPriceAssets.has(assetSymbol))
-        .map(({ assetSymbol }) => ({
-          assetSymbol,
-          code: "BINANCE_PRICE_NOT_APPLIED",
-          message: t("backup.pairing.priceNotWrittenByLedger"),
-        })),
-    );
-    completePostImportPairing(operation);
   }
 
   function completePostImportPairing(
