@@ -32,11 +32,7 @@ import {
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
-import { PriceForm } from "@/features/prices/ui";
-import { TradeForm, TradeTable } from "@/features/trades/ui";
-import { FeeRuleManager } from "@/features/fees/ui";
 import { BackupControls } from "@/features/backup/ui";
-import { ChartsOverview } from "@/features/charts/ui";
 import { MarketDataControls } from "@/features/market-data/ui";
 import {
   useLanguage,
@@ -50,7 +46,6 @@ import {
 } from "./dashboardDerivations";
 import type { ClearConfirmationMode } from "./DashboardShellTypes";
 import { getWorkspaceFileStatus } from "./DashboardShellHelpers";
-import { Section } from "./Section";
 import { SessionFatalPanel } from "./SessionFatalPanel";
 import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
@@ -70,11 +65,9 @@ import {
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
 import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
 import { PersistenceErrorNotice } from "./PersistenceErrorNotice";
-import { DashboardShellPnlSummarySection } from "./DashboardShellPnlSummarySection";
-import { DashboardShellAssetsSection } from "./DashboardShellAssetsSection";
-import { DashboardShellDataManagementSection } from "./DashboardShellDataManagementSection";
 import { DashboardShellHomePage } from "./DashboardShellHomePage";
 import { DashboardShellSettingsPage } from "./DashboardShellSettingsPage";
+import { DashboardShellLegacyLayout } from "./DashboardShellLegacyLayout";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -609,169 +602,52 @@ export function DashboardShell({
           ) : null}
 
           {session === undefined ? (
-          <div className="grid gap-5">
-            {session === undefined ? (
-            <>
-            <Section title={t("dashboard.section.chartAndMarketData")}>
-              <MarketDataControls
-                applyLedgerMutation={applyLedgerMutation}
-                clock={clock}
-                isWritable={session === undefined && isWritable}
-                ledgerData={ledgerData}
-                ledgerEpoch={ledgerEpoch}
-                mode={valuationPriceMode}
-                mutationVersion={mutationVersion}
-                onModeChange={setValuationPriceMode}
-                persistedVersion={persistedVersion}
-                persistenceStatus={persistenceStatus}
-                sessionGeneration={ledgerEpoch}
-                todayKey={todayKey}
-              />
-            </Section>
-
-            <Section title={t("dashboard.section.charts")}>
-              <ChartsOverview
-                allocation={allocation}
-                heatmap={heatmap}
-                history={history}
-                onRangeChange={setChartRange}
-                onSelectedTradeDateChange={setSelectedTradeDate}
-                range={chartRange}
-                selectedTradeDate={selectedTradeDate}
-              />
-            </Section>
-
-            <DashboardShellPnlSummarySection
-              pnlSummary={pnlSummary}
-              t={t}
-            />
-
-            <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-              <DashboardShellAssetsSection
-                positions={positions}
-                t={t}
-              />
-
-              <Section title={t("dashboard.section.priceInput")}>
-                <fieldset
-                  className={
-                    session === undefined && isWritable ? "" : "opacity-60"
-                  }
-                  disabled={session !== undefined || !isWritable}
-                >
-                  <PriceForm
-                    clock={clock}
-                    ledgerData={ledgerData}
-                    ledgerEpoch={ledgerEpoch}
-                    mutationVersion={mutationVersion}
-                    onPriceSnapshotCreated={(priceSnapshot, timeSnapshot) =>
-                      applyLedgerAction({
-                        type: "priceSnapshot/add",
-                        priceSnapshot,
-                      }, timeSnapshot)
-                    }
-                    persistedVersion={persistedVersion}
-                    persistenceStatus={persistenceStatus}
-                  />
-                </fieldset>
-              </Section>
-            </div>
-
-            <Section title={t("dashboard.section.addTrade")}>
-              <fieldset
-                className={
-                  session === undefined && isWritable ? "" : "opacity-60"
-                }
-                disabled={session !== undefined || !isWritable}
-              >
-                <TradeForm
-                  clock={clock}
-                  ledgerData={ledgerData}
-                  ledgerEpoch={ledgerEpoch}
-                  mutationVersion={mutationVersion}
-                  onTradeCreated={(trade, timeSnapshot) =>
-                    applyLedgerAction(
-                      { type: "trade/add", trade },
-                      timeSnapshot,
-                    )
-                  }
-                  persistedVersion={persistedVersion}
-                  persistenceStatus={persistenceStatus}
-                />
-              </fieldset>
-            </Section>
-
-            <Section title={t("dashboard.section.feeRules")}>
-              <FeeRuleManager
-                clock={clock}
-                isWritable={session === undefined && isWritable}
-                ledgerData={ledgerData}
-                ledgerEpoch={ledgerEpoch}
-                mutationVersion={mutationVersion}
-                onAction={applyLedgerAction}
-                persistedVersion={persistedVersion}
-                persistenceStatus={persistenceStatus}
-              />
-            </Section>
-
-            <Section
-              title={
-                selectedTradeDate
-                  ? `${t("dashboard.section.tradeList")} · ${selectedTradeDate}`
-                  : t("dashboard.section.tradeList")
-              }
-            >
-              {tradeRemovalError ? (
-                <p
-                  aria-live="polite"
-                  className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-                >
-                  {tradeRemovalError}
-                </p>
-              ) : null}
-              <TradeTable
-                deleteDisabled={session !== undefined || !isWritable}
-                onDelete={
-                  hydrationStatus === "ready" ? handleDeleteTrade : undefined
-                }
-                trades={displayedTrades}
-                todayKey={todayKey}
-              />
-            </Section>
-
-            </>
-            ) : null}
-
-            <DashboardShellDataManagementSection
-              applyLedgerMutation={applyLedgerMutation}
-              cancelClearConfirmation={cancelClearConfirmation}
-              capabilities={capabilities}
-              clearConfirmationError={clearConfirmationError}
-              clearConfirmationMode={clearConfirmationMode}
-              clearConfirmationPhrase={clearConfirmationPhrase}
-              clearConfirmationValue={clearConfirmationValue}
-              clearSuccessMessage={clearSuccessMessage}
-              clock={clock}
-              handleClearLedger={handleClearLedger}
-              hydrationStatus={hydrationStatus}
-              isDirty={isDirty}
-              isReadOnly={isReadOnly}
-              isWritable={isWritable}
-              ledgerData={ledgerData}
-              ledgerEpoch={ledgerEpoch}
-              mutationVersion={mutationVersion}
-              openClearConfirmation={openClearConfirmation}
-              persistedVersion={persistedVersion}
-              persistenceOperation={persistenceOperation}
-              persistenceStatus={persistenceStatus}
-              replaceLedgerFromBackup={replaceLedgerFromBackup}
-              repositorySwitchBlocked={repositorySwitchBlocked}
-              setClearConfirmationError={setClearConfirmationError}
-              setClearConfirmationValue={setClearConfirmationValue}
-              storageKind={storageKind}
-              t={t}
-            />
-          </div>
+          <DashboardShellLegacyLayout
+            allocation={allocation}
+            applyLedgerAction={applyLedgerAction}
+            applyLedgerMutation={applyLedgerMutation}
+            cancelClearConfirmation={cancelClearConfirmation}
+            capabilities={capabilities}
+            chartRange={chartRange}
+            clearConfirmationError={clearConfirmationError}
+            clearConfirmationMode={clearConfirmationMode}
+            clearConfirmationPhrase={clearConfirmationPhrase}
+            clearConfirmationValue={clearConfirmationValue}
+            clearSuccessMessage={clearSuccessMessage}
+            clock={clock}
+            displayedTrades={displayedTrades}
+            handleClearLedger={handleClearLedger}
+            handleDeleteTrade={handleDeleteTrade}
+            heatmap={heatmap}
+            history={history}
+            hydrationStatus={hydrationStatus}
+            isDirty={isDirty}
+            isReadOnly={isReadOnly}
+            isWritable={isWritable}
+            ledgerData={ledgerData}
+            ledgerEpoch={ledgerEpoch}
+            mutationVersion={mutationVersion}
+            openClearConfirmation={openClearConfirmation}
+            persistedVersion={persistedVersion}
+            persistenceOperation={persistenceOperation}
+            persistenceStatus={persistenceStatus}
+            pnlSummary={pnlSummary}
+            positions={positions}
+            replaceLedgerFromBackup={replaceLedgerFromBackup}
+            repositorySwitchBlocked={repositorySwitchBlocked}
+            selectedTradeDate={selectedTradeDate}
+            session={session}
+            setChartRange={setChartRange}
+            setClearConfirmationError={setClearConfirmationError}
+            setClearConfirmationValue={setClearConfirmationValue}
+            setSelectedTradeDate={setSelectedTradeDate}
+            setValuationPriceMode={setValuationPriceMode}
+            storageKind={storageKind}
+            t={t}
+            todayKey={todayKey}
+            tradeRemovalError={tradeRemovalError}
+            valuationPriceMode={valuationPriceMode}
+          />
           ) : null}
       {session && workspace.currentPage === "home" ? (
         <DashboardShellHomePage
