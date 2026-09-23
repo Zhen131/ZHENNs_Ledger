@@ -42,10 +42,8 @@ import {
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
 import {
-  autoPairMissingBinanceMappings,
   getBinanceMappingSignature,
   listAssetsMissingBinanceMapping,
-  mergeAutoPairedBinanceMappings,
   mergeBinancePriceRefresh,
   type BinanceRefreshSuccess,
 } from "@/features/market-data";
@@ -56,7 +54,6 @@ import {
 import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import { useLanguage } from "@/ui";
 import {
-  normalizePairingFailure,
   isPostImportPairingBusy,
   hasCurrentSuspicionConfirmation,
 } from "./backupControlsHelpers";
@@ -68,7 +65,10 @@ import type {
   PostImportPairingOperation,
 } from "./backupControlsTypes";
 import { PreflightReportView } from "./PreflightReportView";
-import { doPairingOperationIsCurrent } from "./backupControlsPairing";
+import {
+  doPairingOperationIsCurrent,
+  doStartPostImportPairing,
+} from "./backupControlsPairing";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
 
@@ -304,138 +304,19 @@ export function BackupControls({
   }
 
   async function startPostImportPairing() {
-    const currentPrompt = postImportPairing;
-    const latest = pairingLatestRef.current;
-    if (
-      !currentPrompt ||
-      pairingOperationRef.current ||
-      !latest.isWritable ||
-      !applyLedgerMutation
-    ) {
-      return;
-    }
-    const currentMissing = new Set(
-      listAssetsMissingBinanceMapping(latest.ledgerData),
-    );
-    const frozenSymbols = currentPrompt.symbols.filter((symbol) =>
-      currentMissing.has(symbol),
-    );
-    if (frozenSymbols.length === 0) {
-      setPostImportPairing({
-        ...currentPrompt,
-        status: "success",
-      message: t("backup.pairing.allMappingsPresent"),
-        failures: [],
-      });
-      return;
-    }
-
-    const operation: PostImportPairingOperation = {
-      controller: new AbortController(),
-      ledgerEpoch: latest.ledgerEpoch,
-      sessionGeneration: latest.sessionGeneration,
-      phase: "validating",
-      expectedPersistedVersion: null,
-      expectedMappingSignature: getBinanceMappingSignature(latest.ledgerData),
-      mappingSuccesses: [],
-      mappingFailures: [],
-      appliedMappingSymbols: [],
-      appliedPriceCount: 0,
-      priceFailures: [],
-    };
-    pairingOperationRef.current = operation;
-    setPostImportPairing({
-      symbols: frozenSymbols,
-      status: "validating",
-      message: `${t("backup.pairing.validatingPrefix")}${frozenSymbols.length}${t("backup.pairing.validatingSuffix")}`,
-      failures: [],
-    });
-
-    let result;
-    try {
-      result = await autoPairMissingBinanceMappings(
+    return doStartPostImportPairing(
+      {
+        applyLedgerMutation,
+        clock,
+        finishPostImportPairing,
         marketDataClient,
-        frozenSymbols,
-        operation.controller.signal,
-      );
-    } catch {
-      if (pairingOperationIsCurrent(operation)) {
-        finishPostImportPairing(
-          operation,
-          "error",
-          t("backup.pairing.validationFailed"),
-        );
-      }
-      return;
-    }
-    if (!pairingOperationIsCurrent(operation)) return;
-
-    operation.mappingFailures = result.failures.map((failure) =>
-      normalizePairingFailure(failure, t),
-    );
-    if (result.successes.length === 0) {
-      finishPostImportPairing(
-        operation,
-        "error",
-        `${t("backup.pairing.noMappingPrefix")}${result.failures.length}${t("backup.pairing.noMappingSuffix")}`,
-      );
-      return;
-    }
-
-    const acceptedTime = captureLedgerTime(clock);
-    const expectedVersion = pairingLatestRef.current.mutationVersion + 1;
-    let appliedSymbols: string[] = [];
-    let expectedSignature = operation.expectedMappingSignature;
-    const mutationResult = applyLedgerMutation(
-      (current) => {
-        if (
-          getBinanceMappingSignature(current) !==
-          operation.expectedMappingSignature
-        ) {
-          return current;
-        }
-        const merged = mergeAutoPairedBinanceMappings(
-          current,
-          result.successes,
-          acceptedTime.now.toISOString(),
-        );
-        appliedSymbols = merged.appliedAssetSymbols;
-        expectedSignature = getBinanceMappingSignature(merged.ledgerData);
-        return merged.ledgerData;
+        pairingLatestRef,
+        pairingOperationIsCurrent,
+        pairingOperationRef,
+        postImportPairing,
+        setPostImportPairing,
+        t,
       },
-      acceptedTime,
-    );
-    if (!pairingOperationIsCurrent(operation)) return;
-
-    operation.appliedMappingSymbols = appliedSymbols;
-    operation.mappingSuccesses = result.successes.filter((success) =>
-      appliedSymbols.includes(success.assetSymbol),
-    );
-    operation.expectedMappingSignature = expectedSignature;
-    if (mutationResult === "applied" && appliedSymbols.length > 0) {
-      operation.phase = "saving-mappings";
-      operation.expectedPersistedVersion = expectedVersion;
-      setPostImportPairing({
-        symbols: frozenSymbols,
-        status: "saving-mappings",
-        message: `${t("backup.pairing.validatedPrefix")}${appliedSymbols.length}${t("backup.pairing.validatedSuffix")}`,
-        failures: operation.mappingFailures,
-      });
-      return;
-    }
-
-    operation.mappingFailures.push(
-      ...result.successes.map(({ assetSymbol }) => ({
-        assetSymbol,
-        code: "BINANCE_MAPPING_NOT_APPLIED",
-        message: t("backup.pairing.validationNotWritten"),
-      })),
-    );
-
-    finishPostImportPairing(
-      operation,
-      operation.mappingFailures.length > 0 ? "partial" : "error",
-      t("backup.pairing.mappingNotSaved"),
     );
   }
 
