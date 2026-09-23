@@ -59,6 +59,7 @@ import {
   doFinishGlobalOperation,
   doRefreshNonZeroHoldings,
 } from "./marketDataControlsGlobalRefresh";
+import { runMappingDraftSyncEffect } from "./marketDataControlsEffects";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -211,18 +212,13 @@ export function MarketDataControls({
   );
 
   useEffect(() => {
-    setMappingDrafts((current) => {
-      const next = createMappingDrafts(assets);
-      for (const asset of assets) {
-        if (
-          editingAssetSymbol === asset.symbol &&
-          current[asset.symbol] !== undefined
-        ) {
-          next[asset.symbol] = current[asset.symbol];
-        }
-      }
-      return next;
-    });
+    return runMappingDraftSyncEffect(
+      {
+        assets,
+        editingAssetSymbol,
+        setMappingDrafts,
+      },
+    );
   }, [assets, editingAssetSymbol]);
 
   useEffect(() => {
