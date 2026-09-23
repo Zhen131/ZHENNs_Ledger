@@ -5,6 +5,7 @@ import type { PersistentLedgerState } from "@/app/persistence";
 import { validateTradeRemoval } from "@/features/trades";
 import type { ConfirmDeleteOutcome, useLanguage } from "@/ui";
 import { validateAssetTransferRemoval } from "@/features/asset-transfers";
+import type { ClearConfirmationMode } from "./DashboardShellTypes";
 
 type RemoveValidatedTradeDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
@@ -141,4 +142,45 @@ export function doHandleDeleteAllFutureFacts(
       outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
     );
     return outcome;
+}
+
+type OpenClearConfirmationDeps = {
+  hydrationStatus: PersistentLedgerState["hydrationStatus"];
+  isReadOnly: PersistentLedgerState["isReadOnly"];
+  persistenceOperation: PersistentLedgerState["persistenceOperation"];
+  repositorySwitchBlocked: PersistentLedgerState["repositorySwitchBlocked"];
+  setClearConfirmationError: Dispatch<SetStateAction<string>>;
+  setClearConfirmationMode: Dispatch<SetStateAction<ClearConfirmationMode | null>>;
+  setClearConfirmationValue: Dispatch<SetStateAction<string>>;
+  setClearSuccessMessage: Dispatch<SetStateAction<string>>;
+};
+
+export function doOpenClearConfirmation(
+  deps: OpenClearConfirmationDeps,
+  mode: ClearConfirmationMode,
+) {
+  const {
+    hydrationStatus,
+    isReadOnly,
+    persistenceOperation,
+    repositorySwitchBlocked,
+    setClearConfirmationError,
+    setClearConfirmationMode,
+    setClearConfirmationValue,
+    setClearSuccessMessage,
+  } = deps;
+    if (
+      persistenceOperation !== "idle" ||
+      repositorySwitchBlocked ||
+      isReadOnly ||
+      (mode === "normal" && hydrationStatus !== "ready") ||
+      (mode === "recovery" && hydrationStatus !== "error")
+    ) {
+      return;
+    }
+
+    setClearConfirmationMode(mode);
+    setClearConfirmationValue("");
+    setClearConfirmationError("");
+    setClearSuccessMessage("");
 }

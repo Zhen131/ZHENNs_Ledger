@@ -68,6 +68,7 @@ import {
   doHandleDeleteAllFutureFacts,
   doHandleDeleteFutureAssetTransfer,
   doHandleDeleteFuturePrice,
+  doOpenClearConfirmation,
   doRemoveValidatedTrade,
 } from "./dashboardShellActions";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
@@ -388,20 +389,19 @@ export function DashboardShell({
   }
 
   function openClearConfirmation(mode: ClearConfirmationMode) {
-    if (
-      persistenceOperation !== "idle" ||
-      repositorySwitchBlocked ||
-      isReadOnly ||
-      (mode === "normal" && hydrationStatus !== "ready") ||
-      (mode === "recovery" && hydrationStatus !== "error")
-    ) {
-      return;
-    }
-
-    setClearConfirmationMode(mode);
-    setClearConfirmationValue("");
-    setClearConfirmationError("");
-    setClearSuccessMessage("");
+    return doOpenClearConfirmation(
+      {
+        hydrationStatus,
+        isReadOnly,
+        persistenceOperation,
+        repositorySwitchBlocked,
+        setClearConfirmationError,
+        setClearConfirmationMode,
+        setClearConfirmationValue,
+        setClearSuccessMessage,
+      },
+      mode,
+    );
   }
 
   function cancelClearConfirmation() {
