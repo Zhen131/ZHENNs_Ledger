@@ -37,7 +37,6 @@ import {
 import {
   mergeBinancePriceRefresh,
   refreshBinancePrices,
-  type BinanceRefreshSuccess,
 } from "./binancePriceRefreshService";
 import { MappingRow } from "./MappingRow";
 import {
@@ -56,6 +55,7 @@ import type {
 } from "./marketDataControlsTypes";
 import {
   doCancelAssetOperation,
+  doFetchAndPersistAssetPrice,
   doFinishAssetOperation,
 } from "./marketDataControlsAssetActions";
 
@@ -379,85 +379,19 @@ export function MarketDataControls({
   }
 
   async function fetchAndPersistAssetPrice(operation: AssetOperation) {
-    if (!operation.mapping || !assetOperationIsCurrent(operation)) return;
-    operation.phase = "fetching-price";
-    const ticker = await client.fetchLatestPrices(
-      [operation.mapping.symbol],
-      operation.controller.signal,
-    );
-    if (!assetOperationIsCurrent(operation)) return;
-
-    const price = ticker.prices.find(
-      (candidate) => candidate.symbol === operation.mapping?.symbol,
-    );
-    const failure = ticker.failures.find(
-      (candidate) => candidate.symbol === operation.mapping?.symbol,
-    );
-    if (!price || failure) {
-      const detail = formatBinanceFailure(
-        failure ?? {
-          code: "BINANCE_SYMBOL_MISSING",
-          symbol: operation.mapping.symbol,
-          message: "Ticker response omitted the requested symbol",
-        },
+    return doFetchAndPersistAssetPrice(
+      {
+        applyLedgerMutation,
+        assetOperationIsCurrent,
+        client,
+        clock,
+        finishAssetOperation,
+        generateId,
+        latestRef,
+        setAssetFeedback,
         t,
-      );
-      finishAssetOperation(
-        operation,
-        "error",
-        operation.kind === "save-mapping"
-          ? `${t("marketData.assetFeedback.mappingSavedPriceFailedPrefix")}${detail}`
-          : `${t("marketData.assetFeedback.refreshFailedPrefix")}${detail}`,
-      );
-      return;
-    }
-
-    const acceptedTime = captureLedgerTime(clock);
-    const success: BinanceRefreshSuccess = {
-      assetSymbol: operation.assetSymbol,
-      mapping: operation.mapping,
-      price: price.price,
-      recordedAt: acceptedTime.todayKey,
-      fetchedAt: acceptedTime.now.toISOString(),
-    };
-    let appliedCount = 0;
-    const expectedVersion = latestRef.current.mutationVersion + 1;
-    const mutationResult = applyLedgerMutation(
-      (current) => {
-        if (
-          getBinanceMappingSignature(current) !==
-          operation.expectedMappingSignature
-        ) {
-          return current;
-        }
-        const merged = mergeBinancePriceRefresh(current, [success], generateId);
-        appliedCount = merged.appliedAssetSymbols.length;
-        return merged.ledgerData;
       },
-      acceptedTime,
-    );
-    if (!assetOperationIsCurrent(operation)) return;
-    if (mutationResult === "applied" && appliedCount === 1) {
-      operation.phase = "saving-price";
-      operation.expectedPersistedVersion = expectedVersion;
-      setAssetFeedback((current) => ({
-        ...current,
-        [operation.assetSymbol]: {
-          status: "saving-price",
-          message:
-            operation.kind === "save-mapping"
-              ? t("marketData.assetFeedback.mappingSavedSavingPrice")
-              : t("marketData.assetFeedback.savingAssetPrice"),
-        },
-      }));
-      return;
-    }
-    finishAssetOperation(
       operation,
-      "error",
-      operation.kind === "save-mapping"
-        ? t("marketData.assetFeedback.mappingSavedPriceNotWritten")
-        : t("marketData.assetFeedback.priceNotWritten"),
     );
   }
 
