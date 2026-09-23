@@ -23,7 +23,11 @@ import type { LedgerClock } from "@/core/shared";
 import type { useLanguage } from "@/ui";
 import { formatBinanceFailure } from "./marketDataControlsHelpers";
 import type { BinanceRefreshSuccess } from "./binancePriceRefreshService";
-import { getBinanceMappingSignature } from "./binanceMappingService";
+import {
+  getBinanceMappingSignature,
+  setAssetBinanceMapping,
+  validateBinanceMapping,
+} from "./binanceMappingService";
 import { mergeBinancePriceRefresh } from "./binancePriceRefreshService";
 
 type CancelAssetOperationDeps = {
@@ -251,4 +255,122 @@ export function doCreateAssetOperation(
       },
     }));
     return operation;
+}
+
+type SaveMappingDeps = {
+  applyLedgerMutation: (mutation: (current: LedgerData) => LedgerData, timeSnapshot?: ReturnType<typeof captureLedgerTime>) => ApplyLedgerActionResult;
+  assetOperationIsCurrent: (operation: AssetOperation) => boolean;
+  assetOperationsRef: RefObject<Map<string, AssetOperation>>;
+  client: BinanceMarketDataClient;
+  clock: LedgerClock;
+  createAssetOperation: (asset: Asset, kind: AssetOperationKind, mapping: BinanceMarketMapping | null) => AssetOperation | null;
+  fetchAndPersistAssetPrice: (operation: AssetOperation) => Promise<void>;
+  finishAssetOperation: (operation: AssetOperation, status: "saved" | "error", message: string) => void;
+  latestRef: RefObject<{ ledgerData: LedgerData; ledgerEpoch: number; sessionGeneration: number; mutationVersion: number; persistedVersion: number; persistenceStatus: PersistenceStatus; isWritable: boolean; mappingSignature: string; }>;
+  mappingDrafts: Record<string, string>;
+  setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doSaveMapping(
+  deps: SaveMappingDeps,
+  asset: Asset,
+) {
+  const {
+    applyLedgerMutation,
+    assetOperationIsCurrent,
+    assetOperationsRef,
+    client,
+    clock,
+    createAssetOperation,
+    fetchAndPersistAssetPrice,
+    finishAssetOperation,
+    latestRef,
+    mappingDrafts,
+    setAssetFeedback,
+    t,
+  } = deps;
+    const operation = createAssetOperation(asset, "save-mapping", null);
+    if (!operation) return;
+    const result = await validateBinanceMapping(
+      client,
+      asset.symbol,
+      mappingDrafts[asset.symbol] ?? "",
+      operation.controller.signal,
+    );
+    if (!assetOperationIsCurrent(operation)) return;
+    if (!result.ok) {
+      finishAssetOperation(
+        operation,
+        "error",
+        formatBinanceFailure(result.error, t),
+      );
+      return;
+    }
+
+    const timeSnapshot = captureLedgerTime(clock);
+    let expectedSignature = operation.startMappingSignature;
+    let mappingGuardAccepted = false;
+    const expectedVersion = latestRef.current.mutationVersion + 1;
+    const mutationResult = applyLedgerMutation(
+      (current) => {
+        if (
+          getBinanceMappingSignature(current) !==
+          operation.startMappingSignature
+        ) {
+          return current;
+        }
+        mappingGuardAccepted = true;
+        const candidate = setAssetBinanceMapping(
+          current,
+          asset.symbol,
+          result.mapping,
+          timeSnapshot.now.toISOString(),
+        );
+        expectedSignature = getBinanceMappingSignature(candidate);
+        return candidate;
+      },
+      timeSnapshot,
+    );
+    if (!assetOperationIsCurrent(operation)) return;
+    if (!mappingGuardAccepted) {
+      operation.controller.abort();
+      assetOperationsRef.current.delete(operation.assetSymbol);
+      return;
+    }
+    operation.mapping = result.mapping;
+    operation.expectedMappingSignature = expectedSignature;
+
+    if (mutationResult === "applied") {
+      operation.phase = "saving-mapping";
+      operation.expectedPersistedVersion = expectedVersion;
+      setAssetFeedback((current) => ({
+        ...current,
+        [asset.symbol]: {
+          status: "saving-mapping",
+          message: t("marketData.assetFeedback.mappingValidatedSaving"),
+        },
+      }));
+      return;
+    }
+    if (
+      mutationResult === "noop" &&
+      expectedSignature === operation.startMappingSignature
+    ) {
+      operation.phase = "fetching-price";
+      setAssetFeedback((current) => ({
+        ...current,
+        [asset.symbol]: {
+          status: "fetching-price",
+          message: t("marketData.assetFeedback.mappingSavedFetching"),
+        },
+      }));
+      void fetchAndPersistAssetPrice(operation);
+      return;
+    }
+    finishAssetOperation(
+      operation,
+      "error",
+      t("marketData.assetFeedback.ledgerNotWritable"),
+    );
 }
