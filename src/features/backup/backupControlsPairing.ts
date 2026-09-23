@@ -458,3 +458,40 @@ export function doFinishPostImportPairing(
         : current,
     );
 }
+
+type PairingInvalidationEffectDeps = {
+  mountedRef: RefObject<boolean>;
+  pairingOperationIsCurrent: (operation: PostImportPairingOperation) => boolean;
+  pairingOperationRef: RefObject<PostImportPairingOperation | null>;
+  setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function runPairingInvalidationEffect(
+  deps: PairingInvalidationEffectDeps,
+) {
+  const {
+    mountedRef,
+    pairingOperationIsCurrent,
+    pairingOperationRef,
+    setPostImportPairing,
+    t,
+  } = deps;
+    const operation = pairingOperationRef.current;
+    if (operation && !pairingOperationIsCurrent(operation)) {
+      operation.controller.abort();
+      pairingOperationRef.current = null;
+      if (mountedRef.current) {
+        setPostImportPairing((current) =>
+          current
+            ? {
+                ...current,
+                status: "error",
+                message:
+                  t("backup.pairing.cancelled"),
+              }
+            : current,
+        );
+      }
+    }
+}

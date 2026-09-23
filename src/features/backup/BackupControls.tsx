@@ -67,6 +67,7 @@ import {
   doFinishPostImportPairing,
   doPairingOperationIsCurrent,
   doStartPostImportPairing,
+  runPairingInvalidationEffect,
 } from "./backupControlsPairing";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
@@ -194,23 +195,15 @@ export function BackupControls({
   }, []);
 
   useEffect(() => {
-    const operation = pairingOperationRef.current;
-    if (operation && !pairingOperationIsCurrent(operation)) {
-      operation.controller.abort();
-      pairingOperationRef.current = null;
-      if (mountedRef.current) {
-        setPostImportPairing((current) =>
-          current
-            ? {
-                ...current,
-                status: "error",
-                message:
-                  t("backup.pairing.cancelled"),
-              }
-            : current,
-        );
-      }
-    }
+    return runPairingInvalidationEffect(
+      {
+        mountedRef,
+        pairingOperationIsCurrent,
+        pairingOperationRef,
+        setPostImportPairing,
+        t,
+      },
+    );
   }, [isWritable, ledgerEpoch, sessionGeneration, t]);
 
   useEffect(() => {
