@@ -15,6 +15,8 @@ import type {
   SessionPersistenceBinding,
 } from "./usePersistentLedgerTypes";
 import { isSamePersistenceTarget } from "./usePersistentLedgerHelpers";
+import type { HydrationStatus } from "./hydrationState";
+import type { LedgerData } from "@/core/models";
 
 type TrackSessionAcceptedWorkDeps = {
   sessionPersistenceBindingsRef: RefObject<WeakMap<LedgerSession, SessionPersistenceBinding>>;
@@ -95,4 +97,50 @@ export function doDiscardDirtyChangesAndSwitchRepository(
     retryAttemptRef.current = null;
     requestRepositorySwitchRender((current) => current + 1);
     return true;
+}
+
+type HydrationCompletionEffectDeps = {
+  activeRepository: LedgerRepository;
+  generationRef: RefObject<number>;
+  hydratedRepositoryRef: RefObject<LedgerRepository | null>;
+  hydrationStatus: HydrationStatus;
+  ledgerData: LedgerData;
+  pendingHydrationRef: RefObject<{
+    repository: LedgerRepository;
+    generation: number;
+    serializedLedger: string;
+  } | null>;
+  setHydrationStatus: Dispatch<SetStateAction<HydrationStatus>>;
+  setLedgerEpoch: Dispatch<SetStateAction<number>>;
+};
+
+export function runHydrationCompletionEffect(
+  deps: HydrationCompletionEffectDeps,
+) {
+  const {
+    activeRepository,
+    generationRef,
+    hydratedRepositoryRef,
+    hydrationStatus,
+    ledgerData,
+    pendingHydrationRef,
+    setHydrationStatus,
+    setLedgerEpoch,
+  } = deps;
+    const pendingHydration = pendingHydrationRef.current;
+
+    if (
+      hydrationStatus !== "loading" ||
+      pendingHydration === null ||
+      pendingHydration.repository !== activeRepository ||
+      pendingHydration.generation !== generationRef.current ||
+      JSON.stringify(ledgerData) !== pendingHydration.serializedLedger
+    ) {
+      return;
+    }
+
+    pendingHydrationRef.current = null;
+    hydratedRepositoryRef.current = activeRepository;
+    setLedgerEpoch((current) => current + 1);
+    setHydrationStatus("ready");
 }

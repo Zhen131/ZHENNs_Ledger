@@ -78,6 +78,7 @@ import { doReplaceLedgerFromBackup } from "./usePersistentLedgerImport";
 import {
   doDiscardDirtyChangesAndSwitchRepository,
   doTrackSessionAcceptedWork,
+  runHydrationCompletionEffect,
 } from "./usePersistentLedgerSession";
 import {
   runClockRefreshEffect,
@@ -440,22 +441,18 @@ export function usePersistentLedger(
   ]);
 
   useEffect(() => {
-    const pendingHydration = pendingHydrationRef.current;
-
-    if (
-      hydrationStatus !== "loading" ||
-      pendingHydration === null ||
-      pendingHydration.repository !== activeRepository ||
-      pendingHydration.generation !== generationRef.current ||
-      JSON.stringify(ledgerData) !== pendingHydration.serializedLedger
-    ) {
-      return;
-    }
-
-    pendingHydrationRef.current = null;
-    hydratedRepositoryRef.current = activeRepository;
-    setLedgerEpoch((current) => current + 1);
-    setHydrationStatus("ready");
+    return runHydrationCompletionEffect(
+      {
+        activeRepository,
+        generationRef,
+        hydratedRepositoryRef,
+        hydrationStatus,
+        ledgerData,
+        pendingHydrationRef,
+        setHydrationStatus,
+        setLedgerEpoch,
+      },
+    );
   }, [activeRepository, hydrationStatus, ledgerData]);
 
   useEffect(() =>
