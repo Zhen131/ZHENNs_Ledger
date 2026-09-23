@@ -61,6 +61,7 @@ import {
 } from "./marketDataControlsGlobalRefresh";
 import {
   runMappingDraftSyncEffect,
+  runMarketDataMountEffect,
   runOperationInvalidationEffect,
   runPersistenceProgressEffect,
 } from "./marketDataControlsEffects";
@@ -270,17 +271,13 @@ export function MarketDataControls({
   }, [mappingSignature, mutationVersion, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {
-    mountedRef.current = true;
-    const assetOperations = assetOperationsRef.current;
-    return () => {
-      mountedRef.current = false;
-      for (const operation of assetOperations.values()) {
-        operation.controller.abort();
-      }
-      assetOperations.clear();
-      globalOperationRef.current?.controller.abort();
-      globalOperationRef.current = null;
-    };
+    return runMarketDataMountEffect(
+      {
+        assetOperationsRef,
+        globalOperationRef,
+        mountedRef,
+      },
+    );
   }, []);
 
   function finishAssetOperation(

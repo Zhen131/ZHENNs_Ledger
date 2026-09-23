@@ -209,3 +209,30 @@ export function runPersistenceProgressEffect(
       }
     }
 }
+
+type MarketDataMountEffectDeps = {
+  assetOperationsRef: RefObject<Map<string, AssetOperation>>;
+  globalOperationRef: RefObject<GlobalOperation | null>;
+  mountedRef: RefObject<boolean>;
+};
+
+export function runMarketDataMountEffect(
+  deps: MarketDataMountEffectDeps,
+) {
+  const {
+    assetOperationsRef,
+    globalOperationRef,
+    mountedRef,
+  } = deps;
+    mountedRef.current = true;
+    const assetOperations = assetOperationsRef.current;
+    return () => {
+      mountedRef.current = false;
+      for (const operation of assetOperations.values()) {
+        operation.controller.abort();
+      }
+      assetOperations.clear();
+      globalOperationRef.current?.controller.abort();
+      globalOperationRef.current = null;
+    };
+}
