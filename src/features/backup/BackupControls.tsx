@@ -10,7 +10,6 @@ import {
   type BackupEnvelopeError,
 } from "./backupEnvelope";
 import {
-  createLedgerBackupImportEvidence,
   preflightBackupJson,
   type BackupImportPreflightResult,
   type BackupSuspicionConfirmationReceipt,
@@ -23,14 +22,10 @@ import type {
 import type { LedgerData } from "@/core/models";
 import type { HydrationStatus } from "@/app";
 import {
-  captureLedgerTime,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
-import {
-  listAssetsMissingBinanceMapping,
-} from "@/features/market-data";
 import {
   createBinanceMarketDataClient,
   type BinanceMarketDataClient,
@@ -57,6 +52,7 @@ import {
   runPairingPersistenceEffect,
 } from "./backupControlsPairing";
 import {
+  doConfirmImport,
   doConfirmSuspiciousGroups,
   doCopyPreflightReport,
   doHandleExport,
@@ -407,87 +403,23 @@ export function BackupControls({
   }
 
   async function confirmImport() {
-    const result = selectedPreflightRef.current;
-    if (
-      !result ||
-      !canCommit ||
-      result.selectionGeneration !== selectionGenerationRef.current ||
-      result.hardErrorCount > 0 ||
-      result.candidate === undefined ||
-      result.candidateIdentity === undefined ||
-      !hasCurrentSuspicionConfirmation(
-        result,
-        suspicionConfirmationRef.current,
-      )
-    ) {
-      return;
-    }
-
-    const generation = result.selectionGeneration;
-    const contentIdentity = result.contentIdentity.value;
-    const evidence = createLedgerBackupImportEvidence(
-      result,
-      suspicionConfirmationRef.current,
-    );
-    if (!evidence) {
-      return;
-    }
-    const importController = new AbortController();
-    importAbortControllerRef.current?.abort();
-    importAbortControllerRef.current = importController;
-    setImportState("importing");
-    setMessage("");
-    const importResult = await onImport(
-      structuredClone(result.candidate),
-      captureLedgerTime(clock),
-      evidence,
-      importController.signal,
-    );
-    if (importAbortControllerRef.current === importController) {
-      importAbortControllerRef.current = null;
-    }
-    if (!isSamePreflight(generation, contentIdentity)) {
-      return;
-    }
-    if (importResult.ok) {
-      const missingMappingSymbols = listAssetsMissingBinanceMapping(
-        result.candidate,
-      );
-      resetFileSelection();
-      setImportState("success");
-      setMessage(t("backup.import.restored"));
-      setPostImportPairing(
-        missingMappingSymbols.length === 0
-          ? null
-          : {
-              symbols: missingMappingSymbols,
-              status: "prompt",
-              message:
-                t("backup.pairing.ready"),
-              failures: [],
-            },
-      );
-      return;
-    }
-
-    if (importResult.errors) {
-      setImportErrors(importResult.errors);
-    }
-    setImportState("write-error");
-    setMessage(
-      importResult.code === "LEDGER_IMPORT_NOT_ALLOWED"
-        ? t("backup.import.statusNotAllowed")
-        : importResult.code === "LEDGER_IMPORT_INVALID_BACKUP"
-          ? t("backup.import.validationFailed")
-          : importResult.code === "LEDGER_IMPORT_CANCELLED"
-            ? t("backup.import.cancelled")
-            : importResult.code === "LEDGER_IMPORT_BASE_RESTORED"
-              ? t("backup.import.restoredOriginal")
-              : importResult.code === "LEDGER_IMPORT_SOURCE_CHANGED"
-                ? t("backup.import.externalChange")
-                : importResult.code === "LEDGER_IMPORT_RECOVERY_BLOCKED"
-                  ? t("backup.import.resultUnknown")
-                  : t("backup.import.failed"),
+    return doConfirmImport(
+      {
+        canCommit,
+        clock,
+        importAbortControllerRef,
+        isSamePreflight,
+        onImport,
+        resetFileSelection,
+        selectedPreflightRef,
+        selectionGenerationRef,
+        setImportErrors,
+        setImportState,
+        setMessage,
+        setPostImportPairing,
+        suspicionConfirmationRef,
+        t,
+      },
     );
   }
 

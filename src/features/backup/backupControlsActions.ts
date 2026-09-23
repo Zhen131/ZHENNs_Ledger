@@ -9,18 +9,24 @@ import type {
   CopyState,
   ImportState,
   PostImportPairingOperation,
+  PostImportPairingState,
 } from "./backupControlsTypes";
 import type {
   BackupImportPreflightResult,
   BackupSuspicionConfirmationReceipt,
+  LedgerBackupImportEvidence,
   preflightBackupJson,
 } from "./backupImportPreflight";
 import {
   confirmBackupImportSuspiciousGroups,
+  createLedgerBackupImportEvidence,
   revokeBackupImportPreflightReceipt,
 } from "./backupImportPreflight";
 import type { BackupEnvelopeError } from "./backupEnvelope";
-import type { LedgerClock } from "@/core/shared";
+import type {
+  LedgerClock,
+  LedgerTimeSnapshot,
+} from "@/core/shared";
 import type { LedgerData } from "@/core/models";
 import type { useLanguage } from "@/ui";
 import { captureLedgerTime } from "@/core/shared";
@@ -36,6 +42,8 @@ import {
 } from "@/core/validation";
 import { downloadBackupJson } from "./backupDownload";
 import { formatBackupImportReportMarkdown } from "./backupImportReport";
+import { hasCurrentSuspicionConfirmation } from "./backupControlsHelpers";
+import { listAssetsMissingBinanceMapping } from "@/features/market-data";
 
 type BackupControlsMountEffectDeps = {
   importAbortControllerRef: RefObject<AbortController | null>;
@@ -431,4 +439,124 @@ export async function doCopyPreflightReport(
     if (isSamePreflight(generation, contentIdentity)) {
       setCopyState("copied");
     }
+}
+
+type ConfirmImportDeps = {
+  canCommit: boolean;
+  clock: LedgerClock;
+  importAbortControllerRef: RefObject<AbortController | null>;
+  isSamePreflight: (selectionGeneration: number, contentIdentity: string) => boolean;
+  onImport: (candidate: LedgerData, timeSnapshot?: LedgerTimeSnapshot, evidence?: LedgerBackupImportEvidence, signal?: AbortSignal) => Promise<{ ok: boolean; code?: string; errors?: BackupEnvelopeError[]; }>;
+  resetFileSelection: () => void;
+  selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
+  selectionGenerationRef: RefObject<number>;
+  setImportErrors: Dispatch<SetStateAction<BackupEnvelopeError[]>>;
+  setImportState: Dispatch<SetStateAction<ImportState>>;
+  setMessage: Dispatch<SetStateAction<string>>;
+  setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
+  suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doConfirmImport(
+  deps: ConfirmImportDeps,
+) {
+  const {
+    canCommit,
+    clock,
+    importAbortControllerRef,
+    isSamePreflight,
+    onImport,
+    resetFileSelection,
+    selectedPreflightRef,
+    selectionGenerationRef,
+    setImportErrors,
+    setImportState,
+    setMessage,
+    setPostImportPairing,
+    suspicionConfirmationRef,
+    t,
+  } = deps;
+    const result = selectedPreflightRef.current;
+    if (
+      !result ||
+      !canCommit ||
+      result.selectionGeneration !== selectionGenerationRef.current ||
+      result.hardErrorCount > 0 ||
+      result.candidate === undefined ||
+      result.candidateIdentity === undefined ||
+      !hasCurrentSuspicionConfirmation(
+        result,
+        suspicionConfirmationRef.current,
+      )
+    ) {
+      return;
+    }
+
+    const generation = result.selectionGeneration;
+    const contentIdentity = result.contentIdentity.value;
+    const evidence = createLedgerBackupImportEvidence(
+      result,
+      suspicionConfirmationRef.current,
+    );
+    if (!evidence) {
+      return;
+    }
+    const importController = new AbortController();
+    importAbortControllerRef.current?.abort();
+    importAbortControllerRef.current = importController;
+    setImportState("importing");
+    setMessage("");
+    const importResult = await onImport(
+      structuredClone(result.candidate),
+      captureLedgerTime(clock),
+      evidence,
+      importController.signal,
+    );
+    if (importAbortControllerRef.current === importController) {
+      importAbortControllerRef.current = null;
+    }
+    if (!isSamePreflight(generation, contentIdentity)) {
+      return;
+    }
+    if (importResult.ok) {
+      const missingMappingSymbols = listAssetsMissingBinanceMapping(
+        result.candidate,
+      );
+      resetFileSelection();
+      setImportState("success");
+      setMessage(t("backup.import.restored"));
+      setPostImportPairing(
+        missingMappingSymbols.length === 0
+          ? null
+          : {
+              symbols: missingMappingSymbols,
+              status: "prompt",
+              message:
+                t("backup.pairing.ready"),
+              failures: [],
+            },
+      );
+      return;
+    }
+
+    if (importResult.errors) {
+      setImportErrors(importResult.errors);
+    }
+    setImportState("write-error");
+    setMessage(
+      importResult.code === "LEDGER_IMPORT_NOT_ALLOWED"
+        ? t("backup.import.statusNotAllowed")
+        : importResult.code === "LEDGER_IMPORT_INVALID_BACKUP"
+          ? t("backup.import.validationFailed")
+          : importResult.code === "LEDGER_IMPORT_CANCELLED"
+            ? t("backup.import.cancelled")
+            : importResult.code === "LEDGER_IMPORT_BASE_RESTORED"
+              ? t("backup.import.restoredOriginal")
+              : importResult.code === "LEDGER_IMPORT_SOURCE_CHANGED"
+                ? t("backup.import.externalChange")
+                : importResult.code === "LEDGER_IMPORT_RECOVERY_BLOCKED"
+                  ? t("backup.import.resultUnknown")
+                  : t("backup.import.failed"),
+    );
 }
