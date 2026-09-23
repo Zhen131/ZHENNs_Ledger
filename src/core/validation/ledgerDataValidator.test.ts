@@ -12,9 +12,9 @@ import {
 } from "@/test-support";
 import {
   collectValidLedgerTradeProjections,
-  LEDGER_DATA_VALIDATION_ERROR_CODES,
   validateLedgerData,
 } from "./ledgerDataValidator";
+import { LEDGER_DATA_VALIDATION_ERROR_CODES } from "./ledgerDataValidatorSchema";
 
 function createCompleteLedger(): LedgerData {
   const initialLedger = createInitialLedgerData();

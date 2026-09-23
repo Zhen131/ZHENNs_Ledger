@@ -5,10 +5,10 @@ export {
 } from "./tradeValidator";
 export {
   collectValidLedgerTradeProjections,
-  LEDGER_DATA_VALIDATION_ERROR_CODES,
   selectLedgerDataFacts,
   validateLedgerData,
 } from "./ledgerDataValidator";
+export { LEDGER_DATA_VALIDATION_ERROR_CODES } from "./ledgerDataValidatorSchema";
 export * from "./priceSnapshotValidator";
 export {
   DEFAULT_LEDGER_RESOURCE_LIMITS,
@@ -32,7 +32,7 @@ export type {
 export type {
   LedgerDataValidationError,
   LedgerDataValidationResult,
-} from "./ledgerDataValidator";
+} from "./ledgerDataValidatorSchema";
 export type {
   LedgerResourceLimits,
   LedgerResourcePolicyError,
