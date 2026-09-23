@@ -70,7 +70,10 @@ import {
   runPairingInvalidationEffect,
   runPairingPersistenceEffect,
 } from "./backupControlsPairing";
-import { runBackupControlsMountEffect } from "./backupControlsActions";
+import {
+  doResetFileSelection,
+  runBackupControlsMountEffect,
+} from "./backupControlsActions";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
 
@@ -329,23 +332,19 @@ export function BackupControls({
   }
 
   function resetFileSelection() {
-    importAbortControllerRef.current?.abort();
-    importAbortControllerRef.current = null;
-    selectionGenerationRef.current += 1;
-    if (selectedPreflightRef.current) {
-      revokeBackupImportPreflightReceipt(
-        selectedPreflightRef.current,
-      );
-    }
-    selectedPreflightRef.current = null;
-    suspicionConfirmationRef.current = null;
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    setPreflightResult(null);
-    setImportErrors([]);
-    setCopyState("idle");
-    setMessage("");
+    return doResetFileSelection(
+      {
+        fileInputRef,
+        importAbortControllerRef,
+        selectedPreflightRef,
+        selectionGenerationRef,
+        setCopyState,
+        setImportErrors,
+        setMessage,
+        setPreflightResult,
+        suspicionConfirmationRef,
+      },
+    );
   }
 
   function cancelSelection() {

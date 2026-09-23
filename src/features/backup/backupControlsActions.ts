@@ -1,10 +1,18 @@
-import type { RefObject } from "react";
-import type { PostImportPairingOperation } from "./backupControlsTypes";
+import type {
+  Dispatch,
+  RefObject,
+  SetStateAction,
+} from "react";
+import type {
+  CopyState,
+  PostImportPairingOperation,
+} from "./backupControlsTypes";
 import type {
   BackupImportPreflightResult,
   BackupSuspicionConfirmationReceipt,
 } from "./backupImportPreflight";
 import { revokeBackupImportPreflightReceipt } from "./backupImportPreflight";
+import type { BackupEnvelopeError } from "./backupEnvelope";
 
 type BackupControlsMountEffectDeps = {
   importAbortControllerRef: RefObject<AbortController | null>;
@@ -41,4 +49,49 @@ export function runBackupControlsMountEffect(
       selectedPreflightRef.current = null;
       suspicionConfirmationRef.current = null;
     };
+}
+
+type ResetFileSelectionDeps = {
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  importAbortControllerRef: RefObject<AbortController | null>;
+  selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
+  selectionGenerationRef: RefObject<number>;
+  setCopyState: Dispatch<SetStateAction<CopyState>>;
+  setImportErrors: Dispatch<SetStateAction<BackupEnvelopeError[]>>;
+  setMessage: Dispatch<SetStateAction<string>>;
+  setPreflightResult: Dispatch<SetStateAction<BackupImportPreflightResult | null>>;
+  suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
+};
+
+export function doResetFileSelection(
+  deps: ResetFileSelectionDeps,
+) {
+  const {
+    fileInputRef,
+    importAbortControllerRef,
+    selectedPreflightRef,
+    selectionGenerationRef,
+    setCopyState,
+    setImportErrors,
+    setMessage,
+    setPreflightResult,
+    suspicionConfirmationRef,
+  } = deps;
+    importAbortControllerRef.current?.abort();
+    importAbortControllerRef.current = null;
+    selectionGenerationRef.current += 1;
+    if (selectedPreflightRef.current) {
+      revokeBackupImportPreflightReceipt(
+        selectedPreflightRef.current,
+      );
+    }
+    selectedPreflightRef.current = null;
+    suspicionConfirmationRef.current = null;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    setPreflightResult(null);
+    setImportErrors([]);
+    setCopyState("idle");
+    setMessage("");
 }
