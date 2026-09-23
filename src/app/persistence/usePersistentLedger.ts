@@ -75,6 +75,7 @@ import {
   doApplyLedgerMutation,
 } from "./usePersistentLedgerActions";
 import { doReplaceLedgerFromBackup } from "./usePersistentLedgerImport";
+import { doTrackSessionAcceptedWork } from "./usePersistentLedgerSession";
 
 export type {
   ApplyLedgerActionResult,
@@ -237,21 +238,13 @@ export function usePersistentLedger(
       session: LedgerSession | undefined,
       work: PromiseLike<unknown>,
     ): void => {
-      if (!session) {
-        return;
-      }
-      const binding = sessionPersistenceBindingsRef.current.get(session);
-      if (!binding) {
-        throw new Error(
-          "The LedgerSession persistence port has not been committed",
-        );
-      }
-      binding.acceptedWork.add(work);
-      void Promise.resolve(work)
-        .finally(() => {
-          binding.acceptedWork.delete(work);
-        })
-        .catch(() => undefined);
+      return doTrackSessionAcceptedWork(
+        {
+          sessionPersistenceBindingsRef,
+        },
+        session,
+        work,
+      );
     },
     [],
   );
