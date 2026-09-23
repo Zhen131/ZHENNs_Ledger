@@ -29,6 +29,7 @@ import {
   validateBinanceMapping,
 } from "./binanceMappingService";
 import { mergeBinancePriceRefresh } from "./binancePriceRefreshService";
+import { resolveAssetBinanceMappingForRuntime } from "@/core/policies";
 
 type CancelAssetOperationDeps = {
   assetOperationsRef: RefObject<Map<string, AssetOperation>>;
@@ -373,4 +374,56 @@ export async function doSaveMapping(
       "error",
       t("marketData.assetFeedback.ledgerNotWritable"),
     );
+}
+
+type RefreshAssetDeps = {
+  assetOperationIsCurrent: (operation: AssetOperation) => boolean;
+  client: BinanceMarketDataClient;
+  createAssetOperation: (asset: Asset, kind: AssetOperationKind, mapping: BinanceMarketMapping | null) => AssetOperation | null;
+  fetchAndPersistAssetPrice: (operation: AssetOperation) => Promise<void>;
+  finishAssetOperation: (operation: AssetOperation, status: "saved" | "error", message: string) => void;
+  setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doRefreshAsset(
+  deps: RefreshAssetDeps,
+  asset: Asset,
+) {
+  const {
+    assetOperationIsCurrent,
+    client,
+    createAssetOperation,
+    fetchAndPersistAssetPrice,
+    finishAssetOperation,
+    setAssetFeedback,
+    t,
+  } = deps;
+    const mapping = resolveAssetBinanceMappingForRuntime(asset);
+    if (!mapping) return;
+    const operation = createAssetOperation(asset, "refresh-price", mapping);
+    if (!operation) return;
+    const validation = await client.validateSpotSymbol(
+      asset.symbol,
+      mapping.symbol,
+      operation.controller.signal,
+    );
+    if (!assetOperationIsCurrent(operation)) return;
+    if (!validation.ok) {
+      finishAssetOperation(
+        operation,
+        "error",
+        `${t("marketData.assetFeedback.refreshFailedPrefix")}${formatBinanceFailure(validation.error, t)}`,
+      );
+      return;
+    }
+    operation.phase = "fetching-price";
+    setAssetFeedback((current) => ({
+      ...current,
+      [asset.symbol]: {
+        status: "fetching-price",
+        message: t("marketData.assetFeedback.mappingValidFetching"),
+      },
+    }));
+    void fetchAndPersistAssetPrice(operation);
 }

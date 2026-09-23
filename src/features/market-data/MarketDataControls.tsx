@@ -13,7 +13,6 @@ import type {
   Position,
   ValuationPriceMode,
 } from "@/core/models";
-import { resolveAssetBinanceMappingForRuntime } from "@/core/policies";
 import {
   captureLedgerTime,
   isZero,
@@ -57,6 +56,7 @@ import {
   doCreateAssetOperation,
   doFetchAndPersistAssetPrice,
   doFinishAssetOperation,
+  doRefreshAsset,
   doSaveMapping,
 } from "./marketDataControlsAssetActions";
 
@@ -438,33 +438,18 @@ export function MarketDataControls({
   }
 
   async function refreshAsset(asset: Asset) {
-    const mapping = resolveAssetBinanceMappingForRuntime(asset);
-    if (!mapping) return;
-    const operation = createAssetOperation(asset, "refresh-price", mapping);
-    if (!operation) return;
-    const validation = await client.validateSpotSymbol(
-      asset.symbol,
-      mapping.symbol,
-      operation.controller.signal,
-    );
-    if (!assetOperationIsCurrent(operation)) return;
-    if (!validation.ok) {
-      finishAssetOperation(
-        operation,
-        "error",
-        `${t("marketData.assetFeedback.refreshFailedPrefix")}${formatBinanceFailure(validation.error, t)}`,
-      );
-      return;
-    }
-    operation.phase = "fetching-price";
-    setAssetFeedback((current) => ({
-      ...current,
-      [asset.symbol]: {
-        status: "fetching-price",
-        message: t("marketData.assetFeedback.mappingValidFetching"),
+    return doRefreshAsset(
+      {
+        assetOperationIsCurrent,
+        client,
+        createAssetOperation,
+        fetchAndPersistAssetPrice,
+        finishAssetOperation,
+        setAssetFeedback,
+        t,
       },
-    }));
-    void fetchAndPersistAssetPrice(operation);
+      asset,
+    );
   }
 
   async function refreshNonZeroHoldings() {
