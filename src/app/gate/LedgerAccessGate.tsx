@@ -23,7 +23,6 @@ import {
   type LedgerSession,
   type SessionQuiesceReason,
 } from "@/platform/persistence";
-import { validatePassphrase } from "@/platform/encryption";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,
@@ -53,6 +52,7 @@ import {
   doRetryFailedSessionRelease,
   runGateLifecycleEffect,
 } from "./ledgerAccessGateSession";
+import { doSubmitFileCreate } from "./ledgerAccessGateActions";
 
 export function LedgerAccessGate({
   accessController = getDefaultLedgerAccessController(),
@@ -172,39 +172,25 @@ export function LedgerAccessGate({
   async function submitFileCreate(
     event: FormEvent<HTMLFormElement>,
   ) {
-    event.preventDefault();
-    if (operationRef.current) {
-      return;
-    }
-    if (passphrase !== confirmation) {
-      setFormError(t("access.error.passphraseMismatch"));
-      return;
-    }
-    if (!validatePassphrase(passphrase).ok) {
-      setFormError(t("access.error.passphraseLength"));
-      return;
-    }
-
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    const result = await fileAccessController.create(passphrase);
-
-    if (isCurrentOperation(operation)) {
-      setPassphrase("");
-      setConfirmation("");
-      if (result.status === "unlocked") {
-        enterUnlockedSession(result.session);
-      } else if (
-        result.status === "error" &&
-        result.code === LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
-      ) {
-        setAccessPath("choice");
-      } else if (result.status === "error") {
-        setFormError(getFileAccessErrorMessage(result.code, t));
-      }
-    }
-    finishOperation(operation);
+    return doSubmitFileCreate(
+      {
+        beginOperation,
+        confirmation,
+        enterUnlockedSession,
+        fileAccessController,
+        finishOperation,
+        isCurrentOperation,
+        operationRef,
+        passphrase,
+        setAccessPath,
+        setConfirmation,
+        setFormError,
+        setIsSubmitting,
+        setPassphrase,
+        t,
+      },
+      event,
+    );
   }
 
   async function selectFileToOpen() {
