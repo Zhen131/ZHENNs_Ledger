@@ -6,8 +6,13 @@ import type {
 import type {
   AssetFeedback,
   AssetOperation,
+  AssetOperationKind,
 } from "./marketDataControlsTypes";
-import type { LedgerData } from "@/core/models";
+import type {
+  Asset,
+  BinanceMarketMapping,
+  LedgerData,
+} from "@/core/models";
 import { captureLedgerTime } from "@/core/shared";
 import type {
   ApplyLedgerActionResult,
@@ -190,4 +195,60 @@ export async function doFetchAndPersistAssetPrice(
         ? t("marketData.assetFeedback.mappingSavedPriceNotWritten")
         : t("marketData.assetFeedback.priceNotWritten"),
     );
+}
+
+type CreateAssetOperationDeps = {
+  assetOperationsRef: RefObject<Map<string, AssetOperation>>;
+  cancelAssetOperation: (assetSymbol: string, resetFeedback: boolean) => void;
+  cancelGlobalOperation: (resetFeedback: boolean) => void;
+  latestRef: RefObject<{ ledgerData: LedgerData; ledgerEpoch: number; sessionGeneration: number; mutationVersion: number; persistedVersion: number; persistenceStatus: PersistenceStatus; isWritable: boolean; mappingSignature: string; }>;
+  operationSequenceRef: RefObject<number>;
+  setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doCreateAssetOperation(
+  deps: CreateAssetOperationDeps,
+  asset: Asset,
+  kind: AssetOperationKind,
+  mapping: BinanceMarketMapping | null,
+): AssetOperation | null {
+  const {
+    assetOperationsRef,
+    cancelAssetOperation,
+    cancelGlobalOperation,
+    latestRef,
+    operationSequenceRef,
+    setAssetFeedback,
+    t,
+  } = deps;
+    if (!latestRef.current.isWritable) return null;
+    cancelGlobalOperation(true);
+    cancelAssetOperation(asset.symbol, false);
+    const operation: AssetOperation = {
+      id: ++operationSequenceRef.current,
+      kind,
+      phase: "validating",
+      controller: new AbortController(),
+      ledgerEpoch: latestRef.current.ledgerEpoch,
+      sessionGeneration: latestRef.current.sessionGeneration,
+      assetId: asset.id,
+      assetSymbol: asset.symbol,
+      startMappingSignature: latestRef.current.mappingSignature,
+      expectedMappingSignature: latestRef.current.mappingSignature,
+      mapping,
+      expectedPersistedVersion: null,
+    };
+    assetOperationsRef.current.set(asset.symbol, operation);
+    setAssetFeedback((current) => ({
+      ...current,
+      [asset.symbol]: {
+        status: "validating",
+        message:
+          kind === "save-mapping"
+            ? t("marketData.assetFeedback.validatingMapping")
+            : t("marketData.assetFeedback.validatingAndRefreshing"),
+      },
+    }));
+    return operation;
 }

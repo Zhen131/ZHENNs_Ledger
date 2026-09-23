@@ -55,6 +55,7 @@ import type {
 } from "./marketDataControlsTypes";
 import {
   doCancelAssetOperation,
+  doCreateAssetOperation,
   doFetchAndPersistAssetPrice,
   doFinishAssetOperation,
 } from "./marketDataControlsAssetActions";
@@ -400,35 +401,20 @@ export function MarketDataControls({
     kind: AssetOperationKind,
     mapping: BinanceMarketMapping | null,
   ): AssetOperation | null {
-    if (!latestRef.current.isWritable) return null;
-    cancelGlobalOperation(true);
-    cancelAssetOperation(asset.symbol, false);
-    const operation: AssetOperation = {
-      id: ++operationSequenceRef.current,
-      kind,
-      phase: "validating",
-      controller: new AbortController(),
-      ledgerEpoch: latestRef.current.ledgerEpoch,
-      sessionGeneration: latestRef.current.sessionGeneration,
-      assetId: asset.id,
-      assetSymbol: asset.symbol,
-      startMappingSignature: latestRef.current.mappingSignature,
-      expectedMappingSignature: latestRef.current.mappingSignature,
-      mapping,
-      expectedPersistedVersion: null,
-    };
-    assetOperationsRef.current.set(asset.symbol, operation);
-    setAssetFeedback((current) => ({
-      ...current,
-      [asset.symbol]: {
-        status: "validating",
-        message:
-          kind === "save-mapping"
-            ? t("marketData.assetFeedback.validatingMapping")
-            : t("marketData.assetFeedback.validatingAndRefreshing"),
+    return doCreateAssetOperation(
+      {
+        assetOperationsRef,
+        cancelAssetOperation,
+        cancelGlobalOperation,
+        latestRef,
+        operationSequenceRef,
+        setAssetFeedback,
+        t,
       },
-    }));
-    return operation;
+      asset,
+      kind,
+      mapping,
+    );
   }
 
   async function saveMapping(asset: Asset) {
