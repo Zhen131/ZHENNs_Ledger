@@ -6,10 +6,14 @@ import type {
 import type { TradeWorkspaceDraft } from "./tradeWorkspaceDraft";
 import type {
   Dispatch,
+  RefObject,
   SetStateAction,
 } from "react";
 import type { useLanguage } from "@/ui";
 import { calculateAutomaticTotal } from "./tradeFormHelpers";
+import type { Trade } from "@/core/models";
+import type { LedgerTimeSnapshot } from "@/core/shared";
+import type { ApplyLedgerActionResult } from "@/app";
 
 type UpdateFieldDeps = {
   commitForm: (next: TradeFormState) => void;
@@ -68,4 +72,52 @@ export function doUpdateField<Field extends keyof TradeFormState>(
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
     setSuccessState("");
     setPendingRisk(null);
+}
+
+type ApplyTradeDeps = {
+  form: TradeWorkspaceDraft;
+  mutationVersion: number;
+  onTradeCreated: (trade: Trade, timeSnapshot: LedgerTimeSnapshot) => ApplyLedgerActionResult;
+  pendingResetRef: RefObject<Pick<TradeWorkspaceDraft, "assetSymbol" | "platform"> | undefined>;
+  setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
+  setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
+  setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doApplyTrade(
+  deps: ApplyTradeDeps,
+  trade: Trade,
+  timeSnapshot: LedgerTimeSnapshot,
+) {
+  const {
+    form,
+    mutationVersion,
+    onTradeCreated,
+    pendingResetRef,
+    setErrors,
+    setPendingMutationVersion,
+    setSuccessState,
+    t,
+  } = deps;
+    const mutationResult = onTradeCreated(trade, timeSnapshot);
+
+    if (mutationResult !== "applied") {
+      setErrors({
+        form:
+          mutationResult === "rejected"
+            ? t("trades.form.error.ledgerNotWritable")
+            : t("trades.form.error.ledgerUnchanged"),
+      });
+      setSuccessState("");
+      return;
+    }
+
+    pendingResetRef.current = {
+      assetSymbol: form.assetSymbol,
+      platform: form.platform,
+    };
+    setErrors({});
+    setPendingMutationVersion(mutationVersion + 1);
+    setSuccessState("saving");
 }

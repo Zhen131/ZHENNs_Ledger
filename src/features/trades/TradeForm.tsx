@@ -56,7 +56,10 @@ import {
   runEpochResetEffect,
   runPendingSaveEffect,
 } from "./tradeFormEffects";
-import { doUpdateField } from "./tradeFormActions";
+import {
+  doApplyTrade,
+  doUpdateField,
+} from "./tradeFormActions";
 
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
@@ -269,26 +272,20 @@ export function TradeForm({
     trade: Trade,
     timeSnapshot: LedgerTimeSnapshot,
   ) {
-    const mutationResult = onTradeCreated(trade, timeSnapshot);
-
-    if (mutationResult !== "applied") {
-      setErrors({
-        form:
-          mutationResult === "rejected"
-            ? t("trades.form.error.ledgerNotWritable")
-            : t("trades.form.error.ledgerUnchanged"),
-      });
-      setSuccessState("");
-      return;
-    }
-
-    pendingResetRef.current = {
-      assetSymbol: form.assetSymbol,
-      platform: form.platform,
-    };
-    setErrors({});
-    setPendingMutationVersion(mutationVersion + 1);
-    setSuccessState("saving");
+    return doApplyTrade(
+      {
+        form,
+        mutationVersion,
+        onTradeCreated,
+        pendingResetRef,
+        setErrors,
+        setPendingMutationVersion,
+        setSuccessState,
+        t,
+      },
+      trade,
+      timeSnapshot,
+    );
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
