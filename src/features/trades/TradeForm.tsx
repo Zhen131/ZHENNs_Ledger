@@ -51,7 +51,10 @@ import type {
   TradeFormState,
   TradeFormField,
 } from "./tradeFormTypes";
-import { runAssetRepairEffect } from "./tradeFormEffects";
+import {
+  runAssetRepairEffect,
+  runEpochResetEffect,
+} from "./tradeFormEffects";
 
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
@@ -132,21 +135,20 @@ export function TradeForm({
   }, [ledgerData.assets]);
 
   useEffect(() => {
-    setPendingMutationVersion(null);
-    setSuccessState("");
-    setSelectedFeeRuleId("");
-    setSourceChangedMessage("");
-    setPendingRisk(null);
-    pendingResetRef.current = undefined;
-    if (!draft) {
-      setLocalForm(
-        createTradeWorkspaceDraft(
-          ledgerData.assets[0]?.symbol ?? "",
-          captureLedgerTime(clock).todayKey,
-          clock,
-        ),
-      );
-    }
+    return runEpochResetEffect(
+      {
+        clock,
+        draft,
+        ledgerData,
+        pendingResetRef,
+        setLocalForm,
+        setPendingMutationVersion,
+        setPendingRisk,
+        setSelectedFeeRuleId,
+        setSourceChangedMessage,
+        setSuccessState,
+      },
+    );
     // A new ledger epoch is the only event that resets local form state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledgerEpoch]);
