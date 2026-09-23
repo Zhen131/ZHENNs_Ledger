@@ -56,6 +56,7 @@ import {
   runEpochResetEffect,
   runPendingSaveEffect,
 } from "./tradeFormEffects";
+import { doUpdateField } from "./tradeFormActions";
 
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
@@ -237,33 +238,22 @@ export function TradeForm({
     field: Field,
     value: TradeFormState[Field],
   ) {
-    if (pendingMutationVersion !== null) return;
-    let next = { ...form, [field]: value };
-    if (field === "totalValue") {
-      next = { ...next, totalValueMode: "manual" };
-    }
-    if (
-      (field === "quantity" || field === "price") &&
-      next.totalValueMode === "auto"
-    ) {
-      next = {
-        ...next,
-        totalValue: calculateAutomaticTotal(next.quantity, next.price),
-      };
-    }
-    commitForm(next);
-    if (
-      (field === "platform" || field === "assetSymbol") &&
-      selectedFeeRuleId !== ""
-    ) {
-      setSelectedFeeRuleId("");
-      setSourceChangedMessage(
-        t("trades.form.sourceChanged"),
-      );
-    }
-    setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
-    setSuccessState("");
-    setPendingRisk(null);
+    return doUpdateField(
+      {
+        commitForm,
+        form,
+        pendingMutationVersion,
+        selectedFeeRuleId,
+        setErrors,
+        setPendingRisk,
+        setSelectedFeeRuleId,
+        setSourceChangedMessage,
+        setSuccessState,
+        t,
+      },
+      field,
+      value,
+    );
   }
 
   function adoptCandidate(candidate: FeeRuleCandidate) {
