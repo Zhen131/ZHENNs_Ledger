@@ -30,7 +30,6 @@ import {
 import { LedgerNumber, type ConfirmDeleteOutcome, useLanguage } from "@/ui";
 import {
   getBinanceMappingSignature,
-  setAssetBinanceMapping,
 } from "./binanceMappingService";
 import {
   mergeBinancePriceRefresh,
@@ -57,6 +56,7 @@ import {
   doFetchAndPersistAssetPrice,
   doFinishAssetOperation,
   doRefreshAsset,
+  doRemoveMapping,
   doSaveMapping,
 } from "./marketDataControlsAssetActions";
 
@@ -554,37 +554,20 @@ export function MarketDataControls({
   }
 
   function removeMapping(asset: Asset): ConfirmDeleteOutcome {
-    if (!isWritable) return "rejected";
-    cancelGlobalOperation(true);
-    cancelAssetOperation(asset.symbol, false);
-    const timeSnapshot = captureLedgerTime(clock);
-    const mutationResult = applyLedgerMutation(
-      (current) =>
-        setAssetBinanceMapping(
-          current,
-          asset.symbol,
-          null,
-          timeSnapshot.now.toISOString(),
-        ),
-      timeSnapshot,
-    );
-    if (mutationResult === "applied") {
-      setEditingAssetSymbol(null);
-      setMappingDrafts((current) => ({ ...current, [asset.symbol]: "" }));
-    }
-    setAssetFeedback((current) => ({
-      ...current,
-      [asset.symbol]: {
-        status: mutationResult === "rejected" ? "error" : "saved",
-        message:
-          mutationResult === "applied"
-            ? t("marketData.assetFeedback.mappingQueued")
-            : mutationResult === "noop"
-              ? t("marketData.assetFeedback.mappingUnchanged")
-              : t("marketData.assetFeedback.mappingNotDeleted"),
+    return doRemoveMapping(
+      {
+        applyLedgerMutation,
+        cancelAssetOperation,
+        cancelGlobalOperation,
+        clock,
+        isWritable,
+        setAssetFeedback,
+        setEditingAssetSymbol,
+        setMappingDrafts,
+        t,
       },
-    }));
-    return mutationResult;
+      asset,
+    );
   }
 
   const anyAssetOperation = assetOperationsRef.current.size > 0;

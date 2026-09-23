@@ -20,7 +20,10 @@ import type {
 } from "@/app";
 import type { BinanceMarketDataClient } from "@/platform/integrations";
 import type { LedgerClock } from "@/core/shared";
-import type { useLanguage } from "@/ui";
+import type {
+  ConfirmDeleteOutcome,
+  useLanguage,
+} from "@/ui";
 import { formatBinanceFailure } from "./marketDataControlsHelpers";
 import type { BinanceRefreshSuccess } from "./binancePriceRefreshService";
 import {
@@ -426,4 +429,64 @@ export async function doRefreshAsset(
       },
     }));
     void fetchAndPersistAssetPrice(operation);
+}
+
+type RemoveMappingDeps = {
+  applyLedgerMutation: (mutation: (current: LedgerData) => LedgerData, timeSnapshot?: ReturnType<typeof captureLedgerTime>) => ApplyLedgerActionResult;
+  cancelAssetOperation: (assetSymbol: string, resetFeedback: boolean) => void;
+  cancelGlobalOperation: (resetFeedback: boolean) => void;
+  clock: LedgerClock;
+  isWritable: boolean;
+  setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
+  setEditingAssetSymbol: Dispatch<SetStateAction<string | null>>;
+  setMappingDrafts: Dispatch<SetStateAction<Record<string, string>>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doRemoveMapping(
+  deps: RemoveMappingDeps,
+  asset: Asset,
+): ConfirmDeleteOutcome {
+  const {
+    applyLedgerMutation,
+    cancelAssetOperation,
+    cancelGlobalOperation,
+    clock,
+    isWritable,
+    setAssetFeedback,
+    setEditingAssetSymbol,
+    setMappingDrafts,
+    t,
+  } = deps;
+    if (!isWritable) return "rejected";
+    cancelGlobalOperation(true);
+    cancelAssetOperation(asset.symbol, false);
+    const timeSnapshot = captureLedgerTime(clock);
+    const mutationResult = applyLedgerMutation(
+      (current) =>
+        setAssetBinanceMapping(
+          current,
+          asset.symbol,
+          null,
+          timeSnapshot.now.toISOString(),
+        ),
+      timeSnapshot,
+    );
+    if (mutationResult === "applied") {
+      setEditingAssetSymbol(null);
+      setMappingDrafts((current) => ({ ...current, [asset.symbol]: "" }));
+    }
+    setAssetFeedback((current) => ({
+      ...current,
+      [asset.symbol]: {
+        status: mutationResult === "rejected" ? "error" : "saved",
+        message:
+          mutationResult === "applied"
+            ? t("marketData.assetFeedback.mappingQueued")
+            : mutationResult === "noop"
+              ? t("marketData.assetFeedback.mappingUnchanged")
+              : t("marketData.assetFeedback.mappingNotDeleted"),
+      },
+    }));
+    return mutationResult;
 }
