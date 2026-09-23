@@ -4,6 +4,7 @@ import type { LedgerData } from "@/core/models";
 import type { PersistentLedgerState } from "@/app/persistence";
 import { validateTradeRemoval } from "@/features/trades";
 import type { ConfirmDeleteOutcome, useLanguage } from "@/ui";
+import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 
 type RemoveValidatedTradeDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
@@ -65,6 +66,45 @@ export function doHandleDeleteFuturePrice(
     const outcome = applyLedgerAction({
       type: "priceSnapshot/delete",
       priceSnapshotId,
+    });
+    setFutureCorrectionError(
+      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
+    );
+    return outcome;
+}
+
+type HandleDeleteFutureAssetTransferDeps = {
+  applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
+  canCorrectFutureFacts: boolean;
+  ledgerData: PersistentLedgerState["ledgerData"];
+  setFutureCorrectionError: Dispatch<SetStateAction<string>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doHandleDeleteFutureAssetTransfer(
+  deps: HandleDeleteFutureAssetTransferDeps,
+  assetTransferId: string,
+): ConfirmDeleteOutcome {
+  const {
+    applyLedgerAction,
+    canCorrectFutureFacts,
+    ledgerData,
+    setFutureCorrectionError,
+    t,
+  } = deps;
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+
+    const result = validateAssetTransferRemoval(assetTransferId, ledgerData);
+    if (!result.ok) {
+      setFutureCorrectionError(result.error.message);
+      return "rejected";
+    }
+
+    const outcome = applyLedgerAction({
+      type: "assetTransfer/delete",
+      assetTransferId: result.assetTransferId,
     });
     setFutureCorrectionError(
       outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",

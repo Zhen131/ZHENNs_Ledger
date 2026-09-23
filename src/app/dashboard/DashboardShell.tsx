@@ -29,7 +29,6 @@ import {
   type LedgerStorageKind,
 } from "@/platform/persistence";
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
-import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 import {
   getLedgerDateKey,
   isLedgerFactInFuture,
@@ -66,6 +65,7 @@ import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
 import {
+  doHandleDeleteFutureAssetTransfer,
   doHandleDeleteFuturePrice,
   doRemoveValidatedTrade,
 } from "./dashboardShellActions";
@@ -362,24 +362,16 @@ export function DashboardShell({
   function handleDeleteFutureAssetTransfer(
     assetTransferId: string,
   ): ConfirmDeleteOutcome {
-    if (!canCorrectFutureFacts) {
-      return "rejected";
-    }
-
-    const result = validateAssetTransferRemoval(assetTransferId, ledgerData);
-    if (!result.ok) {
-      setFutureCorrectionError(result.error.message);
-      return "rejected";
-    }
-
-    const outcome = applyLedgerAction({
-      type: "assetTransfer/delete",
-      assetTransferId: result.assetTransferId,
-    });
-    setFutureCorrectionError(
-      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
+    return doHandleDeleteFutureAssetTransfer(
+      {
+        applyLedgerAction,
+        canCorrectFutureFacts,
+        ledgerData,
+        setFutureCorrectionError,
+        t,
+      },
+      assetTransferId,
     );
-    return outcome;
   }
 
   function handleDeleteAllFutureFacts(): ConfirmDeleteOutcome {
