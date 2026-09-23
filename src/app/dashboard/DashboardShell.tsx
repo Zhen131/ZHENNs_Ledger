@@ -29,7 +29,6 @@ import {
   type LedgerStorageKind,
 } from "@/platform/persistence";
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
-import { validateTradeRemoval } from "@/features/trades";
 import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 import {
   getLedgerDateKey,
@@ -66,6 +65,7 @@ import { SessionFatalPanel } from "./SessionFatalPanel";
 import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
+import { doRemoveValidatedTrade } from "./dashboardShellActions";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
 import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
 import { PersistenceErrorNotice } from "./PersistenceErrorNotice";
@@ -317,25 +317,15 @@ export function DashboardShell({
     tradeId: string,
     setError: (message: string) => void,
   ): ConfirmDeleteOutcome {
-    const result = validateTradeRemoval(tradeId, ledgerData);
-
-    if (!result.ok) {
-      setError(
-        result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
-          ? t("dashboard.delete.tradeHasDependents")
-          : t("dashboard.delete.tradeMissing"),
-      );
-      return "rejected";
-    }
-
-    const outcome = applyLedgerAction({
-      type: "trade/delete",
-      tradeId: result.tradeId,
-    });
-    setError(
-      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
+    return doRemoveValidatedTrade(
+      {
+        applyLedgerAction,
+        ledgerData,
+        t,
+      },
+      tradeId,
+      setError,
     );
-    return outcome;
   }
 
   function handleDeleteTrade(tradeId: string): ConfirmDeleteOutcome {
