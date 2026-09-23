@@ -1,16 +1,19 @@
 import packageJson from "@root/package.json";
 import type {
+  ChangeEvent,
   Dispatch,
   RefObject,
   SetStateAction,
 } from "react";
 import type {
   CopyState,
+  ImportState,
   PostImportPairingOperation,
 } from "./backupControlsTypes";
 import type {
   BackupImportPreflightResult,
   BackupSuspicionConfirmationReceipt,
+  preflightBackupJson,
 } from "./backupImportPreflight";
 import { revokeBackupImportPreflightReceipt } from "./backupImportPreflight";
 import type { BackupEnvelopeError } from "./backupEnvelope";
@@ -24,6 +27,7 @@ import {
 } from "./backupEnvelope";
 import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import {
+  evaluateLedgerByteLengthResourcePolicy,
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
@@ -183,4 +187,151 @@ export function doHandleExport(
           ? t("backup.export.rescueStarted")
           : t("backup.export.started"),
     );
+}
+
+type HandleFileChangeDeps = {
+  canImportBackup: boolean;
+  clock: LedgerClock;
+  dismissPostImportPairing: () => void;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  importAbortControllerRef: RefObject<AbortController | null>;
+  isCurrentSelection: (selectionGeneration: number) => boolean;
+  preflight: typeof preflightBackupJson;
+  requiresHistoricalRawText: boolean;
+  selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
+  selectionGenerationRef: RefObject<number>;
+  setCopyState: Dispatch<SetStateAction<CopyState>>;
+  setImportErrors: Dispatch<SetStateAction<BackupEnvelopeError[]>>;
+  setImportState: Dispatch<SetStateAction<ImportState>>;
+  setMessage: Dispatch<SetStateAction<string>>;
+  setPreflightResult: Dispatch<SetStateAction<BackupImportPreflightResult | null>>;
+  suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doHandleFileChange(
+  deps: HandleFileChangeDeps,
+  event: ChangeEvent<HTMLInputElement>,
+) {
+  const {
+    canImportBackup,
+    clock,
+    dismissPostImportPairing,
+    fileInputRef,
+    importAbortControllerRef,
+    isCurrentSelection,
+    preflight,
+    requiresHistoricalRawText,
+    selectedPreflightRef,
+    selectionGenerationRef,
+    setCopyState,
+    setImportErrors,
+    setImportState,
+    setMessage,
+    setPreflightResult,
+    suspicionConfirmationRef,
+    t,
+  } = deps;
+    dismissPostImportPairing();
+    importAbortControllerRef.current?.abort();
+    importAbortControllerRef.current = null;
+    if (selectedPreflightRef.current) {
+      revokeBackupImportPreflightReceipt(
+        selectedPreflightRef.current,
+      );
+    }
+    const file = event.target.files?.[0];
+    const selectionTimeSnapshot = captureLedgerTime(clock);
+    const selectionGeneration = selectionGenerationRef.current + 1;
+    selectionGenerationRef.current = selectionGeneration;
+    selectedPreflightRef.current = null;
+    suspicionConfirmationRef.current = null;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    setPreflightResult(null);
+    setCopyState("idle");
+    setMessage("");
+    setImportErrors([]);
+
+    if (!file) {
+      setImportState("idle");
+      return;
+    }
+
+    const bytePolicy = evaluateLedgerByteLengthResourcePolicy(file.size);
+    if (!bytePolicy.ok) {
+      setImportState("preflight-blocked");
+      setMessage(t("backup.import.fileTooLarge"));
+      setImportErrors(bytePolicy.errors);
+      return;
+    }
+
+    setImportState("reading");
+    void (async () => {
+      let text: string;
+      try {
+        text = await file.text();
+      } catch {
+        if (isCurrentSelection(selectionGeneration)) {
+          setImportState("preflight-blocked");
+          setMessage(t("backup.import.readFailed"));
+        }
+        return;
+      }
+
+      if (!isCurrentSelection(selectionGeneration)) {
+        return;
+      }
+
+      setImportState("preflighting");
+      let result: BackupImportPreflightResult;
+      try {
+        result = await preflight(text, {
+          todayKey: selectionTimeSnapshot.todayKey,
+          selectionGeneration,
+          sourceFileName: file.name,
+          // Normal V4 restore keeps Trade.rawText optional; only an explicitly
+          // selected historical-ingest surface opts into strict source lines.
+          requireHistoricalRawText: requiresHistoricalRawText,
+        });
+      } catch {
+        if (isCurrentSelection(selectionGeneration)) {
+          setImportState("preflight-blocked");
+          setMessage(t("backup.import.preflightFailed"));
+        }
+        return;
+      }
+
+      if (!isCurrentSelection(selectionGeneration)) {
+        revokeBackupImportPreflightReceipt(result);
+        return;
+      }
+
+      selectedPreflightRef.current = result;
+      setPreflightResult(result);
+      if (result.hardErrorCount > 0) {
+        setImportState("preflight-blocked");
+        setMessage(t("backup.import.hardErrors"));
+        return;
+      }
+      if (result.suspiciousGroupCount > 0) {
+        setImportState("awaiting-suspicion-confirmation");
+        setMessage(
+          t("backup.import.suspiciousGroups"),
+        );
+        return;
+      }
+
+      setImportState(
+        canImportBackup
+          ? "awaiting-confirmation"
+          : "ready-without-suspicions",
+      );
+      setMessage(
+        canImportBackup
+          ? t("backup.import.preflightPassedWritable")
+          : t("backup.import.preflightPassedReadOnly"),
+      );
+    })();
 }

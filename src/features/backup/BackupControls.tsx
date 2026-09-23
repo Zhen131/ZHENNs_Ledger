@@ -13,7 +13,6 @@ import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   preflightBackupJson,
-  revokeBackupImportPreflightReceipt,
   type BackupImportPreflightResult,
   type BackupSuspicionConfirmationReceipt,
   type LedgerBackupImportEvidence,
@@ -31,9 +30,6 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
-import {
-  evaluateLedgerByteLengthResourcePolicy,
-} from "@/core/validation";
 import {
   listAssetsMissingBinanceMapping,
 } from "@/features/market-data";
@@ -64,6 +60,7 @@ import {
 } from "./backupControlsPairing";
 import {
   doHandleExport,
+  doHandleFileChange,
   doResetFileSelection,
   runBackupControlsMountEffect,
 } from "./backupControlsActions";
@@ -360,108 +357,28 @@ export function BackupControls({
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    dismissPostImportPairing();
-    importAbortControllerRef.current?.abort();
-    importAbortControllerRef.current = null;
-    if (selectedPreflightRef.current) {
-      revokeBackupImportPreflightReceipt(
-        selectedPreflightRef.current,
-      );
-    }
-    const file = event.target.files?.[0];
-    const selectionTimeSnapshot = captureLedgerTime(clock);
-    const selectionGeneration = selectionGenerationRef.current + 1;
-    selectionGenerationRef.current = selectionGeneration;
-    selectedPreflightRef.current = null;
-    suspicionConfirmationRef.current = null;
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    setPreflightResult(null);
-    setCopyState("idle");
-    setMessage("");
-    setImportErrors([]);
-
-    if (!file) {
-      setImportState("idle");
-      return;
-    }
-
-    const bytePolicy = evaluateLedgerByteLengthResourcePolicy(file.size);
-    if (!bytePolicy.ok) {
-      setImportState("preflight-blocked");
-      setMessage(t("backup.import.fileTooLarge"));
-      setImportErrors(bytePolicy.errors);
-      return;
-    }
-
-    setImportState("reading");
-    void (async () => {
-      let text: string;
-      try {
-        text = await file.text();
-      } catch {
-        if (isCurrentSelection(selectionGeneration)) {
-          setImportState("preflight-blocked");
-          setMessage(t("backup.import.readFailed"));
-        }
-        return;
-      }
-
-      if (!isCurrentSelection(selectionGeneration)) {
-        return;
-      }
-
-      setImportState("preflighting");
-      let result: BackupImportPreflightResult;
-      try {
-        result = await preflight(text, {
-          todayKey: selectionTimeSnapshot.todayKey,
-          selectionGeneration,
-          sourceFileName: file.name,
-          // Normal V4 restore keeps Trade.rawText optional; only an explicitly
-          // selected historical-ingest surface opts into strict source lines.
-          requireHistoricalRawText: requiresHistoricalRawText,
-        });
-      } catch {
-        if (isCurrentSelection(selectionGeneration)) {
-          setImportState("preflight-blocked");
-          setMessage(t("backup.import.preflightFailed"));
-        }
-        return;
-      }
-
-      if (!isCurrentSelection(selectionGeneration)) {
-        revokeBackupImportPreflightReceipt(result);
-        return;
-      }
-
-      selectedPreflightRef.current = result;
-      setPreflightResult(result);
-      if (result.hardErrorCount > 0) {
-        setImportState("preflight-blocked");
-        setMessage(t("backup.import.hardErrors"));
-        return;
-      }
-      if (result.suspiciousGroupCount > 0) {
-        setImportState("awaiting-suspicion-confirmation");
-        setMessage(
-          t("backup.import.suspiciousGroups"),
-        );
-        return;
-      }
-
-      setImportState(
-        canImportBackup
-          ? "awaiting-confirmation"
-          : "ready-without-suspicions",
-      );
-      setMessage(
-        canImportBackup
-          ? t("backup.import.preflightPassedWritable")
-          : t("backup.import.preflightPassedReadOnly"),
-      );
-    })();
+    return doHandleFileChange(
+      {
+        canImportBackup,
+        clock,
+        dismissPostImportPairing,
+        fileInputRef,
+        importAbortControllerRef,
+        isCurrentSelection,
+        preflight,
+        requiresHistoricalRawText,
+        selectedPreflightRef,
+        selectionGenerationRef,
+        setCopyState,
+        setImportErrors,
+        setImportState,
+        setMessage,
+        setPreflightResult,
+        suspicionConfirmationRef,
+        t,
+      },
+      event,
+    );
   }
 
   function confirmSuspiciousGroups() {
