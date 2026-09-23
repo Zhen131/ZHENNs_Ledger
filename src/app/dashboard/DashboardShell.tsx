@@ -69,6 +69,7 @@ import {
   doHandleDeleteAllFutureFacts,
   doHandleDeleteFutureAssetTransfer,
   doHandleDeleteFuturePrice,
+  doHandleSettingsClear,
   doOpenClearConfirmation,
   doRemoveValidatedTrade,
 } from "./dashboardShellActions";
@@ -440,24 +441,19 @@ export function DashboardShell({
   async function handleSettingsClear(
     mode: "normal" | "recovery",
   ): Promise<boolean> {
-    if (
-      (mode === "normal" && hydrationStatus !== "ready") ||
-      (mode === "recovery" && hydrationStatus !== "error")
-    ) {
-      return false;
-    }
-    const operationRepository = repository;
-    const result = await clearLedger(clearConfirmationNonce);
-    if (
-      !mountedRef.current ||
-      currentRepositoryRef.current !== operationRepository ||
-      !result.ok
-    ) {
-      return false;
-    }
-    setTradeRemovalError("");
-    setSelectedTradeDate(null);
-    return true;
+    return doHandleSettingsClear(
+      {
+        clearConfirmationNonce,
+        clearLedger,
+        currentRepositoryRef,
+        hydrationStatus,
+        mountedRef,
+        repository,
+        setSelectedTradeDate,
+        setTradeRemovalError,
+      },
+      mode,
+    );
   }
 
   function requestImmediateLock() {

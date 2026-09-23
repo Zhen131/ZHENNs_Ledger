@@ -264,3 +264,48 @@ export async function doHandleClearLedger(
         : t("dashboard.clearSuccess.legacy"),
     );
 }
+
+type HandleSettingsClearDeps = {
+  clearConfirmationNonce: string;
+  clearLedger: PersistentLedgerState["clearLedger"];
+  currentRepositoryRef: RefObject<LedgerRepository>;
+  hydrationStatus: PersistentLedgerState["hydrationStatus"];
+  mountedRef: RefObject<boolean>;
+  repository: LedgerRepository | undefined;
+  setSelectedTradeDate: Dispatch<SetStateAction<string | null>>;
+  setTradeRemovalError: Dispatch<SetStateAction<string>>;
+};
+
+export async function doHandleSettingsClear(
+  deps: HandleSettingsClearDeps,
+  mode: "normal" | "recovery",
+): Promise<boolean> {
+  const {
+    clearConfirmationNonce,
+    clearLedger,
+    currentRepositoryRef,
+    hydrationStatus,
+    mountedRef,
+    repository,
+    setSelectedTradeDate,
+    setTradeRemovalError,
+  } = deps;
+    if (
+      (mode === "normal" && hydrationStatus !== "ready") ||
+      (mode === "recovery" && hydrationStatus !== "error")
+    ) {
+      return false;
+    }
+    const operationRepository = repository;
+    const result = await clearLedger(clearConfirmationNonce);
+    if (
+      !mountedRef.current ||
+      currentRepositoryRef.current !== operationRepository ||
+      !result.ok
+    ) {
+      return false;
+    }
+    setTradeRemovalError("");
+    setSelectedTradeDate(null);
+    return true;
+}
