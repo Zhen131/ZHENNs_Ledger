@@ -342,3 +342,67 @@ export function doFinishFatalSessionLifecycle(
       fatal: true,
     });
 }
+
+type RetryFailedSessionReleaseDeps = {
+  accessState: AccessState;
+  activeSessionRef: RefObject<LedgerSession | null>;
+  fileAccessController: LedgerFileAccessController;
+  initialize: () => Promise<void>;
+  mountedRef: RefObject<boolean>;
+  retryReleaseRef: RefObject<(() => Promise<void>) | null>;
+  sessionDrainRef: RefObject<{
+    session: LedgerSession;
+    drain: PersistentLedgerState["drainForSessionQuiesce"];
+  } | null>;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setAccessState: Dispatch<SetStateAction<AccessState>>;
+};
+
+export async function doRetryFailedSessionRelease(
+  deps: RetryFailedSessionReleaseDeps,
+) {
+  const {
+    accessState,
+    activeSessionRef,
+    fileAccessController,
+    initialize,
+    mountedRef,
+    retryReleaseRef,
+    sessionDrainRef,
+    setAccessPath,
+    setAccessState,
+  } = deps;
+    const release = retryReleaseRef.current;
+    const session = activeSessionRef.current;
+    const fatal =
+      accessState.status === "lock-error" && accessState.fatal;
+    if (!release || !session) {
+      return;
+    }
+    setAccessState({ status: "locking", fatal });
+    try {
+      await release();
+      const pending =
+        pendingSessionCompletions.get(fileAccessController);
+      if (pending?.session === session) {
+        pendingSessionCompletions.delete(fileAccessController);
+      }
+      if (activeSessionRef.current === session) {
+        activeSessionRef.current = null;
+        sessionDrainRef.current = null;
+        retryReleaseRef.current = null;
+        if (mountedRef.current) {
+          if (fatal) {
+            setAccessPath("choice");
+            setAccessState({ status: "fatal-closed" });
+          } else {
+            void initialize();
+          }
+        }
+      }
+    } catch {
+      if (mountedRef.current) {
+        setAccessState({ status: "lock-error", fatal });
+      }
+    }
+}

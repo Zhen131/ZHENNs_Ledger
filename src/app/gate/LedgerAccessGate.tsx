@@ -50,6 +50,7 @@ import {
   doFinishFatalSessionLifecycle,
   doFinishSessionLifecycle,
   doInitialize,
+  doRetryFailedSessionRelease,
   runGateLifecycleEffect,
 } from "./ledgerAccessGateSession";
 
@@ -534,39 +535,19 @@ export function LedgerAccessGate({
   sessionLifecycleStarterRef.current = startSessionLifecycle;
 
   async function retryFailedSessionRelease() {
-    const release = retryReleaseRef.current;
-    const session = activeSessionRef.current;
-    const fatal =
-      accessState.status === "lock-error" && accessState.fatal;
-    if (!release || !session) {
-      return;
-    }
-    setAccessState({ status: "locking", fatal });
-    try {
-      await release();
-      const pending =
-        pendingSessionCompletions.get(fileAccessController);
-      if (pending?.session === session) {
-        pendingSessionCompletions.delete(fileAccessController);
-      }
-      if (activeSessionRef.current === session) {
-        activeSessionRef.current = null;
-        sessionDrainRef.current = null;
-        retryReleaseRef.current = null;
-        if (mountedRef.current) {
-          if (fatal) {
-            setAccessPath("choice");
-            setAccessState({ status: "fatal-closed" });
-          } else {
-            void initialize();
-          }
-        }
-      }
-    } catch {
-      if (mountedRef.current) {
-        setAccessState({ status: "lock-error", fatal });
-      }
-    }
+    return doRetryFailedSessionRelease(
+      {
+        accessState,
+        activeSessionRef,
+        fileAccessController,
+        initialize,
+        mountedRef,
+        retryReleaseRef,
+        sessionDrainRef,
+        setAccessPath,
+        setAccessState,
+      },
+    );
   }
 
   if (accessState.status === "unlocked") {
