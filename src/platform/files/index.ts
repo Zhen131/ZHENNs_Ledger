@@ -4,6 +4,8 @@ export * from "./ledgerFileChunkedContainerV3Aad";
 export * from "./ledgerFileChunkedContainerV3Parse";
 export * from "./ledgerFileChunkedContainerV3Serialize";
 export * from "./ledgerFileChunkingV3";
+export * from "./ledgerFileChunkingV3Payload";
+export * from "./ledgerFileChunkingV3Plan";
 export * from "./ledgerFileContainerV3";
 export * from "./ledgerFileContainerV3Aad";
 export * from "./ledgerFileContainerV3Parse";

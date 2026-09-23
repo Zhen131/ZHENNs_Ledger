@@ -15,11 +15,11 @@ import {
 import {
   serializeLedgerFileV3S3,
 } from "./ledgerFileChunkedContainerV3Serialize";
+import { type LedgerBlockPayloadV3S3 } from "./ledgerFileChunkingV3";
 import {
   mergeBlockPayloadsV3S3,
   parseLedgerBlockPayloadV3S3,
-  type LedgerBlockPayloadV3S3,
-} from "./ledgerFileChunkingV3";
+} from "./ledgerFileChunkingV3Payload";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,

@@ -20,10 +20,8 @@ import {
 import {
   prepareLedgerFileUpdateV3S3,
 } from "./ledgerFileChunkedContainerV3Serialize";
-import {
-  createLedgerGenerationPlanV3S3,
-  type LedgerGenerationPlanV3S3,
-} from "./ledgerFileChunkingV3";
+import { type LedgerGenerationPlanV3S3 } from "./ledgerFileChunkingV3";
+import { createLedgerGenerationPlanV3S3 } from "./ledgerFileChunkingV3Plan";
 import { LedgerFileCrypto } from "./ledgerFileCrypto";
 import { type LedgerAction } from "@/core/state";
 import {
