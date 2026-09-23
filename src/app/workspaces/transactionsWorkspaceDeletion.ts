@@ -3,7 +3,10 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import type { LedgerData } from "@/core/models";
+import type {
+  DecimalString,
+  LedgerData,
+} from "@/core/models";
 import type {
   ActivityKind,
   PendingDelete,
@@ -274,4 +277,73 @@ export function doConfirmDelete(
       () => finalizeDeleteRef.current(item.id, item.kind),
       DELETE_DELAY_MS,
     );
+}
+
+type ConfirmNegativeDeleteDeps = {
+  applyReviewedDelete: (item: LedgerActivityItem) => void;
+  findCurrentItem: (itemId: string, itemKind: ActivityKind) => LedgerActivityItem | null;
+  isWritableRef: RefObject<boolean>;
+  ledgerEpochRef: RefObject<number>;
+  mutationVersionRef: RefObject<number>;
+  pendingNegativeDelete: PendingNegativeDelete | null;
+  persistedVersionRef: RefObject<number>;
+  projectRemoval: (item: LedgerActivityItem) => Readonly<{ currentBalance: DecimalString; delta: DecimalString; nextBalance: DecimalString; deficit: DecimalString; requiresNegativeBalanceConfirmation: boolean; }>;
+  reviewRemoval: (item: LedgerActivityItem) => string | null;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingNegativeDelete: Dispatch<SetStateAction<PendingNegativeDelete | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+  todayKeyRef: RefObject<string>;
+};
+
+export function doConfirmNegativeDelete(
+  deps: ConfirmNegativeDeleteDeps,
+) {
+  const {
+    applyReviewedDelete,
+    findCurrentItem,
+    isWritableRef,
+    ledgerEpochRef,
+    mutationVersionRef,
+    pendingNegativeDelete,
+    persistedVersionRef,
+    projectRemoval,
+    reviewRemoval,
+    setFeedback,
+    setPendingNegativeDelete,
+    t,
+    todayKeyRef,
+  } = deps;
+    const pending = pendingNegativeDelete;
+    if (!pending) return;
+    if (
+      !isWritableRef.current ||
+      ledgerEpochRef.current !== pending.expectedLedgerEpoch ||
+      mutationVersionRef.current !== pending.expectedMutationVersion ||
+      persistedVersionRef.current !== pending.expectedPersistedVersion ||
+      todayKeyRef.current !== pending.expectedTodayKey
+    ) {
+      setPendingNegativeDelete(null);
+      setFeedback(t("transactions.delete.staleLedgerConfirmation"));
+      return;
+    }
+    const item = findCurrentItem(pending.itemId, pending.itemKind);
+    const error = item ? reviewRemoval(item) : t("transactions.delete.factMissing");
+    if (!item || error) {
+      setPendingNegativeDelete(null);
+      setFeedback(error ?? t("transactions.delete.factMissing"));
+      return;
+    }
+    const projection = projectRemoval(item);
+    if (
+      !projection.requiresNegativeBalanceConfirmation ||
+      projection.currentBalance !== pending.projection.currentBalance ||
+      projection.delta !== pending.projection.delta ||
+      projection.nextBalance !== pending.projection.nextBalance ||
+      projection.deficit !== pending.projection.deficit
+    ) {
+      setPendingNegativeDelete(null);
+      setFeedback(t("transactions.delete.staleCashConfirmation"));
+      return;
+    }
+    applyReviewedDelete(item);
 }

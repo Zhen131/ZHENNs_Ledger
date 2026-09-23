@@ -43,6 +43,7 @@ import {
   doApplyReviewedDelete,
   doArmDelete,
   doConfirmDelete,
+  doConfirmNegativeDelete,
   doFindCurrentItem,
   doProjectRemoval,
   doReviewRemoval,
@@ -390,39 +391,23 @@ export function TransactionsWorkspace({
   }
 
   function confirmNegativeDelete() {
-    const pending = pendingNegativeDelete;
-    if (!pending) return;
-    if (
-      !isWritableRef.current ||
-      ledgerEpochRef.current !== pending.expectedLedgerEpoch ||
-      mutationVersionRef.current !== pending.expectedMutationVersion ||
-      persistedVersionRef.current !== pending.expectedPersistedVersion ||
-      todayKeyRef.current !== pending.expectedTodayKey
-    ) {
-      setPendingNegativeDelete(null);
-      setFeedback(t("transactions.delete.staleLedgerConfirmation"));
-      return;
-    }
-    const item = findCurrentItem(pending.itemId, pending.itemKind);
-    const error = item ? reviewRemoval(item) : t("transactions.delete.factMissing");
-    if (!item || error) {
-      setPendingNegativeDelete(null);
-      setFeedback(error ?? t("transactions.delete.factMissing"));
-      return;
-    }
-    const projection = projectRemoval(item);
-    if (
-      !projection.requiresNegativeBalanceConfirmation ||
-      projection.currentBalance !== pending.projection.currentBalance ||
-      projection.delta !== pending.projection.delta ||
-      projection.nextBalance !== pending.projection.nextBalance ||
-      projection.deficit !== pending.projection.deficit
-    ) {
-      setPendingNegativeDelete(null);
-      setFeedback(t("transactions.delete.staleCashConfirmation"));
-      return;
-    }
-    applyReviewedDelete(item);
+    return doConfirmNegativeDelete(
+      {
+        applyReviewedDelete,
+        findCurrentItem,
+        isWritableRef,
+        ledgerEpochRef,
+        mutationVersionRef,
+        pendingNegativeDelete,
+        persistedVersionRef,
+        projectRemoval,
+        reviewRemoval,
+        setFeedback,
+        setPendingNegativeDelete,
+        t,
+        todayKeyRef,
+      },
+    );
   }
 
   const { allItems, sequenceByItemKey } = useMemo(() => {
