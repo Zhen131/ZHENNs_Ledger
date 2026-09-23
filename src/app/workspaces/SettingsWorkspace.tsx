@@ -11,6 +11,7 @@ import {
 import { SurfaceCard, translateDefault, useLanguage } from "@/ui";
 import type { HydrationStatus } from "@/app/persistence";
 import type { PersistenceOperation } from "@/app/persistence";
+import { doConfirmClear } from "./settingsWorkspaceActions";
 
 /**
  * The Chinese reading of the phrase this panel asks the reader to type. The
@@ -145,28 +146,20 @@ export function SettingsWorkspace({
   }, [closeDanger, dangerExpanded]);
 
   async function confirmClear() {
-    if (!clearMode || clearDisabled) return;
-    // Only the phrase for the language on screen is accepted; the other
-    // language's phrase is as wrong as any other typo (04A D-16a, D-16c).
-    if (confirmationValue !== clearConfirmationPhrase) {
-      setError(
-        `${t("settings.clear.error.confirmationPrefix")}“${clearConfirmationPhrase}”`,
-      );
-      return;
-    }
-    setError("");
-    setSuccess("");
-    const cleared = await onClear(clearMode);
-    if (!cleared) {
-      setError(t("settings.clear.error.failed"));
-      return;
-    }
-    setDangerExpanded(false);
-    setConfirmationValue("");
-    setSuccess(
-      storageKind === "ledger-file"
-        ? t("settings.clear.success.file")
-        : t("settings.clear.success.browser"),
+    return doConfirmClear(
+      {
+        clearConfirmationPhrase,
+        clearDisabled,
+        clearMode,
+        confirmationValue,
+        onClear,
+        setConfirmationValue,
+        setDangerExpanded,
+        setError,
+        setSuccess,
+        storageKind,
+        t,
+      },
     );
   }
 
