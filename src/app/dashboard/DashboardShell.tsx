@@ -13,7 +13,6 @@ import {
   type PersistentLedgerState,
 } from "@/app/persistence";
 import { LedgerWorkspaceFrame } from "./LedgerWorkspaceFrame";
-import { HomeWorkspace } from "@/app/workspaces";
 import { RecordWorkspace } from "@/app/workspaces";
 import { TransactionsWorkspace } from "@/app/workspaces";
 import { TransferWorkspace } from "@/app/workspaces";
@@ -76,6 +75,7 @@ import { PersistenceErrorNotice } from "./PersistenceErrorNotice";
 import { DashboardShellPnlSummarySection } from "./DashboardShellPnlSummarySection";
 import { DashboardShellAssetsSection } from "./DashboardShellAssetsSection";
 import { DashboardShellDataManagementSection } from "./DashboardShellDataManagementSection";
+import { DashboardShellHomePage } from "./DashboardShellHomePage";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -775,40 +775,19 @@ export function DashboardShell({
           </div>
           ) : null}
       {session && workspace.currentPage === "home" ? (
-        <HomeWorkspace
-          active
+        <DashboardShellHomePage
           allocation={allocation}
-          cashBalance={projection.cash.balance}
-          detailsOpen={workspace.homeDetailsOpen}
+          chartRange={chartRange}
           heatmap={heatmap}
           history={history}
           ledgerData={ledgerData}
-          onNavigateToPrice={() =>
-            workspace.navigate({ page: "record", focus: "price" })
-          }
-          onNavigateToTrade={() =>
-            workspace.navigate({ page: "record", focus: "trade" })
-          }
-          onNavigateToTransactions={(intent) => {
-            if ("clearFilters" in intent) {
-              workspace.navigate({
-                page: "transactions",
-                clearFilters: true,
-              });
-            } else {
-              workspace.navigate({
-                page: "transactions",
-                locateDate: intent.locateDate,
-              });
-            }
-          }}
-          onDetailsOpenChange={workspace.setHomeDetailsOpen}
-          onRangeChange={setChartRange}
-          onValuationPriceModeChange={setValuationPriceMode}
           pnlSummary={pnlSummary}
           positions={positions}
-          range={chartRange}
+          projection={projection}
+          setChartRange={setChartRange}
+          setValuationPriceMode={setValuationPriceMode}
           valuationPriceMode={valuationPriceMode}
+          workspace={workspace}
         />
       ) : null}
       {session && workspace.currentPage === "record" ? (
