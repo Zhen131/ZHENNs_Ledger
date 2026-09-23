@@ -19,8 +19,10 @@ import {
   inspectLedgerBackupImportEvidence,
   preflightBackupJson,
   revokeBackupImportPreflightReceipt,
-  type BackupPreflightSuspiciousDetail,
 } from "./backupImportPreflight";
+import {
+  type BackupPreflightSuspiciousDetail,
+} from "./backupImportPreflightTypes";
 
 const TODAY = "2026-07-31";
 

@@ -1,9 +1,9 @@
+import type { BackupImportPreflightResult } from "./backupImportPreflight";
 import type {
-  BackupImportPreflightResult,
   BackupPreflightHardError,
   BackupPreflightSuspiciousDetail,
   BackupTradeSummary,
-} from "./backupImportPreflight";
+} from "./backupImportPreflightTypes";
 import { translateDefault } from "@/ui";
 
 export function formatBackupImportReportMarkdown(
