@@ -42,6 +42,7 @@ import type {
 } from "./transactionsWorkspaceTypes";
 import {
   doApplyReviewedDelete,
+  doArmDelete,
   doFindCurrentItem,
   doProjectRemoval,
   doReviewRemoval,
@@ -352,17 +353,18 @@ export function TransactionsWorkspace({
   }, [feedback, t]);
 
   function armDelete(item: LedgerActivityItem) {
-    if (
-      !isWritable ||
-      pendingDelete?.phase === "persisting" ||
-      pendingNegativeDelete
-    ) {
-      return;
-    }
-    clearPendingDelete();
-    setExpandedItemId(null);
-    setArmedItemId(item.id);
-    setFeedback("");
+    return doArmDelete(
+      {
+        clearPendingDelete,
+        isWritable,
+        pendingDelete,
+        pendingNegativeDelete,
+        setArmedItemId,
+        setExpandedItemId,
+        setFeedback,
+      },
+      item,
+    );
   }
 
   function confirmDelete(item: LedgerActivityItem) {

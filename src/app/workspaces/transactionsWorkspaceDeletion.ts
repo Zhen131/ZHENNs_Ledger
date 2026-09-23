@@ -168,3 +168,39 @@ export function doApplyReviewedDelete(
     setRemainingMs(0);
     setFeedback(t("transactions.delete.saving"));
 }
+
+type ArmDeleteDeps = {
+  clearPendingDelete: () => void;
+  isWritable: boolean;
+  pendingDelete: PendingDelete | null;
+  pendingNegativeDelete: PendingNegativeDelete | null;
+  setArmedItemId: Dispatch<SetStateAction<string | null>>;
+  setExpandedItemId: Dispatch<SetStateAction<string | null>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+};
+
+export function doArmDelete(
+  deps: ArmDeleteDeps,
+  item: LedgerActivityItem,
+) {
+  const {
+    clearPendingDelete,
+    isWritable,
+    pendingDelete,
+    pendingNegativeDelete,
+    setArmedItemId,
+    setExpandedItemId,
+    setFeedback,
+  } = deps;
+    if (
+      !isWritable ||
+      pendingDelete?.phase === "persisting" ||
+      pendingNegativeDelete
+    ) {
+      return;
+    }
+    clearPendingDelete();
+    setExpandedItemId(null);
+    setArmedItemId(item.id);
+    setFeedback("");
+}
