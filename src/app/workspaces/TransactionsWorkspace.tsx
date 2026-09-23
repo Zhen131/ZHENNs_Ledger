@@ -20,7 +20,6 @@ import {
   type LedgerActivityTypeFilter,
 } from "@/features/activity";
 import { ActivityTable } from "@/features/activity/ui";
-import { projectLedgerCashMutation } from "@/features/cash";
 import { NegativeCashConfirmationDialog } from "@/features/cash/ui";
 import { SurfaceCard, useLanguage } from "@/ui";
 import type { LedgerWorkspaceIntent } from "./useLedgerWorkspaceSession";
@@ -43,6 +42,7 @@ import type {
 } from "./transactionsWorkspaceTypes";
 import {
   doFindCurrentItem,
+  doProjectRemoval,
   doReviewRemoval,
 } from "./transactionsWorkspaceDeletion";
 
@@ -175,25 +175,12 @@ export function TransactionsWorkspace({
   }
 
   function projectRemoval(item: LedgerActivityItem) {
-    const currentLedger = latestLedgerDataRef.current;
-    const nextLedger =
-      item.kind === "trade"
-        ? {
-            ...currentLedger,
-            trades: currentLedger.trades.filter(
-              (trade) => trade.id !== item.id,
-            ),
-          }
-        : {
-            ...currentLedger,
-            cashEvents: currentLedger.cashEvents.filter(
-              (cashEvent) => cashEvent.id !== item.id,
-            ),
-          };
-    return projectLedgerCashMutation(
-      currentLedger,
-      nextLedger,
-      todayKeyRef.current,
+    return doProjectRemoval(
+      {
+        latestLedgerDataRef,
+        todayKeyRef,
+      },
+      item,
     );
   }
 
