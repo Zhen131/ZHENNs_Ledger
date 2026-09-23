@@ -12,10 +12,10 @@ import {
   type CryptoProvider,
 } from "@/platform/encryption";
 import {
-  createLedgerFileGenerationAadV3S1,
   LEDGER_FILE_OUTER_V3_CONSTANTS,
   type EncryptedLedgerGenerationV3S1,
 } from "./ledgerFileContainerV3";
+import { createLedgerFileGenerationAadV3S1 } from "./ledgerFileContainerV3Aad";
 import {
   LEDGER_FILE_OUTER_V3_S2_CONSTANTS,
   type EncryptedLedgerGenerationV3S2,

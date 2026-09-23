@@ -8,10 +8,10 @@ import {
 import {
   LEDGER_FILE_OUTER_V3_CONSTANTS,
   LEDGER_FILE_V3_MAGIC,
-  parseLedgerFileV3S1,
-  serializeLedgerFileV3S1,
   type LedgerFileV3S1,
 } from "./ledgerFileContainerV3";
+import { parseLedgerFileV3S1 } from "./ledgerFileContainerV3Parse";
+import { serializeLedgerFileV3S1 } from "./ledgerFileContainerV3Serialize";
 
 const CRYPTO: LedgerFileCryptoV2 = {
   cryptoVersion: 1,
