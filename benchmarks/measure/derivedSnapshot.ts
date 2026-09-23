@@ -3,12 +3,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { type ChartRange } from "@/features/charts/chartDataService";
 import {
   buildHoldingAllocation,
-  buildHoldingHistory,
-  buildTradeHeatmap,
-  type ChartRange,
-} from "@/features/charts/chartDataService";
+} from "@/features/charts/chartDataServiceAllocation";
+import { buildTradeHeatmap } from "@/features/charts/chartDataServiceHeatmap";
+import { buildHoldingHistory } from "@/features/charts/chartDataServiceHistory";
 import { buildLedgerPnlSummary } from "@/features/portfolio/pnlSummaryService";
 import { buildLedgerProjection } from "@/features/portfolio/ledgerProjection";
 

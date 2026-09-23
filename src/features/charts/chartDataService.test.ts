@@ -11,11 +11,9 @@ import {
   createPriceSnapshot,
   createSimpleTrade,
 } from "@/test-support";
-import {
-  buildHoldingAllocation,
-  buildHoldingHistory,
-  buildTradeHeatmap,
-} from "./chartDataService";
+import { buildHoldingAllocation } from "./chartDataServiceAllocation";
+import { buildTradeHeatmap } from "./chartDataServiceHeatmap";
+import { buildHoldingHistory } from "./chartDataServiceHistory";
 import {
   getPositionsFromLedger,
   type LedgerProjection,
