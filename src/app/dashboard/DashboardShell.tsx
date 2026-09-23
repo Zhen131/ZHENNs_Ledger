@@ -16,7 +16,6 @@ import { LedgerWorkspaceFrame } from "./LedgerWorkspaceFrame";
 import { RecordWorkspace } from "@/app/workspaces";
 import { TransactionsWorkspace } from "@/app/workspaces";
 import { TransferWorkspace } from "@/app/workspaces";
-import { SettingsWorkspace } from "@/app/workspaces";
 import { useLedgerWorkspaceSession } from "@/app/workspaces";
 import {
   INDEXED_DB_LEDGER_CAPABILITIES,
@@ -39,7 +38,6 @@ import { FeeRuleManager } from "@/features/fees/ui";
 import { BackupControls } from "@/features/backup/ui";
 import { ChartsOverview } from "@/features/charts/ui";
 import { MarketDataControls } from "@/features/market-data/ui";
-import { LocalAssetManager } from "@/features/assets/ui";
 import {
   useLanguage,
   type ConfirmDeleteOutcome,
@@ -76,6 +74,7 @@ import { DashboardShellPnlSummarySection } from "./DashboardShellPnlSummarySecti
 import { DashboardShellAssetsSection } from "./DashboardShellAssetsSection";
 import { DashboardShellDataManagementSection } from "./DashboardShellDataManagementSection";
 import { DashboardShellHomePage } from "./DashboardShellHomePage";
+import { DashboardShellSettingsPage } from "./DashboardShellSettingsPage";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -926,72 +925,28 @@ export function DashboardShell({
         />
       ) : null}
       {session && workspace.currentPage === "settings" ? (
-        <SettingsWorkspace
-          active
-          canClearHydrationError={capabilities.canClearHydrationError}
-          canClearReadyLedger={capabilities.canClearReadyLedger}
-          feePanel={
-            <FeeRuleManager
-              clock={clock}
-              isWritable={isWritable}
-              ledgerData={ledgerData}
-              ledgerEpoch={ledgerEpoch}
-              mutationVersion={mutationVersion}
-              onAction={applyLedgerAction}
-              persistedVersion={persistedVersion}
-              persistenceStatus={persistenceStatus}
-              presentation="settings"
-            />
-          }
+        <DashboardShellSettingsPage
+          applyLedgerAction={applyLedgerAction}
+          applyLedgerMutation={applyLedgerMutation}
+          capabilities={capabilities}
+          clock={clock}
+          handleSettingsClear={handleSettingsClear}
           hydrationStatus={hydrationStatus}
           isReadOnly={isReadOnly}
+          isWritable={isWritable}
+          ledgerData={ledgerData}
           ledgerEpoch={ledgerEpoch}
-          marketPanel={
-            <div className="grid gap-6">
-              <LocalAssetManager
-                clock={clock}
-                isWritable={isWritable}
-                ledgerData={ledgerData}
-                ledgerEpoch={ledgerEpoch}
-                mutationVersion={mutationVersion}
-                onAssetCreated={(asset, timeSnapshot) =>
-                  applyLedgerAction({ type: "asset/add", asset }, timeSnapshot)
-                }
-                onAssetDeleted={(assetSymbol, timeSnapshot) =>
-                  applyLedgerAction(
-                    { type: "asset/remove", assetSymbol },
-                    timeSnapshot,
-                  )
-                }
-                persistedVersion={persistedVersion}
-                persistenceStatus={persistenceStatus}
-              />
-              <div className="border-t border-[var(--ledger-border)] pt-5">
-                <MarketDataControls
-                  applyLedgerMutation={applyLedgerMutation}
-                  clock={clock}
-                  compactMappings
-                  expandMappings
-                  isWritable={isWritable}
-                  ledgerData={ledgerData}
-                  ledgerEpoch={ledgerEpoch}
-                  mode={valuationPriceMode}
-                  mutationVersion={mutationVersion}
-                  onModeChange={setValuationPriceMode}
-                  persistedVersion={persistedVersion}
-                  persistenceStatus={persistenceStatus}
-                  positions={positions}
-                  sessionGeneration={session.generation}
-                  showRefresh={false}
-                  todayKey={todayKey}
-                />
-              </div>
-            </div>
-          }
-          onClear={handleSettingsClear}
+          mutationVersion={mutationVersion}
+          persistedVersion={persistedVersion}
           persistenceOperation={persistenceOperation}
+          persistenceStatus={persistenceStatus}
+          positions={positions}
           repositorySwitchBlocked={repositorySwitchBlocked}
+          session={session}
+          setValuationPriceMode={setValuationPriceMode}
           storageKind={storageKind}
+          todayKey={todayKey}
+          valuationPriceMode={valuationPriceMode}
         />
       ) : null}
     </LedgerWorkspaceFrame>
