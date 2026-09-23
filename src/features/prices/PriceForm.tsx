@@ -28,6 +28,7 @@ import {
   toPriceFormField,
   formatValidationError,
 } from "./priceFormHelpers";
+import { runPriceAssetRepairEffect } from "./priceFormEffects";
 
 type PriceFormProps = Readonly<{
   clock?: LedgerClock;
@@ -93,17 +94,13 @@ export function PriceForm({
   }
 
   useEffect(() => {
-    if (
-      ledgerData.assets.some(
-        (asset) => asset.symbol === form.assetSymbol,
-      )
-    ) {
-      return;
-    }
-    commitForm({
-      ...form,
-      assetSymbol: ledgerData.assets[0]?.symbol ?? "",
-    });
+    return runPriceAssetRepairEffect(
+      {
+        commitForm,
+        form,
+        ledgerData,
+      },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledgerData.assets]);
 
