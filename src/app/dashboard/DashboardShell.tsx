@@ -54,10 +54,7 @@ import {
   type DashboardDerivations,
 } from "./dashboardDerivations";
 import type { ClearConfirmationMode } from "./DashboardShellTypes";
-import {
-  FILE_SAVED_FEEDBACK_MS,
-  getWorkspaceFileStatus,
-} from "./DashboardShellHelpers";
+import { getWorkspaceFileStatus } from "./DashboardShellHelpers";
 import { Section } from "./Section";
 import { SummaryMetricCard } from "./SummaryMetricCard";
 import { SessionFatalPanel } from "./SessionFatalPanel";
@@ -73,6 +70,7 @@ import {
   doOpenClearConfirmation,
   doRemoveValidatedTrade,
   doRequestImmediateLock,
+  runSavedFeedbackEffect,
 } from "./dashboardShellActions";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
 import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
@@ -208,17 +206,12 @@ export function DashboardShell({
   }, [ledgerEpoch]);
 
   useEffect(() => {
-    if (persistenceStatus !== "saved") {
-      setShowSavedFeedback(false);
-      return;
-    }
-
-    setShowSavedFeedback(true);
-    const timeout = setTimeout(
-      () => setShowSavedFeedback(false),
-      FILE_SAVED_FEEDBACK_MS,
+    return runSavedFeedbackEffect(
+      {
+        persistenceStatus,
+        setShowSavedFeedback,
+      },
     );
-    return () => clearTimeout(timeout);
   }, [persistedVersion, persistenceStatus]);
 
   useEffect(() => {

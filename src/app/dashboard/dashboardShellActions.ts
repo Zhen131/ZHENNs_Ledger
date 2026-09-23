@@ -17,6 +17,7 @@ import type {
   SessionQuiesceReason,
 } from "@/platform/persistence";
 import type { useLedgerWorkspaceSession } from "@/app/workspaces";
+import { FILE_SAVED_FEEDBACK_MS } from "./DashboardShellHelpers";
 
 type RemoveValidatedTradeDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
@@ -360,4 +361,29 @@ export function doRequestImmediateLock(
       drainForSessionQuiesce,
       "immediate-lock",
     );
+}
+
+type SavedFeedbackEffectDeps = {
+  persistenceStatus: PersistentLedgerState["persistenceStatus"];
+  setShowSavedFeedback: Dispatch<SetStateAction<boolean>>;
+};
+
+export function runSavedFeedbackEffect(
+  deps: SavedFeedbackEffectDeps,
+) {
+  const {
+    persistenceStatus,
+    setShowSavedFeedback,
+  } = deps;
+    if (persistenceStatus !== "saved") {
+      setShowSavedFeedback(false);
+      return;
+    }
+
+    setShowSavedFeedback(true);
+    const timeout = setTimeout(
+      () => setShowSavedFeedback(false),
+      FILE_SAVED_FEEDBACK_MS,
+    );
+    return () => clearTimeout(timeout);
 }
