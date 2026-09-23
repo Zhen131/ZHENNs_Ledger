@@ -51,6 +51,7 @@ import type {
   TradeFormState,
   TradeFormField,
 } from "./tradeFormTypes";
+import { runAssetRepairEffect } from "./tradeFormEffects";
 
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
@@ -118,17 +119,13 @@ export function TradeForm({
   }
 
   useEffect(() => {
-    if (
-      ledgerData.assets.some(
-        (asset) => asset.symbol === form.assetSymbol,
-      )
-    ) {
-      return;
-    }
-    commitForm({
-      ...form,
-      assetSymbol: ledgerData.assets[0]?.symbol ?? "",
-    });
+    return runAssetRepairEffect(
+      {
+        commitForm,
+        form,
+        ledgerData,
+      },
+    );
     // The callbacks are intentionally omitted: the asset collection is the
     // only external event that should repair this controlled draft.
     // eslint-disable-next-line react-hooks/exhaustive-deps
