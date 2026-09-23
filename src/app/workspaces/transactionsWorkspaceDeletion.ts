@@ -347,3 +347,36 @@ export function doConfirmNegativeDelete(
     }
     applyReviewedDelete(item);
 }
+
+type HiddenCancelEffectDeps = {
+  active: boolean;
+  clearPendingDelete: () => void;
+  setArmedItemId: Dispatch<SetStateAction<string | null>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingNegativeDelete: Dispatch<SetStateAction<PendingNegativeDelete | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function runHiddenCancelEffect(
+  deps: HiddenCancelEffectDeps,
+) {
+  const {
+    active,
+    clearPendingDelete,
+    setArmedItemId,
+    setFeedback,
+    setPendingNegativeDelete,
+    t,
+  } = deps;
+    if (!active) return;
+    const cancelWhenHidden = () => {
+      if (!document.hidden) return;
+      setArmedItemId(null);
+      clearPendingDelete();
+      setPendingNegativeDelete(null);
+      setFeedback(t("transactions.delete.countdownCancelled"));
+    };
+    document.addEventListener("visibilitychange", cancelWhenHidden);
+    return () =>
+      document.removeEventListener("visibilitychange", cancelWhenHidden);
+}

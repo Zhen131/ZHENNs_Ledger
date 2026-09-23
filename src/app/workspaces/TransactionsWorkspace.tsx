@@ -47,6 +47,7 @@ import {
   doFindCurrentItem,
   doProjectRemoval,
   doReviewRemoval,
+  runHiddenCancelEffect,
 } from "./transactionsWorkspaceDeletion";
 
 export function TransactionsWorkspace({
@@ -303,17 +304,16 @@ export function TransactionsWorkspace({
   );
 
   useEffect(() => {
-    if (!active) return;
-    const cancelWhenHidden = () => {
-      if (!document.hidden) return;
-      setArmedItemId(null);
-      clearPendingDelete();
-      setPendingNegativeDelete(null);
-      setFeedback(t("transactions.delete.countdownCancelled"));
-    };
-    document.addEventListener("visibilitychange", cancelWhenHidden);
-    return () =>
-      document.removeEventListener("visibilitychange", cancelWhenHidden);
+    return runHiddenCancelEffect(
+      {
+        active,
+        clearPendingDelete,
+        setArmedItemId,
+        setFeedback,
+        setPendingNegativeDelete,
+        t,
+      },
+    );
   }, [active, clearPendingDelete, t]);
 
   useEffect(() => {
