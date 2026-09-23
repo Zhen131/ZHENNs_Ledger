@@ -4,31 +4,21 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import {
   getLedgerDateKey,
   getLedgerTimeZone,
-  isLedgerFactInFuture,
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
 import {
-  TradeDeleteControl,
   type TradeDeletePhase,
 } from "@/features/trades/ui";
-import { LedgerNumber, useLanguage } from "@/ui";
+import { useLanguage } from "@/ui";
 import type { LedgerActivityItem } from "./activityService";
-import {
-  activityTypeLabel,
-  activityAssetLabel,
-  activityAmountLabel,
-  activityDeleteLabel,
-  activityBadgeClass,
-  getActivityOccurredTimeZone,
-} from "./activityTableLabels";
-import { ActivityCell, ActivityDetails } from "./ActivityTableParts";
+import { ActivityDetails } from "./ActivityTableParts";
 import { runActivityLocateEffect } from "./activityTableEffects";
 import type { ActivityTimeZoneView } from "./activityTimeFormat";
 import {
   DEFAULT_ACTIVITY_TIME_ZONE_VIEW,
-  formatOccurredAtForView,
 } from "./activityTimeFormat";
+import { ActivityTableRow } from "./ActivityTableRow";
 export {
   DEFAULT_ACTIVITY_TIME_ZONE_VIEW,
   formatOccurredAtForView,
@@ -188,130 +178,29 @@ export function ActivityTable({
                 (deleteState.pendingPhase === "persisting" && !isPending);
               return (
                 <Fragment key={`${item.kind}:${item.id}`}>
-                  <tr
-                    aria-expanded={expanded}
-                    className={`grid min-w-0 gap-2 p-3 sm:table-row sm:p-0 ${
-                      isPending ? "bg-slate-50 opacity-70" : "hover:bg-[#fbfaf7]"
-                    } ${
-                      isLocated
-                        ? locationMode === "static"
-                          ? "ledger-trade-locate-static"
-                          : "ledger-trade-locate-flash"
-                        : ""
-                    } cursor-pointer`}
-                    data-activity-date={dateKey}
-                    data-activity-id={item.id}
-                    data-locate-highlight={isLocated ? locationMode : undefined}
-                    data-trade-date={item.kind === "trade" ? dateKey : undefined}
-                    data-trade-id={item.kind === "trade" ? item.id : undefined}
-                    onClick={(event) => {
-                      if (
-                        isPending ||
-                        (event.target as HTMLElement).closest(
-                          "button, a, input, select",
-                        )
-                      ) {
-                        return;
-                      }
-                      onExpandedItemIdChange(expanded ? null : item.id);
-                    }}
-                    onKeyDown={(event) => {
-                      if (
-                        isPending ||
-                        (event.target as HTMLElement).closest(
-                          "button, a, input, select",
-                        ) ||
-                        (event.key !== "Enter" && event.key !== " ")
-                      ) {
-                        return;
-                      }
-                      event.preventDefault();
-                      onExpandedItemIdChange(expanded ? null : item.id);
-                    }}
-                    ref={(node) => {
-                      if (node) rowRefs.current.set(item.id, node);
-                      else rowRefs.current.delete(item.id);
-                    }}
-                    tabIndex={isPending ? -1 : 0}
-                  >
-                    <ActivityCell className="sm:w-12" label={t("activity.table.sequence")}>
-                      <span data-activity-sequence>{sequence}</span>
-                    </ActivityCell>
-                    <ActivityCell label={t("activity.table.date")}>
-                      {formatOccurredAtForView(
-                        item.occurredAt,
-                        getActivityOccurredTimeZone(item),
-                        timeZoneView,
-                        currentTimeZone,
-                      )}
-                      {isLedgerFactInFuture(item.occurredAt, todayKey) ? (
-                        <span className="ml-2 font-medium text-red-700">
-                          {t("activity.table.futureFact")}
-                        </span>
-                      ) : null}
-                    </ActivityCell>
-                    <ActivityCell label={t("activity.table.type")}>
-                      <span className={activityBadgeClass(item)}>
-                        {activityTypeLabel(item, t)}
-                      </span>
-                    </ActivityCell>
-                    <ActivityCell label={t("activity.table.asset")}>
-                      <strong>{activityAssetLabel(item, t)}</strong>
-                    </ActivityCell>
-                    <ActivityCell label={t("activity.table.quantity")}>
-                      {item.kind === "trade" ? (
-                        <LedgerNumber kind="quantity" value={item.trade.quantity} />
-                      ) : t("activity.table.dash")}
-                    </ActivityCell>
-                    <ActivityCell label={t("activity.table.amount")}>
-                      {activityAmountLabel(item)}
-                    </ActivityCell>
-                    <ActivityCell label={t("activity.table.fee")}>
-                      {item.kind === "trade" ? (
-                        <>
-                          <LedgerNumber
-                            kind={item.trade.feeCurrency === "USDT" ? "money" : "quantity"}
-                            value={item.trade.fee}
-                          />{" "}
-                          {item.trade.feeCurrency}
-                        </>
-                      ) : t("activity.table.dash")}
-                    </ActivityCell>
-                    <td className="block min-w-0 py-1 sm:table-cell sm:px-4 sm:py-2.5">
-                      <div className="grid grid-cols-2 gap-2">
-                        {phase === "idle" ? (
-                          <button
-                            aria-expanded={expanded}
-                            className="rounded-md border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700"
-                            onClick={() =>
-                              onExpandedItemIdChange(expanded ? null : item.id)
-                            }
-                            ref={(node) => {
-                              if (node) detailButtonRefs.current.set(item.id, node);
-                              else detailButtonRefs.current.delete(item.id);
-                            }}
-                            type="button"
-                          >
-                            {t("activity.table.details")}
-                          </button>
-                        ) : null}
-                        <TradeDeleteControl
-                          ariaLabel={activityDeleteLabel(item, t)}
-                          className={phase === "idle" ? "" : "col-span-2"}
-                          disabled={rowDeleteDisabled}
-                          onActivate={() =>
-                            phase === "armed"
-                              ? onConfirmDelete(item)
-                              : onArmDelete(item)
-                          }
-                          onCancel={onCancelDelete}
-                          onUndo={onUndoDelete}
-                          phase={phase}
-                          remainingMs={isPending ? deleteState.remainingMs : 0}
-                        />
-                      </div>
-                    </td>
-                  </tr>
+                  <ActivityTableRow
+                    currentTimeZone={currentTimeZone}
+                    dateKey={dateKey}
+                    deleteState={deleteState}
+                    detailButtonRefs={detailButtonRefs}
+                    expanded={expanded}
+                    isLocated={isLocated}
+                    isPending={isPending}
+                    item={item}
+                    locationMode={locationMode}
+                    onArmDelete={onArmDelete}
+                    onCancelDelete={onCancelDelete}
+                    onConfirmDelete={onConfirmDelete}
+                    onExpandedItemIdChange={onExpandedItemIdChange}
+                    onUndoDelete={onUndoDelete}
+                    phase={phase}
+                    rowDeleteDisabled={rowDeleteDisabled}
+                    rowRefs={rowRefs}
+                    sequence={sequence}
+                    t={t}
+                    timeZoneView={timeZoneView}
+                    todayKey={todayKey}
+                  />
                   {expanded ? (
                     <tr className="block bg-[#fbfaf7] sm:table-row">
                       <td className="block px-4 py-4 sm:table-cell" colSpan={8}>
