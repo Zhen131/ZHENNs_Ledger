@@ -83,3 +83,49 @@ export async function doSubmitFileCreate(
     }
     finishOperation(operation);
 }
+
+type SelectFileToOpenDeps = {
+  beginOperation: () => number;
+  fileAccessController: LedgerFileAccessController;
+  finishOperation: (operation: number) => void;
+  isCurrentOperation: (operation: number) => boolean;
+  operationRef: RefObject<boolean>;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doSelectFileToOpen(
+  deps: SelectFileToOpenDeps,
+) {
+  const {
+    beginOperation,
+    fileAccessController,
+    finishOperation,
+    isCurrentOperation,
+    operationRef,
+    setAccessPath,
+    setFormError,
+    setIsSubmitting,
+    t,
+  } = deps;
+    if (operationRef.current) {
+      return;
+    }
+    const operation = beginOperation();
+    setIsSubmitting(true);
+    setFormError("");
+    const result = await fileAccessController.selectExisting();
+
+    if (isCurrentOperation(operation)) {
+      if (result.ok) {
+        setAccessPath("file-open-unlock");
+      } else if (
+        result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
+      ) {
+        setFormError(getFileAccessErrorMessage(result.code, t));
+      }
+    }
+    finishOperation(operation);
+}

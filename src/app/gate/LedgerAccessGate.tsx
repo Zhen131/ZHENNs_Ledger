@@ -52,7 +52,10 @@ import {
   doRetryFailedSessionRelease,
   runGateLifecycleEffect,
 } from "./ledgerAccessGateSession";
-import { doSubmitFileCreate } from "./ledgerAccessGateActions";
+import {
+  doSelectFileToOpen,
+  doSubmitFileCreate,
+} from "./ledgerAccessGateActions";
 
 export function LedgerAccessGate({
   accessController = getDefaultLedgerAccessController(),
@@ -194,24 +197,19 @@ export function LedgerAccessGate({
   }
 
   async function selectFileToOpen() {
-    if (operationRef.current) {
-      return;
-    }
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    const result = await fileAccessController.selectExisting();
-
-    if (isCurrentOperation(operation)) {
-      if (result.ok) {
-        setAccessPath("file-open-unlock");
-      } else if (
-        result.code !== LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED
-      ) {
-        setFormError(getFileAccessErrorMessage(result.code, t));
-      }
-    }
-    finishOperation(operation);
+    return doSelectFileToOpen(
+      {
+        beginOperation,
+        fileAccessController,
+        finishOperation,
+        isCurrentOperation,
+        operationRef,
+        setAccessPath,
+        setFormError,
+        setIsSubmitting,
+        t,
+      },
+    );
   }
 
   async function requestRememberedConnection() {
