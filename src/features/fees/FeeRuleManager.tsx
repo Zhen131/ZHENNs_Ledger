@@ -8,13 +8,20 @@ import type {
 } from "@/app";
 import type { FeeRule, LedgerData } from "@/core/models";
 import type { LedgerAction } from "@/core/state";
-import { isNegative, toDecimal } from "@/core/shared";
 import {
   captureLedgerTime,
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
 import { LedgerNumber, useLanguage } from "@/ui";
+import type { FormState } from "./feeRuleManagerHelpers";
+import {
+  initialForm,
+  SUCCESS_FEEDBACK_MS,
+  createUniqueFeeRuleId,
+  validateForm,
+  isValidNonNegativeDecimal,
+} from "./feeRuleManagerHelpers";
 
 type FeeRuleManagerProps = Readonly<{
   clock?: LedgerClock;
@@ -27,25 +34,6 @@ type FeeRuleManagerProps = Readonly<{
   onAction: (action: LedgerAction) => ApplyLedgerActionResult;
   presentation?: "legacy" | "settings";
 }>;
-
-type FormState = {
-  name: string;
-  platform: string;
-  assetSymbol: string;
-  type: "fixed" | "percentage";
-  value: string;
-};
-
-const initialForm: FormState = {
-  name: "",
-  platform: "",
-  assetSymbol: "BTC",
-  type: "fixed",
-  value: "",
-};
-
-const SUCCESS_FEEDBACK_MS = 4_000;
-type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function FeeRuleManager({
   clock = systemLedgerClock,
@@ -399,57 +387,4 @@ export function FeeRuleManager({
       </div>
     </div>
   );
-}
-
-function createUniqueFeeRuleId(ledgerData: LedgerData): string | undefined {
-  const existingIds = new Set(
-    [
-      ...ledgerData.assets,
-      ...ledgerData.trades,
-      ...ledgerData.cashEvents,
-      ...ledgerData.assetTransfers,
-      ...ledgerData.priceSnapshots,
-      ...ledgerData.feeRules,
-    ].map(({ id }) => id),
-  );
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    let candidate: string;
-    try {
-      candidate = globalThis.crypto.randomUUID();
-    } catch {
-      return undefined;
-    }
-    if (
-      candidate.length > 0 &&
-      candidate.length <= 128 &&
-      candidate.trim() === candidate &&
-      !existingIds.has(candidate)
-    ) {
-      return candidate;
-    }
-  }
-  return undefined;
-}
-
-function validateForm(form: FormState, t: Translate): string | null {
-  if (!form.name || form.name !== form.name.trim()) {
-    return t("fees.error.nameInvalid");
-  }
-  if (!form.platform || form.platform !== form.platform.trim()) {
-    return t("fees.error.platformInvalid");
-  }
-  if (!form.assetSymbol) return t("fees.error.assetRequired");
-  if (!isValidNonNegativeDecimal(form.value)) {
-    return t("fees.error.valueInvalid");
-  }
-  return null;
-}
-
-function isValidNonNegativeDecimal(value: string): boolean {
-  try {
-    toDecimal(value);
-    return !isNegative(value);
-  } catch {
-    return false;
-  }
 }
