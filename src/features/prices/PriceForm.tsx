@@ -29,6 +29,7 @@ import {
   formatValidationError,
 } from "./priceFormHelpers";
 import {
+  runPendingPriceSaveEffect,
   runPriceAssetRepairEffect,
   runPriceEpochResetEffect,
 } from "./priceFormEffects";
@@ -123,45 +124,23 @@ export function PriceForm({
   }, [ledgerEpoch]);
 
   useEffect(() => {
-    if (
-      pendingMutationVersion === null ||
-      persistedVersion === undefined ||
-      persistenceStatus === undefined
-    ) {
-      return;
-    }
-    if (
-      persistedVersion >= pendingMutationVersion &&
-      persistenceStatus === "saved"
-    ) {
-      const preserve = pendingResetRef.current;
-      setPendingMutationVersion(null);
-      pendingResetRef.current = undefined;
-      if (preserve) {
-        if (draft && onReset) {
-          onReset(preserve);
-        } else {
-          setLocalForm({
-            ...createPriceWorkspaceDraft(
-              preserve.assetSymbol,
-              captureLedgerTime(clock).todayKey,
-              clock,
-            ),
-            recordedAt: preserve.recordedAt,
-          });
-        }
-      }
-      setErrors({});
-      setSuccessMessage(certifiedSavedMessage);
-      return;
-    }
-    if (persistenceStatus === "error") {
-      setSuccessMessage("");
-      setErrors((current) => ({
-        ...current,
-        form: t("prices.status.unsaved"),
-      }));
-    }
+    return runPendingPriceSaveEffect(
+      {
+        certifiedSavedMessage,
+        clock,
+        draft,
+        onReset,
+        pendingMutationVersion,
+        pendingResetRef,
+        persistedVersion,
+        persistenceStatus,
+        setErrors,
+        setLocalForm,
+        setPendingMutationVersion,
+        setSuccessMessage,
+        t,
+      },
+    );
   }, [
     clock,
     certifiedSavedMessage,
