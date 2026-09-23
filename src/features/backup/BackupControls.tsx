@@ -16,7 +16,6 @@ import {
   type BackupSuspicionConfirmationReceipt,
   type LedgerBackupImportEvidence,
 } from "./backupImportPreflight";
-import { formatBackupImportReportMarkdown } from "./backupImportReport";
 import type {
   ApplyLedgerActionResult,
   PersistenceOperation,
@@ -59,6 +58,7 @@ import {
 } from "./backupControlsPairing";
 import {
   doConfirmSuspiciousGroups,
+  doCopyPreflightReport,
   doHandleExport,
   doHandleFileChange,
   doResetFileSelection,
@@ -396,31 +396,14 @@ export function BackupControls({
   }
 
   async function copyPreflightReport() {
-    const result = selectedPreflightRef.current;
-    if (
-      !result ||
-      result.selectionGeneration !== selectionGenerationRef.current
-    ) {
-      return;
-    }
-
-    const generation = result.selectionGeneration;
-    const contentIdentity = result.contentIdentity.value;
-    setCopyState("copying");
-    try {
-      await navigator.clipboard.writeText(
-        formatBackupImportReportMarkdown(result),
-      );
-    } catch {
-      if (isSamePreflight(generation, contentIdentity)) {
-        setCopyState("error");
-      }
-      return;
-    }
-
-    if (isSamePreflight(generation, contentIdentity)) {
-      setCopyState("copied");
-    }
+    return doCopyPreflightReport(
+      {
+        isSamePreflight,
+        selectedPreflightRef,
+        selectionGenerationRef,
+        setCopyState,
+      },
+    );
   }
 
   async function confirmImport() {

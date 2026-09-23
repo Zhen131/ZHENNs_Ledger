@@ -35,6 +35,7 @@ import {
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
 import { downloadBackupJson } from "./backupDownload";
+import { formatBackupImportReportMarkdown } from "./backupImportReport";
 
 type BackupControlsMountEffectDeps = {
   importAbortControllerRef: RefObject<AbortController | null>;
@@ -387,4 +388,47 @@ export function doConfirmSuspiciousGroups(
         ? t("backup.import.suspicionConfirmedWritable")
         : t("backup.import.suspicionConfirmedReadOnly"),
     );
+}
+
+type CopyPreflightReportDeps = {
+  isSamePreflight: (selectionGeneration: number, contentIdentity: string) => boolean;
+  selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
+  selectionGenerationRef: RefObject<number>;
+  setCopyState: Dispatch<SetStateAction<CopyState>>;
+};
+
+export async function doCopyPreflightReport(
+  deps: CopyPreflightReportDeps,
+) {
+  const {
+    isSamePreflight,
+    selectedPreflightRef,
+    selectionGenerationRef,
+    setCopyState,
+  } = deps;
+    const result = selectedPreflightRef.current;
+    if (
+      !result ||
+      result.selectionGeneration !== selectionGenerationRef.current
+    ) {
+      return;
+    }
+
+    const generation = result.selectionGeneration;
+    const contentIdentity = result.contentIdentity.value;
+    setCopyState("copying");
+    try {
+      await navigator.clipboard.writeText(
+        formatBackupImportReportMarkdown(result),
+      );
+    } catch {
+      if (isSamePreflight(generation, contentIdentity)) {
+        setCopyState("error");
+      }
+      return;
+    }
+
+    if (isSamePreflight(generation, contentIdentity)) {
+      setCopyState("copied");
+    }
 }
