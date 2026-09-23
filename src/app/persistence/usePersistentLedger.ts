@@ -79,6 +79,7 @@ import {
   doDiscardDirtyChangesAndSwitchRepository,
   doTrackSessionAcceptedWork,
 } from "./usePersistentLedgerSession";
+import { runClockRefreshEffect } from "./usePersistentLedgerBrowserEffects";
 
 export type {
   ApplyLedgerActionResult,
@@ -375,24 +376,12 @@ export function usePersistentLedger(
   }, []);
 
   useEffect(() => {
-    const refreshClock = () => requestClockRefresh();
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") {
-        refreshClock();
-      }
-    };
-    const midnightTimer = window.setTimeout(
-      refreshClock,
-      midnightDelay,
+    return runClockRefreshEffect(
+      {
+        midnightDelay,
+        requestClockRefresh,
+      },
     );
-
-    window.addEventListener("focus", refreshClock);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-    return () => {
-      window.clearTimeout(midnightTimer);
-      window.removeEventListener("focus", refreshClock);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-    };
   }, [clock, midnightDelay, todayKey]);
 
   useEffect(() => {
