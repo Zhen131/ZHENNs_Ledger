@@ -18,9 +18,6 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
-import { AssetTransferPanel } from "@/features/asset-transfers/ui";
-import { TradeForm } from "@/features/trades/ui";
-import { CashEventPanel } from "@/features/cash/ui";
 import { SurfaceCard, useLanguage } from "@/ui";
 import {
   createPriceWorkspaceDraft,
@@ -37,6 +34,7 @@ import {
   doResetTradeDraft,
 } from "./recordWorkspaceActions";
 import { RecordWorkspacePriceSection } from "./RecordWorkspacePriceSection";
+import { RecordWorkspaceFactCard } from "./RecordWorkspaceFactCard";
 
 export function RecordWorkspace({
   active,
@@ -307,83 +305,28 @@ export function RecordWorkspace({
       </SurfaceCard>
 
       <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(0,1.35fr)_minmax(320px,.85fr)]">
-        <SurfaceCard className="min-w-0 p-5">
-          {recordTarget.kind === "cash" ? (
-            <CashEventPanel
-              cashBalance={cashBalance}
-              clock={clock}
-              isWritable={isWritable}
-              ledgerData={ledgerData}
-              ledgerEpoch={ledgerEpoch}
-              mutationVersion={mutationVersion}
-              onCashEventCreated={onCashEventCreated}
-              onCashEventDeleted={onCashEventDeleted}
-              persistedVersion={persistedVersion}
-              persistenceStatus={persistenceStatus}
-            />
-          ) : recordTarget.kind === "asset-transfer" ? (
-            <AssetTransferPanel
-              clock={clock}
-              isWritable={isWritable}
-              ledgerData={ledgerData}
-              ledgerEpoch={ledgerEpoch}
-              mutationVersion={mutationVersion}
-              onAssetTransferCreated={onAssetTransferCreated}
-              onAssetTransferDeleted={onAssetTransferDeleted}
-              persistedVersion={persistedVersion}
-              persistenceStatus={persistenceStatus}
-            />
-          ) : (
-            <>
-              <div className="mb-4">
-                <h3 className="font-semibold">
-                  {t("record.trade.headingPrefix")}{recordTarget.assetSymbol}{t("record.trade.headingSuffix")}
-                </h3>
-                <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-                  {t("record.trade.description")}
-                </p>
-              </div>
-              <fieldset
-                className={isWritable ? "" : "opacity-60"}
-                disabled={!isWritable}
-              >
-                <TradeForm
-                  clock={clock}
-                  draft={{
-                    ...tradeDraft,
-                    assetSymbol: recordTarget.assetSymbol,
-                  }}
-                  focusTargetRef={tradeFocusRef}
-                  ledgerData={ledgerData}
-                  ledgerEpoch={ledgerEpoch}
-                  mutationVersion={mutationVersion}
-                  onDraftChange={(nextDraft) => {
-                    if (
-                      recordTarget.kind !== "trade" ||
-                      recordTarget.assetSymbol !== nextDraft.assetSymbol
-                    ) {
-                      updateRecordTarget({
-                        kind: "trade",
-                        assetSymbol: nextDraft.assetSymbol,
-                      });
-                    }
-                    commitTradeDraft(nextDraft);
-                  }}
-                  onReset={(preserve) => {
-                    updateRecordTarget({
-                      kind: "trade",
-                      assetSymbol: preserve.assetSymbol,
-                    });
-                    resetTradeDraft(preserve);
-                  }}
-                  onTradeCreated={onTradeCreated}
-                  persistedVersion={persistedVersion}
-                  persistenceStatus={persistenceStatus}
-                />
-              </fieldset>
-            </>
-          )}
-        </SurfaceCard>
+        <RecordWorkspaceFactCard
+          cashBalance={cashBalance}
+          clock={clock}
+          commitTradeDraft={commitTradeDraft}
+          isWritable={isWritable}
+          ledgerData={ledgerData}
+          ledgerEpoch={ledgerEpoch}
+          mutationVersion={mutationVersion}
+          onAssetTransferCreated={onAssetTransferCreated}
+          onAssetTransferDeleted={onAssetTransferDeleted}
+          onCashEventCreated={onCashEventCreated}
+          onCashEventDeleted={onCashEventDeleted}
+          onTradeCreated={onTradeCreated}
+          persistedVersion={persistedVersion}
+          persistenceStatus={persistenceStatus}
+          recordTarget={recordTarget}
+          resetTradeDraft={resetTradeDraft}
+          t={t}
+          tradeDraft={tradeDraft}
+          tradeFocusRef={tradeFocusRef}
+          updateRecordTarget={updateRecordTarget}
+        />
 
         <RecordWorkspacePriceSection
           clock={clock}
