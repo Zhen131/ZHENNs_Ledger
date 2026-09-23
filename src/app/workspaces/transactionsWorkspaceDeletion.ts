@@ -2,6 +2,8 @@ import type { RefObject } from "react";
 import type { LedgerData } from "@/core/models";
 import type { ActivityKind } from "./transactionsWorkspaceTypes";
 import type { LedgerActivityItem } from "@/features/activity";
+import type { useLanguage } from "@/ui";
+import { validateTradeRemoval } from "@/features/trades";
 
 type FindCurrentItemDeps = {
   latestLedgerDataRef: RefObject<LedgerData>;
@@ -33,4 +35,34 @@ export function doFindCurrentItem(
           cashEvent,
         }
       : null;
+}
+
+type ReviewRemovalDeps = {
+  findCurrentItem: (itemId: string, itemKind: ActivityKind) => LedgerActivityItem | null;
+  latestLedgerDataRef: RefObject<LedgerData>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doReviewRemoval(
+  deps: ReviewRemovalDeps,
+  item: LedgerActivityItem,
+): string | null {
+  const {
+    findCurrentItem,
+    latestLedgerDataRef,
+    t,
+  } = deps;
+    if (item.kind === "cash-event") {
+      return findCurrentItem(item.id, item.kind)
+        ? null
+        : t("transactions.delete.cashFactMissing");
+    }
+    const result = validateTradeRemoval(
+      item.id,
+      latestLedgerDataRef.current,
+    );
+    if (result.ok) return null;
+    return result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
+      ? t("transactions.delete.tradeHasDependents")
+      : t("transactions.delete.tradeMissing");
 }

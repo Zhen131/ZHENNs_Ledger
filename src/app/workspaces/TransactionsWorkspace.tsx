@@ -22,7 +22,6 @@ import {
 import { ActivityTable } from "@/features/activity/ui";
 import { projectLedgerCashMutation } from "@/features/cash";
 import { NegativeCashConfirmationDialog } from "@/features/cash/ui";
-import { validateTradeRemoval } from "@/features/trades";
 import { SurfaceCard, useLanguage } from "@/ui";
 import type { LedgerWorkspaceIntent } from "./useLedgerWorkspaceSession";
 import type {
@@ -42,7 +41,10 @@ import type {
   PendingNegativeDelete,
   ActivityLocationRequest,
 } from "./transactionsWorkspaceTypes";
-import { doFindCurrentItem } from "./transactionsWorkspaceDeletion";
+import {
+  doFindCurrentItem,
+  doReviewRemoval,
+} from "./transactionsWorkspaceDeletion";
 
 export function TransactionsWorkspace({
   active,
@@ -162,19 +164,14 @@ export function TransactionsWorkspace({
   }
 
   function reviewRemoval(item: LedgerActivityItem): string | null {
-    if (item.kind === "cash-event") {
-      return findCurrentItem(item.id, item.kind)
-        ? null
-        : t("transactions.delete.cashFactMissing");
-    }
-    const result = validateTradeRemoval(
-      item.id,
-      latestLedgerDataRef.current,
+    return doReviewRemoval(
+      {
+        findCurrentItem,
+        latestLedgerDataRef,
+        t,
+      },
+      item,
     );
-    if (result.ok) return null;
-    return result.error.code === "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE"
-      ? t("transactions.delete.tradeHasDependents")
-      : t("transactions.delete.tradeMissing");
   }
 
   function projectRemoval(item: LedgerActivityItem) {
