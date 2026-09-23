@@ -1,5 +1,6 @@
 import type {
   PendingTradeRisk,
+  TradeFormField,
   TradeFormState,
 } from "./tradeFormTypes";
 import type { TradeWorkspaceDraft } from "./tradeWorkspaceDraft";
@@ -12,6 +13,8 @@ import type {
 } from "react";
 import { createTradeWorkspaceDraft } from "./tradeWorkspaceDraft";
 import { captureLedgerTime } from "@/core/shared";
+import type { PersistenceStatus } from "@/app";
+import type { useLanguage } from "@/ui";
 
 type AssetRepairEffectDeps = {
   commitForm: (next: TradeFormState) => void;
@@ -82,5 +85,78 @@ export function runEpochResetEffect(
           clock,
         ),
       );
+    }
+}
+
+type PendingSaveEffectDeps = {
+  clock: LedgerClock;
+  draft: TradeWorkspaceDraft | undefined;
+  onReset: ((preserve: Pick<TradeWorkspaceDraft, "assetSymbol" | "platform">) => void) | undefined;
+  pendingMutationVersion: number | null;
+  pendingResetRef: RefObject<Pick<TradeWorkspaceDraft, "assetSymbol" | "platform"> | undefined>;
+  persistedVersion: number;
+  persistenceStatus: PersistenceStatus;
+  setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
+  setLocalForm: Dispatch<SetStateAction<TradeFormState>>;
+  setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
+  setSelectedFeeRuleId: Dispatch<SetStateAction<string>>;
+  setSourceChangedMessage: Dispatch<SetStateAction<string>>;
+  setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function runPendingSaveEffect(
+  deps: PendingSaveEffectDeps,
+) {
+  const {
+    clock,
+    draft,
+    onReset,
+    pendingMutationVersion,
+    pendingResetRef,
+    persistedVersion,
+    persistenceStatus,
+    setErrors,
+    setLocalForm,
+    setPendingMutationVersion,
+    setSelectedFeeRuleId,
+    setSourceChangedMessage,
+    setSuccessState,
+    t,
+  } = deps;
+    if (pendingMutationVersion === null) return;
+    if (
+      persistedVersion >= pendingMutationVersion &&
+      persistenceStatus === "saved"
+    ) {
+      const preserve = pendingResetRef.current;
+      setPendingMutationVersion(null);
+      pendingResetRef.current = undefined;
+      if (preserve) {
+        if (draft && onReset) {
+          onReset(preserve);
+        } else {
+          setLocalForm({
+            ...createTradeWorkspaceDraft(
+              preserve.assetSymbol,
+              captureLedgerTime(clock).todayKey,
+              clock,
+            ),
+            platform: preserve.platform,
+          });
+        }
+      }
+      setSelectedFeeRuleId("");
+      setSourceChangedMessage("");
+      setErrors({});
+      setSuccessState("certified");
+      return;
+    }
+    if (persistenceStatus === "error") {
+      setSuccessState("");
+      setErrors((current) => ({
+        ...current,
+        form: t("trades.form.error.notPersisted"),
+      }));
     }
 }

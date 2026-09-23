@@ -54,6 +54,7 @@ import type {
 import {
   runAssetRepairEffect,
   runEpochResetEffect,
+  runPendingSaveEffect,
 } from "./tradeFormEffects";
 
 type TradeFormProps = Readonly<{
@@ -154,41 +155,24 @@ export function TradeForm({
   }, [ledgerEpoch]);
 
   useEffect(() => {
-    if (pendingMutationVersion === null) return;
-    if (
-      persistedVersion >= pendingMutationVersion &&
-      persistenceStatus === "saved"
-    ) {
-      const preserve = pendingResetRef.current;
-      setPendingMutationVersion(null);
-      pendingResetRef.current = undefined;
-      if (preserve) {
-        if (draft && onReset) {
-          onReset(preserve);
-        } else {
-          setLocalForm({
-            ...createTradeWorkspaceDraft(
-              preserve.assetSymbol,
-              captureLedgerTime(clock).todayKey,
-              clock,
-            ),
-            platform: preserve.platform,
-          });
-        }
-      }
-      setSelectedFeeRuleId("");
-      setSourceChangedMessage("");
-      setErrors({});
-      setSuccessState("certified");
-      return;
-    }
-    if (persistenceStatus === "error") {
-      setSuccessState("");
-      setErrors((current) => ({
-        ...current,
-        form: t("trades.form.error.notPersisted"),
-      }));
-    }
+    return runPendingSaveEffect(
+      {
+        clock,
+        draft,
+        onReset,
+        pendingMutationVersion,
+        pendingResetRef,
+        persistedVersion,
+        persistenceStatus,
+        setErrors,
+        setLocalForm,
+        setPendingMutationVersion,
+        setSelectedFeeRuleId,
+        setSourceChangedMessage,
+        setSuccessState,
+        t,
+      },
+    );
   }, [
     clock,
     draft,
