@@ -136,3 +136,43 @@ export async function doRefreshNonZeroHoldings(
     }
     finishGlobalOperation(operation);
 }
+
+type FinishGlobalOperationDeps = {
+  globalOperationIsCurrent: (operation: GlobalOperation) => boolean;
+  globalOperationRef: RefObject<GlobalOperation | null>;
+  mountedRef: RefObject<boolean>;
+  setRefreshState: Dispatch<SetStateAction<GlobalRefreshState>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doFinishGlobalOperation(
+  deps: FinishGlobalOperationDeps,
+  operation: GlobalOperation,
+) {
+  const {
+    globalOperationIsCurrent,
+    globalOperationRef,
+    mountedRef,
+    setRefreshState,
+    t,
+  } = deps;
+    if (!globalOperationIsCurrent(operation)) return;
+    globalOperationRef.current = null;
+    if (!mountedRef.current) return;
+    const failedCount = operation.failures.length;
+    setRefreshState({
+      status:
+        operation.appliedCount > 0
+          ? failedCount > 0
+            ? "partial"
+            : "success"
+          : failedCount > 0
+            ? "error"
+            : "success",
+      message:
+        operation.appliedCount === 0 && failedCount === 0
+          ? t("marketData.refresh.noMappedNonZeroHoldings")
+          : `${t("marketData.refresh.savedPrefix")}${operation.appliedCount}${t("marketData.refresh.savedMiddle")}${failedCount}${t("marketData.refresh.savedSuffix")}`,
+      failures: operation.failures,
+    });
+}

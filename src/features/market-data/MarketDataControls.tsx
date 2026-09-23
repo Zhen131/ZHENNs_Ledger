@@ -55,7 +55,10 @@ import {
   doRemoveMapping,
   doSaveMapping,
 } from "./marketDataControlsAssetActions";
-import { doRefreshNonZeroHoldings } from "./marketDataControlsGlobalRefresh";
+import {
+  doFinishGlobalOperation,
+  doRefreshNonZeroHoldings,
+} from "./marketDataControlsGlobalRefresh";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -471,25 +474,16 @@ export function MarketDataControls({
   }
 
   function finishGlobalOperation(operation: GlobalOperation) {
-    if (!globalOperationIsCurrent(operation)) return;
-    globalOperationRef.current = null;
-    if (!mountedRef.current) return;
-    const failedCount = operation.failures.length;
-    setRefreshState({
-      status:
-        operation.appliedCount > 0
-          ? failedCount > 0
-            ? "partial"
-            : "success"
-          : failedCount > 0
-            ? "error"
-            : "success",
-      message:
-        operation.appliedCount === 0 && failedCount === 0
-          ? t("marketData.refresh.noMappedNonZeroHoldings")
-          : `${t("marketData.refresh.savedPrefix")}${operation.appliedCount}${t("marketData.refresh.savedMiddle")}${failedCount}${t("marketData.refresh.savedSuffix")}`,
-      failures: operation.failures,
-    });
+    return doFinishGlobalOperation(
+      {
+        globalOperationIsCurrent,
+        globalOperationRef,
+        mountedRef,
+        setRefreshState,
+        t,
+      },
+      operation,
+    );
   }
 
   function removeMapping(asset: Asset): ConfirmDeleteOutcome {
