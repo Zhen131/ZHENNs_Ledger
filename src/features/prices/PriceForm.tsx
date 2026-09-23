@@ -11,12 +11,10 @@ import {
   type PriceWorkspaceDraft,
 } from "./priceWorkspaceDraft";
 import type { LedgerData, PriceSnapshot } from "@/core/models";
-import { createValidatedPriceSnapshot } from "./priceSnapshotService";
 import {
   captureLedgerTime,
   FACT_TIME_ZONE_OPTIONS,
   getLedgerTimeZone,
-  resolveFactMoment,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
@@ -25,14 +23,13 @@ import { useLanguage } from "@/ui";
 import type { PriceFormState, PriceFormField } from "./priceFormHelpers";
 import {
   SUCCESS_FEEDBACK_MS,
-  toPriceFormField,
-  formatValidationError,
 } from "./priceFormHelpers";
 import {
   runPendingPriceSaveEffect,
   runPriceAssetRepairEffect,
   runPriceEpochResetEffect,
 } from "./priceFormEffects";
+import { doHandleSubmit } from "./priceFormActions";
 
 type PriceFormProps = Readonly<{
   clock?: LedgerClock;
@@ -177,106 +174,27 @@ export function PriceForm({
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (pendingMutationVersion !== null) return;
-    const timeSnapshot = captureLedgerTime(clock);
-
-    const moment = resolveFactMoment(
-      form.recordedAt,
-      form.recordedTime,
-      form.recordedTimeZone,
-    );
-    if (!moment.ok) {
-      setErrors({
-        recordedAt: t(
-          moment.reason === "nonexistent"
-            ? "prices.validation.nonexistentWallTime"
-            : moment.reason === "ambiguous"
-              ? "prices.validation.ambiguousWallTime"
-              : "prices.validation.invalidTimeZone",
-        ),
-      });
-      setSuccessMessage("");
-      return;
-    }
-
-    const result = createValidatedPriceSnapshot(
+    return doHandleSubmit(
       {
-        assetSymbol: form.assetSymbol,
-        price: form.price,
+        clock,
         currency,
-        recordedAt: moment.value.occurredAt,
-        ...(moment.value.occurredTimeZone === undefined
-          ? {}
-          : { occurredTimeZone: moment.value.occurredTimeZone }),
-        source: "manual",
-        ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
+        form,
+        ledgerData,
+        mutationVersion,
+        onPriceSnapshotCreated,
+        pendingMutationVersion,
+        pendingResetRef,
+        persistedVersion,
+        persistenceStatus,
+        savingMessage,
+        setErrors,
+        setLocalForm,
+        setPendingMutationVersion,
+        setSuccessMessage,
+        t,
       },
-      ledgerData,
-      {
-        generateId: () => globalThis.crypto.randomUUID(),
-        now: () => timeSnapshot.now.toISOString(),
-        todayKey: () => timeSnapshot.todayKey,
-      },
+      event,
     );
-
-    if (!result.ok) {
-      if (result.kind === "service") {
-        setErrors({ form: t("prices.status.serviceError") });
-        return;
-      }
-
-      const nextErrors: Partial<Record<PriceFormField, string>> = {};
-      for (const error of result.errors) {
-        const field = toPriceFormField(error.field);
-        nextErrors[field] ??= formatValidationError(error, t);
-      }
-      setErrors(nextErrors);
-      setSuccessMessage("");
-      return;
-    }
-
-    const mutationResult = onPriceSnapshotCreated(
-      result.priceSnapshot,
-      timeSnapshot,
-    );
-
-    if (mutationResult !== "applied") {
-      setErrors({
-        form:
-          mutationResult === "rejected"
-            ? t("prices.status.ledgerNotWritable")
-            : t("prices.status.unchanged"),
-      });
-      setSuccessMessage("");
-      return;
-    }
-
-    if (
-      mutationVersion === undefined ||
-      persistedVersion === undefined ||
-      persistenceStatus === undefined
-    ) {
-      setLocalForm({
-        ...createPriceWorkspaceDraft(
-          form.assetSymbol,
-          captureLedgerTime(clock).todayKey,
-          clock,
-        ),
-        recordedAt: form.recordedAt,
-      });
-      setErrors({});
-      setSuccessMessage(t("prices.status.added"));
-      return;
-    }
-
-    pendingResetRef.current = {
-      assetSymbol: form.assetSymbol,
-      recordedAt: form.recordedAt,
-    };
-    setErrors({});
-    setPendingMutationVersion(mutationVersion + 1);
-    setSuccessMessage(savingMessage);
   }
 
   return (
