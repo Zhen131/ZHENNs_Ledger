@@ -29,41 +29,19 @@ import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
 } from "@/app/persistence";
-
-type TimeFilter = "all" | "today" | "7d" | "1y";
-type ActivityKind = LedgerActivityItem["kind"];
-
-type PendingDelete =
-  | {
-      itemId: string;
-      itemKind: ActivityKind;
-      phase: "countdown";
-      deadline: number;
-    }
-  | {
-      itemId: string;
-      itemKind: ActivityKind;
-      phase: "persisting";
-      expectedMutationVersion: number;
-    };
-
-type PendingNegativeDelete = Readonly<{
-  itemId: string;
-  itemKind: ActivityKind;
-  projection: ReturnType<typeof projectLedgerCashMutation>;
-  expectedLedgerEpoch: number;
-  expectedMutationVersion: number;
-  expectedPersistedVersion: number;
-  expectedTodayKey: string;
-}>;
-
-type ActivityLocationRequest = Readonly<{
-  date: string;
-  requestId: number;
-}>;
-
-const DELETE_DELAY_MS = 5_000;
-const SUCCESS_FEEDBACK_MS = 4_000;
+import { FilterSelect } from "./FilterSelect";
+import {
+  DELETE_DELAY_MS,
+  SUCCESS_FEEDBACK_MS,
+  activityFilterLabel,
+} from "./transactionsWorkspaceHelpers";
+import type {
+  TimeFilter,
+  ActivityKind,
+  PendingDelete,
+  PendingNegativeDelete,
+  ActivityLocationRequest,
+} from "./transactionsWorkspaceTypes";
 
 export function TransactionsWorkspace({
   active,
@@ -758,48 +736,4 @@ export function TransactionsWorkspace({
       ) : null}
     </section>
   );
-}
-
-function FilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: Readonly<{
-  label: string;
-  value: string;
-  options: readonly (readonly [string, string])[];
-  onChange: (value: string) => void;
-}>) {
-  return (
-    <label className="grid gap-1 text-xs font-medium text-[var(--ledger-muted)]">
-      {label}
-      <select
-        className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 text-sm text-[var(--ledger-ink)]"
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        {options.map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>
-            {optionLabel}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function activityFilterLabel(
-  type: LedgerActivityTypeFilter,
-  t: ReturnType<typeof useLanguage>["t"],
-): string {
-  return {
-    all: t("transactions.time.all"),
-    buy: t("trades.type.buy"),
-    sell: t("trades.type.sell"),
-    deposit: t("transactions.type.deposit"),
-    withdrawal: t("transactions.type.withdrawal"),
-    "external-expense": t("transactions.type.externalExpense"),
-    "balance-adjustment": t("transactions.type.balanceAdjustment"),
-  }[type];
 }
