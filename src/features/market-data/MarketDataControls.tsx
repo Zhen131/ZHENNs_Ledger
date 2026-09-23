@@ -54,6 +54,7 @@ import type {
   GlobalRefreshState,
   GlobalOperation,
 } from "./marketDataControlsTypes";
+import { doCancelAssetOperation } from "./marketDataControlsAssetActions";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -192,17 +193,15 @@ export function MarketDataControls({
 
   const cancelAssetOperation = useCallback(
     (assetSymbol: string, resetFeedback: boolean) => {
-      const operation = assetOperationsRef.current.get(assetSymbol);
-      if (!operation) return;
-      operation.controller.abort();
-      assetOperationsRef.current.delete(assetSymbol);
-      if (resetFeedback && mountedRef.current) {
-        setAssetFeedback((current) => {
-          const next = { ...current };
-          delete next[assetSymbol];
-          return next;
-        });
-      }
+      return doCancelAssetOperation(
+        {
+          assetOperationsRef,
+          mountedRef,
+          setAssetFeedback,
+        },
+        assetSymbol,
+        resetFeedback,
+      );
     },
     [],
   );
