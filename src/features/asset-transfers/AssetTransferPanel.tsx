@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import type {
   ApplyLedgerActionResult,
@@ -33,19 +33,20 @@ import {
   validateAssetTransferRemoval,
   type AssetTransferServiceError,
 } from "./assetTransferService";
-
-const SUCCESS_FEEDBACK_MS = 4_000;
-const DEFAULT_CATEGORY: AssetTransferCategory = "internal";
-const DEFAULT_FROM_LOCATION: CustodyLocation = "exchange";
-const DEFAULT_TO_LOCATION: CustodyLocation = "cold-wallet";
-type Translate = ReturnType<typeof useLanguage>["t"];
-
-type ArmedDelete = Readonly<{
-  assetTransferId: string;
-  ledgerEpoch: number;
-  mutationVersion: number;
-  persistedVersion: number;
-}>;
+import { Field, LocationSelect } from "./AssetTransferFields";
+import type { ArmedDelete } from "./assetTransferPanelHelpers";
+import {
+  SUCCESS_FEEDBACK_MS,
+  DEFAULT_CATEGORY,
+  DEFAULT_FROM_LOCATION,
+  DEFAULT_TO_LOCATION,
+  controlClassName,
+  firstReason,
+  describedBy,
+  categoryLabel,
+  reasonLabel,
+  transferLocationSummary,
+} from "./assetTransferPanelHelpers";
 
 export function AssetTransferPanel({
   clock = systemLedgerClock,
@@ -637,103 +638,4 @@ export function AssetTransferPanel({
       </div>
     </div>
   );
-}
-
-const controlClassName =
-  "rounded-md border border-slate-200 px-3 py-2 font-normal";
-
-function Field({
-  label,
-  error,
-  field,
-  children,
-}: Readonly<{
-  label: string;
-  error: AssetTransferServiceError | null;
-  field: AssetTransferServiceError["field"];
-  children: ReactNode;
-}>) {
-  return (
-    <div className="grid gap-1 text-sm font-medium">
-      <label className="grid gap-1">
-        {label}
-        {children}
-      </label>
-      {error?.field === field ? (
-        <span className="font-normal text-red-700" id={`asset-transfer-error-${field}`}>
-          {error.message}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function LocationSelect({
-  describedBy: ariaDescribedBy,
-  disabled,
-  onChange,
-  value,
-  t,
-}: Readonly<{
-  describedBy?: string;
-  disabled: boolean;
-  onChange: (value: CustodyLocation) => void;
-  value: CustodyLocation;
-  t: Translate;
-}>) {
-  return (
-    <select
-      aria-describedby={ariaDescribedBy}
-      className={controlClassName}
-      disabled={disabled}
-      onChange={(event) => onChange(event.target.value as CustodyLocation)}
-      value={value}
-    >
-      <option value="exchange">{t("assetTransfers.location.exchange")}</option>
-      <option value="cold-wallet">{t("assetTransfers.location.coldWallet")}</option>
-      <option value="cold-wallet-earn">{t("assetTransfers.location.coldWalletEarn")}</option>
-    </select>
-  );
-}
-
-function firstReason(category: AssetTransferCategory): AssetTransferReason {
-  return ASSET_TRANSFER_REASONS_BY_CATEGORY[category][0];
-}
-
-function describedBy(
-  error: AssetTransferServiceError | null,
-  field: AssetTransferServiceError["field"],
-): string | undefined {
-  return error?.field === field ? `asset-transfer-error-${field}` : undefined;
-}
-
-function categoryLabel(category: AssetTransferCategory, t: Translate): string {
-  return {
-    internal: t("assetTransfers.category.internal"),
-    "external-in": t("assetTransfers.category.externalIn"),
-    "external-out": t("assetTransfers.category.externalOut"),
-    gain: t("assetTransfers.category.gain"),
-  }[category];
-}
-
-function reasonLabel(reason: AssetTransferReason, t: Translate): string {
-  return {
-    deposit: t("assetTransfers.reason.deposit"), withdrawal: t("assetTransfers.reason.withdrawal"), "internal-move": t("assetTransfers.reason.internalMove"), airdrop: t("assetTransfers.reason.airdrop"), interest: t("assetTransfers.reason.interest"), "platform-gift": t("assetTransfers.reason.platformGift"),
-  }[reason];
-}
-
-function locationLabel(location: CustodyLocation, t: Translate): string {
-  return {
-    exchange: t("assetTransfers.location.exchange"), "cold-wallet": t("assetTransfers.location.coldWallet"), "cold-wallet-earn": t("assetTransfers.location.coldWalletEarn"),
-  }[location];
-}
-
-function transferLocationSummary(assetTransfer: AssetTransfer, t: Translate): string {
-  if (assetTransfer.category === "internal") {
-    return `${locationLabel(assetTransfer.fromLocation!, t)} → ${locationLabel(assetTransfer.toLocation!, t)}`;
-  }
-  if (assetTransfer.category === "external-out") {
-    return `${locationLabel(assetTransfer.fromLocation!, t)} → ${t("assetTransfers.location.outsideLedger")}`;
-  }
-  return `${t("assetTransfers.location.outsideLedger")} → ${locationLabel(assetTransfer.toLocation!, t)}`;
 }
