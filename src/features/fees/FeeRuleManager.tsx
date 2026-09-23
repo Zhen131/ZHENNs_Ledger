@@ -18,11 +18,10 @@ import type { FormState } from "./feeRuleManagerHelpers";
 import {
   initialForm,
   SUCCESS_FEEDBACK_MS,
-  createUniqueFeeRuleId,
-  isValidNonNegativeDecimal,
 } from "./feeRuleManagerHelpers";
 import {
   doApply,
+  doReplaceRule,
   doSubmitNewRule,
   runFeeRulePersistenceEffect,
 } from "./feeRuleManagerActions";
@@ -133,40 +132,16 @@ export function FeeRuleManager({
   }
 
   function replaceRule(rule: FeeRule) {
-    const value = revisionValues[rule.id] ?? "";
-    if (!isValidNonNegativeDecimal(value)) {
-      setError(t("fees.error.revisionInvalid"));
-      return;
-    }
-    const id = createUniqueFeeRuleId(ledgerData);
-    if (!id) {
-      setError(t("fees.error.idGenerationExhausted"));
-      return;
-    }
-    const timestamp = captureLedgerTime(clock).now.toISOString();
-    const common = {
-      id,
-      name: rule.name,
-      platform: rule.platform,
-      assetSymbol: rule.assetSymbol,
-      status: "active" as const,
-      currency: "USDT" as const,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      replacesFeeRuleId: rule.id,
-    };
-    const replacement: FeeRule =
-      rule.type === "fixed"
-        ? { ...common, type: "fixed", amount: value }
-        : { ...common, type: "percentage", rate: value };
-    apply(
+    return doReplaceRule(
       {
-        type: "feeRule/replace",
-        feeRuleId: rule.id,
-        replacement,
-        deactivatedAt: timestamp,
+        apply,
+        clock,
+        ledgerData,
+        revisionValues,
+        setError,
+        t,
       },
-      t("fees.status.pendingReplace"),
+      rule,
     );
   }
 

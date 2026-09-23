@@ -17,6 +17,7 @@ import type {
 } from "@/core/models";
 import {
   createUniqueFeeRuleId,
+  isValidNonNegativeDecimal,
   validateForm,
 } from "./feeRuleManagerHelpers";
 import { captureLedgerTime } from "@/core/shared";
@@ -146,4 +147,62 @@ export function doSubmitNewRule(
         ? { ...common, type: "fixed", amount: form.value }
         : { ...common, type: "percentage", rate: form.value };
     apply({ type: "feeRule/add", feeRule }, t("fees.status.pendingAdd"));
+}
+
+type ReplaceRuleDeps = {
+  apply: (action: LedgerAction, pendingMessage: string) => void;
+  clock: LedgerClock;
+  ledgerData: LedgerData;
+  revisionValues: Record<string, string>;
+  setError: Dispatch<SetStateAction<string>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doReplaceRule(
+  deps: ReplaceRuleDeps,
+  rule: FeeRule,
+) {
+  const {
+    apply,
+    clock,
+    ledgerData,
+    revisionValues,
+    setError,
+    t,
+  } = deps;
+    const value = revisionValues[rule.id] ?? "";
+    if (!isValidNonNegativeDecimal(value)) {
+      setError(t("fees.error.revisionInvalid"));
+      return;
+    }
+    const id = createUniqueFeeRuleId(ledgerData);
+    if (!id) {
+      setError(t("fees.error.idGenerationExhausted"));
+      return;
+    }
+    const timestamp = captureLedgerTime(clock).now.toISOString();
+    const common = {
+      id,
+      name: rule.name,
+      platform: rule.platform,
+      assetSymbol: rule.assetSymbol,
+      status: "active" as const,
+      currency: "USDT" as const,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      replacesFeeRuleId: rule.id,
+    };
+    const replacement: FeeRule =
+      rule.type === "fixed"
+        ? { ...common, type: "fixed", amount: value }
+        : { ...common, type: "percentage", rate: value };
+    apply(
+      {
+        type: "feeRule/replace",
+        feeRuleId: rule.id,
+        replacement,
+        deactivatedAt: timestamp,
+      },
+      t("fees.status.pendingReplace"),
+    );
 }
