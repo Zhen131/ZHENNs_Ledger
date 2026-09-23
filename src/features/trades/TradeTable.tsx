@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Fragment,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { calculateTradeCashImpact } from "@/core/calculations";
 import { getLedgerDateKey, isLedgerFactInFuture } from "@/core/shared";
@@ -18,6 +12,7 @@ import {
 import { LegacyTradeTable } from "./LegacyTradeTable";
 import type { TradeTableProps } from "./tradeTableTypes";
 import { runTradeLocateEffect } from "./workspaceTradeTableEffects";
+import { Detail } from "./TradeTableDetail";
 
 const ignoreLocationResult = () => undefined;
 
@@ -284,15 +279,6 @@ function WorkspaceTradeTable({
           )}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function Detail({ label, value }: Readonly<{ label: string; value: ReactNode }>) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs font-medium text-[var(--ledger-muted)]">{label}</dt>
-      <dd className="mt-1 break-words text-[var(--ledger-ink)]">{value}</dd>
     </div>
   );
 }
