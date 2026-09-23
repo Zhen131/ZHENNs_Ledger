@@ -15,7 +15,10 @@ import type {
   BackupSuspicionConfirmationReceipt,
   preflightBackupJson,
 } from "./backupImportPreflight";
-import { revokeBackupImportPreflightReceipt } from "./backupImportPreflight";
+import {
+  confirmBackupImportSuspiciousGroups,
+  revokeBackupImportPreflightReceipt,
+} from "./backupImportPreflight";
 import type { BackupEnvelopeError } from "./backupEnvelope";
 import type { LedgerClock } from "@/core/shared";
 import type { LedgerData } from "@/core/models";
@@ -334,4 +337,54 @@ export function doHandleFileChange(
           : t("backup.import.preflightPassedReadOnly"),
       );
     })();
+}
+
+type ConfirmSuspiciousGroupsDeps = {
+  canImportBackup: boolean;
+  selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
+  selectionGenerationRef: RefObject<number>;
+  setImportState: Dispatch<SetStateAction<ImportState>>;
+  setMessage: Dispatch<SetStateAction<string>>;
+  suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doConfirmSuspiciousGroups(
+  deps: ConfirmSuspiciousGroupsDeps,
+) {
+  const {
+    canImportBackup,
+    selectedPreflightRef,
+    selectionGenerationRef,
+    setImportState,
+    setMessage,
+    suspicionConfirmationRef,
+    t,
+  } = deps;
+    const result = selectedPreflightRef.current;
+    if (
+      !result ||
+      result.hardErrorCount > 0 ||
+      result.suspiciousGroupCount === 0 ||
+      result.selectionGeneration !== selectionGenerationRef.current
+    ) {
+      return;
+    }
+
+    const confirmation =
+      confirmBackupImportSuspiciousGroups(result);
+    if (!confirmation) {
+      return;
+    }
+    suspicionConfirmationRef.current = confirmation;
+    setImportState(
+      canImportBackup
+        ? "awaiting-confirmation"
+        : "ready-without-suspicions",
+    );
+    setMessage(
+      canImportBackup
+        ? t("backup.import.suspicionConfirmedWritable")
+        : t("backup.import.suspicionConfirmedReadOnly"),
+    );
 }

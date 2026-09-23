@@ -10,7 +10,6 @@ import {
   type BackupEnvelopeError,
 } from "./backupEnvelope";
 import {
-  confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   preflightBackupJson,
   type BackupImportPreflightResult,
@@ -59,6 +58,7 @@ import {
   runPairingPersistenceEffect,
 } from "./backupControlsPairing";
 import {
+  doConfirmSuspiciousGroups,
   doHandleExport,
   doHandleFileChange,
   doResetFileSelection,
@@ -382,31 +382,16 @@ export function BackupControls({
   }
 
   function confirmSuspiciousGroups() {
-    const result = selectedPreflightRef.current;
-    if (
-      !result ||
-      result.hardErrorCount > 0 ||
-      result.suspiciousGroupCount === 0 ||
-      result.selectionGeneration !== selectionGenerationRef.current
-    ) {
-      return;
-    }
-
-    const confirmation =
-      confirmBackupImportSuspiciousGroups(result);
-    if (!confirmation) {
-      return;
-    }
-    suspicionConfirmationRef.current = confirmation;
-    setImportState(
-      canImportBackup
-        ? "awaiting-confirmation"
-        : "ready-without-suspicions",
-    );
-    setMessage(
-      canImportBackup
-        ? t("backup.import.suspicionConfirmedWritable")
-        : t("backup.import.suspicionConfirmedReadOnly"),
+    return doConfirmSuspiciousGroups(
+      {
+        canImportBackup,
+        selectedPreflightRef,
+        selectionGenerationRef,
+        setImportState,
+        setMessage,
+        suspicionConfirmationRef,
+        t,
+      },
     );
   }
 
