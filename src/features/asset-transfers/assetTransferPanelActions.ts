@@ -24,7 +24,11 @@ import {
   captureLedgerTime,
   resolveFactMoment,
 } from "@/core/shared";
-import { createValidatedAssetTransfer } from "./assetTransferService";
+import {
+  createValidatedAssetTransfer,
+  validateAssetTransferRemoval,
+} from "./assetTransferService";
+import type { ArmedDelete } from "./assetTransferPanelHelpers";
 
 type TransferPersistenceEffectDeps = {
   deletedFeedback: string;
@@ -213,5 +217,97 @@ export function doHandleSubmit(
     setPendingMutationVersion(mutationVersion + 1);
     setPendingOperation("add");
     setFeedback(t("assetTransfers.status.savingAdd"));
+    setError(null);
+}
+
+type RequestDeleteDeps = {
+  armedDelete: ArmedDelete | null;
+  clock: LedgerClock;
+  disabled: boolean;
+  ledgerData: LedgerData;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  onAssetTransferDeleted: (assetTransferId: string, timeSnapshot: LedgerTimeSnapshot) => ApplyLedgerActionResult;
+  persistedVersion: number;
+  setArmedDelete: Dispatch<SetStateAction<ArmedDelete | null>>;
+  setError: Dispatch<SetStateAction<AssetTransferServiceError | null>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
+  setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doRequestDelete(
+  deps: RequestDeleteDeps,
+  assetTransferId: string,
+) {
+  const {
+    armedDelete,
+    clock,
+    disabled,
+    ledgerData,
+    ledgerEpoch,
+    mutationVersion,
+    onAssetTransferDeleted,
+    persistedVersion,
+    setArmedDelete,
+    setError,
+    setFeedback,
+    setPendingMutationVersion,
+    setPendingOperation,
+    t,
+  } = deps;
+    if (disabled) return;
+    if (armedDelete?.assetTransferId !== assetTransferId) {
+      setArmedDelete({
+        assetTransferId,
+        ledgerEpoch,
+        mutationVersion,
+        persistedVersion,
+      });
+      setFeedback(t("assetTransfers.status.deleteArmed"));
+      setError(null);
+      return;
+    }
+    if (
+      armedDelete.ledgerEpoch !== ledgerEpoch ||
+      armedDelete.mutationVersion !== mutationVersion ||
+      armedDelete.persistedVersion !== persistedVersion
+    ) {
+      setArmedDelete(null);
+      setError({
+        code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
+        field: "form",
+        message: t("assetTransfers.status.deleteStale"),
+      });
+      return;
+    }
+    const removal = validateAssetTransferRemoval(
+      assetTransferId,
+      ledgerData,
+    );
+    if (!removal.ok) {
+      setArmedDelete(null);
+      setError(removal.error);
+      setFeedback("");
+      return;
+    }
+    const timeSnapshot = captureLedgerTime(clock);
+    const outcome = onAssetTransferDeleted(assetTransferId, timeSnapshot);
+    setArmedDelete(null);
+    if (outcome !== "applied") {
+      setError({
+        code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
+        field: "form",
+        message:
+          outcome === "rejected"
+            ? t("assetTransfers.status.ledgerNotWritable")
+            : t("assetTransfers.status.notFound"),
+      });
+      return;
+    }
+    setPendingMutationVersion(mutationVersion + 1);
+    setPendingOperation("delete");
+    setFeedback(t("assetTransfers.status.savingDelete"));
     setError(null);
 }

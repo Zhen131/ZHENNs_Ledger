@@ -28,7 +28,6 @@ import {
 import { LedgerNumber, useLanguage } from "@/ui";
 import {
   ASSET_TRANSFER_REASONS_BY_CATEGORY,
-  validateAssetTransferRemoval,
   type AssetTransferServiceError,
 } from "./assetTransferService";
 import { Field, LocationSelect } from "./AssetTransferFields";
@@ -47,6 +46,7 @@ import {
 } from "./assetTransferPanelHelpers";
 import {
   doHandleSubmit,
+  doRequestDelete,
   runTransferPersistenceEffect,
 } from "./assetTransferPanelActions";
 
@@ -226,59 +226,25 @@ export function AssetTransferPanel({
   }
 
   function requestDelete(assetTransferId: string) {
-    if (disabled) return;
-    if (armedDelete?.assetTransferId !== assetTransferId) {
-      setArmedDelete({
-        assetTransferId,
+    return doRequestDelete(
+      {
+        armedDelete,
+        clock,
+        disabled,
+        ledgerData,
         ledgerEpoch,
         mutationVersion,
+        onAssetTransferDeleted,
         persistedVersion,
-      });
-      setFeedback(t("assetTransfers.status.deleteArmed"));
-      setError(null);
-      return;
-    }
-    if (
-      armedDelete.ledgerEpoch !== ledgerEpoch ||
-      armedDelete.mutationVersion !== mutationVersion ||
-      armedDelete.persistedVersion !== persistedVersion
-    ) {
-      setArmedDelete(null);
-      setError({
-        code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
-        field: "form",
-        message: t("assetTransfers.status.deleteStale"),
-      });
-      return;
-    }
-    const removal = validateAssetTransferRemoval(
+        setArmedDelete,
+        setError,
+        setFeedback,
+        setPendingMutationVersion,
+        setPendingOperation,
+        t,
+      },
       assetTransferId,
-      ledgerData,
     );
-    if (!removal.ok) {
-      setArmedDelete(null);
-      setError(removal.error);
-      setFeedback("");
-      return;
-    }
-    const timeSnapshot = captureLedgerTime(clock);
-    const outcome = onAssetTransferDeleted(assetTransferId, timeSnapshot);
-    setArmedDelete(null);
-    if (outcome !== "applied") {
-      setError({
-        code: "ASSET_TRANSFER_LEDGER_VALIDATION_FAILED",
-        field: "form",
-        message:
-          outcome === "rejected"
-            ? t("assetTransfers.status.ledgerNotWritable")
-            : t("assetTransfers.status.notFound"),
-      });
-      return;
-    }
-    setPendingMutationVersion(mutationVersion + 1);
-    setPendingOperation("delete");
-    setFeedback(t("assetTransfers.status.savingDelete"));
-    setError(null);
   }
 
   return (
