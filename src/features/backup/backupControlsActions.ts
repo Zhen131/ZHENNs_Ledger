@@ -1,3 +1,4 @@
+import packageJson from "@root/package.json";
 import type {
   Dispatch,
   RefObject,
@@ -13,6 +14,20 @@ import type {
 } from "./backupImportPreflight";
 import { revokeBackupImportPreflightReceipt } from "./backupImportPreflight";
 import type { BackupEnvelopeError } from "./backupEnvelope";
+import type { LedgerClock } from "@/core/shared";
+import type { LedgerData } from "@/core/models";
+import type { useLanguage } from "@/ui";
+import { captureLedgerTime } from "@/core/shared";
+import {
+  createBackupEnvelope,
+  serializeBackupEnvelope,
+} from "./backupEnvelope";
+import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
+import {
+  evaluateLedgerJsonResourcePolicy,
+  evaluateLedgerResourcePolicy,
+} from "@/core/validation";
+import { downloadBackupJson } from "./backupDownload";
 
 type BackupControlsMountEffectDeps = {
   importAbortControllerRef: RefObject<AbortController | null>;
@@ -94,4 +109,78 @@ export function doResetFileSelection(
     setImportErrors([]);
     setCopyState("idle");
     setMessage("");
+}
+
+type HandleExportDeps = {
+  clock: LedgerClock;
+  isDirty: boolean;
+  isReadOnly: boolean;
+  ledgerData: LedgerData;
+  persistenceStatus: "idle" | "saving" | "saved" | "error";
+  setMessage: Dispatch<SetStateAction<string>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doHandleExport(
+  deps: HandleExportDeps,
+) {
+  const {
+    clock,
+    isDirty,
+    isReadOnly,
+    ledgerData,
+    persistenceStatus,
+    setMessage,
+    t,
+  } = deps;
+    const exportTime = captureLedgerTime(clock);
+    const exportedAt = exportTime.now.toISOString();
+    const envelopeResult = createBackupEnvelope(ledgerData, {
+      appVersion: packageJson.version,
+      exportedAt,
+    }, exportTime.todayKey);
+
+    if (!envelopeResult.ok) {
+      setMessage(
+        t("backup.export.invalidLedgerPrefix") +
+          SUPPORTED_LEDGER_SCHEMA_VERSION +
+          t("backup.export.invalidLedgerSuffix"),
+      );
+      return;
+    }
+
+    const serialized = serializeBackupEnvelope(envelopeResult.value);
+    const bytePolicy = evaluateLedgerJsonResourcePolicy(serialized);
+    if (!bytePolicy.ok) {
+      setMessage(
+        t("backup.export.tooLargePrefix") +
+          SUPPORTED_LEDGER_SCHEMA_VERSION +
+          t("backup.export.tooLargeSuffix"),
+      );
+      return;
+    }
+
+    const ledgerPolicy = evaluateLedgerResourcePolicy(ledgerData);
+    if (!isReadOnly && !ledgerPolicy.ok) {
+      setMessage(t("backup.export.resourceLimit"));
+      return;
+    }
+
+    const downloadResult = downloadBackupJson(serialized, exportedAt);
+    if (!downloadResult.ok) {
+      setMessage(
+        t("backup.export.exception"),
+      );
+      return;
+    }
+
+    setMessage(
+      isReadOnly
+          ? t("backup.export.readOnlyRescueStarted")
+        : isDirty ||
+            persistenceStatus === "saving" ||
+              persistenceStatus === "error"
+          ? t("backup.export.rescueStarted")
+          : t("backup.export.started"),
+    );
 }
