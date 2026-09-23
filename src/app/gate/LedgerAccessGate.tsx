@@ -52,6 +52,7 @@ import {
   runGateLifecycleEffect,
 } from "./ledgerAccessGateSession";
 import {
+  doCancelFileRecovery,
   doConfirmFileRecovery,
   doForgetRememberedConnection,
   doRequestRememberedConnection,
@@ -310,27 +311,21 @@ export function LedgerAccessGate({
   }
 
   async function cancelFileRecovery() {
-    if (operationRef.current || recoveryId === null) {
-      return;
-    }
-    const operation = beginOperation();
-    setIsSubmitting(true);
-    setFormError("");
-    try {
-      await fileAccessController.cancelRecovery(recoveryId);
-      if (isCurrentOperation(operation)) {
-        setRecoveryId(null);
-        setAccessPath("choice");
-      }
-    } catch {
-      if (isCurrentOperation(operation)) {
-        setFormError(
-          t("access.error.recoveryRelease"),
-        );
-      }
-    } finally {
-      finishOperation(operation);
-    }
+    return doCancelFileRecovery(
+      {
+        beginOperation,
+        fileAccessController,
+        finishOperation,
+        isCurrentOperation,
+        operationRef,
+        recoveryId,
+        setAccessPath,
+        setFormError,
+        setIsSubmitting,
+        setRecoveryId,
+        t,
+      },
+    );
   }
 
   function returnToChoice() {

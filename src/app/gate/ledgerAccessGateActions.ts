@@ -411,3 +411,56 @@ export async function doConfirmFileRecovery(
       finishOperation(operation);
     }
 }
+
+type CancelFileRecoveryDeps = {
+  beginOperation: () => number;
+  fileAccessController: LedgerFileAccessController;
+  finishOperation: (operation: number) => void;
+  isCurrentOperation: (operation: number) => boolean;
+  operationRef: RefObject<boolean>;
+  recoveryId: string | null;
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setRecoveryId: Dispatch<SetStateAction<string | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doCancelFileRecovery(
+  deps: CancelFileRecoveryDeps,
+) {
+  const {
+    beginOperation,
+    fileAccessController,
+    finishOperation,
+    isCurrentOperation,
+    operationRef,
+    recoveryId,
+    setAccessPath,
+    setFormError,
+    setIsSubmitting,
+    setRecoveryId,
+    t,
+  } = deps;
+    if (operationRef.current || recoveryId === null) {
+      return;
+    }
+    const operation = beginOperation();
+    setIsSubmitting(true);
+    setFormError("");
+    try {
+      await fileAccessController.cancelRecovery(recoveryId);
+      if (isCurrentOperation(operation)) {
+        setRecoveryId(null);
+        setAccessPath("choice");
+      }
+    } catch {
+      if (isCurrentOperation(operation)) {
+        setFormError(
+          t("access.error.recoveryRelease"),
+        );
+      }
+    } finally {
+      finishOperation(operation);
+    }
+}
