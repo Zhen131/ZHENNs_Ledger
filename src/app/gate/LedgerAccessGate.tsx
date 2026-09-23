@@ -47,6 +47,7 @@ import { AccessCheckingPanel } from "./AccessCheckingPanel";
 import { SessionLockingPanel } from "./SessionLockingPanel";
 import { FormError } from "./FormError";
 import {
+  doFinishSessionLifecycle,
   doInitialize,
   runGateLifecycleEffect,
 } from "./ledgerAccessGateSession";
@@ -408,27 +409,21 @@ export function LedgerAccessGate({
     drain: PersistentLedgerState["drainForSessionQuiesce"],
     reason: SessionQuiesceReason,
   ): Promise<void> {
-    const session = activeSessionRef.current;
-    if (!session) {
-      return Promise.resolve();
-    }
-    const existing = finalLockRef.current;
-    if (existing?.session === session) {
-      return existing.promise;
-    }
-
-    invalidateOperations();
-    setPassphrase("");
-    setConfirmation("");
-    setRecoveryId(null);
-    setFormError("");
-
-    setAccessState({ status: "locking", fatal: false });
-    return startSessionLifecycle({
-      session,
+    return doFinishSessionLifecycle(
+      {
+        activeSessionRef,
+        finalLockRef,
+        invalidateOperations,
+        setAccessState,
+        setConfirmation,
+        setFormError,
+        setPassphrase,
+        setRecoveryId,
+        startSessionLifecycle,
+      },
       drain,
       reason,
-    });
+    );
   }
 
   function finishFatalSessionLifecycle(

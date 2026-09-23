@@ -223,3 +223,57 @@ export function runGateLifecycleEffect(
       }
     };
 }
+
+type FinishSessionLifecycleDeps = {
+  activeSessionRef: RefObject<LedgerSession | null>;
+  finalLockRef: RefObject<{
+    session: LedgerSession;
+    promise: Promise<void>;
+  } | null>;
+  invalidateOperations: () => void;
+  setAccessState: Dispatch<SetStateAction<AccessState>>;
+  setConfirmation: Dispatch<SetStateAction<string>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setPassphrase: Dispatch<SetStateAction<string>>;
+  setRecoveryId: Dispatch<SetStateAction<string | null>>;
+  startSessionLifecycle: ({ session, drain, reason, fatal, }: { session: LedgerSession; drain: PersistentLedgerState["drainForSessionQuiesce"]; reason: SessionQuiesceReason; fatal?: boolean; }) => Promise<void>;
+};
+
+export function doFinishSessionLifecycle(
+  deps: FinishSessionLifecycleDeps,
+  drain: PersistentLedgerState["drainForSessionQuiesce"],
+  reason: SessionQuiesceReason,
+): Promise<void> {
+  const {
+    activeSessionRef,
+    finalLockRef,
+    invalidateOperations,
+    setAccessState,
+    setConfirmation,
+    setFormError,
+    setPassphrase,
+    setRecoveryId,
+    startSessionLifecycle,
+  } = deps;
+    const session = activeSessionRef.current;
+    if (!session) {
+      return Promise.resolve();
+    }
+    const existing = finalLockRef.current;
+    if (existing?.session === session) {
+      return existing.promise;
+    }
+
+    invalidateOperations();
+    setPassphrase("");
+    setConfirmation("");
+    setRecoveryId(null);
+    setFormError("");
+
+    setAccessState({ status: "locking", fatal: false });
+    return startSessionLifecycle({
+      session,
+      drain,
+      reason,
+    });
+}
