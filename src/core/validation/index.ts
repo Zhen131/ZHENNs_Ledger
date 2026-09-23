@@ -1,8 +1,8 @@
 export {
   DEFAULT_TOTAL_VALUE_TOLERANCE,
-  TRADE_VALIDATION_ERROR_CODES,
   validateTradeDraft,
 } from "./tradeValidator";
+export { TRADE_VALIDATION_ERROR_CODES } from "./tradeValidatorErrors";
 export {
   collectValidLedgerTradeProjections,
   selectLedgerDataFacts,
@@ -23,12 +23,14 @@ export { isValidISODateOrDateTime } from "./isoDateValidator";
 export type {
   TradeDraftValidator,
   TradeValidationContext,
-  TradeValidationError,
-  TradeValidationErrorCode,
-  TradeValidationField,
   TradeValidationResult,
   ValidatedTradeDraft,
 } from "./tradeValidator";
+export type {
+  TradeValidationError,
+  TradeValidationErrorCode,
+  TradeValidationField,
+} from "./tradeValidatorErrors";
 export type {
   LedgerDataValidationError,
   LedgerDataValidationResult,

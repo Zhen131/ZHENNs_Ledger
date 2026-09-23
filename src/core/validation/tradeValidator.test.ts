@@ -10,12 +10,14 @@ import {
   sampleTradeDrafts,
 } from "@/test-support";
 import {
-  TRADE_VALIDATION_ERROR_CODES,
-  type TradeValidationErrorCode,
-  type TradeValidationField,
   type TradeValidationResult,
   validateTradeDraft,
 } from "./tradeValidator";
+import {
+  TRADE_VALIDATION_ERROR_CODES,
+  type TradeValidationErrorCode,
+  type TradeValidationField,
+} from "./tradeValidatorErrors";
 
 const validDraft = sampleTradeDrafts[0];
 

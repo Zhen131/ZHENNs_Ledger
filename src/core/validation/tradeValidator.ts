@@ -2,24 +2,34 @@ import type {
   Asset,
   AssetTransfer,
   DecimalString,
-  TimePrecision,
   Trade,
   TradeDraft,
-  TradeType,
 } from "@/core/models";
-import { replayPositions } from "@/core/calculations";
-import {
-  isEqual,
-  isGreaterThan,
-  isNegative,
-  isPositive,
-  isZero,
-  isWithinTolerance,
-  multiply,
-} from "@/core/shared";
-import { isLedgerFactInFuture, isSupportedTimeZone } from "@/core/shared";
+import { isEqual, isGreaterThan, isZero } from "@/core/shared";
+import { isLedgerFactInFuture } from "@/core/shared";
 import { isSupportedValuationCurrency } from "@/core/policies";
-import { isValidISODateOrDateTime } from "./isoDateValidator";
+import {
+  validateTotalValueConsistency,
+  validateCurrencyConsistency,
+  validateHoldingsTimeline,
+} from "./tradeValidatorConsistency";
+import type { TradeValidationError } from "./tradeValidatorErrors";
+import {
+  TRADE_VALIDATION_ERROR_CODES,
+  createError,
+} from "./tradeValidatorErrors";
+import {
+  readOptionalOccurredTimeZone,
+  readRequiredString,
+  readOccurredAt,
+  readTimePrecision,
+  readTradeType,
+  readAssetSymbol,
+  readPositiveDecimal,
+  readNonNegativeFee,
+  readOptionalString,
+  readOptionalPersistedString,
+} from "./tradeValidatorReaders";
 
 /**
  * USD 第一版允许 quantity * price 与 totalValue 相差 1 美分。
@@ -27,43 +37,6 @@ import { isValidISODateOrDateTime } from "./isoDateValidator";
  * 调用方可以通过 TradeValidationContext 覆盖该值；Validator 不负责货币换算。
  */
 export const DEFAULT_TOTAL_VALUE_TOLERANCE: DecimalString = "0.01";
-
-/**
- * 稳定错误码供 UI、导入流程和测试判断。
- *
- * message 只用于展示或诊断，不应作为程序分支条件。
- */
-export const TRADE_VALIDATION_ERROR_CODES = {
-  INVALID_INPUT: "INVALID_INPUT",
-  INVALID_TRADE_TYPE: "INVALID_TRADE_TYPE",
-  ASSET_NOT_FOUND: "ASSET_NOT_FOUND",
-  INVALID_DECIMAL: "INVALID_DECIMAL",
-  VALUE_MUST_BE_POSITIVE: "VALUE_MUST_BE_POSITIVE",
-  FEE_MUST_BE_NON_NEGATIVE: "FEE_MUST_BE_NON_NEGATIVE",
-  ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY:
-    "ASSET_FEE_MUST_BE_LESS_THAN_QUANTITY",
-  TOTAL_VALUE_MISMATCH: "TOTAL_VALUE_MISMATCH",
-  INSUFFICIENT_HOLDINGS: "INSUFFICIENT_HOLDINGS",
-  CURRENCY_MISMATCH: "CURRENCY_MISMATCH",
-  FEE_CURRENCY_MISMATCH: "FEE_CURRENCY_MISMATCH",
-  NEW_FACT_REQUIRES_USDT: "NEW_FACT_REQUIRES_USDT",
-  FUTURE_FACT: "FUTURE_FACT",
-  UNSUPPORTED_VALUATION_CURRENCY: "UNSUPPORTED_VALUATION_CURRENCY",
-} as const;
-
-export type TradeValidationErrorCode =
-  (typeof TRADE_VALIDATION_ERROR_CODES)[keyof typeof TRADE_VALIDATION_ERROR_CODES];
-
-export type TradeValidationField =
-  | "input"
-  | "totalValueTolerance"
-  | keyof TradeDraft;
-
-export type TradeValidationError = {
-  code: TradeValidationErrorCode;
-  field: TradeValidationField;
-  message: string;
-};
 
 /**
  * 校验成功后 fee 一定存在；表单或导入数据未提供 fee 时标准化为 "0"。
@@ -323,332 +296,4 @@ export const validateTradeDraft: TradeDraftValidator = (input, context) => {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readOptionalOccurredTimeZone(
-  input: Record<string, unknown>,
-  errors: TradeValidationError[],
-): string | undefined {
-  const value = input.occurredTimeZone;
-  if (value === undefined) return undefined;
-  if (typeof value === "string" && isSupportedTimeZone(value)) return value;
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      "occurredTimeZone",
-      "occurredTimeZone must be a runtime-supported IANA time zone",
-    ),
-  );
-  return undefined;
-}
-
-function readRequiredString(
-  input: Record<string, unknown>,
-  field: "currency",
-  errors: TradeValidationError[],
-): string | undefined {
-  const value = input[field];
-
-  if (typeof value === "string" && value.length > 0) {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      field,
-      `${field} must be a non-empty string`,
-    ),
-  );
-  return undefined;
-}
-
-function readOccurredAt(
-  value: unknown,
-  errors: TradeValidationError[],
-): string | undefined {
-  if (isValidISODateOrDateTime(value)) {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      "occurredAt",
-      "occurredAt must be a valid ISO date or datetime string",
-    ),
-  );
-  return undefined;
-}
-
-function readTimePrecision(
-  value: unknown,
-  errors: TradeValidationError[],
-): TimePrecision | undefined {
-  if (value === "day" || value === "minute" || value === "second") {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      "timePrecision",
-      "timePrecision must be day, minute, or second",
-    ),
-  );
-  return undefined;
-}
-
-function readTradeType(
-  value: unknown,
-  errors: TradeValidationError[],
-): TradeType | undefined {
-  if (value === "buy" || value === "sell") {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.INVALID_TRADE_TYPE,
-      "type",
-      "type must be buy or sell",
-    ),
-  );
-  return undefined;
-}
-
-function readAssetSymbol(
-  value: unknown,
-  assets: readonly Asset[],
-  errors: TradeValidationError[],
-): string | undefined {
-  if (
-    typeof value === "string" &&
-    assets.some((asset) => asset.symbol === value)
-  ) {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.ASSET_NOT_FOUND,
-      "assetSymbol",
-      `Unknown asset: ${String(value)}`,
-    ),
-  );
-  return undefined;
-}
-
-function readPositiveDecimal(
-  value: unknown,
-  field: "quantity" | "price" | "totalValue",
-  errors: TradeValidationError[],
-): DecimalString | undefined {
-  if (typeof value !== "string") {
-    errors.push(invalidDecimalError(field));
-    return undefined;
-  }
-
-  try {
-    if (!isPositive(value)) {
-      errors.push(
-        createError(
-          TRADE_VALIDATION_ERROR_CODES.VALUE_MUST_BE_POSITIVE,
-          field,
-          `${field} must be greater than 0`,
-        ),
-      );
-      return undefined;
-    }
-  } catch {
-    errors.push(invalidDecimalError(field));
-    return undefined;
-  }
-
-  return value;
-}
-
-function readNonNegativeFee(
-  value: unknown,
-  errors: TradeValidationError[],
-): DecimalString | undefined {
-  if (value === undefined) {
-    return "0";
-  }
-
-  if (typeof value !== "string") {
-    errors.push(invalidDecimalError("fee"));
-    return undefined;
-  }
-
-  try {
-    if (isNegative(value)) {
-      errors.push(
-        createError(
-          TRADE_VALIDATION_ERROR_CODES.FEE_MUST_BE_NON_NEGATIVE,
-          "fee",
-          "fee must be greater than or equal to 0",
-        ),
-      );
-      return undefined;
-    }
-  } catch {
-    errors.push(invalidDecimalError("fee"));
-    return undefined;
-  }
-
-  return value;
-}
-
-function readOptionalString(
-  input: Record<string, unknown>,
-  field: "feeCurrency" | "note" | "rawText",
-  errors: TradeValidationError[],
-): string | undefined {
-  const value = input[field];
-
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      field,
-      `${field} must be a string when provided`,
-    ),
-  );
-  return undefined;
-}
-
-function readOptionalPersistedString(
-  input: Record<string, unknown>,
-  field: "platform" | "feeRuleId",
-  errors: TradeValidationError[],
-): string | undefined {
-  const value = input[field];
-
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.trim() === value
-  ) {
-    return value;
-  }
-
-  errors.push(
-    createError(
-      TRADE_VALIDATION_ERROR_CODES.INVALID_INPUT,
-      field,
-      `${field} must be a non-empty string without surrounding whitespace when provided`,
-    ),
-  );
-  return undefined;
-}
-
-function validateTotalValueConsistency(
-  quantity: DecimalString,
-  price: DecimalString,
-  totalValue: DecimalString,
-  tolerance: DecimalString,
-  errors: TradeValidationError[],
-): void {
-  try {
-    const calculatedTotalValue = multiply(quantity, price);
-
-    if (!isWithinTolerance(calculatedTotalValue, totalValue, tolerance)) {
-      errors.push(
-        createError(
-          TRADE_VALIDATION_ERROR_CODES.TOTAL_VALUE_MISMATCH,
-          "totalValue",
-          `quantity × price is ${calculatedTotalValue}, but totalValue is ${totalValue}; allowed difference is ${tolerance}`,
-        ),
-      );
-    }
-  } catch {
-    errors.push(
-      createError(
-        TRADE_VALIDATION_ERROR_CODES.INVALID_DECIMAL,
-        "totalValueTolerance",
-        "totalValueTolerance must be a valid non-negative finite decimal string",
-      ),
-    );
-  }
-}
-
-function validateCurrencyConsistency(
-  assetSymbol: string,
-  currency: string,
-  assets: readonly Asset[],
-  priorTrades: readonly Trade[],
-  errors: TradeValidationError[],
-): void {
-  const asset = assets.find((item) => item.symbol === assetSymbol);
-  const hasPriorCurrencyMismatch = priorTrades.some(
-    (trade) =>
-      trade.assetSymbol === assetSymbol && trade.currency !== currency,
-  );
-
-  if (asset?.quoteCurrency !== currency || hasPriorCurrencyMismatch) {
-    errors.push(
-      createError(
-        TRADE_VALIDATION_ERROR_CODES.CURRENCY_MISMATCH,
-        "currency",
-        `currency must match ${assetSymbol} quote currency and existing trades`,
-      ),
-    );
-  }
-}
-
-/**
- * Reuse the canonical merged position replay so a transfer-supported sell is
- * accepted and exchange-location shortages are rejected. The synthetic
- * technical timestamp places the draft after existing same-occurrence facts;
- * tradeService replays once more with the final persisted ID and timestamp.
- */
-function validateHoldingsTimeline(
-  candidate: Trade,
-  priorTrades: readonly Trade[],
-  priorAssetTransfers: readonly AssetTransfer[],
-  errors: TradeValidationError[],
-): void {
-  try {
-    replayPositions([...priorTrades, candidate], priorAssetTransfers);
-  } catch (error) {
-    errors.push(
-      createError(
-        TRADE_VALIDATION_ERROR_CODES.INSUFFICIENT_HOLDINGS,
-        "quantity",
-        error instanceof Error
-          ? error.message
-          : `Adding this trade would invalidate the ${candidate.assetSymbol} holdings timeline`,
-      ),
-    );
-  }
-}
-
-function invalidDecimalError(
-  field: "quantity" | "price" | "totalValue" | "fee",
-): TradeValidationError {
-  return createError(
-    TRADE_VALIDATION_ERROR_CODES.INVALID_DECIMAL,
-    field,
-    `${field} must be a valid finite decimal string`,
-  );
-}
-
-function createError(
-  code: TradeValidationErrorCode,
-  field: TradeValidationField,
-  message: string,
-): TradeValidationError {
-  return { code, field, message };
 }
