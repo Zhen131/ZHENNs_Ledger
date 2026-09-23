@@ -59,7 +59,10 @@ import {
   doFinishGlobalOperation,
   doRefreshNonZeroHoldings,
 } from "./marketDataControlsGlobalRefresh";
-import { runMappingDraftSyncEffect } from "./marketDataControlsEffects";
+import {
+  runMappingDraftSyncEffect,
+  runOperationInvalidationEffect,
+} from "./marketDataControlsEffects";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -222,23 +225,17 @@ export function MarketDataControls({
   }, [assets, editingAssetSymbol]);
 
   useEffect(() => {
-    for (const [assetSymbol, operation] of assetOperationsRef.current) {
-      if (!assetOperationIsCurrent(operation)) {
-        operation.controller.abort();
-        assetOperationsRef.current.delete(assetSymbol);
-        setAssetFeedback((current) => {
-          const next = { ...current };
-          delete next[assetSymbol];
-          return next;
-        });
-      }
-    }
-    const globalOperation = globalOperationRef.current;
-    if (globalOperation && !globalOperationIsCurrent(globalOperation)) {
-      globalOperation.controller.abort();
-      globalOperationRef.current = null;
-      setRefreshState(createInitialRefreshState(t));
-    }
+    return runOperationInvalidationEffect(
+      {
+        assetOperationIsCurrent,
+        assetOperationsRef,
+        globalOperationIsCurrent,
+        globalOperationRef,
+        setAssetFeedback,
+        setRefreshState,
+        t,
+      },
+    );
   }, [
     assetIdentitySignature,
     isWritable,
