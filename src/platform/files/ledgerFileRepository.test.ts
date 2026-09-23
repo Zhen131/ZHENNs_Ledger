@@ -43,9 +43,11 @@ import {
   ledgerFileHeaderSlotOffsetV3S3,
   LEDGER_FILE_V3_S3_BODY_SLOT_BYTES,
   LEDGER_FILE_V3_S3_HEADER_SLOT_BYTES,
-  parseLedgerFileV3S3Candidates,
   type LedgerFileV3S3,
 } from "./ledgerFileChunkedContainerV3";
+import {
+  parseLedgerFileV3S3Candidates,
+} from "./ledgerFileChunkedContainerV3Parse";
 import {
   appendLedgerFileJsonWhitespaceForTest,
   decryptLedgerFileGenerationForTest,

@@ -23,12 +23,14 @@ import {
   type LedgerFileBodySlotV3S2,
 } from "./ledgerFileSlotContainerV3";
 import {
-  createLedgerFileBlockAadV3S3,
-  createLedgerFileManifestAadV3S3,
   LEDGER_FILE_OUTER_V3_S3_CONSTANTS,
   type EncryptedLedgerBlockV3S3,
   type LedgerFileV3S3,
 } from "./ledgerFileChunkedContainerV3";
+import {
+  createLedgerFileBlockAadV3S3,
+  createLedgerFileManifestAadV3S3,
+} from "./ledgerFileChunkedContainerV3Aad";
 
 const LEDGER_FILE_V2_KEY_DERIVATION_PARAMETERS = {
   kdfName: LEDGER_FILE_OUTER_V2_CONSTANTS.kdfName,
