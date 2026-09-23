@@ -35,11 +35,13 @@ import {
   base64UrlToBytes,
   bytesToBase64Url,
 } from "@/platform/encryption";
+import {
+  ledgerFileBytesToTestString,
+  ledgerFileTestStringToBytes,
+} from "./readLedgerFileForTestCodec";
 
 const V3_S3_FILE_SOURCE = Symbol("v3-s3-file-source");
 const V3_S3_GENERATION_SOURCE = Symbol("v3-s3-generation-source");
-const TEST_BINARY_STRING_CACHE_LIMIT = 8;
-const testBinaryStringBytes = new Map<string, Uint8Array>();
 
 type V3S3FileSource = {
   file: LedgerFileV3S3;
@@ -715,42 +717,6 @@ function toProductGenerationV3S2(
     ivBase64Url: generation.ivBase64Url,
     ciphertextBytes: base64UrlToBytes(generation.ciphertextBase64Url),
   };
-}
-
-export function ledgerFileWritableDataToBytes(
-  data: string | Uint8Array,
-): Uint8Array {
-  return typeof data === "string"
-    ? new TextEncoder().encode(data)
-    : Uint8Array.from(data);
-}
-
-export function ledgerFileBytesToTestString(bytes: Uint8Array): string {
-  if (!isLedgerFileV3Bytes(bytes)) {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-  }
-  const chunks: string[] = [];
-  for (let offset = 0; offset < bytes.byteLength; offset += 8_192) {
-    chunks.push(
-      String.fromCharCode(...bytes.subarray(offset, offset + 8_192)),
-    );
-  }
-  const value = chunks.join("");
-  testBinaryStringBytes.set(value, Uint8Array.from(bytes));
-  while (testBinaryStringBytes.size > TEST_BINARY_STRING_CACHE_LIMIT) {
-    testBinaryStringBytes.delete(testBinaryStringBytes.keys().next().value!);
-  }
-  return value;
-}
-
-export function ledgerFileTestStringToBytes(value: string): Uint8Array {
-  if (!value.startsWith("LFTL3\r\n\0")) {
-    return new TextEncoder().encode(value);
-  }
-  const cached = testBinaryStringBytes.get(value);
-  return cached
-    ? Uint8Array.from(cached)
-    : Uint8Array.from(value, (character) => character.charCodeAt(0));
 }
 
 export function readLedgerFileJsonHeaderForTest(
