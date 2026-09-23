@@ -28,6 +28,7 @@ import { LedgerNumber, useLanguage } from "@/ui";
 import type { PendingRisk, ArmedDelete } from "./cashEventPanelHelpers";
 import { SUCCESS_FEEDBACK_MS, cashTypeLabel } from "./cashEventPanelHelpers";
 import {
+  doApplyDelete,
   runCashFormEpochResetEffect,
   runCashPersistenceEffect,
 } from "./cashEventPanelActions";
@@ -256,16 +257,21 @@ export function CashEventPanel({
   }
 
   function applyDelete(cashEventId: string, timeSnapshot: LedgerTimeSnapshot) {
-    const outcome = onCashEventDeleted(cashEventId, timeSnapshot);
-    setArmedDelete(null);
-    if (outcome !== "applied") {
-      setError(outcome === "rejected" ? t("cash.status.ledgerNotWritable") : t("cash.status.notFound"));
-      return;
-    }
-    setPendingMutationVersion(mutationVersion + 1);
-    setPendingOperation("delete");
-    setFeedback(savingDeleteFeedback);
-    setError("");
+    return doApplyDelete(
+      {
+        mutationVersion,
+        onCashEventDeleted,
+        savingDeleteFeedback,
+        setArmedDelete,
+        setError,
+        setFeedback,
+        setPendingMutationVersion,
+        setPendingOperation,
+        t,
+      },
+      cashEventId,
+      timeSnapshot,
+    );
   }
 
   function confirmNegativeBalance() {

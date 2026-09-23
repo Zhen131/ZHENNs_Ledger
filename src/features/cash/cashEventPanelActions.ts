@@ -1,4 +1,7 @@
-import type { LedgerClock } from "@/core/shared";
+import type {
+  LedgerClock,
+  LedgerTimeSnapshot,
+} from "@/core/shared";
 import type {
   Dispatch,
   SetStateAction,
@@ -12,7 +15,10 @@ import {
   captureLedgerTime,
   getLedgerTimeZone,
 } from "@/core/shared";
-import type { PersistenceStatus } from "@/app";
+import type {
+  ApplyLedgerActionResult,
+  PersistenceStatus,
+} from "@/app";
 import type { useLanguage } from "@/ui";
 
 type CashFormEpochResetEffectDeps = {
@@ -120,4 +126,44 @@ export function runCashPersistenceEffect(
       setPendingMutationVersion(null);
       setPendingOperation(null);
     }
+}
+
+type ApplyDeleteDeps = {
+  mutationVersion: number;
+  onCashEventDeleted: (cashEventId: string, timeSnapshot: LedgerTimeSnapshot) => ApplyLedgerActionResult;
+  savingDeleteFeedback: string;
+  setArmedDelete: Dispatch<SetStateAction<ArmedDelete | null>>;
+  setError: Dispatch<SetStateAction<string>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
+  setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doApplyDelete(
+  deps: ApplyDeleteDeps,
+  cashEventId: string,
+  timeSnapshot: LedgerTimeSnapshot,
+) {
+  const {
+    mutationVersion,
+    onCashEventDeleted,
+    savingDeleteFeedback,
+    setArmedDelete,
+    setError,
+    setFeedback,
+    setPendingMutationVersion,
+    setPendingOperation,
+    t,
+  } = deps;
+    const outcome = onCashEventDeleted(cashEventId, timeSnapshot);
+    setArmedDelete(null);
+    if (outcome !== "applied") {
+      setError(outcome === "rejected" ? t("cash.status.ledgerNotWritable") : t("cash.status.notFound"));
+      return;
+    }
+    setPendingMutationVersion(mutationVersion + 1);
+    setPendingOperation("delete");
+    setFeedback(savingDeleteFeedback);
+    setError("");
 }
