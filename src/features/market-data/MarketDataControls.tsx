@@ -54,7 +54,10 @@ import type {
   GlobalRefreshState,
   GlobalOperation,
 } from "./marketDataControlsTypes";
-import { doCancelAssetOperation } from "./marketDataControlsAssetActions";
+import {
+  doCancelAssetOperation,
+  doFinishAssetOperation,
+} from "./marketDataControlsAssetActions";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -361,16 +364,18 @@ export function MarketDataControls({
     status: "saved" | "error",
     message: string,
   ) {
-    if (!assetOperationIsCurrent(operation)) return;
-    assetOperationsRef.current.delete(operation.assetSymbol);
-    if (!mountedRef.current) return;
-    setAssetFeedback((current) => ({
-      ...current,
-      [operation.assetSymbol]: { status, message },
-    }));
-    if (status === "saved" && operation.kind === "save-mapping") {
-      setEditingAssetSymbol(null);
-    }
+    return doFinishAssetOperation(
+      {
+        assetOperationIsCurrent,
+        assetOperationsRef,
+        mountedRef,
+        setAssetFeedback,
+        setEditingAssetSymbol,
+      },
+      operation,
+      status,
+      message,
+    );
   }
 
   async function fetchAndPersistAssetPrice(operation: AssetOperation) {
