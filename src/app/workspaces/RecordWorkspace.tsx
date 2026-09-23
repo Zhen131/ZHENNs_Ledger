@@ -35,6 +35,7 @@ import {
 } from "./recordWorkspaceActions";
 import { RecordWorkspacePriceSection } from "./RecordWorkspacePriceSection";
 import { RecordWorkspaceFactCard } from "./RecordWorkspaceFactCard";
+import { RecordWorkspaceTargetCard } from "./RecordWorkspaceTargetCard";
 
 export function RecordWorkspace({
   active,
@@ -266,43 +267,15 @@ export function RecordWorkspace({
         </p>
       ) : null}
 
-      <SurfaceCard className="min-w-0 p-5">
-        <label className="grid max-w-xl gap-2 text-sm font-medium">
-          {t("record.target.label")}
-          <select
-            className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-normal"
-            disabled={!isWritable}
-            onChange={(event) => {
-              if (event.target.value === "cash:USDT") {
-                updateRecordTarget({ kind: "cash", currency: "USDT" });
-                return;
-              }
-              if (event.target.value === "asset-transfer") {
-                updateRecordTarget({ kind: "asset-transfer" });
-                return;
-              }
-              const assetSymbol = event.target.value.slice("trade:".length);
-              updateRecordTarget({ kind: "trade", assetSymbol });
-              commitTradeDraft({ ...tradeDraft, assetSymbol });
-            }}
-            value={
-              recordTarget.kind === "cash"
-                ? "cash:USDT"
-                : recordTarget.kind === "asset-transfer"
-                  ? "asset-transfer"
-                  : `trade:${recordTarget.assetSymbol}`
-            }
-          >
-            <option value="cash:USDT">{t("record.target.cash")}</option>
-            <option value="asset-transfer">{t("record.target.assetTransfer")}</option>
-            {ledgerData.assets.map((asset) => (
-              <option key={asset.id} value={`trade:${asset.symbol}`}>
-                {asset.symbol} · {asset.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </SurfaceCard>
+      <RecordWorkspaceTargetCard
+        commitTradeDraft={commitTradeDraft}
+        isWritable={isWritable}
+        ledgerData={ledgerData}
+        recordTarget={recordTarget}
+        t={t}
+        tradeDraft={tradeDraft}
+        updateRecordTarget={updateRecordTarget}
+      />
 
       <div className="grid min-w-0 gap-4 min-[1100px]:grid-cols-[minmax(0,1.35fr)_minmax(320px,.85fr)]">
         <RecordWorkspaceFactCard
