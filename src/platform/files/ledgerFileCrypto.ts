@@ -17,11 +17,13 @@ import {
   type EncryptedLedgerGenerationV3S1,
 } from "./ledgerFileContainerV3";
 import {
-  createLedgerFileGenerationAadV3S2,
   LEDGER_FILE_OUTER_V3_S2_CONSTANTS,
   type EncryptedLedgerGenerationV3S2,
   type LedgerFileBodySlotV3S2,
 } from "./ledgerFileSlotContainerV3";
+import {
+  createLedgerFileGenerationAadV3S2,
+} from "./ledgerFileSlotContainerV3Aad";
 import {
   LEDGER_FILE_OUTER_V3_S3_CONSTANTS,
   type EncryptedLedgerBlockV3S3,

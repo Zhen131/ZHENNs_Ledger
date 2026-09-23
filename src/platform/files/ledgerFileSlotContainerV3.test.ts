@@ -7,14 +7,18 @@ import {
   ledgerFileBodySlotOffsetV3S2,
   ledgerFileHeaderSlotOffsetV3S2,
   nextLedgerFileBodySlotV3S2,
-  parseLedgerFileV3S2,
-  prepareLedgerFileUpdateV3S2,
-  readLedgerFileBodySlotV3S2,
-  serializeLedgerFileV3S2,
   type EncryptedLedgerGenerationV3S2,
   type LedgerFileBodySlotV3S2,
   type LedgerFileV3S2,
 } from "./ledgerFileSlotContainerV3";
+import {
+  parseLedgerFileV3S2,
+  readLedgerFileBodySlotV3S2,
+} from "./ledgerFileSlotContainerV3Parse";
+import {
+  prepareLedgerFileUpdateV3S2,
+  serializeLedgerFileV3S2,
+} from "./ledgerFileSlotContainerV3Serialize";
 
 const CRYPTO: LedgerFileCryptoV2 = {
   cryptoVersion: 1,
