@@ -71,6 +71,7 @@ import {
   doRemoveValidatedTrade,
   doRequestImmediateLock,
   runSavedFeedbackEffect,
+  runSessionFatalDeliveryEffect,
 } from "./dashboardShellActions";
 import { CompatibilityWarningList } from "./CompatibilityWarningList";
 import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
@@ -237,20 +238,14 @@ export function DashboardShell({
   }, [drainForSessionQuiesce, onSessionDrainReady, session]);
 
   useEffect(() => {
-    if (
-      !session ||
-      !sessionFatalSignal ||
-      !onSessionFatal ||
-      sessionFatalSignal.sessionId !== session.sessionId ||
-      sessionFatalSignal.sessionGeneration !== session.generation ||
-      deliveredFatalSignalRef.current === sessionFatalSignal
-    ) {
-      return;
-    }
-    deliveredFatalSignalRef.current = sessionFatalSignal;
-    void onSessionFatal(
-      drainForSessionQuiesce,
-      sessionFatalSignal,
+    return runSessionFatalDeliveryEffect(
+      {
+        deliveredFatalSignalRef,
+        drainForSessionQuiesce,
+        onSessionFatal,
+        session,
+        sessionFatalSignal,
+      },
     );
   }, [
     drainForSessionQuiesce,

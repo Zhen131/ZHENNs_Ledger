@@ -5,7 +5,10 @@ import type {
 } from "react";
 
 import type { LedgerData } from "@/core/models";
-import type { PersistentLedgerState } from "@/app/persistence";
+import type {
+  LedgerSessionFatalSignal,
+  PersistentLedgerState,
+} from "@/app/persistence";
 import { validateTradeRemoval } from "@/features/trades";
 import type { ConfirmDeleteOutcome, useLanguage } from "@/ui";
 import { validateAssetTransferRemoval } from "@/features/asset-transfers";
@@ -386,4 +389,39 @@ export function runSavedFeedbackEffect(
       FILE_SAVED_FEEDBACK_MS,
     );
     return () => clearTimeout(timeout);
+}
+
+type SessionFatalDeliveryEffectDeps = {
+  deliveredFatalSignalRef: RefObject<LedgerSessionFatalSignal | null>;
+  drainForSessionQuiesce: PersistentLedgerState["drainForSessionQuiesce"];
+  onSessionFatal: ((drain: PersistentLedgerState["drainForSessionQuiesce"], signal: LedgerSessionFatalSignal) => Promise<void>) | undefined;
+  session: LedgerSession | undefined;
+  sessionFatalSignal: PersistentLedgerState["sessionFatalSignal"];
+};
+
+export function runSessionFatalDeliveryEffect(
+  deps: SessionFatalDeliveryEffectDeps,
+) {
+  const {
+    deliveredFatalSignalRef,
+    drainForSessionQuiesce,
+    onSessionFatal,
+    session,
+    sessionFatalSignal,
+  } = deps;
+    if (
+      !session ||
+      !sessionFatalSignal ||
+      !onSessionFatal ||
+      sessionFatalSignal.sessionId !== session.sessionId ||
+      sessionFatalSignal.sessionGeneration !== session.generation ||
+      deliveredFatalSignalRef.current === sessionFatalSignal
+    ) {
+      return;
+    }
+    deliveredFatalSignalRef.current = sessionFatalSignal;
+    void onSessionFatal(
+      drainForSessionQuiesce,
+      sessionFatalSignal,
+    );
 }
