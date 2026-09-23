@@ -19,7 +19,6 @@ import {
   type LedgerTimeSnapshot,
 } from "@/core/shared";
 import { AssetTransferPanel } from "@/features/asset-transfers/ui";
-import { PriceForm } from "@/features/prices/ui";
 import { TradeForm } from "@/features/trades/ui";
 import { CashEventPanel } from "@/features/cash/ui";
 import { SurfaceCard, useLanguage } from "@/ui";
@@ -37,6 +36,7 @@ import {
   doResetPriceDraft,
   doResetTradeDraft,
 } from "./recordWorkspaceActions";
+import { RecordWorkspacePriceSection } from "./RecordWorkspacePriceSection";
 
 export function RecordWorkspace({
   active,
@@ -385,40 +385,22 @@ export function RecordWorkspace({
           )}
         </SurfaceCard>
 
-        <div className="grid min-w-0 content-start gap-4">
-          <SurfaceCard className="min-w-0 p-5">
-            <div className="mb-4">
-              <h3 className="font-semibold">{t("record.price.heading")}</h3>
-              <p className="mt-1 text-xs text-[var(--ledger-muted)]">
-                {t("record.price.description")}
-              </p>
-            </div>
-            <fieldset
-              className={isWritable ? "" : "opacity-60"}
-              disabled={!isWritable}
-            >
-              <PriceForm
-                clock={clock}
-                draft={priceDraft}
-                focusTargetRef={priceFocusRef}
-                ledgerData={ledgerData}
-                ledgerEpoch={ledgerEpoch}
-                mutationVersion={mutationVersion}
-                onDraftChange={commitPriceDraft}
-                onPriceSnapshotCreated={onPriceSnapshotCreated}
-                onReset={resetPriceDraft}
-                persistedVersion={persistedVersion}
-                persistenceStatus={persistenceStatus}
-              />
-            </fieldset>
-          </SurfaceCard>
-
-          {marketDataPanel ? (
-            <SurfaceCard className="min-w-0 p-5">
-              {marketDataPanel}
-            </SurfaceCard>
-          ) : null}
-        </div>
+        <RecordWorkspacePriceSection
+          clock={clock}
+          commitPriceDraft={commitPriceDraft}
+          isWritable={isWritable}
+          ledgerData={ledgerData}
+          ledgerEpoch={ledgerEpoch}
+          marketDataPanel={marketDataPanel}
+          mutationVersion={mutationVersion}
+          onPriceSnapshotCreated={onPriceSnapshotCreated}
+          persistedVersion={persistedVersion}
+          persistenceStatus={persistenceStatus}
+          priceDraft={priceDraft}
+          priceFocusRef={priceFocusRef}
+          resetPriceDraft={resetPriceDraft}
+          t={t}
+        />
       </div>
     </section>
   );
