@@ -37,7 +37,6 @@ import {
 import { useLanguage } from "@/ui";
 import {
   SUCCESS_FEEDBACK_MS,
-  calculateAutomaticTotal,
   getCashImpactPreview,
   getSelectedCandidate,
 } from "./tradeFormHelpers";
@@ -59,6 +58,7 @@ import {
 } from "./tradeFormActions";
 import { TradeFormPreviewAndSubmit } from "./TradeFormPreviewAndSubmit";
 import { TradeFormFeeSourcePanel } from "./TradeFormFeeSourcePanel";
+import { TradeFormTotalValueField } from "./TradeFormTotalValueField";
 
 type TradeFormProps = Readonly<{
   clock?: LedgerClock;
@@ -431,52 +431,15 @@ export function TradeForm({
         ) : null}
       </label>
 
-      <label className="grid gap-2 text-sm font-medium">
-        <span className="flex items-center justify-between gap-2">
-          {t("trades.form.field.totalValue")}
-          <span className="text-xs font-normal text-[var(--ledger-muted)]">
-            {form.totalValueMode === "auto" ? t("trades.form.totalValue.auto") : t("trades.form.totalValue.manual")}
-          </span>
-        </span>
-        <div className="flex gap-2">
-          <input
-            aria-label={t("trades.form.field.totalValue")}
-            className="min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 font-normal outline-none focus:border-slate-400"
-            inputMode="decimal"
-            onChange={(event) => updateField("totalValue", event.target.value)}
-            onClick={(event) => {
-              if (form.totalValueMode === "auto") event.currentTarget.select();
-            }}
-            onFocus={(event) => {
-              if (form.totalValueMode === "auto") event.currentTarget.select();
-            }}
-            placeholder="11"
-            value={form.totalValue}
-          />
-          <button
-            className="shrink-0 rounded-md border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700"
-            onClick={() => {
-              commitForm({
-                ...form,
-                totalValue: calculateAutomaticTotal(form.quantity, form.price),
-                totalValueMode: "auto",
-              });
-              setErrors((current) => ({
-                ...current,
-                totalValue: undefined,
-                form: undefined,
-              }));
-              setSuccessState("");
-            }}
-            type="button"
-          >
-            {t("trades.form.totalValue.recalculate")}
-          </button>
-        </div>
-        {errors.totalValue ? (
-          <span className="text-xs font-normal text-red-700">{errors.totalValue}</span>
-        ) : null}
-      </label>
+      <TradeFormTotalValueField
+        commitForm={commitForm}
+        errors={errors}
+        form={form}
+        setErrors={setErrors}
+        setSuccessState={setSuccessState}
+        t={t}
+        updateField={updateField}
+      />
 
       <label className="grid gap-2 text-sm font-medium">
         {t("trades.form.field.date")}
