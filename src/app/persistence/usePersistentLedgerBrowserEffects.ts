@@ -31,3 +31,28 @@ export function runClockRefreshEffect(
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
 }
+
+type LeaveWarningEffectDeps = {
+  isDirty: boolean;
+};
+
+export function runLeaveWarningEffect(
+  deps: LeaveWarningEffectDeps,
+) {
+  const {
+    isDirty,
+  } = deps;
+    if (!isDirty) {
+      return;
+    }
+
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", warnBeforeUnload);
+    };
+}

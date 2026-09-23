@@ -79,7 +79,10 @@ import {
   doDiscardDirtyChangesAndSwitchRepository,
   doTrackSessionAcceptedWork,
 } from "./usePersistentLedgerSession";
-import { runClockRefreshEffect } from "./usePersistentLedgerBrowserEffects";
+import {
+  runClockRefreshEffect,
+  runLeaveWarningEffect,
+} from "./usePersistentLedgerBrowserEffects";
 
 export type {
   ApplyLedgerActionResult,
@@ -385,19 +388,11 @@ export function usePersistentLedger(
   }, [clock, midnightDelay, todayKey]);
 
   useEffect(() => {
-    if (!isDirty) {
-      return;
-    }
-
-    function warnBeforeUnload(event: BeforeUnloadEvent) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", warnBeforeUnload);
-    };
+    return runLeaveWarningEffect(
+      {
+        isDirty,
+      },
+    );
   }, [isDirty]);
 
   useEffect(() =>
