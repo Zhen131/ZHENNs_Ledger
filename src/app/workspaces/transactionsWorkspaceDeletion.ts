@@ -14,6 +14,7 @@ import type { useLanguage } from "@/ui";
 import { validateTradeRemoval } from "@/features/trades";
 import { projectLedgerCashMutation } from "@/features/cash";
 import type { ApplyLedgerActionResult } from "@/app/persistence";
+import { DELETE_DELAY_MS } from "./transactionsWorkspaceHelpers";
 
 type FindCurrentItemDeps = {
   latestLedgerDataRef: RefObject<LedgerData>;
@@ -203,4 +204,74 @@ export function doArmDelete(
     setExpandedItemId(null);
     setArmedItemId(item.id);
     setFeedback("");
+}
+
+type ConfirmDeleteDeps = {
+  armedItemId: string | null;
+  finalizeDeleteRef: RefObject<(itemId: string, itemKind: ActivityKind) => void>;
+  findCurrentItem: (itemId: string, itemKind: ActivityKind) => LedgerActivityItem | null;
+  intervalRef: RefObject<ReturnType<typeof setInterval> | null>;
+  isWritable: boolean;
+  negativeDeleteTriggerRef: RefObject<HTMLElement | null>;
+  pendingDeleteRef: RefObject<PendingDelete | null>;
+  reviewRemoval: (item: LedgerActivityItem) => string | null;
+  setArmedItemId: Dispatch<SetStateAction<string | null>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingDelete: Dispatch<SetStateAction<PendingDelete | null>>;
+  setRemainingMs: Dispatch<SetStateAction<number>>;
+  t: ReturnType<typeof useLanguage>["t"];
+  timeoutRef: RefObject<ReturnType<typeof setTimeout> | null>;
+};
+
+export function doConfirmDelete(
+  deps: ConfirmDeleteDeps,
+  item: LedgerActivityItem,
+) {
+  const {
+    armedItemId,
+    finalizeDeleteRef,
+    findCurrentItem,
+    intervalRef,
+    isWritable,
+    negativeDeleteTriggerRef,
+    pendingDeleteRef,
+    reviewRemoval,
+    setArmedItemId,
+    setFeedback,
+    setPendingDelete,
+    setRemainingMs,
+    t,
+    timeoutRef,
+  } = deps;
+    if (!isWritable || armedItemId !== item.id) return;
+    const current = findCurrentItem(item.id, item.kind);
+    const error = current ? reviewRemoval(current) : reviewRemoval(item);
+    if (error || !current) {
+      setArmedItemId(null);
+      setFeedback(error ?? t("transactions.delete.factMissing"));
+      return;
+    }
+    negativeDeleteTriggerRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const deadline = Date.now() + DELETE_DELAY_MS;
+    const countdown: PendingDelete = {
+      itemId: item.id,
+      itemKind: item.kind,
+      phase: "countdown",
+      deadline,
+    };
+    pendingDeleteRef.current = countdown;
+    setPendingDelete(countdown);
+    setRemainingMs(DELETE_DELAY_MS);
+    setArmedItemId(null);
+    setFeedback(t("transactions.delete.undoWindow"));
+    intervalRef.current = setInterval(() => {
+      setRemainingMs(Math.max(0, deadline - Date.now()));
+    }, 100);
+    timeoutRef.current = setTimeout(
+      () => finalizeDeleteRef.current(item.id, item.kind),
+      DELETE_DELAY_MS,
+    );
 }

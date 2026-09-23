@@ -29,7 +29,6 @@ import type {
 } from "@/app/persistence";
 import { FilterSelect } from "./FilterSelect";
 import {
-  DELETE_DELAY_MS,
   SUCCESS_FEEDBACK_MS,
   activityFilterLabel,
 } from "./transactionsWorkspaceHelpers";
@@ -43,6 +42,7 @@ import type {
 import {
   doApplyReviewedDelete,
   doArmDelete,
+  doConfirmDelete,
   doFindCurrentItem,
   doProjectRemoval,
   doReviewRemoval,
@@ -368,36 +368,24 @@ export function TransactionsWorkspace({
   }
 
   function confirmDelete(item: LedgerActivityItem) {
-    if (!isWritable || armedItemId !== item.id) return;
-    const current = findCurrentItem(item.id, item.kind);
-    const error = current ? reviewRemoval(current) : reviewRemoval(item);
-    if (error || !current) {
-      setArmedItemId(null);
-      setFeedback(error ?? t("transactions.delete.factMissing"));
-      return;
-    }
-    negativeDeleteTriggerRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    const deadline = Date.now() + DELETE_DELAY_MS;
-    const countdown: PendingDelete = {
-      itemId: item.id,
-      itemKind: item.kind,
-      phase: "countdown",
-      deadline,
-    };
-    pendingDeleteRef.current = countdown;
-    setPendingDelete(countdown);
-    setRemainingMs(DELETE_DELAY_MS);
-    setArmedItemId(null);
-    setFeedback(t("transactions.delete.undoWindow"));
-    intervalRef.current = setInterval(() => {
-      setRemainingMs(Math.max(0, deadline - Date.now()));
-    }, 100);
-    timeoutRef.current = setTimeout(
-      () => finalizeDeleteRef.current(item.id, item.kind),
-      DELETE_DELAY_MS,
+    return doConfirmDelete(
+      {
+        armedItemId,
+        finalizeDeleteRef,
+        findCurrentItem,
+        intervalRef,
+        isWritable,
+        negativeDeleteTriggerRef,
+        pendingDeleteRef,
+        reviewRemoval,
+        setArmedItemId,
+        setFeedback,
+        setPendingDelete,
+        setRemainingMs,
+        t,
+        timeoutRef,
+      },
+      item,
     );
   }
 
