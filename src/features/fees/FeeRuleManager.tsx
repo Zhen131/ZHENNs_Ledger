@@ -19,11 +19,11 @@ import {
   initialForm,
   SUCCESS_FEEDBACK_MS,
   createUniqueFeeRuleId,
-  validateForm,
   isValidNonNegativeDecimal,
 } from "./feeRuleManagerHelpers";
 import {
   doApply,
+  doSubmitNewRule,
   runFeeRulePersistenceEffect,
 } from "./feeRuleManagerActions";
 
@@ -119,33 +119,17 @@ export function FeeRuleManager({
   }
 
   function submitNewRule(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const validation = validateForm(form, t);
-    if (validation) {
-      setError(validation);
-      return;
-    }
-    const id = createUniqueFeeRuleId(ledgerData);
-    if (!id) {
-      setError(t("fees.error.idGenerationExhausted"));
-      return;
-    }
-    const timestamp = captureLedgerTime(clock).now.toISOString();
-    const common = {
-      id,
-      name: form.name,
-      platform: form.platform,
-      assetSymbol: form.assetSymbol,
-      status: "active" as const,
-      currency: "USDT" as const,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-    const feeRule: FeeRule =
-      form.type === "fixed"
-        ? { ...common, type: "fixed", amount: form.value }
-        : { ...common, type: "percentage", rate: form.value };
-    apply({ type: "feeRule/add", feeRule }, t("fees.status.pendingAdd"));
+    return doSubmitNewRule(
+      {
+        apply,
+        clock,
+        form,
+        ledgerData,
+        setError,
+        t,
+      },
+      event,
+    );
   }
 
   function replaceRule(rule: FeeRule) {
