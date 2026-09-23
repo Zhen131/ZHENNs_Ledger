@@ -1,4 +1,8 @@
-import type { Dispatch, SetStateAction } from "react";
+import type {
+  Dispatch,
+  RefObject,
+  SetStateAction,
+} from "react";
 
 import type { LedgerData } from "@/core/models";
 import type { PersistentLedgerState } from "@/app/persistence";
@@ -6,6 +10,10 @@ import { validateTradeRemoval } from "@/features/trades";
 import type { ConfirmDeleteOutcome, useLanguage } from "@/ui";
 import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 import type { ClearConfirmationMode } from "./DashboardShellTypes";
+import type {
+  LedgerRepository,
+  LedgerStorageKind,
+} from "@/platform/persistence";
 
 type RemoveValidatedTradeDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
@@ -183,4 +191,76 @@ export function doOpenClearConfirmation(
     setClearConfirmationValue("");
     setClearConfirmationError("");
     setClearSuccessMessage("");
+}
+
+type HandleClearLedgerDeps = {
+  clearConfirmationNonce: string;
+  clearConfirmationPhrase: string;
+  clearConfirmationValue: string;
+  clearLedger: PersistentLedgerState["clearLedger"];
+  currentRepositoryRef: RefObject<LedgerRepository>;
+  mountedRef: RefObject<boolean>;
+  repository: LedgerRepository | undefined;
+  setClearConfirmationError: Dispatch<SetStateAction<string>>;
+  setClearConfirmationMode: Dispatch<SetStateAction<ClearConfirmationMode | null>>;
+  setClearConfirmationValue: Dispatch<SetStateAction<string>>;
+  setClearSuccessMessage: Dispatch<SetStateAction<string>>;
+  setSelectedTradeDate: Dispatch<SetStateAction<string | null>>;
+  setTradeRemovalError: Dispatch<SetStateAction<string>>;
+  storageKind: LedgerStorageKind;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export async function doHandleClearLedger(
+  deps: HandleClearLedgerDeps,
+) {
+  const {
+    clearConfirmationNonce,
+    clearConfirmationPhrase,
+    clearConfirmationValue,
+    clearLedger,
+    currentRepositoryRef,
+    mountedRef,
+    repository,
+    setClearConfirmationError,
+    setClearConfirmationMode,
+    setClearConfirmationValue,
+    setClearSuccessMessage,
+    setSelectedTradeDate,
+    setTradeRemovalError,
+    storageKind,
+    t,
+  } = deps;
+    if (clearConfirmationValue !== clearConfirmationPhrase) {
+      setClearConfirmationError(
+        `${t("dashboard.clearConfirmation.errorPrefix")}“${clearConfirmationPhrase}”`,
+      );
+      return;
+    }
+
+    const operationRepository = repository;
+    setClearConfirmationError("");
+    setClearSuccessMessage("");
+    const result = await clearLedger(clearConfirmationNonce);
+
+    if (
+      !mountedRef.current ||
+      currentRepositoryRef.current !== operationRepository
+    ) {
+      return;
+    }
+
+    if (!result.ok) {
+      return;
+    }
+
+    setTradeRemovalError("");
+    setSelectedTradeDate(null);
+    setClearConfirmationMode(null);
+    setClearConfirmationValue("");
+    setClearSuccessMessage(
+      storageKind === "ledger-file"
+        ? t("dashboard.clearSuccess.file")
+        : t("dashboard.clearSuccess.legacy"),
+    );
 }

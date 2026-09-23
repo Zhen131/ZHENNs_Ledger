@@ -65,6 +65,7 @@ import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
 import {
+  doHandleClearLedger,
   doHandleDeleteAllFutureFacts,
   doHandleDeleteFutureAssetTransfer,
   doHandleDeleteFuturePrice,
@@ -415,37 +416,24 @@ export function DashboardShell({
   }
 
   async function handleClearLedger() {
-    if (clearConfirmationValue !== clearConfirmationPhrase) {
-      setClearConfirmationError(
-        `${t("dashboard.clearConfirmation.errorPrefix")}“${clearConfirmationPhrase}”`,
-      );
-      return;
-    }
-
-    const operationRepository = repository;
-    setClearConfirmationError("");
-    setClearSuccessMessage("");
-    const result = await clearLedger(clearConfirmationNonce);
-
-    if (
-      !mountedRef.current ||
-      currentRepositoryRef.current !== operationRepository
-    ) {
-      return;
-    }
-
-    if (!result.ok) {
-      return;
-    }
-
-    setTradeRemovalError("");
-    setSelectedTradeDate(null);
-    setClearConfirmationMode(null);
-    setClearConfirmationValue("");
-    setClearSuccessMessage(
-      storageKind === "ledger-file"
-        ? t("dashboard.clearSuccess.file")
-        : t("dashboard.clearSuccess.legacy"),
+    return doHandleClearLedger(
+      {
+        clearConfirmationNonce,
+        clearConfirmationPhrase,
+        clearConfirmationValue,
+        clearLedger,
+        currentRepositoryRef,
+        mountedRef,
+        repository,
+        setClearConfirmationError,
+        setClearConfirmationMode,
+        setClearConfirmationValue,
+        setClearSuccessMessage,
+        setSelectedTradeDate,
+        setTradeRemovalError,
+        storageKind,
+        t,
+      },
     );
   }
 
