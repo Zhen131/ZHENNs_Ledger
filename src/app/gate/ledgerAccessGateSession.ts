@@ -18,7 +18,10 @@ import type {
 } from "./LedgerAccessGateTypes";
 import { pendingSessionCompletions } from "./LedgerAccessGateHelpers";
 import { LEDGER_ACCESS_ERROR_CODES } from "@/platform/legacy";
-import type { PersistentLedgerState } from "@/app/persistence";
+import type {
+  LedgerSessionFatalSignal,
+  PersistentLedgerState,
+} from "@/app/persistence";
 
 type InitializeDeps = {
   accessController: LedgerAccessController;
@@ -275,5 +278,67 @@ export function doFinishSessionLifecycle(
       session,
       drain,
       reason,
+    });
+}
+
+type FinishFatalSessionLifecycleDeps = {
+  activeSessionRef: RefObject<LedgerSession | null>;
+  finalLockRef: RefObject<{
+    session: LedgerSession;
+    promise: Promise<void>;
+  } | null>;
+  invalidateOperations: () => void;
+  setAccessState: Dispatch<SetStateAction<AccessState>>;
+  setConfirmation: Dispatch<SetStateAction<string>>;
+  setFormError: Dispatch<SetStateAction<string>>;
+  setPassphrase: Dispatch<SetStateAction<string>>;
+  setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>;
+  setRecoveryId: Dispatch<SetStateAction<string | null>>;
+  startSessionLifecycle: ({ session, drain, reason, fatal, }: { session: LedgerSession; drain: PersistentLedgerState["drainForSessionQuiesce"]; reason: SessionQuiesceReason; fatal?: boolean; }) => Promise<void>;
+};
+
+export function doFinishFatalSessionLifecycle(
+  deps: FinishFatalSessionLifecycleDeps,
+  drain: PersistentLedgerState["drainForSessionQuiesce"],
+  signal: LedgerSessionFatalSignal,
+): Promise<void> {
+  const {
+    activeSessionRef,
+    finalLockRef,
+    invalidateOperations,
+    setAccessState,
+    setConfirmation,
+    setFormError,
+    setPassphrase,
+    setReconnectError,
+    setRecoveryId,
+    startSessionLifecycle,
+  } = deps;
+    const session = activeSessionRef.current;
+    if (
+      !session ||
+      signal.code !== "IMPORT_RECOVERY_BLOCKED" ||
+      signal.sessionId !== session.sessionId ||
+      signal.sessionGeneration !== session.generation
+    ) {
+      return Promise.resolve();
+    }
+    const existing = finalLockRef.current;
+    if (existing?.session === session) {
+      return existing.promise;
+    }
+
+    invalidateOperations();
+    setPassphrase("");
+    setConfirmation("");
+    setRecoveryId(null);
+    setReconnectError(null);
+    setFormError("");
+    setAccessState({ status: "locking", fatal: true });
+    return startSessionLifecycle({
+      session,
+      drain,
+      reason: "immediate-lock",
+      fatal: true,
     });
 }

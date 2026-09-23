@@ -47,6 +47,7 @@ import { AccessCheckingPanel } from "./AccessCheckingPanel";
 import { SessionLockingPanel } from "./SessionLockingPanel";
 import { FormError } from "./FormError";
 import {
+  doFinishFatalSessionLifecycle,
   doFinishSessionLifecycle,
   doInitialize,
   runGateLifecycleEffect,
@@ -430,33 +431,22 @@ export function LedgerAccessGate({
     drain: PersistentLedgerState["drainForSessionQuiesce"],
     signal: LedgerSessionFatalSignal,
   ): Promise<void> {
-    const session = activeSessionRef.current;
-    if (
-      !session ||
-      signal.code !== "IMPORT_RECOVERY_BLOCKED" ||
-      signal.sessionId !== session.sessionId ||
-      signal.sessionGeneration !== session.generation
-    ) {
-      return Promise.resolve();
-    }
-    const existing = finalLockRef.current;
-    if (existing?.session === session) {
-      return existing.promise;
-    }
-
-    invalidateOperations();
-    setPassphrase("");
-    setConfirmation("");
-    setRecoveryId(null);
-    setReconnectError(null);
-    setFormError("");
-    setAccessState({ status: "locking", fatal: true });
-    return startSessionLifecycle({
-      session,
+    return doFinishFatalSessionLifecycle(
+      {
+        activeSessionRef,
+        finalLockRef,
+        invalidateOperations,
+        setAccessState,
+        setConfirmation,
+        setFormError,
+        setPassphrase,
+        setReconnectError,
+        setRecoveryId,
+        startSessionLifecycle,
+      },
       drain,
-      reason: "immediate-lock",
-      fatal: true,
-    });
+      signal,
+    );
   }
 
   function startSessionLifecycle({
