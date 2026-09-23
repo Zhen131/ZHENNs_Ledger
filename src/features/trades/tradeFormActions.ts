@@ -6,14 +6,33 @@ import type {
 import type { TradeWorkspaceDraft } from "./tradeWorkspaceDraft";
 import type {
   Dispatch,
+  FormEvent,
   RefObject,
   SetStateAction,
 } from "react";
 import type { useLanguage } from "@/ui";
-import { calculateAutomaticTotal } from "./tradeFormHelpers";
-import type { Trade } from "@/core/models";
-import type { LedgerTimeSnapshot } from "@/core/shared";
+import {
+  calculateAutomaticTotal,
+  formatValidationError,
+  toTradeFormField,
+} from "./tradeFormHelpers";
+import type {
+  DecimalString,
+  FeeRule,
+  LedgerData,
+  Trade,
+} from "@/core/models";
+import type {
+  LedgerClock,
+  LedgerTimeSnapshot,
+} from "@/core/shared";
 import type { ApplyLedgerActionResult } from "@/app";
+import {
+  captureLedgerTime,
+  resolveFactMoment,
+} from "@/core/shared";
+import { createValidatedTrade } from "./tradeService";
+import { projectLedgerCashMutation } from "@/features/cash";
 
 type UpdateFieldDeps = {
   commitForm: (next: TradeFormState) => void;
@@ -120,4 +139,129 @@ export function doApplyTrade(
     setErrors({});
     setPendingMutationVersion(mutationVersion + 1);
     setSuccessState("saving");
+}
+
+type HandleSubmitDeps = {
+  applyTrade: (trade: Trade, timeSnapshot: LedgerTimeSnapshot) => void;
+  clock: LedgerClock;
+  currency: "USDT";
+  feeCurrency: string;
+  form: TradeWorkspaceDraft;
+  ledgerData: LedgerData;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  pendingMutationVersion: number | null;
+  persistedVersion: number;
+  selectedCandidate: Readonly<{ rule: FeeRule; fee: DecimalString; currency: "USDT"; formula: string; }> | undefined;
+  setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
+  setPendingRisk: Dispatch<SetStateAction<PendingTradeRisk | null>>;
+  setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doHandleSubmit(
+  deps: HandleSubmitDeps,
+  event: FormEvent<HTMLFormElement>,
+) {
+  const {
+    applyTrade,
+    clock,
+    currency,
+    feeCurrency,
+    form,
+    ledgerData,
+    ledgerEpoch,
+    mutationVersion,
+    pendingMutationVersion,
+    persistedVersion,
+    selectedCandidate,
+    setErrors,
+    setPendingRisk,
+    setSuccessState,
+    t,
+  } = deps;
+    event.preventDefault();
+    if (pendingMutationVersion !== null) return;
+    const timeSnapshot = captureLedgerTime(clock);
+
+    const occurredTime = resolveFactMoment(
+      form.occurredAt,
+      form.occurredTime,
+      form.occurredTimeZone,
+    );
+    if (!occurredTime.ok) {
+      const message =
+        occurredTime.reason === "nonexistent"
+          ? t("trades.form.error.nonexistentWallTime")
+          : occurredTime.reason === "ambiguous"
+            ? t("trades.form.error.ambiguousWallTime")
+            : t("trades.form.error.invalidTimeZone");
+      setErrors({ occurredAt: message });
+      setSuccessState("");
+      return;
+    }
+
+    const result = createValidatedTrade(
+      {
+        ...occurredTime.value,
+        type: form.type,
+        assetSymbol: form.assetSymbol,
+        quantity: form.quantity,
+        price: form.price,
+        totalValue: form.totalValue,
+        currency,
+        fee: form.fee,
+        feeCurrency,
+        ...(form.platform === "" ? {} : { platform: form.platform }),
+        ...(selectedCandidate === undefined
+          ? {}
+          : { feeRuleId: selectedCandidate.rule.id }),
+        ...(form.note.trim() === "" ? {} : { note: form.note.trim() }),
+      },
+      ledgerData,
+      {
+        generateId: () => globalThis.crypto.randomUUID(),
+        now: () => timeSnapshot.now.toISOString(),
+        todayKey: () => timeSnapshot.todayKey,
+      },
+    );
+
+    if (!result.ok) {
+      if (result.kind === "service") {
+        setErrors({ form: t("trades.form.error.serviceUnavailable") });
+        return;
+      }
+
+      const nextErrors: Partial<Record<TradeFormField, string>> = {};
+      for (const error of result.errors) {
+        const field = toTradeFormField(error.field);
+        nextErrors[field] ??= formatValidationError(error, t);
+      }
+      setErrors(nextErrors);
+      setSuccessState("");
+      return;
+    }
+
+    const nextLedger = {
+      ...ledgerData,
+      trades: [...ledgerData.trades, result.trade],
+    };
+    const projection = projectLedgerCashMutation(
+      ledgerData,
+      nextLedger,
+      timeSnapshot.todayKey,
+    );
+    if (projection.requiresNegativeBalanceConfirmation) {
+      setPendingRisk({
+        trade: result.trade,
+        projection,
+        ledgerEpoch,
+        mutationVersion,
+        persistedVersion,
+        timeSnapshot,
+      });
+      return;
+    }
+
+    applyTrade(result.trade, timeSnapshot);
 }
