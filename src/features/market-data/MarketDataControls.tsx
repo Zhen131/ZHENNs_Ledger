@@ -27,14 +27,8 @@ import {
 import {
   createBinanceMarketDataClient,
   type BinanceMarketDataClient,
-  type BinanceMarketDataFailure,
 } from "@/platform/integrations";
-import {
-  ConfirmDeleteButton,
-  LedgerNumber,
-  type ConfirmDeleteOutcome,
-  useLanguage,
-} from "@/ui";
+import { LedgerNumber, type ConfirmDeleteOutcome, useLanguage } from "@/ui";
 import {
   getBinanceMappingSignature,
   setAssetBinanceMapping,
@@ -43,9 +37,23 @@ import {
 import {
   mergeBinancePriceRefresh,
   refreshBinancePrices,
-  type BinanceAssetRefreshFailure,
   type BinanceRefreshSuccess,
 } from "./binancePriceRefreshService";
+import { MappingRow } from "./MappingRow";
+import {
+  createInitialRefreshState,
+  isAssetOperationContextCurrent,
+  isGlobalOperationContextCurrent,
+  createMappingDrafts,
+  formatBinanceFailure,
+} from "./marketDataControlsHelpers";
+import type {
+  AssetOperationKind,
+  AssetOperation,
+  AssetFeedback,
+  GlobalRefreshState,
+  GlobalOperation,
+} from "./marketDataControlsTypes";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -73,65 +81,6 @@ type MarketDataControlsProps = {
   expandMappings?: boolean;
   compactMappings?: boolean;
 };
-
-type AssetOperationKind = "save-mapping" | "refresh-price";
-type AssetOperationPhase =
-  | "validating"
-  | "saving-mapping"
-  | "fetching-price"
-  | "saving-price";
-type AssetOperation = {
-  id: number;
-  kind: AssetOperationKind;
-  phase: AssetOperationPhase;
-  controller: AbortController;
-  ledgerEpoch: number;
-  sessionGeneration: number;
-  assetId: string;
-  assetSymbol: string;
-  startMappingSignature: string;
-  expectedMappingSignature: string;
-  mapping: BinanceMarketMapping | null;
-  expectedPersistedVersion: number | null;
-};
-
-type AssetOperationStatus =
-  | "idle"
-  | "validating"
-  | "saving-mapping"
-  | "fetching-price"
-  | "saving-price"
-  | "saved"
-  | "error";
-type AssetFeedback = {
-  status: AssetOperationStatus;
-  message: string;
-};
-type Translate = ReturnType<typeof useLanguage>["t"];
-
-type GlobalRefreshState = {
-  status: "idle" | "loading" | "saving" | "success" | "partial" | "error";
-  message: string;
-  failures: BinanceAssetRefreshFailure[];
-};
-type GlobalOperation = {
-  id: number;
-  controller: AbortController;
-  ledgerEpoch: number;
-  sessionGeneration: number;
-  mappingSignature: string;
-  expectedPersistedVersion: number | null;
-  appliedCount: number;
-  failures: BinanceAssetRefreshFailure[];
-};
-
-function createInitialRefreshState(t: Translate): GlobalRefreshState {
-  return {
-  status: "idle",
-  message: t("marketData.refresh.initial"),
-  failures: [],
-  };
-}
 
 export function MarketDataControls({
   ledgerData,
@@ -959,236 +908,4 @@ export function MarketDataControls({
       ) : null}
     </div>
   );
-}
-
-function MappingRow({
-  asset,
-  compact,
-  draft,
-  editing,
-  feedback,
-  globalBusy,
-  isWritable,
-  operationActive,
-  onCancel,
-  onDelete,
-  onDraftChange,
-  onEdit,
-  onRefresh,
-  onSave,
-  t,
-}: Readonly<{
-  asset: Asset;
-  compact: boolean;
-  draft: string;
-  editing: boolean;
-  feedback?: AssetFeedback;
-  globalBusy: boolean;
-  isWritable: boolean;
-  operationActive: boolean;
-  onCancel: () => void;
-  onDelete: () => ConfirmDeleteOutcome;
-  onDraftChange: (value: string) => void;
-  onEdit: () => void;
-  onRefresh: () => void;
-  onSave: () => void;
-  t: Translate;
-}>) {
-  const currentMapping = resolveAssetBinanceMappingForRuntime(asset);
-  const mayRestartValidation =
-    operationActive && feedback?.status === "validating";
-  const busy = (operationActive && !mayRestartValidation) || globalBusy;
-  const input = (
-    <input
-      aria-label={`${asset.symbol} ${t("marketData.mappings.binancePair")}`}
-      className="w-full rounded-md border border-slate-300 px-3 py-2 uppercase"
-      disabled={!isWritable || busy}
-      id={`mapping-${asset.id}`}
-      onChange={(event) => onDraftChange(event.target.value)}
-      placeholder={`${asset.symbol}USDT`}
-      value={draft}
-    />
-  );
-  const controls = (
-    <>
-      {editing || !compact ? (
-        <button
-          className="rounded-md border border-slate-300 px-3 py-2 font-medium disabled:opacity-50"
-          disabled={!isWritable || busy}
-          onClick={onSave}
-          type="button"
-        >
-          {feedback?.status === "saving-mapping"
-              ? t("marketData.mappings.savingMapping")
-              : feedback?.status === "fetching-price" ||
-                  feedback?.status === "saving-price"
-                ? t("marketData.mappings.savingFirstPrice")
-                : t("marketData.mappings.validateAndSave")}
-        </button>
-      ) : (
-        <button
-          className="rounded-md border border-slate-300 px-3 py-2 font-medium disabled:opacity-50"
-          disabled={!isWritable || busy}
-          onClick={onEdit}
-          type="button"
-        >
-          {t("marketData.mappings.edit")}
-        </button>
-      )}
-      {editing && compact ? (
-        <button
-          className="rounded-md border border-slate-200 px-3 py-2 font-medium disabled:opacity-50"
-          disabled={busy}
-          onClick={onCancel}
-          type="button"
-        >
-          {t("marketData.mappings.cancel")}
-        </button>
-      ) : null}
-      <button
-        className="rounded-md border border-slate-300 px-3 py-2 font-medium disabled:opacity-50"
-        disabled={!isWritable || busy || currentMapping === null}
-        onClick={onRefresh}
-        type="button"
-      >
-        {t("marketData.mappings.refreshAsset")}
-      </button>
-      <ConfirmDeleteButton
-        ariaLabel={`${t("marketData.mappings.deletePrefix")} ${asset.symbol} ${t("marketData.mappings.binanceMapping")}`}
-        disabled={!isWritable || busy || currentMapping === null}
-        label={t("marketData.mappings.delete")}
-        onConfirm={onDelete}
-      />
-    </>
-  );
-
-  if (compact) {
-    return (
-      <div className="grid gap-3 rounded-md border border-slate-200 p-3 md:grid-cols-[7rem_1fr_1fr_auto] md:items-center">
-        <p className="font-semibold">{asset.symbol}</p>
-        <div className="grid gap-2">
-          <p>{currentMapping?.symbol ?? t("marketData.mappings.notConfigured")}</p>
-          {editing ? input : null}
-        </div>
-        <div className="text-sm text-slate-600">
-          <p>{currentMapping ? t("marketData.mappings.explicitConfigured") : t("marketData.mappings.notConfiguredYet")}</p>
-          {feedback ? (
-            <p
-              aria-live="polite"
-              className={
-                feedback.status === "error" ? "mt-1 text-red-800" : "mt-1"
-              }
-            >
-              {feedback.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-2 md:justify-end">{controls}</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-2 rounded-md border border-slate-200 p-3 md:grid-cols-[8rem_1fr_auto]">
-      <label className="font-medium" htmlFor={`mapping-${asset.id}`}>
-        {asset.symbol}
-      </label>
-      {input}
-      <div className="flex flex-wrap gap-2">{controls}</div>
-      {feedback ? (
-        <p
-          aria-live="polite"
-          className={
-            feedback.status === "error"
-              ? "text-sm text-red-800 md:col-start-2 md:col-span-2"
-              : "text-sm text-slate-600 md:col-start-2 md:col-span-2"
-          }
-        >
-          {feedback.message}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function isAssetOperationContextCurrent(
-  operation: AssetOperation,
-  latest: {
-    ledgerData: LedgerData;
-    ledgerEpoch: number;
-    sessionGeneration: number;
-    isWritable: boolean;
-    mappingSignature: string;
-  },
-): boolean {
-  if (
-    !latest.isWritable ||
-    operation.controller.signal.aborted ||
-    latest.ledgerEpoch !== operation.ledgerEpoch ||
-    latest.sessionGeneration !== operation.sessionGeneration
-  ) {
-    return false;
-  }
-  const asset = latest.ledgerData.assets.find(
-    (candidate) => candidate.id === operation.assetId,
-  );
-  if (!asset || asset.symbol !== operation.assetSymbol) return false;
-  const expectedSignature =
-    operation.phase === "validating"
-      ? operation.startMappingSignature
-      : operation.expectedMappingSignature;
-  return latest.mappingSignature === expectedSignature;
-}
-
-function isGlobalOperationContextCurrent(
-  operation: GlobalOperation,
-  latest: {
-    ledgerEpoch: number;
-    sessionGeneration: number;
-    isWritable: boolean;
-    mappingSignature: string;
-  },
-): boolean {
-  return (
-    latest.isWritable &&
-    !operation.controller.signal.aborted &&
-    latest.ledgerEpoch === operation.ledgerEpoch &&
-    latest.sessionGeneration === operation.sessionGeneration &&
-    latest.mappingSignature === operation.mappingSignature
-  );
-}
-
-function createMappingDrafts(
-  assets: readonly Asset[],
-): Record<string, string> {
-  return Object.fromEntries(
-    assets.map((asset) => [
-      asset.symbol,
-      resolveAssetBinanceMappingForRuntime(asset)?.symbol ?? "",
-    ]),
-  );
-}
-
-function formatBinanceFailure(
-  failure: BinanceMarketDataFailure,
-  t: Translate,
-): string {
-  const labels: Record<BinanceMarketDataFailure["code"], string> = {
-    BINANCE_INVALID_SYMBOL_INPUT: t("marketData.failure.invalidSymbolInput"),
-    BINANCE_ABORTED: t("marketData.failure.aborted"),
-    BINANCE_TIMEOUT: t("marketData.failure.timeout"),
-    BINANCE_VALIDATION_UNAVAILABLE: t("marketData.failure.validationUnavailable"),
-    BINANCE_NETWORK_ERROR: t("marketData.failure.network"),
-    BINANCE_HTTP_ERROR: `${t("marketData.failure.http")}${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
-    BINANCE_RATE_LIMITED: `${t("marketData.failure.rateLimited")}${failure.httpStatus ? ` ${failure.httpStatus}` : ""}`,
-    BINANCE_MALFORMED_RESPONSE: t("marketData.failure.malformedResponse"),
-    BINANCE_SYMBOL_MISSING: t("marketData.failure.symbolMissing"),
-    BINANCE_SYMBOL_DUPLICATE: t("marketData.failure.symbolDuplicate"),
-    BINANCE_SYMBOL_NOT_TRADING: t("marketData.failure.symbolNotTrading"),
-    BINANCE_BASE_ASSET_MISMATCH: t("marketData.failure.baseAssetMismatch"),
-    BINANCE_QUOTE_ASSET_MISMATCH: t("marketData.failure.quoteAssetMismatch"),
-    BINANCE_SPOT_NOT_ALLOWED: t("marketData.failure.spotNotAllowed"),
-    BINANCE_INVALID_PRICE: t("marketData.failure.invalidPrice"),
-  };
-  return `${failure.code} · ${labels[failure.code]}`;
 }
