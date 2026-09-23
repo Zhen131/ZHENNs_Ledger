@@ -41,6 +41,7 @@ import type {
   ActivityLocationRequest,
 } from "./transactionsWorkspaceTypes";
 import {
+  doApplyReviewedDelete,
   doFindCurrentItem,
   doProjectRemoval,
   doReviewRemoval,
@@ -185,32 +186,21 @@ export function TransactionsWorkspace({
   }
 
   function applyReviewedDelete(item: LedgerActivityItem) {
-    const expectedMutationVersion = mutationVersionRef.current + 1;
-    const outcome =
-      item.kind === "trade"
-        ? onDeleteTradeRef.current(item.id)
-        : onDeleteCashEventRef.current(item.id);
-    if (outcome !== "applied") {
-      clearPendingDelete();
-      setPendingNegativeDelete(null);
-      setFeedback(
-        outcome === "rejected"
-          ? t("transactions.delete.ledgerNotWritable")
-          : `${item.kind === "trade" ? t("transactions.item.trade") : t("transactions.item.cashFact")}${t("transactions.delete.unchangedSuffix")}`,
-      );
-      return;
-    }
-    const persisting: PendingDelete = {
-      itemId: item.id,
-      itemKind: item.kind,
-      phase: "persisting",
-      expectedMutationVersion,
-    };
-    pendingDeleteRef.current = persisting;
-    setPendingDelete(persisting);
-    setPendingNegativeDelete(null);
-    setRemainingMs(0);
-    setFeedback(t("transactions.delete.saving"));
+    return doApplyReviewedDelete(
+      {
+        clearPendingDelete,
+        mutationVersionRef,
+        onDeleteCashEventRef,
+        onDeleteTradeRef,
+        pendingDeleteRef,
+        setFeedback,
+        setPendingDelete,
+        setPendingNegativeDelete,
+        setRemainingMs,
+        t,
+      },
+      item,
+    );
   }
 
   const finalizeDeleteRef = useRef<

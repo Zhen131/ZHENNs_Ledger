@@ -1,10 +1,19 @@
-import type { RefObject } from "react";
+import type {
+  Dispatch,
+  RefObject,
+  SetStateAction,
+} from "react";
 import type { LedgerData } from "@/core/models";
-import type { ActivityKind } from "./transactionsWorkspaceTypes";
+import type {
+  ActivityKind,
+  PendingDelete,
+  PendingNegativeDelete,
+} from "./transactionsWorkspaceTypes";
 import type { LedgerActivityItem } from "@/features/activity";
 import type { useLanguage } from "@/ui";
 import { validateTradeRemoval } from "@/features/trades";
 import { projectLedgerCashMutation } from "@/features/cash";
+import type { ApplyLedgerActionResult } from "@/app/persistence";
 
 type FindCurrentItemDeps = {
   latestLedgerDataRef: RefObject<LedgerData>;
@@ -101,4 +110,61 @@ export function doProjectRemoval(
       nextLedger,
       todayKeyRef.current,
     );
+}
+
+type ApplyReviewedDeleteDeps = {
+  clearPendingDelete: () => void;
+  mutationVersionRef: RefObject<number>;
+  onDeleteCashEventRef: RefObject<(cashEventId: string) => ApplyLedgerActionResult>;
+  onDeleteTradeRef: RefObject<(tradeId: string) => ApplyLedgerActionResult>;
+  pendingDeleteRef: RefObject<PendingDelete | null>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingDelete: Dispatch<SetStateAction<PendingDelete | null>>;
+  setPendingNegativeDelete: Dispatch<SetStateAction<PendingNegativeDelete | null>>;
+  setRemainingMs: Dispatch<SetStateAction<number>>;
+  t: ReturnType<typeof useLanguage>["t"];
+};
+
+export function doApplyReviewedDelete(
+  deps: ApplyReviewedDeleteDeps,
+  item: LedgerActivityItem,
+) {
+  const {
+    clearPendingDelete,
+    mutationVersionRef,
+    onDeleteCashEventRef,
+    onDeleteTradeRef,
+    pendingDeleteRef,
+    setFeedback,
+    setPendingDelete,
+    setPendingNegativeDelete,
+    setRemainingMs,
+    t,
+  } = deps;
+    const expectedMutationVersion = mutationVersionRef.current + 1;
+    const outcome =
+      item.kind === "trade"
+        ? onDeleteTradeRef.current(item.id)
+        : onDeleteCashEventRef.current(item.id);
+    if (outcome !== "applied") {
+      clearPendingDelete();
+      setPendingNegativeDelete(null);
+      setFeedback(
+        outcome === "rejected"
+          ? t("transactions.delete.ledgerNotWritable")
+          : `${item.kind === "trade" ? t("transactions.item.trade") : t("transactions.item.cashFact")}${t("transactions.delete.unchangedSuffix")}`,
+      );
+      return;
+    }
+    const persisting: PendingDelete = {
+      itemId: item.id,
+      itemKind: item.kind,
+      phase: "persisting",
+      expectedMutationVersion,
+    };
+    pendingDeleteRef.current = persisting;
+    setPendingDelete(persisting);
+    setPendingNegativeDelete(null);
+    setRemainingMs(0);
+    setFeedback(t("transactions.delete.saving"));
 }
