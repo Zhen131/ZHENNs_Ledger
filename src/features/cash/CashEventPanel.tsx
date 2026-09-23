@@ -12,7 +12,6 @@ import {
   captureLedgerTime,
   FACT_TIME_ZONE_OPTIONS,
   getLedgerTimeZone,
-  resolveFactMoment,
   systemLedgerClock,
   type LedgerClock,
   type LedgerTimeSnapshot,
@@ -21,7 +20,6 @@ import {
   getActivityPageCount,
   getActivityPageItems,
 } from "@/features/activity";
-import { createValidatedCashEvent } from "./cashEventService";
 import { projectLedgerCashMutation } from "./cashProjection";
 import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog";
 import { LedgerNumber, useLanguage } from "@/ui";
@@ -29,6 +27,7 @@ import type { PendingRisk, ArmedDelete } from "./cashEventPanelHelpers";
 import { SUCCESS_FEEDBACK_MS, cashTypeLabel } from "./cashEventPanelHelpers";
 import {
   doApplyDelete,
+  doHandleSubmit,
   runCashFormEpochResetEffect,
   runCashPersistenceEffect,
 } from "./cashEventPanelActions";
@@ -161,51 +160,31 @@ export function CashEventPanel({
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!isWritable || pendingMutationVersion !== null) return;
-    const timeSnapshot = captureLedgerTime(clock);
-    const moment = resolveFactMoment(occurredAt, occurredTime, occurredTimeZone);
-    if (!moment.ok) {
-      setError(
-        t(
-          moment.reason === "nonexistent"
-            ? "cash.validation.nonexistentWallTime"
-            : moment.reason === "ambiguous"
-              ? "cash.validation.ambiguousWallTime"
-              : "cash.validation.invalidTimeZone",
-        ),
-      );
-      setFeedback("");
-      return;
-    }
-    const result = createValidatedCashEvent(
-      { type, ...moment.value, amountOrTarget, note },
-      ledgerData,
+    return doHandleSubmit(
       {
-        generateId: () => globalThis.crypto.randomUUID(),
-        now: () => timeSnapshot.now.toISOString(),
-        todayKey: () => timeSnapshot.todayKey,
-      },
-    );
-    if (!result.ok) {
-      setError(result.error.message);
-      setFeedback("");
-      return;
-    }
-    if (result.projection.requiresNegativeBalanceConfirmation) {
-      lastRiskTriggerRef.current = submitButtonRef.current;
-      setPendingRisk({
-        operation: "add",
-        cashEvent: result.cashEvent,
-        projection: result.projection,
+        amountOrTarget,
+        applyAdd,
+        clock,
+        isWritable,
+        lastRiskTriggerRef,
+        ledgerData,
         ledgerEpoch,
         mutationVersion,
+        note,
+        occurredAt,
+        occurredTime,
+        occurredTimeZone,
+        pendingMutationVersion,
         persistedVersion,
-        timeSnapshot,
-      });
-      return;
-    }
-    applyAdd(result.cashEvent, timeSnapshot);
+        setError,
+        setFeedback,
+        setPendingRisk,
+        submitButtonRef,
+        t,
+        type,
+      },
+      event,
+    );
   }
 
   function requestDelete(cashEvent: CashEvent, trigger: HTMLButtonElement) {

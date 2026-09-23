@@ -4,22 +4,30 @@ import type {
 } from "@/core/shared";
 import type {
   Dispatch,
+  FormEvent,
+  RefObject,
   SetStateAction,
 } from "react";
 import type {
   ArmedDelete,
   PendingRisk,
 } from "./cashEventPanelHelpers";
-import type { CashEventType } from "@/core/models";
+import type {
+  CashEvent,
+  CashEventType,
+  LedgerData,
+} from "@/core/models";
 import {
   captureLedgerTime,
   getLedgerTimeZone,
+  resolveFactMoment,
 } from "@/core/shared";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
 } from "@/app";
 import type { useLanguage } from "@/ui";
+import { createValidatedCashEvent } from "./cashEventService";
 
 type CashFormEpochResetEffectDeps = {
   clock: LedgerClock;
@@ -166,4 +174,100 @@ export function doApplyDelete(
     setPendingOperation("delete");
     setFeedback(savingDeleteFeedback);
     setError("");
+}
+
+type HandleSubmitDeps = {
+  amountOrTarget: string;
+  applyAdd: (cashEvent: CashEvent, timeSnapshot: LedgerTimeSnapshot) => void;
+  clock: LedgerClock;
+  isWritable: boolean;
+  lastRiskTriggerRef: RefObject<HTMLElement | null>;
+  ledgerData: LedgerData;
+  ledgerEpoch: number;
+  mutationVersion: number;
+  note: string;
+  occurredAt: string;
+  occurredTime: string;
+  occurredTimeZone: string;
+  pendingMutationVersion: number | null;
+  persistedVersion: number;
+  setError: Dispatch<SetStateAction<string>>;
+  setFeedback: Dispatch<SetStateAction<string>>;
+  setPendingRisk: Dispatch<SetStateAction<PendingRisk | null>>;
+  submitButtonRef: RefObject<HTMLButtonElement | null>;
+  t: ReturnType<typeof useLanguage>["t"];
+  type: CashEventType;
+};
+
+export function doHandleSubmit(
+  deps: HandleSubmitDeps,
+  event: FormEvent<HTMLFormElement>,
+) {
+  const {
+    amountOrTarget,
+    applyAdd,
+    clock,
+    isWritable,
+    lastRiskTriggerRef,
+    ledgerData,
+    ledgerEpoch,
+    mutationVersion,
+    note,
+    occurredAt,
+    occurredTime,
+    occurredTimeZone,
+    pendingMutationVersion,
+    persistedVersion,
+    setError,
+    setFeedback,
+    setPendingRisk,
+    submitButtonRef,
+    t,
+    type,
+  } = deps;
+    event.preventDefault();
+    if (!isWritable || pendingMutationVersion !== null) return;
+    const timeSnapshot = captureLedgerTime(clock);
+    const moment = resolveFactMoment(occurredAt, occurredTime, occurredTimeZone);
+    if (!moment.ok) {
+      setError(
+        t(
+          moment.reason === "nonexistent"
+            ? "cash.validation.nonexistentWallTime"
+            : moment.reason === "ambiguous"
+              ? "cash.validation.ambiguousWallTime"
+              : "cash.validation.invalidTimeZone",
+        ),
+      );
+      setFeedback("");
+      return;
+    }
+    const result = createValidatedCashEvent(
+      { type, ...moment.value, amountOrTarget, note },
+      ledgerData,
+      {
+        generateId: () => globalThis.crypto.randomUUID(),
+        now: () => timeSnapshot.now.toISOString(),
+        todayKey: () => timeSnapshot.todayKey,
+      },
+    );
+    if (!result.ok) {
+      setError(result.error.message);
+      setFeedback("");
+      return;
+    }
+    if (result.projection.requiresNegativeBalanceConfirmation) {
+      lastRiskTriggerRef.current = submitButtonRef.current;
+      setPendingRisk({
+        operation: "add",
+        cashEvent: result.cashEvent,
+        projection: result.projection,
+        ledgerEpoch,
+        mutationVersion,
+        persistedVersion,
+        timeSnapshot,
+      });
+      return;
+    }
+    applyAdd(result.cashEvent, timeSnapshot);
 }
