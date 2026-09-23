@@ -22,6 +22,7 @@ import {
   validateForm,
   isValidNonNegativeDecimal,
 } from "./feeRuleManagerHelpers";
+import { runFeeRulePersistenceEffect } from "./feeRuleManagerActions";
 
 type FeeRuleManagerProps = Readonly<{
   clock?: LedgerClock;
@@ -76,20 +77,18 @@ export function FeeRuleManager({
   }, [ledgerEpoch]);
 
   useEffect(() => {
-    if (pendingVersion === null) return;
-    if (
-      persistedVersion >= pendingVersion &&
-      persistenceStatus === "saved"
-    ) {
-      setPendingVersion(null);
-      setMessage(certifiedSavedMessage);
-      return;
-    }
-    if (persistenceStatus === "error") {
-      setPendingVersion(null);
-      setMessage("");
-      setError(t("fees.status.unsaved"));
-    }
+    return runFeeRulePersistenceEffect(
+      {
+        certifiedSavedMessage,
+        pendingVersion,
+        persistedVersion,
+        persistenceStatus,
+        setError,
+        setMessage,
+        setPendingVersion,
+        t,
+      },
+    );
   }, [certifiedSavedMessage, pendingVersion, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {
