@@ -12,10 +12,8 @@ import {
   readLedgerFileForTest,
   serializeLedgerFileForTest,
 } from "@/test-support";
-import {
-  LedgerFileHandleAdapter,
-  type LedgerFileHandle,
-} from "./ledgerFileHandleAdapter";
+import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { type LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
 import {
   inspectLedgerFile,
   LedgerFileRepository,

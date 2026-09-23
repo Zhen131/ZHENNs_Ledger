@@ -12,6 +12,7 @@ export * from "./ledgerFileSlotContainerV3Serialize";
 export * from "./ledgerFileContract";
 export * from "./ledgerFileCrypto";
 export * from "./ledgerFileHandleAdapter";
+export * from "./ledgerFileHandleAdapterContract";
 export * from "./ledgerFileRepository";
 export * from "./ledgerFileRepositoryContract";
 export * from "./ledgerFileSessionLease";

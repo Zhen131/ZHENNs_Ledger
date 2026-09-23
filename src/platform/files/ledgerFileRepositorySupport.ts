@@ -1,4 +1,4 @@
-import { LedgerFileAdapterError } from "./ledgerFileHandleAdapter";
+import { LedgerFileAdapterError } from "./ledgerFileHandleAdapterContract";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
   LedgerFileRepositoryError,

@@ -1,7 +1,5 @@
-import {
-  type LedgerFileHandle,
-  type LedgerFileHandleAdapter,
-} from "./ledgerFileHandleAdapter";
+import { type LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { type LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
 import {
   createCanonicalLedgerPayloadV4,
   type CanonicalLedgerPayloadV4,

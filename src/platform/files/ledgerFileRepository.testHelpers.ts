@@ -1,10 +1,10 @@
 import { expect, vi } from "vitest";
 
+import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
 import {
-  LedgerFileHandleAdapter,
   type LedgerFileHandle,
   type LedgerFileWritable,
-} from "./ledgerFileHandleAdapter";
+} from "./ledgerFileHandleAdapterContract";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import {
   createBackupEnvelope,

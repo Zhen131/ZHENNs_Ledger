@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { MAX_LEDGER_FILE_V2_BYTES } from "./ledgerFileContract";
+import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
 import {
   LedgerFileAdapterError,
-  LedgerFileHandleAdapter,
   type LedgerFileHandle,
   type LedgerFilePickerProvider,
   type LedgerFileWritable,
-} from "./ledgerFileHandleAdapter";
+} from "./ledgerFileHandleAdapterContract";
 import { applyLedgerFileWritableDataForTest } from "@/test-support";
 
 class AtomicFakeHandle implements LedgerFileHandle {

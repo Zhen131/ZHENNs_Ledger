@@ -1,4 +1,4 @@
-import type { LedgerFileHandle } from "./ledgerFileHandleAdapter";
+import type { LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
 import { LEDGER_FILE_OUTER_V2_CONSTANTS } from "./ledgerFileContract";
 
 export const LEDGER_FILE_CONNECTION_DEFAULTS = {
