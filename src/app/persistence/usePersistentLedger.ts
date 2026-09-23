@@ -75,7 +75,10 @@ import {
   doApplyLedgerMutation,
 } from "./usePersistentLedgerActions";
 import { doReplaceLedgerFromBackup } from "./usePersistentLedgerImport";
-import { doTrackSessionAcceptedWork } from "./usePersistentLedgerSession";
+import {
+  doDiscardDirtyChangesAndSwitchRepository,
+  doTrackSessionAcceptedWork,
+} from "./usePersistentLedgerSession";
 
 export type {
   ApplyLedgerActionResult,
@@ -605,28 +608,20 @@ export function usePersistentLedger(
   );
 
   const discardDirtyChangesAndSwitchRepository = useCallback((): boolean => {
-    const versionState = persistenceVersionStateRef.current;
-
-    if (
-      !acceptingOperationsRef.current ||
-      operationRef.current !== "idle" ||
-      isSamePersistenceTarget(
-        activePersistenceTargetRef.current.repository,
-        activePersistenceTargetRef.current.session,
+    return doDiscardDirtyChangesAndSwitchRepository(
+      {
+        acceptingOperationsRef,
+        activePersistenceTargetRef,
+        failedSnapshotRef,
+        operationRef,
+        persistenceVersionStateRef,
+        repositorySwitchPermissionRef,
+        requestRepositorySwitchRender,
         requestedPersistenceRepository,
         requestedSession,
-      ) ||
-      versionState.persistedVersion === versionState.mutationVersion
-    ) {
-      return false;
-    }
-
-    repositorySwitchPermissionRef.current =
-      requestedPersistenceRepository;
-    failedSnapshotRef.current = null;
-    retryAttemptRef.current = null;
-    requestRepositorySwitchRender((current) => current + 1);
-    return true;
+        retryAttemptRef,
+      },
+    );
   }, [requestedPersistenceRepository, requestedSession]);
 
   const clearLedger = useCallback(
