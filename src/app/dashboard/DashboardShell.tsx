@@ -65,6 +65,7 @@ import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
 import {
+  doHandleDeleteAllFutureFacts,
   doHandleDeleteFutureAssetTransfer,
   doHandleDeleteFuturePrice,
   doRemoveValidatedTrade,
@@ -375,17 +376,15 @@ export function DashboardShell({
   }
 
   function handleDeleteAllFutureFacts(): ConfirmDeleteOutcome {
-    if (!canCorrectFutureFacts) {
-      return "rejected";
-    }
-    const outcome = applyLedgerAction({
-      type: "futureFacts/deleteAll",
-      todayKey,
-    });
-    setFutureCorrectionError(
-      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
+    return doHandleDeleteAllFutureFacts(
+      {
+        applyLedgerAction,
+        canCorrectFutureFacts,
+        setFutureCorrectionError,
+        t,
+        todayKey,
+      },
     );
-    return outcome;
   }
 
   function openClearConfirmation(mode: ClearConfirmationMode) {

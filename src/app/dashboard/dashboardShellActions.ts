@@ -111,3 +111,34 @@ export function doHandleDeleteFutureAssetTransfer(
     );
     return outcome;
 }
+
+type HandleDeleteAllFutureFactsDeps = {
+  applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
+  canCorrectFutureFacts: boolean;
+  setFutureCorrectionError: Dispatch<SetStateAction<string>>;
+  t: ReturnType<typeof useLanguage>["t"];
+  todayKey: PersistentLedgerState["todayKey"];
+};
+
+export function doHandleDeleteAllFutureFacts(
+  deps: HandleDeleteAllFutureFactsDeps,
+): ConfirmDeleteOutcome {
+  const {
+    applyLedgerAction,
+    canCorrectFutureFacts,
+    setFutureCorrectionError,
+    t,
+    todayKey,
+  } = deps;
+    if (!canCorrectFutureFacts) {
+      return "rejected";
+    }
+    const outcome = applyLedgerAction({
+      type: "futureFacts/deleteAll",
+      todayKey,
+    });
+    setFutureCorrectionError(
+      outcome === "rejected" ? t("dashboard.delete.ledgerNotWritable") : "",
+    );
+    return outcome;
+}
