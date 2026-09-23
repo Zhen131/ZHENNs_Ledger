@@ -18,9 +18,9 @@ import {
 } from "./ledgerFileHandleAdapter";
 import {
   inspectLedgerFile,
-  LEDGER_FILE_REPOSITORY_ERROR_CODES,
   LedgerFileRepository,
 } from "./ledgerFileRepository";
+import { LEDGER_FILE_REPOSITORY_ERROR_CODES } from "./ledgerFileRepositoryContract";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 
 const GOLDEN_BACKUP_URL = new URL(

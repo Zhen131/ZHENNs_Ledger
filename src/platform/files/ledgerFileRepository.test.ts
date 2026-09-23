@@ -32,10 +32,8 @@ import {
   LedgerSessionLifecycleError,
   type LedgerBackupImportEvidence,
 } from "@/platform/persistence";
-import {
-  LEDGER_FILE_REPOSITORY_ERROR_CODES,
-  LedgerFileRepository,
-} from "./ledgerFileRepository";
+import { LedgerFileRepository } from "./ledgerFileRepository";
+import { LEDGER_FILE_REPOSITORY_ERROR_CODES } from "./ledgerFileRepositoryContract";
 import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
 import {
   ledgerFileBodySlotOffsetV3S2,
