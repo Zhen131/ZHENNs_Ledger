@@ -22,32 +22,11 @@ import {
   getActivityPageItems,
 } from "@/features/activity";
 import { createValidatedCashEvent } from "./cashEventService";
-import {
-  projectLedgerCashMutation,
-  type CashMutationProjection,
-} from "./cashProjection";
+import { projectLedgerCashMutation } from "./cashProjection";
 import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog";
 import { LedgerNumber, useLanguage } from "@/ui";
-
-type PendingRisk = Readonly<{
-  operation: "add" | "delete";
-  cashEvent: CashEvent;
-  projection: CashMutationProjection;
-  ledgerEpoch: number;
-  mutationVersion: number;
-  persistedVersion: number;
-  timeSnapshot: LedgerTimeSnapshot;
-}>;
-
-type ArmedDelete = Readonly<{
-  cashEventId: string;
-  ledgerEpoch: number;
-  mutationVersion: number;
-  persistedVersion: number;
-}>;
-
-const SUCCESS_FEEDBACK_MS = 4_000;
-type Translate = ReturnType<typeof useLanguage>["t"];
+import type { PendingRisk, ArmedDelete } from "./cashEventPanelHelpers";
+import { SUCCESS_FEEDBACK_MS, cashTypeLabel } from "./cashEventPanelHelpers";
 
 export function CashEventPanel({
   clock = systemLedgerClock,
@@ -534,13 +513,4 @@ export function CashEventPanel({
       ) : null}
     </div>
   );
-}
-
-function cashTypeLabel(type: CashEventType, t: Translate): string {
-  return {
-    deposit: t("cash.type.deposit"),
-    withdrawal: t("cash.type.withdrawal"),
-    "external-expense": t("cash.type.externalExpense"),
-    "balance-adjustment": t("cash.type.balanceAdjustment"),
-  }[type];
 }
