@@ -21,13 +21,12 @@ import {
 } from "@/core/shared";
 import {
   getPositionsFromLedger,
-  selectPriceAsOf,
 } from "@/features/portfolio";
 import {
   createBinanceMarketDataClient,
   type BinanceMarketDataClient,
 } from "@/platform/integrations";
-import { LedgerNumber, type ConfirmDeleteOutcome, useLanguage } from "@/ui";
+import { type ConfirmDeleteOutcome, useLanguage } from "@/ui";
 import {
   getBinanceMappingSignature,
 } from "./binanceMappingService";
@@ -37,7 +36,6 @@ import {
   isAssetOperationContextCurrent,
   isGlobalOperationContextCurrent,
   createMappingDrafts,
-  formatBinanceFailure,
 } from "./marketDataControlsHelpers";
 import type {
   AssetOperationKind,
@@ -66,6 +64,7 @@ import {
   runPersistenceProgressEffect,
 } from "./marketDataControlsEffects";
 import { MarketDataControlsRefreshBar } from "./MarketDataControlsRefreshBar";
+import { MarketDataControlsHoldingsList } from "./MarketDataControlsHoldingsList";
 
 const defaultClient = createBinanceMarketDataClient();
 
@@ -465,47 +464,14 @@ export function MarketDataControls({
       </div>
 
       {showRefresh ? (
-        <div className="grid gap-3">
-          <h3 className="font-semibold">{t("marketData.holdings.heading")}</h3>
-          {currentPositions.length === 0 ? (
-            <p className="text-sm text-slate-500">{t("marketData.holdings.empty")}</p>
-          ) : (
-            <ul className="grid gap-1 text-sm text-slate-700">
-              {currentPositions.map((position) => {
-                const asset = ledgerData.assets.find(
-                  (candidate) => candidate.symbol === position.assetSymbol,
-                );
-                const selected = asset
-                  ? selectPriceAsOf(
-                      ledgerData.priceSnapshots,
-                      asset,
-                      activeTodayKey,
-                      mode,
-                    )
-                  : undefined;
-                const failure = refreshState.failures.find(
-                  (item) => item.assetSymbol === position.assetSymbol,
-                );
-                return (
-                  <li key={position.assetSymbol}>
-                    <strong>{position.assetSymbol}</strong>{t("marketData.holdings.colonSeparator")}
-                    {selected ? (
-                      <>
-                        <LedgerNumber kind="money" value={selected.snapshot.price} />{" "}
-                        {selected.snapshot.currency} · {selected.actualSource === "binance"
-                          ? "Binance"
-                          : t("marketData.holdings.manual")} · {t("marketData.holdings.asOf")} {selected.asOf}
-                      </>
-                    ) : t("marketData.holdings.noValidPrice")}
-                    {failure
-                      ? ` · ${t("marketData.holdings.refreshFailedPrefix")}${formatBinanceFailure(failure, t)}`
-                      : ""}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        <MarketDataControlsHoldingsList
+          activeTodayKey={activeTodayKey}
+          currentPositions={currentPositions}
+          ledgerData={ledgerData}
+          mode={mode}
+          refreshState={refreshState}
+          t={t}
+        />
       ) : null}
 
       {showMappings ? (
