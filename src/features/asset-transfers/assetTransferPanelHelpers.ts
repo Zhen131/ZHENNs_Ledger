@@ -10,7 +10,6 @@ import {
   type AssetTransferServiceError,
 } from "./assetTransferServiceContract";
 
-export const SUCCESS_FEEDBACK_MS = 4_000;
 export const DEFAULT_CATEGORY: AssetTransferCategory = "internal";
 export const DEFAULT_FROM_LOCATION: CustodyLocation = "exchange";
 export const DEFAULT_TO_LOCATION: CustodyLocation = "cold-wallet";

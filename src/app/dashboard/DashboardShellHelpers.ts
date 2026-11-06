@@ -1,6 +1,5 @@
 import type { FileStatusTone, TranslationKey } from "@/ui";
 
-export const FILE_SAVED_FEEDBACK_MS = 4_000;
 type Translate = (key: TranslationKey) => string;
 
 export function shortLedgerId(id: string): string {

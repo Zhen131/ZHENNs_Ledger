@@ -20,7 +20,6 @@ export type ArmedDelete = Readonly<{
   persistedVersion: number;
 }>;
 
-export const SUCCESS_FEEDBACK_MS = 4_000;
 type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function cashTypeLabel(type: CashEventType, t: Translate): string {

@@ -18,7 +18,6 @@ export const initialForm: FormState = {
   value: "",
 };
 
-export const SUCCESS_FEEDBACK_MS = 4_000;
 type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function createUniqueFeeRuleId(ledgerData: LedgerData): string | undefined {

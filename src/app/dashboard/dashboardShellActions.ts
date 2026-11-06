@@ -10,7 +10,11 @@ import type {
   PersistentLedgerState,
 } from "@/app/persistence";
 import { validateTradeRemoval } from "@/features/trades";
-import type { ConfirmDeleteOutcome, useLanguage } from "@/ui";
+import {
+  SUCCESS_FEEDBACK_MS,
+  type ConfirmDeleteOutcome,
+  type useLanguage,
+} from "@/ui";
 import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 import type { ClearConfirmationMode } from "./DashboardShellTypes";
 import type {
@@ -20,7 +24,6 @@ import type {
   SessionQuiesceReason,
 } from "@/platform/persistence";
 import type { useLedgerWorkspaceSession } from "@/app/workspaces";
-import { FILE_SAVED_FEEDBACK_MS } from "./DashboardShellHelpers";
 
 type RemoveValidatedTradeDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
@@ -386,7 +389,7 @@ export function runSavedFeedbackEffect(
     setShowSavedFeedback(true);
     const timeout = setTimeout(
       () => setShowSavedFeedback(false),
-      FILE_SAVED_FEEDBACK_MS,
+      SUCCESS_FEEDBACK_MS,
     );
     return () => clearTimeout(timeout);
 }

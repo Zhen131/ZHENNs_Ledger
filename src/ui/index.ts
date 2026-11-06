@@ -1,4 +1,5 @@
 export * from "./ConfirmDeleteButton";
+export * from "./feedbackTiming";
 export * from "./FileStatusIndicator";
 export * from "./InlineFeedback";
 export * from "./LedgerIcon";

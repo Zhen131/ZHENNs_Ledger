@@ -24,11 +24,10 @@ import {
   getActivityPageCount,
   getActivityPageItems,
 } from "@/features/activity";
-import { useLanguage } from "@/ui";
+import { SUCCESS_FEEDBACK_MS, useLanguage } from "@/ui";
 import { type AssetTransferServiceError } from "./assetTransferServiceContract";
 import type { ArmedDelete } from "./assetTransferPanelHelpers";
 import {
-  SUCCESS_FEEDBACK_MS,
   DEFAULT_CATEGORY,
   DEFAULT_FROM_LOCATION,
   DEFAULT_TO_LOCATION,

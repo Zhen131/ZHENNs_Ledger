@@ -34,9 +34,8 @@ import {
 import {
   NegativeCashConfirmationDialog,
 } from "@/features/cash/ui";
-import { useLanguage } from "@/ui";
+import { SUCCESS_FEEDBACK_MS, useLanguage } from "@/ui";
 import {
-  SUCCESS_FEEDBACK_MS,
   getCashImpactPreview,
   getSelectedCandidate,
 } from "./tradeFormHelpers";

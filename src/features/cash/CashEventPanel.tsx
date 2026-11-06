@@ -20,9 +20,8 @@ import {
   getActivityPageItems,
 } from "@/features/activity";
 import { NegativeCashConfirmationDialog } from "./NegativeCashConfirmationDialog";
-import { LedgerNumber, useLanguage } from "@/ui";
+import { LedgerNumber, SUCCESS_FEEDBACK_MS, useLanguage } from "@/ui";
 import type { PendingRisk, ArmedDelete } from "./cashEventPanelHelpers";
-import { SUCCESS_FEEDBACK_MS } from "./cashEventPanelHelpers";
 import {
   doApplyDelete,
   doConfirmNegativeBalance,

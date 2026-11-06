@@ -8,7 +8,12 @@ import {
   type ReactNode,
 } from "react";
 
-import { SurfaceCard, translateDefault, useLanguage } from "@/ui";
+import {
+  SUCCESS_FEEDBACK_MS,
+  SurfaceCard,
+  translateDefault,
+  useLanguage,
+} from "@/ui";
 import type { HydrationStatus } from "@/app/persistence";
 import type { PersistenceOperation } from "@/app/persistence";
 import { doConfirmClear } from "./settingsWorkspaceActions";
@@ -25,7 +30,6 @@ import { SettingsWorkspaceTabBar } from "./SettingsWorkspaceTabBar";
 export const PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT = translateDefault(
   "settings.clear.confirmation.phrase",
 );
-const SUCCESS_FEEDBACK_MS = 4_000;
 
 type SettingsTab = "market" | "fees" | "danger";
 type ClearMode = "normal" | "recovery";

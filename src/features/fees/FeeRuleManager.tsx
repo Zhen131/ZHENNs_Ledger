@@ -13,11 +13,10 @@ import {
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
-import { useLanguage } from "@/ui";
+import { SUCCESS_FEEDBACK_MS, useLanguage } from "@/ui";
 import type { FormState } from "./feeRuleManagerHelpers";
 import {
   initialForm,
-  SUCCESS_FEEDBACK_MS,
 } from "./feeRuleManagerHelpers";
 import {
   doApply,

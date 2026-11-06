@@ -6,7 +6,6 @@ import type {
 } from "@/core/validation";
 import type { useLanguage } from "@/ui";
 
-export const SUCCESS_FEEDBACK_MS = 4_000;
 
 export type PriceFormState = PriceWorkspaceDraft;
 

@@ -14,7 +14,12 @@ import {
   type LedgerTimeSnapshot,
 } from "@/core/shared";
 import { selectPriceAsOf } from "@/features/portfolio";
-import { ConfirmDeleteButton, LedgerNumber, useLanguage } from "@/ui";
+import {
+  ConfirmDeleteButton,
+  LedgerNumber,
+  SUCCESS_FEEDBACK_MS,
+  useLanguage,
+} from "@/ui";
 import {
   ASSET_ERROR_CODES,
   createLocalAsset,
@@ -29,7 +34,6 @@ type PendingAssetMutation = Readonly<{
   symbol: string;
 }>;
 
-const SUCCESS_FEEDBACK_MS = 4_000;
 type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function LocalAssetManager({

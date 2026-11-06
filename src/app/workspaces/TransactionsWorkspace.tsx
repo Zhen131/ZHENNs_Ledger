@@ -20,14 +20,13 @@ import {
   type LedgerActivityTypeFilter,
 } from "@/features/activity";
 import { NegativeCashConfirmationDialog } from "@/features/cash/ui";
-import { SurfaceCard, useLanguage } from "@/ui";
+import { SUCCESS_FEEDBACK_MS, SurfaceCard, useLanguage } from "@/ui";
 import type { LedgerWorkspaceIntent } from "./useLedgerWorkspaceSession";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
 } from "@/app/persistence";
 import {
-  SUCCESS_FEEDBACK_MS,
   activityFilterLabel,
 } from "./transactionsWorkspaceHelpers";
 import type {

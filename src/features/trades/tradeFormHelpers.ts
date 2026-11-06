@@ -9,7 +9,6 @@ import { absolute, add, isNegative, multiply } from "@/core/shared";
 import type { TranslationKey, useLanguage } from "@/ui";
 import type { TradeFormState, TradeFormField } from "./tradeFormTypes";
 
-export const SUCCESS_FEEDBACK_MS = 4_000;
 
 const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
   occurredAt: "trades.form.field.date",

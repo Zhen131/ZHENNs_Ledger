@@ -17,11 +17,8 @@ import {
   type LedgerClock,
   type LedgerTimeSnapshot,
 } from "@/core/shared";
-import { useLanguage } from "@/ui";
+import { SUCCESS_FEEDBACK_MS, useLanguage } from "@/ui";
 import type { PriceFormState, PriceFormField } from "./priceFormHelpers";
-import {
-  SUCCESS_FEEDBACK_MS,
-} from "./priceFormHelpers";
 import {
   runPendingPriceSaveEffect,
   runPriceAssetRepairEffect,
