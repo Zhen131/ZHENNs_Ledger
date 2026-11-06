@@ -1,3 +1,10 @@
+/**
+ * 这个文件管把 S-2 文件写成字节。
+ * 以及准备一次只写必要几处的保存。
+ * 它不管真正写到磁盘，那在 ledgerFileHandleAdapter.ts。
+ * 不显然的决定：能局部写就只写新内容槽和一个文件头槽。2026-09-01 定（W15 06B 修订 E 第 E.1 节 S2-B）。
+ */
+
 import { LEDGER_FILE_V3_MAGIC } from "./ledgerFileContainerV3";
 import type {
   EncryptedLedgerGenerationV3S2,
@@ -20,6 +27,11 @@ import { orderedHeader } from "./ledgerFileSlotContainerV3Header";
 import { validateLedgerFileV3S2 } from "./ledgerFileSlotContainerV3Parse";
 import { expectedFileByteLength } from "./ledgerFileSlotContainerV3Shared";
 
+/**
+ * 这个函数把一份 S-2 文件完整写成一串字节，空白处填 0。
+ * 举例：槽 64 KiB → 答 16 + 2 × 262144 + 3 × 65536 = 720912 字节。
+ * 文件头放不进槽、密文放不进槽时抛错。
+ */
 export function serializeLedgerFileV3S2(file: LedgerFileV3S2): Uint8Array {
   const validation = validateLedgerFileV3S2(file);
   if (!validation.ok) {
@@ -50,6 +62,14 @@ export function serializeLedgerFileV3S2(file: LedgerFileV3S2): Uint8Array {
   return bytes;
 }
 
+/**
+ * 这个函数准备一次 S-2 保存。
+ * 新的一代写进空着的内容槽，再换一个文件头槽写。
+ * 槽够大时只给出两处局部写入；不够大就整份重写。
+ * 举例：这一代在 0、上一代在 1 → 新的一代写进 2 号槽。
+ * 旧文件不合规矩、新一代没放进空槽时抛错。
+ * 写的次数用尽时也抛错。
+ */
 export function prepareLedgerFileUpdateV3S2(
   baseFile: LedgerFileV3S2,
   baseSerializedFile: Uint8Array,

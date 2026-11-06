@@ -1,3 +1,10 @@
+/**
+ * 这个文件管把一串字节读成 S-2 格式的文件。
+ * 从两个文件头槽里挑出能用的那份。
+ * 它不解密，解密在 ledgerFileCrypto.ts。
+ * 不显然的决定：一个文件头槽坏了，还能用另一个恢复。2026-09-01 定（W15 06B 修订 E 第 E.1 节 S2-C）。
+ */
+
 import { base64UrlToBytes } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
@@ -50,6 +57,12 @@ import {
   isExactObject,
 } from "./ledgerFileSlotContainerV3Shared";
 
+/**
+ * 这个函数回答：这串字节能不能读成一份 S-2 文件？
+ * 两个头槽都能用时，选写到次数更大的那份。
+ * 举例：0 号头槽写到一半坏了、1 号完好 → 答 1 号那份。
+ * 两个头槽都不能用、或次数一样时，不抛错，返回 ok:false。
+ */
 export function parseLedgerFileV3S2(
   bytes: Uint8Array,
 ): LedgerFileV3S2ValidationResult {
@@ -128,6 +141,12 @@ function parseLedgerFileV3S2Candidates(
   return { ok: true, value: { candidates, headerSlots } };
 }
 
+/**
+ * 这个函数回答。
+ * 一个已经读出来的对象是不是合规矩的 S-2 文件？
+ * 举例：内容槽编号是 3 → 答不是。
+ * 出错时不抛错，返回 ok:false 和错误。
+ */
 export function validateLedgerFileV3S2(
   input: unknown,
 ): LedgerFileV3S2ValidationResult {
@@ -211,6 +230,11 @@ export function validateLedgerFileV3S2(
   return { ok: true, value: input as LedgerFileV3S2 };
 }
 
+/**
+ * 这个函数取出某个内容槽的全部字节。
+ * 举例：槽 64 KiB、取 1 号槽 → 答从第 589840 字节起的 65536 字节。
+ * 整份文件外层不合规矩时抛错。
+ */
 export function readLedgerFileBodySlotV3S2(
   bytes: Uint8Array,
   slot: LedgerFileBodySlotV3S2,
@@ -230,6 +254,11 @@ export function readLedgerFileBodySlotV3S2(
   );
 }
 
+/**
+ * 这个函数取出某个文件头槽里的 JSON 文字。
+ * 举例：头槽开头记的长度是 300 → 答紧跟着的 300 字节对应的文字。
+ * 那些字节不是合法 UTF-8 时抛错。
+ */
 export function readLedgerFileHeaderJsonV3S2(
   bytes: Uint8Array,
   slot: LedgerFileHeaderSlotV3S2,

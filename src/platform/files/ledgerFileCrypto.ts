@@ -1,3 +1,10 @@
+/**
+ * 这个文件管账本文件的加密和解密。
+ * 包括整本的、按块的，还有块清单的验证。
+ * 它不管文件里各部分怎么排，那在各个 Container 文件里。
+ * 不显然的决定：每块每次重写都换新的随机数（IV），绝不重用。2026-08-31 定（W15 06A 第 2.3 节）。
+ */
+
 import { base64UrlToBytes, bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
@@ -44,6 +51,21 @@ const LEDGER_FILE_V2_KEY_DERIVATION_PARAMETERS = {
   keyLength: LEDGER_FILE_OUTER_V2_CONSTANTS.keyLength,
 } as const;
 
+/**
+ * 这个类拿着从密码算出的钥匙。
+ * 负责加密和解密账本文件的内容。
+ * 新建账本用 createForSetup（新盐），打开账本用 createForUnlock（文件里的盐）。
+ * 它能加解密 S-1、S-2 的整本内容。
+ * 也能加解密 S-3 的每一块并验证块清单。
+ * 举例：同一块连写两次 → 两次的随机数不一样。
+ * 举例：密码错了 → 解密时 Promise 失败。
+ *
+ * 为什么随机数不能重用：同一把钥匙重用随机数。
+ * 内容能被推算出来。
+ * 2026-08-31 定（W15 06A 第 2.3 节）。
+ *
+ * 盐的长度不对、内容被改过、钥匙不对时，Promise 失败。
+ */
 export class LedgerFileCrypto {
   private constructor(
     private readonly key: CryptoKey,

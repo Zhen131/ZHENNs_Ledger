@@ -1,3 +1,10 @@
+/**
+ * 这个文件管把一份 S-1 文件写成字节。
+ * 包括识别字节、文件头长度、文件头、密文。
+ * 它不管检查和解密，那在 ledgerFileContainerV3Parse.ts 和 ledgerFileCrypto.ts。
+ * 没有特别的决定。
+ */
+
 import type { LedgerFileV3S1 } from "./ledgerFileContainerV3";
 import {
   LEDGER_FILE_V3_MAGIC,
@@ -6,6 +13,12 @@ import {
 import { orderedHeader } from "./ledgerFileContainerV3Header";
 import { validateLedgerFileV3S1 } from "./ledgerFileContainerV3Parse";
 
+/**
+ * 这个函数把一份 S-1 文件写成一串字节。
+ * 举例：这一代密文 100 字节、没有上一代。
+ * → 答识别字节、文件头和这 100 字节拼成的一串。
+ * 文件本身不合规矩、文件头太大、整份超过上限时抛错。
+ */
 export function serializeLedgerFileV3S1(
   file: LedgerFileV3S1,
 ): Uint8Array {

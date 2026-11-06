@@ -1,3 +1,10 @@
+/**
+ * 这个文件管把一串字节读成 S-1 格式的文件。
+ * 并检查它合不合规矩。
+ * 它不解密，解密在 ledgerFileCrypto.ts。
+ * 不显然的决定：长度、编号、版本号有一处不对就整份拒绝。这是猜的，日志里没写，要核。
+ */
+
 import { base64UrlToBytes } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
@@ -36,6 +43,11 @@ import {
   isExactObject,
 } from "./ledgerFileContainerV3Shared";
 
+/**
+ * 这个函数回答：这串字节能不能读成一份合规矩的 S-1 文件？
+ * 举例：开头识别字节不对 → 答不能；文件头声明的密文长度和实际不符 → 答不能。
+ * 出错时不抛错，返回 ok:false 和错误。
+ */
 export function parseLedgerFileV3S1(
   bytes: Uint8Array,
 ): LedgerFileV3ValidationResult {
@@ -133,6 +145,12 @@ export function parseLedgerFileV3S1(
   return validateLedgerFileV3S1(file);
 }
 
+/**
+ * 这个函数回答。
+ * 一个已经读出来的对象是不是合规矩的 S-1 文件？
+ * 举例：fileFormatVersion 是 2 → 答不是，`LEDGER_FILE_UNSUPPORTED_VERSION`。
+ * 出错时不抛错，返回 ok:false 和错误。
+ */
 export function validateLedgerFileV3S1(
   input: unknown,
 ): LedgerFileV3ValidationResult {

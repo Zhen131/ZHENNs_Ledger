@@ -1,3 +1,11 @@
+/**
+ * 这个文件管检查一份老格式文件的外层对不对。
+ * 老格式指文件格式版本 2。
+ * 它不解密，解密在 ledgerFileCrypto.ts；现在的程序打开文件也不走这里，只有测试辅助代码在用。
+ * 不显然的决定。
+ * 结构版本 4 的文件要报专门的「已退役」错误。2026-09-06 定（W16 02A 第二节 D-2b）。
+ */
+
 import { base64UrlToBytes } from "@/platform/encryption";
 import type {
   EncryptedLedgerGenerationV4,
@@ -18,6 +26,14 @@ import {
 } from "./ledgerFileContractConstants";
 import { isExactObject, failure } from "./ledgerFileContractShared";
 
+/**
+ * 这个函数回答：这份版本 2 文件的外层合不合规矩？
+ * 它查字段、加密参数、编码。
+ * 还查两代之间的编号关系和结构版本。
+ * 举例：fileFormatVersion 是 3 → 答不合，`LEDGER_FILE_UNSUPPORTED_VERSION`。
+ * 举例：结构版本 4 → 答不合，`LEDGER_FILE_RETIRED_LEDGER_SCHEMA_V4`。
+ * 出错时不抛错，返回 ok:false 和错误。
+ */
 export function validateLedgerFileV2(
   input: unknown,
 ): LedgerFileValidationResult {
