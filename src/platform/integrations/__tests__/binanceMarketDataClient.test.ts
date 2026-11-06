@@ -4,7 +4,7 @@ import {
   BINANCE_MARKET_DATA_BASE_URL,
   BINANCE_MARKET_DATA_TIMEOUT_MS,
   createBinanceMarketDataClient,
-} from "./binanceMarketDataClient";
+} from "../binanceMarketDataClient";
 
 afterEach(() => {
   vi.useRealTimers();
