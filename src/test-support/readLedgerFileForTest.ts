@@ -1,3 +1,10 @@
+/**
+ * 这个文件让测试打开、检查、改写、重新加密账本文件。
+ * 文件是哪种格式，都在这里处理。
+ * 产品读写文件的代码在 `platform/files`，这里只借用，不参与产品读文件。
+ * 不显然的决定：老测试按 S-2 固定槽写断言。
+ * 这里给它们拼出固定槽的样子。
+ */
 import {
   createLedgerFileManifestAadV3S3,
   isLedgerFileV3Bytes,
@@ -77,13 +84,21 @@ type EncryptedLedgerGenerationV3ForTest =
     [V3_S3_GENERATION_SOURCE]?: V3S3GenerationSource;
   };
 
+/** 测试眼里的账本文件：V2 JSON 文件，或拆开的 V3 文件。 */
 export type LedgerFileForTest = LedgerFileV2 | LedgerFileV3ForTest;
 
 type LedgerFileForTestValidationResult =
   | { ok: true; value: LedgerFileForTest }
   | { ok: false; errors: LedgerFileContractError[] };
 
-/** Centralizes format-dependent inspection of current product files. */
+/**
+ * 这个函数把账本文件读成测试好检查的对象。
+ * V3 文件先当 S-3 分块格式读。
+ * 几份候选里，挑补齐字节全为 0、序号最大的那份。
+ * 不行再当 S-2 固定槽格式读；别的当 V2 JSON 读。
+ * 举例：传入产品刚存的文件 → 答带序号和前后两版的对象。
+ * 哪种格式都读不出来时抛错，错误里附着各格式的问题。
+ */
 export function readLedgerFileForTest(
   input: string | Uint8Array,
 ): LedgerFileForTest {
@@ -123,9 +138,15 @@ export function readLedgerFileForTest(
 }
 
 /**
- * Preserves S-2 slot assertions while current product output uses S-3 blocks.
- * The compatibility view maps each logical generation to its independently
- * authenticated control block; it never participates in product parsing.
+ * 这个函数给还按 S-2 固定槽写断言的老测试用。
+ * 现在产品写出的是 S-3 分块文件。
+ * 它把每一版对到那一版自己的控制块，拼成固定槽的样子。
+ * 举例：一个 S-3 文件 → 答 `ok: true` 和前后两版的槽号。
+ * 不是 V3 文件时返回 `ok: false`，不抛错。
+ *
+ * 为什么要拼：S-2 改过定义，一个固定槽装一整本账。
+ * 2026-09-01 定（W15 06B 修订 E 第 E.1 节）。
+ * S-3 改成按数量分块，2026-08-31 定（W15 06B 第 3.3 节）。
  */
 export function readLedgerFileSlotViewForTest(
   input: string | Uint8Array,
@@ -184,6 +205,12 @@ export function readLedgerFileSlotViewForTest(
   };
 }
 
+/**
+ * 这个函数取出 V3 文件里某一个体槽的原始字节。
+ * 测试拿它看密文有没有被动过。
+ * 举例：取 1 号槽 → 答那一槽的全部字节。
+ * 不是 V3 文件时抛错。
+ */
 export function readLedgerFileBodySlotForTest(
   input: string | Uint8Array,
   slot: number,
@@ -208,6 +235,12 @@ export function readLedgerFileBodySlotForTest(
   throw new Error("Expected a V3 body-slot test file");
 }
 
+/**
+ * 这个函数检查测试改过的文件对象还合不合格式。
+ * 举例：当前版密文改成坏的 Base64URL → 答 `ok: false`。
+ * 那时的错误码是 `LEDGER_FILE_INVALID_ENCODING`。
+ * 合格答 `ok: true` 和整理过的对象；不合格不抛错。
+ */
 export function validateLedgerFileForTest(
   input: unknown,
 ): LedgerFileForTestValidationResult {
@@ -255,6 +288,12 @@ export function validateLedgerFileForTest(
   return validateLedgerFileV2(input);
 }
 
+/**
+ * 这个函数把测试对象变回文件内容。
+ * V3 文件变成一字节一字符的文字，V2 文件变成 JSON 文字。
+ * 举例：读进来再原样传回 → 答和原文件字节相同的文字。
+ * V3 对象里的数据前后对不上时，可能抛错。
+ */
 export function serializeLedgerFileForTest(
   file: LedgerFileForTest,
 ): string {
@@ -269,6 +308,13 @@ export function serializeLedgerFileForTest(
   return JSON.stringify(file);
 }
 
+/**
+ * 这个函数给测试对象里的某一版重新加密一段账本文字。
+ * 文字没变，只换控制块的加密；变了，就写进新的控制块。
+ * S-3 文件最后会重算块清单的认证码。
+ * 举例：当前版文字改一个字再加密 → 答能正常解密的新版本。
+ * 解密原来那一版失败时抛错。
+ */
 export async function encryptLedgerFileGenerationForTest(
   crypto: LedgerFileCrypto,
   file: LedgerFileForTest,
@@ -344,6 +390,12 @@ export async function encryptLedgerFileGenerationForTest(
   return crypto.encryptGeneration(file.fileId, revision, serializedPayload);
 }
 
+/**
+ * 这个函数解开测试对象里的某一版，答出那一版的账本文字。
+ * S-3 文件会把控制块和全部记录块拼回一整段。
+ * 举例：解开当前版 → 答一段账本 JSON 文字。
+ * 密码不对、密文被改过时抛错。
+ */
 export async function decryptLedgerFileGenerationForTest(
   crypto: LedgerFileCrypto,
   file: LedgerFileForTest,
@@ -719,6 +771,12 @@ function toProductGenerationV3S2(
   };
 }
 
+/**
+ * 这个函数取出文件开头那段 JSON 头的文字。
+ * V2 文件整份就是 JSON，直接整份返回。
+ * 举例：一个 V3 文件 → 答当前头槽里那段 JSON 文字。
+ * 文件读不出来时抛错。
+ */
 export function readLedgerFileJsonHeaderForTest(
   input: string | Uint8Array,
 ): string {
@@ -741,6 +799,13 @@ export function readLedgerFileJsonHeaderForTest(
   );
 }
 
+/**
+ * 这个函数在 JSON 头末尾加一个换行。
+ * 它造出一个内容一样、字节不同的文件。
+ * 测试拿它看：写完读回差一个空白，产品认不认得出。
+ * 举例：V2 文件 → 答原文末尾多一个换行。
+ * V3 文件读不出来时抛错。
+ */
 export function appendLedgerFileJsonWhitespaceForTest(
   input: string | Uint8Array,
 ): string {

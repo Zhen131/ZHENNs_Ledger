@@ -1,3 +1,9 @@
+/**
+ * 这个文件管每个测试开跑前的准备。
+ * 它放宽等待，重置界面语言，让两段字节按内容比。
+ * 它不放测试样例，样例在同目录 `fixtures.ts`。
+ * 不显然的决定：等待时间放宽到 3 秒，理由见下方。
+ */
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach, beforeEach, expect } from "vitest";
 
@@ -6,8 +12,8 @@ import {
   LANGUAGE_PREFERENCE_STORAGE_KEY,
 } from "@/ui";
 
-// Give findBy*/waitFor more headroom than the 1-second default when the full
-// suite runs in parallel on a loaded machine.
+// 为什么等待从默认 1 秒放到 3 秒：整套并行跑时机器很忙。
+// 1 秒常常不够（这是猜的，日志里没写，要核）。
 configure({ asyncUtilTimeout: 3_000 });
 
 if (typeof window !== "undefined") {
@@ -34,7 +40,7 @@ beforeEach(() => {
       DEFAULT_LEDGER_LANGUAGE,
     );
   } catch {
-    // Node tests and storage-failure tests intentionally have no usable storage.
+    // 不在浏览器里跑的测试没有能用的存储；试存储坏掉的测试也没有。
   }
 });
 
@@ -44,7 +50,7 @@ afterEach(() => {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem(LANGUAGE_PREFERENCE_STORAGE_KEY);
   } catch {
-    // Storage-failure tests intentionally keep the failing boundary in place.
+    // 试存储坏掉的测试要让坏掉的状态留着，所以这里不管。
   }
 });
 

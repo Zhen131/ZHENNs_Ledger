@@ -1,14 +1,20 @@
+/**
+ * 这个文件给测试在浏览器旧存储里塞一条假的旧账本。
+ * 检查有没有旧账本的那段在 `platform/legacy` 里，这里只造现场。
+ * 不显然的决定：塞的内容是虚构的。
+ * 因为检查只问有没有，不读内容。
+ */
 import {
   INDEXED_DB_STORAGE_DEFAULTS,
   type IndexedDbStorageAdapterOptions,
 } from "@/platform/legacy";
 
 /**
- * Puts a non-empty value where the retired browser ledger used to live, so a
- * presence check has something to find. The product never writes there; only
- * tests do, through this helper, with the same factory and options the
- * detector under test uses. The value is fictional: detection only asks
- * whether a record exists.
+ * 这个函数在旧账本原来住的地方放一条非空的值。
+ * 产品自己从不往那里写，只有测试通过它写。
+ * 它和被测的检查用同一套库名、表名、键名。
+ * 举例：不传参数调一次 → 默认库里多一条假记录。
+ * 打开库或写入失败时，返回的 Promise 失败。
  */
 export function seedRetiredBrowserLedgerRecord(
   options: IndexedDbStorageAdapterOptions = {},

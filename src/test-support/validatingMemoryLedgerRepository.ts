@@ -1,3 +1,8 @@
+/**
+ * 这个文件给测试一个放在内存里的假仓库，照样检查账本。
+ * 真仓库要加密、写文件，在 `platform/files` 和 `platform/persistence` 里。
+ * 不显然的决定：它和真仓库一样，存前查一遍，读回来再查一遍。
+ */
 import { vi } from "vitest";
 import type { LedgerData } from "@/core/models";
 import { validateLedgerData } from "@/core/validation";
@@ -8,23 +13,29 @@ import {
 } from "@/platform/persistence";
 
 /**
- * One saved ledger, kept as the JSON text a repository would write. Several
- * repository instances may share it, which is how a test "remounts" onto the
- * same saved data.
+ * 一份存着的账本，存成真仓库会写的 JSON 文字；没存过是 null。
+ * 几个假仓库可以共用一份。
+ * 测试靠这个模拟「重开一次还是那本账」。
  */
 export type ValidatingMemoryLedgerStore = {
   serialized: string | null;
 };
 
+/** 测试能插进读、写、清空前的三个钩子。钩子抛错，那一步就失败。 */
 export type ValidatingMemoryLedgerStoreHooks = Readonly<{
-  /** Runs before the stored text is read; throwing makes `load` fail. */
+  /** 读出存着的文字之前调；抛错会让 `load` 失败。 */
   read?: () => Promise<void>;
-  /** Runs before new text replaces the stored text; throwing makes `save` fail and keeps the old text. */
+  /** 新文字换掉旧文字之前调；抛错会让 `save` 失败，旧文字不变。 */
   write?: (serialized: string) => Promise<void>;
-  /** Runs before the stored text is removed; throwing makes `clear` fail and keeps the old text. */
+  /** 删掉存着的文字之前调；抛错会让 `clear` 失败，旧文字不变。 */
   clear?: () => Promise<void>;
 }>;
 
+/**
+ * 这个函数造一份共用的存储，可以先放进一本账。
+ * 举例：传入一本 5 笔交易的账 → 答存着它 JSON 文字的存储。
+ * 不传就是空的。不会出错。
+ */
 export function createValidatingMemoryLedgerStore(
   initialLedger: LedgerData | null = null,
 ): ValidatingMemoryLedgerStore {
@@ -35,9 +46,11 @@ export function createValidatingMemoryLedgerStore(
 }
 
 /**
- * Test repository with no storage engine and no encryption, but with the same
- * three checks a real repository applies: validate before save, a JSON round
- * trip, and validate again on load. Failures use the repository error codes.
+ * 这个函数造一个内存里的假仓库，不加密，不写文件。
+ * 它照做真仓库的三道检查：存前查账本；变成 JSON 文字；读回再查。
+ * 举例：存一本卖超了的账 → `save` 抛错，错误码 `INVALID_LEDGER_DATA`。
+ * 失败都抛 `LedgerRepositoryError`，错误码和真仓库同一套。
+ * 返回仓库本身，外加几样给测试看的东西。
  */
 export function createValidatingMemoryLedgerRepository(
   store: ValidatingMemoryLedgerStore = createValidatingMemoryLedgerStore(),
@@ -127,11 +140,11 @@ export function createValidatingMemoryLedgerRepository(
   return {
     repository,
     store,
-    /** Counts every write attempt, failed ones included. */
+    /** 记下每一次写入，失败的也算。 */
     write,
-    /** Counts every clear attempt, failed ones included. */
+    /** 记下每一次清空，失败的也算。 */
     clear: clearStored,
-    /** The saved ledger parsed back from its JSON text, or null when nothing is saved. */
+    /** 把存着的 JSON 文字读回成对象；没存东西时是 null。 */
     readStoredLedger: (): unknown =>
       store.serialized === null ? null : JSON.parse(store.serialized),
   };
