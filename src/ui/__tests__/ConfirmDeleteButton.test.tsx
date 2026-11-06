@@ -10,7 +10,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ConfirmDeleteButton } from "./ConfirmDeleteButton";
+import { ConfirmDeleteButton } from "../ConfirmDeleteButton";
 
 afterEach(cleanup);
 

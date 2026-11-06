@@ -9,7 +9,7 @@ import {
   LANGUAGE_PREFERENCE_STORAGE_KEY,
   LanguageProvider,
   useLanguage,
-} from "./i18n";
+} from "../i18n";
 
 function LanguageProbe() {
   const { language, setLanguage } = useLanguage();

@@ -3,9 +3,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { FileStatusIndicator } from "./FileStatusIndicator";
-import { LedgerIcon } from "./LedgerIcon";
-import { SurfaceCard } from "./SurfaceCard";
+import { FileStatusIndicator } from "../FileStatusIndicator";
+import { LedgerIcon } from "../LedgerIcon";
+import { SurfaceCard } from "../SurfaceCard";
 
 describe("ledger visual primitives", () => {
   it("keeps decorative icons out of the accessibility tree and labels standalone icons", () => {

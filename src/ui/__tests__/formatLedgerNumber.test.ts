@@ -4,7 +4,7 @@ import {
   formatMoney,
   formatPercent,
   formatQuantity,
-} from "./formatLedgerNumber";
+} from "../formatLedgerNumber";
 
 describe("formatLedgerNumber", () => {
   it.each([
