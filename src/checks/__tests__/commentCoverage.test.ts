@@ -175,7 +175,6 @@ const NOT_YET_DOCUMENTED: readonly string[] = [
   "features/trades/tradeRemovalService.ts",
   "features/trades/tradeService.ts",
   "features/trades/tradeWorkspaceDraft.ts",
-  "platform/coordination/ledgerFileSessionCoordinator.ts",
   "platform/files/byteArraysEqual.ts",
   "platform/files/ledgerFileChunkedContainerV3.ts",
   "platform/files/ledgerFileChunkedContainerV3Aad.ts",

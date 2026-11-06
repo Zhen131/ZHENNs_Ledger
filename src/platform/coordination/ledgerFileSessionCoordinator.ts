@@ -1,3 +1,10 @@
+/**
+ * 这个文件管一件事。
+ * 同一个账本文件，同一时间只让一个浏览器标签页打开。
+ * 它不管读写文件内容，那在 files 区。
+ * 不显然的决定：靠浏览器的锁和标签页广播来判断。这是猜的，日志里没写，要核。
+ */
+
 import type {
   LedgerFileHandle,
   LedgerFileSessionLease,
@@ -13,33 +20,47 @@ const WRITE_LOCK_PREFIX =
   "local-first-trading-ledger:file-session:write:v1:";
 const COORDINATION_CHANNEL_NAME =
   "local-first-trading-ledger:file-session:compare:v1";
+/**
+ * 问别的标签页「是不是同一个文件」时，最多等 1 秒。
+ * 为什么是 1 秒：这是猜的，日志里没写，要核。
+ */
 const DEFAULT_RESPONSE_TIMEOUT_MS = 1_000;
 
+/**
+ * 申请打开一个账本文件的结果。
+ * 可能是拿到了，被别的标签页占着。
+ * 浏览器不支持，或者没问清楚。
+ */
 export type AcquireLedgerFileSessionResult =
   | { status: "acquired"; lease: LedgerFileSessionLease }
   | { status: "in-use" }
   | { status: "unsupported" | "coordination-failed" };
 
+/** 这个类型说明管打开权的那一方只做一件事：申请打开。 */
 export interface LedgerFileSessionCoordinator {
   acquire(
     handle: LedgerFileHandle,
   ): Promise<AcquireLedgerFileSessionResult>;
 }
 
+/** 比较两个文件是不是同一个的结果：相同、不同、没比出来。 */
 export type LedgerFileEntryComparison =
   | "same"
   | "different"
   | "failed";
 
+/** 拿到打开权以后能做的两件事：排队写文件、放手。 */
 export interface LedgerFileCoordinationRuntimeLease {
   runExclusiveWrite<T>(operation: () => Promise<T>): Promise<T>;
   release(): Promise<void>;
 }
 
 /**
- * Injectable browser boundary. The default implementation below is the only
- * production runtime; tests can use a deterministic implementation without
- * pretending that jsdom provides Web Locks or clonable file handles.
+ * 这个类型是浏览器那一边要提供的本事。
+ * 包括加锁、列出谁在用、问别的标签页、占住文件。
+ * 真正上线只用下面那个浏览器版本。
+ * 测试可以换一个结果固定的假版本。
+ * 不用假装测试环境有浏览器锁。
  */
 export interface LedgerFileCoordinationRuntime {
   isSupported(): boolean;
@@ -57,6 +78,14 @@ export interface LedgerFileCoordinationRuntime {
   ): Promise<LedgerFileCoordinationRuntimeLease>;
 }
 
+/**
+ * 这个类回答：这个账本文件现在能不能由我打开？
+ * 它先确认浏览器支持。
+ * 再在一把总锁里看看别的标签页是不是开着同一个文件。
+ * 举例：另一个标签页开着同一个文件 → 答被占着（in-use）。
+ * 举例：另一个标签页开着别的文件 → 答拿到了。
+ * 出错时不抛错，答「不支持」或「没问清楚」，界面据此提示。
+ */
 export class DefaultLedgerFileSessionCoordinator
   implements LedgerFileSessionCoordinator
 {
@@ -201,6 +230,10 @@ interface CoordinationChannel {
   close(): void;
 }
 
+/**
+ * 浏览器里要用到的几样工具。
+ * 包括锁、广播、复制文件把手、编号、计时器。测试里可以换掉。
+ */
 export type BrowserLedgerFileCoordinationEnvironment = {
   locks: BrowserLockManager;
   createChannel(): CoordinationChannel;
@@ -211,6 +244,13 @@ export type BrowserLedgerFileCoordinationEnvironment = {
   clearTimer(timer: ReturnType<typeof setTimeout>): void;
 };
 
+/**
+ * 这个类是真正上线用的浏览器版本。
+ * 用浏览器锁和标签页广播来协调。
+ * 浏览器没有这些工具时，它答「不支持」。
+ * 举例：两个标签页同时申请同一个文件 → 先拿到总锁的能打开。
+ * 锁还在排队、或回答超时，都当成没问清楚。
+ */
 export class BrowserLedgerFileCoordinationRuntime
   implements LedgerFileCoordinationRuntime
 {
@@ -462,18 +502,21 @@ class BrowserLedgerFileRuntimeLease
     try {
       this.stopListening();
     } catch {
-      // Releasing the runtime lock remains authoritative.
+      // 为什么不管这个错：放手以浏览器锁放掉为准。
+      // 出处：2026-07-31 提交 40c7fa4。
     }
     try {
       this.channel.close();
     } catch {
-      // Releasing the runtime lock remains authoritative.
+      // 为什么不管这个错：放手以浏览器锁放掉为准。
+      // 出处：2026-07-31 提交 40c7fa4。
     }
     this.releaseSignal();
     try {
       await this.heldLockPromise;
     } catch {
-      // A rejected holder promise also means the browser no longer holds it.
+      // 为什么不管这个错：拿锁那步失败，也说明锁已经不在了。
+      // 出处：2026-07-31 提交 40c7fa4。
     }
   }
 
@@ -489,7 +532,8 @@ class BrowserLedgerFileRuntimeLease
         result,
       } satisfies CoordinationProbeResultMessage);
     } catch {
-      // The requester treats a missing response as coordination-failed.
+      // 为什么不管这个错：对方等不到回答，会当成没问清楚。
+      // 出处：2026-07-31 提交 40c7fa4。
     }
   }
 }
