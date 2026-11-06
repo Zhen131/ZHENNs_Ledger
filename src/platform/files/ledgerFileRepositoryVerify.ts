@@ -1,3 +1,12 @@
+/**
+ * 这个文件管核对一份账本文件。
+ * 它解密每一块、验块清单、比编号和版本。
+ * 它还比写下去的和读回来的一样不一样。
+ * 它不管怎么写，那在 ledgerFileRepositoryWrite.ts。
+ * 不显然的决定。
+ * 低版本文件在解密前就拒绝，并说清楚是哪个版本。2026-09-07 定（W16 02A 修订 A 第七节）。
+ */
+
 import {
   type CanonicalLedgerPayloadV4,
   SUPPORTED_LEDGER_SCHEMA_VERSION,
@@ -41,6 +50,11 @@ import {
   readReachableIvBase64UrlsV3S3,
 } from "./ledgerFileRepositoryWrite";
 
+/**
+ * 这个函数从一次准备好的保存里。
+ * 取出写完以后应该读回来的样子。
+ * 举例：准备写入 3 个块 → 答这 3 个块应有的内容、槽和随机数。
+ */
 export function expectedFromPending(pending: PendingSaveIntent) {
   return {
     file: pending.file,
@@ -61,6 +75,11 @@ export function expectedFromPending(pending: PendingSaveIntent) {
   };
 }
 
+/**
+ * 这个函数从一次准备好的恢复里。
+ * 取出写完以后应该读回来的样子。
+ * 举例：用上一代恢复 → 答恢复后这一代应有的内容。
+ */
 export function expectedFromRecovery(
   pending: PendingRecoveryIntent,
   previousGeneration: LedgerGenerationV3S3,
@@ -84,6 +103,11 @@ export function expectedFromRecovery(
   };
 }
 
+/**
+ * 这个函数把一串字节读成文件，再完整核对一遍。
+ * 举例：密码对、块都完好 → 答核对过的文件。
+ * 文件坏了、密码不对、和应有的样子不一样时抛 `LedgerFileRepositoryError`。
+ */
 export async function verifySerializedLedgerFile(
   serialized: Uint8Array,
   crypto: LedgerFileCrypto,
@@ -118,6 +142,12 @@ type VerificationExpectation = {
   serializedFile: Uint8Array;
 };
 
+/**
+ * 这个函数完整核对一份已经读出来的文件。
+ * 解密每一块，验块清单，比和应有的样子。
+ * 举例：写下去 3 个块，读回来第 2 块不一样 → 抛 `LEDGER_FILE_READBACK_FAILED`。
+ * 钥匙不对抛 `LEDGER_FILE_AUTHENTICATION_FAILED`；文件编号不对抛 `LEDGER_FILE_ID_MISMATCH`。
+ */
 export async function verifyLedgerFile(
   file: LedgerFileV3S3,
   crypto: LedgerFileCrypto,
@@ -280,6 +310,12 @@ export async function verifyLedgerFile(
   };
 }
 
+/**
+ * 这个函数回答。
+ * 打开账本时，这份文件能直接用，还是要先从上一代恢复？
+ * 举例：这一代某块坏了、上一代完好 → 答要恢复，给出上一代。
+ * 钥匙不对、两代都不能用时抛 `LedgerFileRepositoryError`。
+ */
 export async function verifyLedgerFileForOpen(
   file: LedgerFileV3S3,
   serializedFile: Uint8Array,
@@ -484,6 +520,11 @@ async function readVerifiedBlockPayload(
   );
 }
 
+/**
+ * 这个函数把一串字节读成 S-3 文件，选最新的那份完整的。
+ * 举例：两个头槽次数是 7 和 8，都完整 → 答 8 那份。
+ * 没有唯一完整的那份时抛 `LEDGER_FILE_INVALID_FILE`。
+ */
 export function parseAndValidateLedgerFile(
   serialized: Uint8Array,
 ): LedgerFileV3S3 {
@@ -501,6 +542,13 @@ export function parseAndValidateLedgerFile(
   return selected.file;
 }
 
+/**
+ * 这个函数把一串字节读成 S-3 文件的候选。
+ * 按写的次数从新到旧排。
+ * 不是文件格式 3 时，先认出是哪种旧格式。
+ * 再给出明确的拒绝理由。
+ * 举例：一份文件格式 2 的 JSON 文件 → 抛错，说这个格式已退役。
+ */
 export function parseAndValidateLedgerFileCandidates(
   serialized: Uint8Array,
 ): {
@@ -540,6 +588,7 @@ export function parseAndValidateLedgerFileCandidates(
   };
 }
 
+/** 这个函数确认一份 S-3 文件合规矩，不合就抛 `LEDGER_FILE_INVALID_FILE`。 */
 export function assertValidLedgerFile(file: LedgerFileV3S3): void {
   const validation = validateLedgerFileV3S3(file);
   if (!validation.ok) {
@@ -551,6 +600,10 @@ export function assertValidLedgerFile(file: LedgerFileV3S3): void {
   }
 }
 
+/**
+ * 这个函数把一份 S-3 文件写成字节；文件不合规矩时抛错。
+ * 举例：用到 3 个内容槽 → 答 3670032 字节。
+ */
 export function serializeLedgerFile(file: LedgerFileV3S3): Uint8Array {
   return serializeLedgerFileV3S3(file);
 }
@@ -593,11 +646,11 @@ function rejectUnsupportedJsonLedgerFile(bytes: Uint8Array): never {
       typeof version === "number" &&
       version !== SUPPORTED_LEDGER_SCHEMA_VERSION,
   );
-  // Schemas 2 and 3 keep their own more specific retirement message. Anything
-  // else inside a retired V2 container is rejected for the container itself:
-  // no V2 file is opened whatever ledger it carries, and a reader of the
-  // message has to be able to tell that the file format generation is the
-  // problem rather than the ledger schema.
+  // 为什么结构版本 2、3 单独报：它们有更具体的退役说明。
+  // 旧的文件格式 2 里装别的版本，都按「文件格式退役」拒绝。
+  // 不管装的是哪个版本，格式 2 的文件都不打开。
+  // 看报错的人要能分清，问题出在文件格式，不是账本结构。
+  // 2026-09-07 定（W16 02A 修订 A 第七节）。
   if (
     retiredLedgerSchemaVersion === 2 ||
     retiredLedgerSchemaVersion === 3

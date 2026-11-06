@@ -1,3 +1,10 @@
+/**
+ * 这个文件管和浏览器文件功能直接打交道。
+ * 包括选文件、问权限、读、写完再读回来核对。
+ * 它不管文件里的格式和加密，那在 Container 和 ledgerFileCrypto.ts。
+ * 不显然的决定：每次写完都整份读回来核对，写坏了要能发现。2026-09-01 定（W15 06B 修订 E 第 E.2 节）。
+ */
+
 import { MAX_LEDGER_FILE_V2_BYTES } from "./ledgerFileContract";
 import { LEDGER_FILE_OUTER_V3_CONSTANTS } from "./ledgerFileContainerV3";
 import type {
@@ -23,6 +30,14 @@ const FILE_PICKER_TYPES = [
   },
 ];
 
+/**
+ * 这个类替账本和浏览器的文件功能打交道。
+ * 它只认 .lftl 文件；选文件时用户取消，答「取消了」而不是出错。
+ * 写入后都会整份读回来，和要写的字节核对。
+ * 局部写入保留原有内容，只改那几处；整份写入先清空再写。
+ * 举例：写 3670032 字节，读回来少了一个字节 → 抛错，出错步骤是复读。
+ * 出错时抛 `LedgerFileAdapterError`，写到一半出错会尽量放弃这次写入。
+ */
 export class LedgerFileHandleAdapter {
   constructor(
     private readonly pickerProvider?: LedgerFilePickerProvider,
@@ -609,7 +624,8 @@ async function bestEffortAbort(
   try {
     await writable.abort(reason);
   } catch {
-    // The original write/close failure remains the authoritative error.
+    // 为什么不管这个错：写或关上时的那个错才是要报的。
+    // 出处：这是猜的，日志里没写，要核。
   }
 }
 

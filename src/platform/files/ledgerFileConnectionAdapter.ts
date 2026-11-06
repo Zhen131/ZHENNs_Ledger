@@ -1,6 +1,18 @@
+/**
+ * 这个文件管记住上次打开的是哪个账本文件。
+ * 下次开机好直接连上。
+ * 它不存账本内容，也不存密码。
+ * 只存浏览器的文件把手和文件编号。
+ * 不显然的决定：加密的账本和一切秘密都不进这个浏览器库。这是猜的，日志里没写，要核。
+ */
+
 import type { LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
 import { LEDGER_FILE_OUTER_V2_CONSTANTS } from "./ledgerFileContract";
 
+/**
+ * 记「上次打开哪个文件」的那个浏览器库的位置。
+ * 包括库名、版本、表名、记录名。
+ */
 export const LEDGER_FILE_CONNECTION_DEFAULTS = {
   databaseName: "local-first-trading-ledger-file-connections",
   databaseVersion: 1,
@@ -8,12 +20,20 @@ export const LEDGER_FILE_CONNECTION_DEFAULTS = {
   recordKey: "current:v1",
 } as const;
 
+/**
+ * 存下来的一条记录。
+ * 包括格式版本 1、文件把手、这个文件应有的编号。
+ */
 export type LedgerFileConnectionRecordV1 = {
   connectionFormatVersion: 1;
   handle: LedgerFileHandle;
   expectedFileId: string;
 };
 
+/**
+ * 这个类型说明「记住上次文件」的那一方能做的三件事。
+ * 包括读、写、清掉。
+ */
 export interface LedgerFileConnectionAdapter {
   read(signal?: AbortSignal): Promise<LedgerFileConnectionRecordV1 | null>;
   write(
@@ -23,6 +43,7 @@ export interface LedgerFileConnectionAdapter {
   clear(signal?: AbortSignal): Promise<void>;
 }
 
+/** 打开那个浏览器库时可以换掉的几样，测试里用。 */
 export type IndexedDbLedgerFileConnectionAdapterOptions = {
   databaseName?: string;
   databaseVersion?: number;
@@ -31,6 +52,7 @@ export type IndexedDbLedgerFileConnectionAdapterOptions = {
   indexedDBFactory?: IDBFactory;
 };
 
+/** 这个类是存着的那条记录坏了时抛的错。 */
 export class LedgerFileConnectionRecordError extends Error {
   constructor(
     message: string,
@@ -42,9 +64,11 @@ export class LedgerFileConnectionRecordError extends Error {
 }
 
 /**
- * Stores only the browser file handle and the minimum identity needed to
- * reconnect it. The encrypted ledger and every runtime secret remain outside
- * this database.
+ * 这个类把上次打开的是哪个文件，存在浏览器自带的库里。
+ * 只存文件把手和重新连上要用的最少信息。
+ * 加密的账本和运行时的秘密都不在这个库里。
+ * 举例：上次打开 ledger.lftl → 下次开机读出它的把手和文件编号。
+ * 库打不开、读写失败、记录坏了时，Promise 失败。
  */
 export class IndexedDbLedgerFileConnectionAdapter
   implements LedgerFileConnectionAdapter
@@ -175,6 +199,12 @@ export class IndexedDbLedgerFileConnectionAdapter
   }
 }
 
+/**
+ * 这个函数回答：从库里读出来的这条记录能不能用？
+ * 字段必须正好三个，版本是 1。
+ * 文件编号合规矩，把手像一个文件把手。
+ * 举例：版本写成 2 → 抛 `LedgerFileConnectionRecordError`。
+ */
 export function validateLedgerFileConnectionRecord(
   value: unknown,
 ): LedgerFileConnectionRecordV1 {

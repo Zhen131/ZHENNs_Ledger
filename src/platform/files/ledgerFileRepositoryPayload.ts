@@ -1,3 +1,10 @@
+/**
+ * 这个文件管存账本文件时，内容层面的几个小工具。
+ * 包括换保存时间、只加一笔买卖、比两代。
+ * 它不管加密和写盘，那在 ledgerFileRepositoryWrite.ts。
+ * 没有特别的决定。
+ */
+
 import { byteArraysEqual } from "./byteArraysEqual";
 import { type CanonicalLedgerPayloadV4 } from "./ledgerFileContract";
 import {
@@ -17,10 +24,17 @@ import {
   LedgerFileRepositoryError,
 } from "./ledgerFileRepositoryContract";
 
+/** 这个函数回答：两串字节是不是一个不差。举例：[1, 2] 和 [1, 2] → 答是。 */
 export function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
   return byteArraysEqual(left, right);
 }
 
+/**
+ * 这个函数把一份检查过的内容换上新的保存时间。
+ * 账本部分原样不动。
+ * 举例：保存时间换成 "2026-11-06T09:00:00Z" → 答只有时间变了的内容。
+ * 换完超过文件大小上限时抛 `LedgerFileRepositoryError`。
+ */
 export function retimeCanonicalLedgerPayloadV4(
   payload: CanonicalLedgerPayloadV4,
   savedAt: string,
@@ -50,6 +64,15 @@ export function retimeCanonicalLedgerPayloadV4(
   };
 }
 
+/**
+ * 这个函数回答。
+ * 旧账本后面接上一笔新买卖，要存的内容是什么？
+ * 只查新这一笔和大小上限，不把旧账本整本重查。
+ * 举例：旧账本 1000 笔，新记 1 笔 → 答 1001 笔的内容。
+ * 这一笔查不过或超上限时答 null，调用方改走整本保存。
+ *
+ * 为什么只查新这一笔：整本重查太慢。这是猜的，日志里没写，要核。
+ */
 export function createCanonicalPayloadAfterBuyTrade(
   base: LedgerData,
   trade: Trade,
@@ -100,6 +123,10 @@ export function createCanonicalPayloadAfterBuyTrade(
   return { value, serializedPayload, serializedLedgerData };
 }
 
+/**
+ * 这个函数列出账本里全部记录的编号。
+ * 举例：1 个资产、2 笔买卖 → 答 3 个编号。
+ */
 export function collectLedgerFactIds(ledgerData: LedgerData): Set<string> {
   return new Set(
     [
@@ -120,6 +147,10 @@ function serializeCanonicalPayload(
   return `{"savedAt":${JSON.stringify(savedAt)},"ledgerData":${serializedLedgerData}}`;
 }
 
+/**
+ * 这个函数回答：两代内容的说明和每个块是不是完全一样。
+ * 举例：只有一个块的随机数不同 → 答不是。
+ */
 export function sameGeneration(
   left: LedgerGenerationV3S3,
   right: LedgerGenerationV3S3,
@@ -136,6 +167,10 @@ export function sameGeneration(
   );
 }
 
+/**
+ * 这个函数回答：两个加密块是不是完全一样，连密文也一样。
+ * 举例：说明一样、密文差一个字节 → 答不是。
+ */
 export function sameEncryptedBlock(
   left: EncryptedLedgerBlockV3S3,
   right: EncryptedLedgerBlockV3S3,

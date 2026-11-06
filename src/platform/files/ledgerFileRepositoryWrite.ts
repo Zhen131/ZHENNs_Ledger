@@ -1,3 +1,10 @@
+/**
+ * 这个文件管准备和执行一次账本文件写入。
+ * 包括新建第一代、准备下一代、写下去再读回来。
+ * 它不管核对读回来的内容，那在 ledgerFileRepositoryVerify.ts。
+ * 不显然的决定：新写的块只用没被这一代和上一代占着的槽。2026-09-01 定（W15 06B 修订 E 第 E.1 节）。
+ */
+
 import { type LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
 import { type LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
 import {
@@ -38,6 +45,12 @@ type PreparedLedgerFileWrite = Pick<
   "serializedFile" | "writeMode" | "patches"
 >;
 
+/**
+ * 这个函数把准备好的写入真正写到文件里，再整份读回来。
+ * 局部写入只写那几处；整份写入整份重写。
+ * 举例：只改 1 号块 → 写两处，答读回来的整份字节。
+ * 写或复读失败时抛 `LedgerFileAdapterError`。
+ */
 export async function writePreparedLedgerFile(
   adapter: LedgerFileHandleAdapter,
   handle: LedgerFileHandle,
@@ -59,6 +72,12 @@ export async function writePreparedLedgerFile(
   return readback.bytes;
 }
 
+/**
+ * 这个函数做一本新账本的第一份文件。
+ * 加密每一块，排好槽，没有上一代。
+ * 举例：空账本 → 答一个控制块、没有记录块的文件。
+ * 加密失败时 Promise 失败。
+ */
 export async function createInitialLedgerFileV3S3(
   crypto: LedgerFileCrypto,
   fileId: string,
@@ -110,6 +129,12 @@ export async function createInitialLedgerFileV3S3(
   });
 }
 
+/**
+ * 这个函数准备下一代。
+ * 算出分块计划，只加密变了的块，放进空着的槽。
+ * 举例：新记 1 笔买卖 → 只加密没装满的那块和控制块。
+ * 空槽不够或文件不合规矩时抛错。
+ */
 export async function prepareNextLedgerFileV3S3(
   crypto: LedgerFileCrypto,
   physicalBaseFile: LedgerFileV3S3,
@@ -215,6 +240,10 @@ export async function prepareNextLedgerFileV3S3(
   };
 }
 
+/**
+ * 这个函数列出一份文件这一代和上一代占着的全部内容槽。
+ * 举例：控制块占 0 号、记录块占 1、2 号 → 答 [0, 1, 2]。
+ */
 export function collectLedgerFileBodySlots(file: LedgerFileV3S3): number[] {
   return [file.current, file.previous]
     .flatMap((generation) =>
@@ -225,6 +254,11 @@ export function collectLedgerFileBodySlots(file: LedgerFileV3S3): number[] {
     .flatMap((block) => block.bodySlots);
 }
 
+/**
+ * 这个函数列出几份文件里用过的全部随机数。
+ * 好让新块不重用。
+ * 举例：两份候选共用过 5 个随机数 → 答这 5 个。
+ */
 export function collectLedgerFileIvBase64Urls(
   files: readonly LedgerFileV3S3[],
 ): string[] {
@@ -381,6 +415,11 @@ function createBodySlotAllocator(
   };
 }
 
+/**
+ * 这个函数从一串字节里读出两个头槽一共用到的内容槽。
+ * 举例：两个头槽合起来用到 0～4 号 → 答 [0, 1, 2, 3, 4]。
+ * 文件不合规矩时抛 `LEDGER_FILE_INVALID_FILE`。
+ */
 export function readReachableBodySlotsV3S3(bytes: Uint8Array): number[] {
   const parsed = parseLedgerFileV3S3Candidates(bytes);
   if (!parsed.ok) {
@@ -393,6 +432,11 @@ export function readReachableBodySlotsV3S3(bytes: Uint8Array): number[] {
   return parsed.value.reachableBodySlots;
 }
 
+/**
+ * 这个函数从一串字节里读出两个头槽用过的全部随机数。
+ * 举例：两份候选共用过 5 个随机数 → 答这 5 个。
+ * 文件不合规矩时抛 `LEDGER_FILE_INVALID_FILE`。
+ */
 export function readReachableIvBase64UrlsV3S3(bytes: Uint8Array): string[] {
   const parsed = parseLedgerFileV3S3Candidates(bytes);
   if (!parsed.ok) {

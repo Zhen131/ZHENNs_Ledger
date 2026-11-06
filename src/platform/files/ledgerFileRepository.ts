@@ -1,3 +1,11 @@
+/**
+ * 这个文件管一个打开着的账本文件。
+ * 包括新建、打开、读、存、清空、导入、从上一代恢复。
+ * 它不管文件格式细节和加密，那在 Container 文件和 ledgerFileCrypto.ts。
+ * 不显然的决定。
+ * 每次存完都整份读回来核对，核不上就停下，不再往下写。2026-09-01 定（W15 06B 修订 E 第 E.2 节）。
+ */
+
 import { type LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
 import { type LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
 import { type CanonicalLedgerPayloadV4 } from "./ledgerFileContract";
@@ -113,6 +121,19 @@ type LedgerFileOpenResult =
       candidate: LedgerFileRecoveryCandidate;
     };
 
+/**
+ * 这个类是一个打开着的账本文件，上层通过它读和存账本。
+ * 新建用 create，打开用 open 或 openForAccess。
+ * 每次存都写新一代，上一代留着备用；写完整份读回来核对。
+ * 举例：新记 1 笔买卖 → 只重写没装满的块和控制块，换一个头槽。
+ * 举例：存之前发现文件被别处改过 → 抛 `LEDGER_FILE_EXTERNAL_CHANGE`，不覆盖。
+ *
+ * 为什么留上一代：浏览器没有真正的原子替换。
+ * 写坏时还能从上一代恢复。
+ * 2026-08-31 定（W15 06A 第 0.4 节）。
+ *
+ * 出错时抛 `LedgerFileRepositoryError`，界面据此提示，不再继续写。
+ */
 export class LedgerFileRepository
   implements
     LedgerRepository,
@@ -1463,6 +1484,12 @@ export class LedgerFileRepository
   }
 }
 
+/**
+ * 这个类是这一代坏了、能从上一代恢复时，交给界面的选择。
+ * 用户确认就把上一代写成新的这一代；取消就什么都不写。
+ * 举例：确认 → 答恢复好的账本文件存取对象；取消 → 文件一个字节都不动。
+ * 恢复写入或核对失败时，Promise 失败。
+ */
 export class LedgerFileRecoveryCandidate {
   private pendingIntent: PendingRecoveryIntent | null = null;
   private confirmationPromise: Promise<LedgerFileRepository> | null =
@@ -1652,6 +1679,11 @@ export class LedgerFileRecoveryCandidate {
   }
 }
 
+/**
+ * 这个函数只读地看一眼账本文件，读成 S-3 文件，不解密。
+ * 举例：一份完好的账本文件 → 答外层的版本号、编号和块清单。
+ * 不是合规矩的 S-3 文件时抛 `LedgerFileRepositoryError`。
+ */
 export async function inspectLedgerFile(
   adapter: LedgerFileHandleAdapter,
   handle: LedgerFileHandle,
