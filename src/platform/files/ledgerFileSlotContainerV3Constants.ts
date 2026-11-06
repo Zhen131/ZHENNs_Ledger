@@ -6,6 +6,10 @@
 
 import { LEDGER_FILE_V3_MAGIC } from "./ledgerFileContainerV3";
 
+/**
+ * 识别字节后面跟几个 4 字节的数：2 个。
+ * 为什么是 2：一个记头槽大小，一个记内容槽大小。
+ */
 const PREFIX_UINT32_FIELDS = 2;
 /**
  * 文件最前面固定部分的长度。

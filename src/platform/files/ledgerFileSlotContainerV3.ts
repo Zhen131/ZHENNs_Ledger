@@ -24,9 +24,17 @@ export const LEDGER_FILE_HEADER_SLOT_BYTES = 256 * 1024;
 export const LEDGER_FILE_BODY_SLOT_COUNT = 3 as const;
 /** 每个内容槽最少多大：64 KiB。为什么是这个数：这是猜的，日志里没写，要核。 */
 export const LEDGER_FILE_BODY_SLOT_MIN_BYTES = 64 * 1024;
+/**
+ * 内容槽大小向上取整到 64 KiB 的倍数。
+ * 为什么是 64 KiB：日志只写了「对齐 64 KiB」，没写理由，要核。2026-09-01 定（W15 06C 第 R-15 节）。
+ */
 const LEDGER_FILE_BODY_SLOT_ALIGNMENT_BYTES = 64 * 1024;
 
-/** S-2 格式写在明文外层的版本号和槽的大小上限。 */
+/**
+ * S-2 格式写在明文外层的版本号和槽的大小上限。
+ * 大小和上限取自上面和 ledgerFileContract.ts 的常量。
+ * 为什么放明文外层：低版本要能在解密前认出来。2026-08-27 定（W15 版本分层与迁移策略决策记录第二节）。
+ */
 export const LEDGER_FILE_OUTER_V3_S2_CONSTANTS = {
   fileFormatVersion: 3,
   cryptoVersion: 1,

@@ -29,12 +29,16 @@ export const LEDGER_FILE_V3_S3_HEADER_SLOT_BYTES = 256 * 1024;
  * 为什么是这个数：2026-09-01 定（W15 06C 第 R-2 节 F-1）。
  */
 export const LEDGER_FILE_V3_S3_BODY_SLOT_BYTES = 1024 * 1024;
-/** 文件头槽末尾那段块清单验证码的长度：16 字节。 */
+/**
+ * 文件头槽末尾那段块清单验证码的长度：16 字节。
+ * 为什么是 16：AES-GCM 默认的验证码就是这么长。2026-09-01 定（W15 06C 第 R-2 节 F-3）。
+ */
 export const LEDGER_FILE_V3_S3_MANIFEST_TAG_BYTES = 16;
 
 /**
  * S-3 格式写在明文外层的四个版本号。
- * 和槽的大小、整份文件的上限。
+ * 和槽的大小、整份文件的上限，取自上面几个常量。
+ * 为什么放明文外层：低版本要能在解密前认出来。2026-08-27 定（W15 版本分层与迁移策略决策记录第二节）。
  */
 export const LEDGER_FILE_OUTER_V3_S3_CONSTANTS = {
   fileFormatVersion: 3,
