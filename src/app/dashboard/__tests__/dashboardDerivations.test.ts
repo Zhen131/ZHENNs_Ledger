@@ -14,7 +14,7 @@ import {
   resolveDashboardDerivations,
   updateDashboardDerivationsForAppend,
   type DashboardDerivationOptions,
-} from "./dashboardDerivations";
+} from "../dashboardDerivations";
 
 const OPTIONS: DashboardDerivationOptions = {
   todayKey: "2026-08-20",

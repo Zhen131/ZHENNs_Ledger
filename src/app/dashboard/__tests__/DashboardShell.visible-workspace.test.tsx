@@ -12,7 +12,7 @@ import {
   LEDGER_FILE_CAPABILITIES,
   type LedgerRepository,
 } from "@/platform/persistence";
-import { DashboardShell } from "./DashboardShell";
+import { DashboardShell } from "../DashboardShell";
 
 const fixedClock: LedgerClock = {
   now: () => new Date("2026-08-31T10:00:00.000Z"),

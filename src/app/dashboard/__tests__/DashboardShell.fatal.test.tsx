@@ -11,7 +11,7 @@ import {
 } from "@/platform/persistence";
 import type { PersistentLedgerState } from "@/app/persistence";
 import { usePersistentLedger } from "@/app/persistence";
-import { DashboardShell } from "./DashboardShell";
+import { DashboardShell } from "../DashboardShell";
 
 vi.mock("@/app/persistence", () => ({
   usePersistentLedger: vi.fn(),

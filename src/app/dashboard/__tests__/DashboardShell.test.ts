@@ -14,7 +14,7 @@ import {
 } from "@/features/portfolio";
 import { createInitialLedgerData } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
-import { DashboardShell } from "./DashboardShell";
+import { DashboardShell } from "../DashboardShell";
 
 vi.mock("@/features/portfolio", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/portfolio")>()),

@@ -22,7 +22,7 @@ import {
 import { createInitialLedgerData } from "@/core/state";
 import { isWithinTolerance } from "@/core/shared";
 import type { LedgerClock } from "@/core/shared";
-import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
+import { DashboardShell as DashboardShellRuntime } from "../DashboardShell";
 import {
   closeHoldingsDetails,
   deleteTradeAfterReview,

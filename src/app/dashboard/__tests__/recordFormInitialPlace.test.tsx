@@ -13,7 +13,7 @@ import {
   createLedgerSession,
   LEDGER_FILE_CAPABILITIES,
 } from "@/platform/persistence";
-import { DashboardShell } from "./DashboardShell";
+import { DashboardShell } from "../DashboardShell";
 import { createMemoryRepository } from "./DashboardShell.testHelpers";
 import {
   createTradeWorkspaceDraft,

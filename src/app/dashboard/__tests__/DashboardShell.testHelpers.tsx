@@ -37,7 +37,7 @@ import {
   createSimpleTrade as createUsdTradeFixture,
 } from "@/test-support";
 import type { LedgerClock } from "@/core/shared";
-import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
+import { DashboardShell as DashboardShellRuntime } from "../DashboardShell";
 
 const fixedClock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00"),
