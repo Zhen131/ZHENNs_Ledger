@@ -1,6 +1,6 @@
 "use client";
 
-import { LedgerNumber } from "@/ui";
+import { LedgerNumber, PaginationBar } from "@/ui";
 import { cashTypeLabel } from "./cashEventPanelHelpers";
 import type { ArmedDelete } from "./cashEventPanelHelpers";
 import type {
@@ -80,32 +80,21 @@ export function CashEventPanelEventList({
                 </li>
               ))}
             </ul>
-            <div
-              aria-label={t("cash.pagination.ariaLabel")}
+            <PaginationBar
+              ariaLabel={t("cash.pagination.ariaLabel")}
               className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] pt-3 text-sm"
-            >
-              <p className="text-[var(--ledger-muted)]">
-                {t("cash.pagination.totalPrefix")} {orderedCashEvents.length} {t("cash.pagination.totalSuffix")}{t("cash.pagination.listSeparator")}{t("cash.pagination.pagePrefix")} {currentPage} / {totalPages} {t("cash.pagination.pageSuffix")}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((page) => page - 1)}
-                  type="button"
-                >
-                  {t("cash.pagination.previous")}
-                </button>
-                <button
-                  className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((page) => page + 1)}
-                  type="button"
-                >
-                  {t("cash.pagination.next")}
-                </button>
-              </div>
-            </div>
+              currentPage={currentPage}
+              nextLabel={t("cash.pagination.next")}
+              onNext={() => setCurrentPage((page) => page + 1)}
+              onPrevious={() => setCurrentPage((page) => page - 1)}
+              previousLabel={t("cash.pagination.previous")}
+              summary={
+                <>
+                  {t("cash.pagination.totalPrefix")} {orderedCashEvents.length} {t("cash.pagination.totalSuffix")}{t("cash.pagination.listSeparator")}{t("cash.pagination.pagePrefix")} {currentPage} / {totalPages} {t("cash.pagination.pageSuffix")}
+                </>
+              }
+              totalPages={totalPages}
+            />
           </>
         )}
       </div>

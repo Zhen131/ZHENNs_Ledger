@@ -1,7 +1,7 @@
 "use client";
 
 import { ActivityTable } from "@/features/activity/ui";
-import { SurfaceCard } from "@/ui";
+import { PaginationBar, SurfaceCard } from "@/ui";
 import type { LedgerActivityItem } from "@/features/activity";
 import type { PendingDelete } from "./transactionsWorkspaceTypes";
 import type {
@@ -81,38 +81,27 @@ export function TransactionsWorkspaceActivityCard({
           todayKey={todayKey}
         />
         {filteredItems.length > 0 ? (
-          <div
-            aria-label={t("transactions.pagination.ariaLabel")}
+          <PaginationBar
+            ariaLabel={t("transactions.pagination.ariaLabel")}
             className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ledger-border)] px-4 py-3 text-sm"
-          >
-            <p className="text-[var(--ledger-muted)]">
-              {t("transactions.pagination.totalPrefix")} {filteredItems.length} {t("transactions.pagination.totalMiddle")} {currentPage} / {totalPages} {t("transactions.pagination.pageSuffix")}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={currentPage === 1}
-                onClick={() => {
-                  setExpandedItemId(null);
-                  setCurrentPage((page) => page - 1);
-                }}
-                type="button"
-              >
-                {t("transactions.pagination.previous")}
-              </button>
-              <button
-                className="rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={currentPage === totalPages}
-                onClick={() => {
-                  setExpandedItemId(null);
-                  setCurrentPage((page) => page + 1);
-                }}
-                type="button"
-              >
-                {t("transactions.pagination.next")}
-              </button>
-            </div>
-          </div>
+            currentPage={currentPage}
+            nextLabel={t("transactions.pagination.next")}
+            onNext={() => {
+              setExpandedItemId(null);
+              setCurrentPage((page) => page + 1);
+            }}
+            onPrevious={() => {
+              setExpandedItemId(null);
+              setCurrentPage((page) => page - 1);
+            }}
+            previousLabel={t("transactions.pagination.previous")}
+            summary={
+              <>
+                {t("transactions.pagination.totalPrefix")} {filteredItems.length} {t("transactions.pagination.totalMiddle")} {currentPage} / {totalPages} {t("transactions.pagination.pageSuffix")}
+              </>
+            }
+            totalPages={totalPages}
+          />
         ) : null}
       </SurfaceCard>
   );

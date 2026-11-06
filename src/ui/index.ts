@@ -3,6 +3,7 @@ export * from "./feedbackTiming";
 export * from "./FileStatusIndicator";
 export * from "./LedgerIcon";
 export * from "./LedgerNumber";
+export * from "./PaginationBar";
 export * from "./SurfaceCard";
 export * from "./formatLedgerNumber";
 export * from "./i18n";
