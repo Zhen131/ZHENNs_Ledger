@@ -4,7 +4,7 @@ import {
   type
   LedgerFileConnectionRecordV1,
 } from "@/platform/files";
-import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
+import { LEDGER_FILE_ACCESS_ERROR_CODES } from "../ledgerFileAccessController";
 import {
   MemoryFileHandle,
   PASSPHRASE,

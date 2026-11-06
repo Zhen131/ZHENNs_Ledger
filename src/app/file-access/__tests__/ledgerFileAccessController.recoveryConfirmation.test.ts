@@ -3,7 +3,7 @@ import type { LedgerFileSessionCoordinator } from "@/platform/coordination";
 import {
   claimLedgerSessionPersistencePort,
 } from "@/platform/persistence";
-import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
+import { LEDGER_FILE_ACCESS_ERROR_CODES } from "../ledgerFileAccessController";
 import {
   PASSPHRASE,
   createController,

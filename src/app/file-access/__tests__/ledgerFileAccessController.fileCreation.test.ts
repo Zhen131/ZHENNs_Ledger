@@ -8,7 +8,7 @@ import { createInitialLedgerData } from "@/core/state";
 import {
   DefaultLedgerFileAccessController,
   LEDGER_FILE_ACCESS_ERROR_CODES,
-} from "./ledgerFileAccessController";
+} from "../ledgerFileAccessController";
 import {
   MemoryFileHandle,
   PASSPHRASE,

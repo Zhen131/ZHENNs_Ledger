@@ -5,7 +5,7 @@ import {
 } from "vitest";
 import { type LedgerFileHandle } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
-import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
+import { LEDGER_FILE_ACCESS_ERROR_CODES } from "../ledgerFileAccessController";
 import {
   MemoryFileHandle,
   PASSPHRASE,

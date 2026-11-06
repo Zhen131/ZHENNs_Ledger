@@ -28,7 +28,7 @@ import {
   serializeLedgerFileForTest,
   applyLedgerFileWritableDataForTest,
 } from "@/test-support";
-import { DefaultLedgerFileAccessController } from "./ledgerFileAccessController";
+import { DefaultLedgerFileAccessController } from "../ledgerFileAccessController";
 
 export const PASSPHRASE = "correct horse battery staple";
 
