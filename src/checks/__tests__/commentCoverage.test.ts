@@ -83,7 +83,6 @@ const NOT_YET_DOCUMENTED: readonly string[] = [
   "core/calculations/positionReplay.ts",
   "core/calculations/tradeCashImpact.ts",
   "core/catalog/builtInAssets.ts",
-  "core/models/types.ts",
   "core/policies/ledgerFactPolicy.ts",
   "core/policies/ledgerImportPolicy.ts",
   "core/state/initialLedgerData.ts",
