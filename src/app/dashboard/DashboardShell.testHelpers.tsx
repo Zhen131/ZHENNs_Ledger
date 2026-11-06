@@ -238,15 +238,15 @@ export function createMemoryRepository(
 }
 
 /**
- * Renders the shell the way the real entry does: always with a session.
- * The storage semantics default to what the shell itself defaults to when no
- * storage is named ("indexeddb" with its capabilities), so a migrated case
- * keeps the semantics it ran under before (08B section 3 item 2).
+ * Renders the shell the way the real entry does: always with a ledger-file
+ * session. Every capability is on and the session's ready clear and import
+ * drivers finish on the given repository, so a migrated case reaches the same
+ * repository calls it reached before the browser storage kind was retired.
  */
 export async function renderDashboard(
   repository: LedgerRepository = createMemoryRepository(),
   {
-    storageKind = "indexeddb",
+    storageKind = "ledger-file",
     capabilities = ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
     readyClearDriver,
   }: {

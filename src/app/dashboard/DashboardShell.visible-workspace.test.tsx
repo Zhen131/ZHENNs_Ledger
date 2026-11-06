@@ -53,11 +53,8 @@ describe("DashboardShell visible workspace mounting", () => {
 
     render(
       <DashboardShell
-        capabilities={LEDGER_FILE_CAPABILITIES}
         clock={fixedClock}
-        repository={repository}
         session={session}
-        storageKind="ledger-file"
       />,
     );
     await waitFor(() =>

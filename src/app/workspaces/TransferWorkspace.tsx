@@ -1,15 +1,19 @@
 import type { ReactNode } from "react";
 
+import type { LedgerStorageKind } from "@/platform/persistence";
 import { SurfaceCard, useLanguage } from "@/ui";
 
 export function TransferWorkspace({
   active,
   backupPanel,
-  storageKind,
 }: Readonly<{
   active: boolean;
   backupPanel: ReactNode;
-  storageKind: "indexeddb" | "ledger-file";
+  /**
+   * Accepted for existing callers; the ledger file is the only storage kind,
+   * so nothing here branches on it any more.
+   */
+  storageKind?: LedgerStorageKind;
 }>) {
   const { t } = useLanguage();
 
@@ -22,9 +26,7 @@ export function TransferWorkspace({
       <SurfaceCard className="p-5">
         <h2 className="text-lg font-semibold">{t("transfer.heading")}</h2>
         <p className="mt-1 text-sm leading-6 text-[var(--ledger-muted)]">
-          {storageKind === "ledger-file"
-            ? t("transfer.description.file")
-            : t("transfer.description.indexedDb")}
+          {t("transfer.description.file")}
         </p>
       </SurfaceCard>
 

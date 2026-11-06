@@ -187,7 +187,9 @@ describe("DashboardShell trade interactions", () => {
       screen.getByRole("button", { name: "确认清空账本内容" }),
     );
     await waitFor(() => {
-      expect(screen.getByText("当前浏览器账本已清空")).not.toBeNull();
+      expect(
+        screen.getByText("当前账本内容已清空，.lftl 文件仍然存在"),
+      ).not.toBeNull();
     });
     await expect(thirdRepository.load()).resolves.toBeNull();
     thirdView.unmount();

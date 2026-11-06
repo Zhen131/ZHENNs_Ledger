@@ -7,7 +7,10 @@ import type {
   LedgerData,
   Trade,
 } from "@/core/models";
-import { type LedgerRepository } from "@/platform/persistence";
+import {
+  type LedgerRepository,
+  type LedgerSessionCapabilities,
+} from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import {
   createUsdtAsset as createAsset,
@@ -18,12 +21,18 @@ import {
 import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
 
+/** Every capability on; the one shared test constant, defined in test-support. */
+export { ALL_ENABLED_TEST_LEDGER_CAPABILITIES } from "@/test-support";
+
 export const fixedClock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00"),
 };
 
-export function usePersistentLedger(repository: LedgerRepository) {
-  return usePersistentLedgerRuntime(repository, fixedClock);
+export function usePersistentLedger(
+  repository: LedgerRepository,
+  capabilities?: LedgerSessionCapabilities,
+) {
+  return usePersistentLedgerRuntime(repository, fixedClock, capabilities);
 }
 
 afterEach(() => {

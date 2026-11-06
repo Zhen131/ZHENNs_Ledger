@@ -35,8 +35,6 @@ export const chineseMessages = {
   "transfer.heading": "导入与导出",
   "transfer.description.file":
     "当前 .lftl 是加密正式账本；这里导入或导出的备份文件始终是另一份明文 JSON。",
-  "transfer.description.indexedDb":
-    "这里导入或导出的备份文件是明文 JSON，不等同于浏览器中的本地账本记录。",
   "transfer.privacyWarning":
     "⚠ 明文备份包含完整资产、交易、价格和手续费规则。请核对浏览器实际下载位置；同步目录可能自动上传文件，不再需要时请安全删除。",
   "transfer.export.heading": "导出明文账本",
@@ -396,7 +394,6 @@ export const chineseMessages = {
   "settings.clear.error.confirmationPrefix": "请输入完整确认文本",
   "settings.clear.error.failed": "清空未完成；当前文件与页面状态以顶部错误提示为准",
   "settings.clear.success.file": "当前账本内容已清空，.lftl 文件仍然存在",
-  "settings.clear.success.browser": "当前浏览器账本已清空",
   "settings.clear.disabled.notAllowed": "当前文件状态不允许清空",
   "settings.clear.disabled.readOnly": "当前账本处于只读保护，不能清空",
   "settings.clear.disabled.switching": "文件切换尚未完成，暂不能清空",
@@ -408,7 +405,6 @@ export const chineseMessages = {
   "settings.clear.confirmation.heading": "这会清空当前账本内容",
   "settings.clear.confirmation.descriptionPrefix": "自定义资产、交易、价格和手续费规则都会清空；不会删除",
   "settings.clear.confirmation.file": "当前 .lftl 文件",
-  "settings.clear.confirmation.browser": "浏览器或应用本身",
   "settings.clear.confirmation.descriptionSuffix": "，也不会增加“删除账本文件”能力。",
   "settings.clear.confirmation.backupAdvice": "建议先到“导入与导出”导出一份明文备份并安全保管。",
   "settings.clear.confirmation.phrase": "清空账本",
@@ -590,7 +586,6 @@ export const chineseMessages = {
   "assetTransfers.events.heading": "资产转移事实", "assetTransfers.events.empty": "暂无资产转移。", "assetTransfers.networkFeeShort": "链上手续费", "assetTransfers.unitPriceShort": "到账单价",
   "assetTransfers.pagination.ariaLabel": "资产转移事实分页", "assetTransfers.pagination.totalPrefix": "共", "assetTransfers.pagination.totalSuffix": "条", "assetTransfers.pagination.pagePrefix": "第", "assetTransfers.pagination.pageSuffix": "页", "assetTransfers.pagination.previous": "上一页", "assetTransfers.pagination.next": "下一页",
   "assetTransfers.pagination.listSeparator": "，",
-  "dashboard.clearConfirmation.legacy": "清空本地账本",
   "dashboard.fileStatus.switchBlocked": "切换已阻止",
   "dashboard.fileStatus.loading": "正在读取账本",
   "dashboard.fileStatus.needsAttention": "文件需要处理",

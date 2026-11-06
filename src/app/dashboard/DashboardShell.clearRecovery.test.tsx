@@ -72,7 +72,7 @@ describe("DashboardShell data management", () => {
     await openSettingsClear();
     expect(
       screen.getByText(
-        "自定义资产、交易、价格和手续费规则都会清空；不会删除浏览器或应用本身，也不会增加“删除账本文件”能力。",
+        "自定义资产、交易、价格和手续费规则都会清空；不会删除当前 .lftl 文件，也不会增加“删除账本文件”能力。",
       ),
     ).not.toBeNull();
     await user.click(
@@ -178,7 +178,7 @@ describe("DashboardShell data management", () => {
     await openSettingsClear();
     expect(
       screen.getByText(
-        "自定义资产、交易、价格和手续费规则都会清空；不会删除浏览器或应用本身，也不会增加“删除账本文件”能力。",
+        "自定义资产、交易、价格和手续费规则都会清空；不会删除当前 .lftl 文件，也不会增加“删除账本文件”能力。",
       ),
     ).not.toBeNull();
     await user.type(
@@ -190,7 +190,9 @@ describe("DashboardShell data management", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("当前浏览器账本已清空")).not.toBeNull();
+      expect(
+        screen.getByText("当前账本内容已清空，.lftl 文件仍然存在"),
+      ).not.toBeNull();
     });
     // The recovered ledger is a new ledger epoch, so the settings page
     // reopens on its first tab.
@@ -230,10 +232,14 @@ describe("DashboardShell data management", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("清空本地账本失败，原页面与本地数据均未更改"),
+        screen.getByText(
+          "清空当前账本文件的结果未确认，页面没有显示成功；请重试以核对同一次清空操作",
+        ),
       ).not.toBeNull();
     });
-    expect(screen.queryByText("当前浏览器账本已清空")).toBeNull();
+    expect(
+      screen.queryByText("当前账本内容已清空，.lftl 文件仍然存在"),
+    ).toBeNull();
     expect(
       screen.queryByRole("button", { name: "重试保存" }),
     ).toBeNull();

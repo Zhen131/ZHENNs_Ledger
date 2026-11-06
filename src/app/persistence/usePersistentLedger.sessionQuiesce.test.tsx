@@ -17,14 +17,18 @@ import type { LedgerData } from "@/core/models";
 import {
   claimLedgerSessionPersistencePort,
   createLedgerSession,
-  INDEXED_DB_LEDGER_CAPABILITIES,
   LEDGER_FILE_CAPABILITIES,
   LedgerSessionLifecycleError,
+  READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
 } from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
-import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
+import {
+  createRepositoryBackedReadyDrivers,
+  createUsdtSimpleTrade as createSimpleTrade,
+} from "@/test-support";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
 import {
+  ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
   addTrade,
   createRepository,
   fixedClock,
@@ -221,16 +225,17 @@ describe("usePersistentLedger clear recovery and lifecycle", () => {
       clear: vi.fn(() => clearDeferred.promise),
     });
     const session = createLedgerSession({
-      storageKind: "indexeddb",
+      storageKind: "ledger-file",
       repository,
-      capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+      capabilities: ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
+      ...createRepositoryBackedReadyDrivers(repository),
       createSessionId: () => "hook-clear-session",
       release,
     });
     const other = createLedgerSession({
-      storageKind: "indexeddb",
+      storageKind: "ledger-file",
       repository: createRepository(),
-      capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+      capabilities: ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
       createSessionId: () => "other-session",
     });
     const { result } = renderHook(() =>
@@ -253,7 +258,9 @@ describe("usePersistentLedger clear recovery and lifecycle", () => {
 
     let clearPromise!: ReturnType<typeof result.current.clearLedger>;
     act(() => {
-      clearPromise = result.current.clearLedger();
+      clearPromise = result.current.clearLedger(
+        READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
+      );
     });
     await waitFor(() => {
       expect(repository.clear).toHaveBeenCalledOnce();

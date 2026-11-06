@@ -14,6 +14,7 @@ import {
   translateDefault,
   useLanguage,
 } from "@/ui";
+import type { LedgerStorageKind } from "@/platform/persistence";
 import type { HydrationStatus } from "@/app/persistence";
 import type { PersistenceOperation } from "@/app/persistence";
 import { doConfirmClear } from "./settingsWorkspaceActions";
@@ -45,7 +46,6 @@ export function SettingsWorkspace({
   isReadOnly,
   canClearReadyLedger,
   canClearHydrationError,
-  storageKind,
   onClear,
 }: Readonly<{
   active: boolean;
@@ -58,7 +58,11 @@ export function SettingsWorkspace({
   isReadOnly: boolean;
   canClearReadyLedger: boolean;
   canClearHydrationError: boolean;
-  storageKind: "indexeddb" | "ledger-file";
+  /**
+   * Accepted for existing callers; the ledger file is the only storage kind,
+   * so nothing here branches on it any more.
+   */
+  storageKind?: LedgerStorageKind;
   onClear: (mode: ClearMode) => Promise<boolean>;
 }>) {
   const { language, setLanguage, t } = useLanguage();
@@ -163,7 +167,6 @@ export function SettingsWorkspace({
         setDangerExpanded,
         setError,
         setSuccess,
-        storageKind,
         t,
       },
     );
@@ -263,7 +266,6 @@ export function SettingsWorkspace({
           setDangerExpanded={setDangerExpanded}
           setError={setError}
           setSuccess={setSuccess}
-          storageKind={storageKind}
           t={t}
         />
       ) : null}

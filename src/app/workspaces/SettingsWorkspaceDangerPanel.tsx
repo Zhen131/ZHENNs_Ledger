@@ -29,7 +29,6 @@ export function SettingsWorkspaceDangerPanel({
   setDangerExpanded,
   setError,
   setSuccess,
-  storageKind,
   t,
 }: Readonly<{
   cancelClearRef: RefObject<HTMLButtonElement | null>;
@@ -51,7 +50,6 @@ export function SettingsWorkspaceDangerPanel({
   setDangerExpanded: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<string>>;
   setSuccess: Dispatch<SetStateAction<string>>;
-  storageKind: "indexeddb" | "ledger-file";
   t: Translate;
 }>) {
   return (
@@ -126,9 +124,7 @@ export function SettingsWorkspaceDangerPanel({
                 <p className="font-semibold">{t("settings.clear.confirmation.heading")}</p>
                 <p>
                   {t("settings.clear.confirmation.descriptionPrefix")}
-                  {storageKind === "ledger-file"
-                    ? t("settings.clear.confirmation.file")
-                    : t("settings.clear.confirmation.browser")}
+                  {t("settings.clear.confirmation.file")}
                   {t("settings.clear.confirmation.descriptionSuffix")}
                 </p>
                 <p>{t("settings.clear.confirmation.backupAdvice")}</p>

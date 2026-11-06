@@ -18,13 +18,9 @@ import { TransactionsWorkspace } from "@/app/workspaces";
 import { TransferWorkspace } from "@/app/workspaces";
 import { useLedgerWorkspaceSession } from "@/app/workspaces";
 import {
-  INDEXED_DB_LEDGER_CAPABILITIES,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
   type LedgerSession,
-  type LedgerRepository,
-  type LedgerSessionCapabilities,
   type SessionQuiesceReason,
-  type LedgerStorageKind,
 } from "@/platform/persistence";
 import {
   isLedgerFactInFuture,
@@ -65,19 +61,13 @@ import { DashboardShellHomePage } from "./DashboardShellHomePage";
 import { DashboardShellSettingsPage } from "./DashboardShellSettingsPage";
 
 export function DashboardShell({
-  repository: providedRepository,
   clock = systemLedgerClock,
-  capabilities: providedCapabilities = INDEXED_DB_LEDGER_CAPABILITIES,
-  storageKind: providedStorageKind = "indexeddb",
   session,
   onFinalLock,
   onSessionFatal,
   onSessionDrainReady,
 }: Readonly<{
-  repository?: LedgerRepository;
   clock?: LedgerClock;
-  capabilities?: LedgerSessionCapabilities;
-  storageKind?: LedgerStorageKind;
   session: LedgerSession;
   onFinalLock?: (
     drain: PersistentLedgerState["drainForSessionQuiesce"],
@@ -93,21 +83,12 @@ export function DashboardShell({
   ) => void;
 }>) {
   const { t } = useLanguage();
-  const repository = session.repository ?? providedRepository;
-  if (!repository) {
-    throw new Error("DashboardShell requires a LedgerSession or repository");
-  }
-  const capabilities =
-    session.capabilities ?? providedCapabilities;
-  const storageKind =
-    session.storageKind ?? providedStorageKind;
+  const repository = session.repository;
+  const capabilities = session.capabilities;
   // What the repository is handed once the typed phrase matches: the one
   // canonical value it has always accepted. Widening what the repository
   // accepts is out of bounds (04A D-16b).
-  const clearConfirmationNonce =
-    storageKind === "ledger-file"
-      ? READY_LEDGER_CLEAR_CONFIRMATION_TEXT
-      : t("dashboard.clearConfirmation.legacy");
+  const clearConfirmationNonce = READY_LEDGER_CLEAR_CONFIRMATION_TEXT;
   const {
     ledgerData,
     applyLedgerAction,
@@ -402,7 +383,7 @@ export function DashboardShell({
       fileStatusLabel={fileStatus.label}
       fileStatusTone={fileStatus.tone}
       onLock={
-        session.storageKind === "ledger-file" && onFinalLock
+        onFinalLock
           ? requestImmediateLock
           : undefined
       }
@@ -648,7 +629,6 @@ export function DashboardShell({
               showPlaintextWarning={false}
             />
           }
-          storageKind={storageKind}
         />
       ) : null}
       {workspace.currentPage === "settings" ? (
@@ -671,7 +651,6 @@ export function DashboardShell({
           repositorySwitchBlocked={repositorySwitchBlocked}
           session={session}
           setValuationPriceMode={setValuationPriceMode}
-          storageKind={storageKind}
           todayKey={todayKey}
           valuationPriceMode={valuationPriceMode}
         />

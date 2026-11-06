@@ -12,7 +12,6 @@ import type { DashboardDerivations } from "./dashboardDerivations";
 import type {
   LedgerSession,
   LedgerSessionCapabilities,
-  LedgerStorageKind,
 } from "@/platform/persistence";
 import type { LedgerClock } from "@/core/shared";
 
@@ -35,7 +34,6 @@ export function DashboardShellSettingsPage({
   repositorySwitchBlocked,
   session,
   setValuationPriceMode,
-  storageKind,
   todayKey,
   valuationPriceMode,
 }: Readonly<{
@@ -57,7 +55,6 @@ export function DashboardShellSettingsPage({
   repositorySwitchBlocked: PersistentLedgerState["repositorySwitchBlocked"];
   session: LedgerSession;
   setValuationPriceMode: ReturnType<typeof useLedgerWorkspaceSession>["setValuationPriceMode"];
-  storageKind: LedgerStorageKind;
   todayKey: PersistentLedgerState["todayKey"];
   valuationPriceMode: ReturnType<typeof useLedgerWorkspaceSession>["valuationPriceMode"];
 }>) {
@@ -126,7 +123,6 @@ export function DashboardShellSettingsPage({
           onClear={handleSettingsClear}
           persistenceOperation={persistenceOperation}
           repositorySwitchBlocked={repositorySwitchBlocked}
-          storageKind={storageKind}
         />
   );
 }

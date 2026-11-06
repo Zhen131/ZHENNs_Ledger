@@ -15,7 +15,7 @@ import {
   partitionLedgerFactsForToday,
 } from "@/core/policies";
 import {
-  INDEXED_DB_LEDGER_CAPABILITIES,
+  LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   type LedgerBackupImportEvidence,
   type LedgerSession,
   type LedgerSessionCapabilities,
@@ -100,7 +100,7 @@ export function usePersistentLedger(
   requestedRepository: LedgerRepository,
   clock: LedgerClock = systemLedgerClock,
   capabilities: LedgerSessionCapabilities =
-    INDEXED_DB_LEDGER_CAPABILITIES,
+    LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   requestedSession?: LedgerSession,
 ): PersistentLedgerState {
   const [ledgerData, reducerDispatch] = useReducer(

@@ -21,6 +21,7 @@ import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
 import {
+  ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
   addTrade,
   createCompleteLedger,
   createRepository,
@@ -36,7 +37,9 @@ describe("usePersistentLedger clear recovery and lifecycle", () => {
         throw new Error("read failed");
       }),
     });
-    const { result } = renderHook(() => usePersistentLedger(repository));
+    const { result } = renderHook(() =>
+      usePersistentLedger(repository, ALL_ENABLED_TEST_LEDGER_CAPABILITIES),
+    );
 
     await waitFor(() => {
       expect(result.current.hydrationStatus).toBe("error");
@@ -62,7 +65,9 @@ describe("usePersistentLedger clear recovery and lifecycle", () => {
         throw new Error("clear failed");
       }),
     });
-    const { result } = renderHook(() => usePersistentLedger(repository));
+    const { result } = renderHook(() =>
+      usePersistentLedger(repository, ALL_ENABLED_TEST_LEDGER_CAPABILITIES),
+    );
 
     await waitFor(() => {
       expect(result.current.hydrationStatus).toBe("error");

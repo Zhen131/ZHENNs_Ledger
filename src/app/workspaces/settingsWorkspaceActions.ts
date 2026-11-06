@@ -14,7 +14,6 @@ type ConfirmClearDeps = {
   setDangerExpanded: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<string>>;
   setSuccess: Dispatch<SetStateAction<string>>;
-  storageKind: "indexeddb" | "ledger-file";
   t: Translate;
 };
 
@@ -31,7 +30,6 @@ export async function doConfirmClear(
     setDangerExpanded,
     setError,
     setSuccess,
-    storageKind,
     t,
   } = deps;
     if (!clearMode || clearDisabled) return;
@@ -52,9 +50,5 @@ export async function doConfirmClear(
     }
     setDangerExpanded(false);
     setConfirmationValue("");
-    setSuccess(
-      storageKind === "ledger-file"
-        ? t("settings.clear.success.file")
-        : t("settings.clear.success.browser"),
-    );
+    setSuccess(t("settings.clear.success.file"));
 }

@@ -52,7 +52,7 @@ export interface LedgerRepository {
   clear(): Promise<void>;
 }
 
-export type LedgerStorageKind = "indexeddb" | "ledger-file";
+export type LedgerStorageKind = "ledger-file";
 
 export type LedgerSessionCapabilities = {
   canClearReadyLedger: boolean;
@@ -215,12 +215,6 @@ export type CreateLedgerSessionOptions = {
   onBeginQuiesce?: () => void;
   release?: () => Promise<void>;
   createSessionId?: () => string;
-};
-
-export const INDEXED_DB_LEDGER_CAPABILITIES: LedgerSessionCapabilities = {
-  canClearReadyLedger: true,
-  canClearHydrationError: true,
-  canImportBackup: true,
 };
 
 export const LEDGER_FILE_CAPABILITIES: LedgerSessionCapabilities = {
