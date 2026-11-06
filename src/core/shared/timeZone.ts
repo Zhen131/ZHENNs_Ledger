@@ -7,7 +7,7 @@ type ZonedDateTimeParts = Readonly<{
   second: string;
 }>;
 
-export type WallTimeCandidate = Readonly<{
+type WallTimeCandidate = Readonly<{
   instant: Date;
   offset: string;
 }>;

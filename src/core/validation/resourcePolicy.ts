@@ -19,7 +19,7 @@ export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   rawText: 16_384,
 } as const;
 
-export type LedgerResourceLimits = {
+type LedgerResourceLimits = {
   [Key in keyof typeof DEFAULT_LEDGER_RESOURCE_LIMITS]: number;
 };
 
@@ -38,7 +38,7 @@ export type LedgerResourcePolicyError = {
   message: string;
 };
 
-export type LedgerResourcePolicyResult =
+type LedgerResourcePolicyResult =
   | { ok: true }
   | { ok: false; errors: LedgerResourcePolicyError[] };
 

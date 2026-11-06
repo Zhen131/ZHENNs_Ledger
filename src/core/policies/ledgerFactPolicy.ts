@@ -24,7 +24,7 @@ export type LedgerCompatibilityWarning = {
   message: string;
 };
 
-export type LedgerFactPartition = {
+type LedgerFactPartition = {
   activeTrades: Trade[];
   activeCashEvents: CashEvent[];
   activeAssetTransfers: AssetTransfer[];

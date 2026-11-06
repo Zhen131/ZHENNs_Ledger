@@ -20,14 +20,14 @@ import {
   createError,
 } from "./priceSnapshotValidatorReaders";
 
-export type ValidatedPriceSnapshotDraft = Omit<
+type ValidatedPriceSnapshotDraft = Omit<
   PriceSnapshotDraft,
   "currency"
 > & {
   currency: "USDT";
 };
 
-export type PriceSnapshotValidationResult =
+type PriceSnapshotValidationResult =
   | {
       ok: true;
       value: ValidatedPriceSnapshotDraft;
@@ -37,7 +37,7 @@ export type PriceSnapshotValidationResult =
       errors: PriceSnapshotValidationError[];
     };
 
-export type PriceSnapshotValidationOptions = {
+type PriceSnapshotValidationOptions = {
   todayKey?: string;
   requireSupportedValuationCurrency?: boolean;
   requireApiProvenance?: boolean;

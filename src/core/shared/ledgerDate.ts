@@ -40,7 +40,7 @@ export function getLedgerDateKey(
   return match[0];
 }
 
-export function formatLocalDateKey(date: Date): ISODateString {
+function formatLocalDateKey(date: Date): ISODateString {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");

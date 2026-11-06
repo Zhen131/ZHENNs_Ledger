@@ -1,6 +1,6 @@
 import type { AssetTransfer, Trade } from "@/core/models";
 
-export const TIMESTAMP = "2026-08-09T00:00:00Z";
+const TIMESTAMP = "2026-08-09T00:00:00Z";
 
 export function trade(
   overrides: Pick<

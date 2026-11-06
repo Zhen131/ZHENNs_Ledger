@@ -13,7 +13,7 @@ export type LedgerImportPolicyError = {
   message: string;
 };
 
-export type LedgerImportPolicyResult =
+type LedgerImportPolicyResult =
   | { ok: true }
   | { ok: false; errors: LedgerImportPolicyError[] };
 

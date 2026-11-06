@@ -3,7 +3,7 @@ import type { PriceSnapshot } from "@/core/models";
 import { getLedgerDateKey } from "./ledgerDate";
 import { resolveWallTimeInTimeZone } from "./timeZone";
 
-export type LedgerFactOrderKind =
+type LedgerFactOrderKind =
   | "trade"
   | "cash-event"
   | "asset-transfer"
@@ -13,7 +13,7 @@ export type LedgerFactOrderKind =
  * The single ordering input every ledger fact is projected onto before two
  * facts are compared.
  */
-export type LedgerFactOrderInput = Readonly<{
+type LedgerFactOrderInput = Readonly<{
   occurredAt: string;
   occurredTimeZone?: string;
   createdAt?: string;

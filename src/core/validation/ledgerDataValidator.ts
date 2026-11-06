@@ -32,7 +32,7 @@ import {
 } from "./ledgerDataValidatorSchema";
 import { readTrade } from "./ledgerDataValidatorTrade";
 
-export type IndexedValidatedLedgerTrade = Readonly<{
+type IndexedValidatedLedgerTrade = Readonly<{
   originalIndex: number;
   trade: Readonly<Trade>;
 }>;

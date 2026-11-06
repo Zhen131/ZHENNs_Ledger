@@ -9,9 +9,9 @@ Decimal.set({
   toExpPos: 100,
 });
 
-export type DecimalInput = DecimalString | number | Decimal;
+type DecimalInput = DecimalString | number | Decimal;
 
-export type DecimalFormatOptions = {
+type DecimalFormatOptions = {
   decimalPlaces?: number;
   trimTrailingZeros?: boolean;
   rounding?: Decimal.Rounding;

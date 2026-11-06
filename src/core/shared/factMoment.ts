@@ -12,7 +12,7 @@ export const FACT_TIME_ZONE_OPTIONS = [
   "UTC",
 ] as const;
 
-export type FactMomentDraft = Readonly<{
+type FactMomentDraft = Readonly<{
   occurredAt: string;
   timePrecision: TimePrecision;
   occurredTimeZone?: string;
@@ -22,9 +22,9 @@ export function isTimePrecision(value: unknown): value is TimePrecision {
   return value === "day" || value === "minute" || value === "second";
 }
 
-export type FactMomentRejection = "nonexistent" | "ambiguous" | "invalid";
+type FactMomentRejection = "nonexistent" | "ambiguous" | "invalid";
 
-export type FactMomentResult =
+type FactMomentResult =
   | Readonly<{ ok: true; value: FactMomentDraft }>
   | Readonly<{ ok: false; reason: FactMomentRejection }>;
 

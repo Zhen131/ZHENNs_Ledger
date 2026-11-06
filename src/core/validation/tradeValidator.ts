@@ -36,7 +36,7 @@ import {
  *
  * 调用方可以通过 TradeValidationContext 覆盖该值；Validator 不负责货币换算。
  */
-export const DEFAULT_TOTAL_VALUE_TOLERANCE: DecimalString = "0.01";
+const DEFAULT_TOTAL_VALUE_TOLERANCE: DecimalString = "0.01";
 
 /**
  * 校验成功后 fee 一定存在；表单或导入数据未提供 fee 时标准化为 "0"。
@@ -52,7 +52,7 @@ export type ValidatedTradeDraft = Omit<TradeDraft, "fee" | "currency"> & {
  * Validator 会把候选交易插入完整时间线后检查持仓和币种，
  * 但不会修改该数组。
  */
-export type TradeValidationContext = {
+type TradeValidationContext = {
   assets: readonly Asset[];
   priorTrades: readonly Trade[];
   priorAssetTransfers?: readonly AssetTransfer[];
@@ -81,7 +81,7 @@ export type TradeValidationResult =
  * validateTradeDraft 满足该签名并返回结构化结果，普通校验失败不通过
  * throw 表达。
  */
-export type TradeDraftValidator = (
+type TradeDraftValidator = (
   input: unknown,
   context: TradeValidationContext,
 ) => TradeValidationResult;
