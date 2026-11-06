@@ -4,7 +4,7 @@ import type { FeeRule } from "@/core/models";
 import {
   calculateFeeRuleCandidate,
   matchFeeRules,
-} from "./feeRuleService";
+} from "../feeRuleService";
 
 const fixed: FeeRule = {
   id: "fee-okx-btc-v1",

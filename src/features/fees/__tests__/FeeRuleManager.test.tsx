@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { FeeRule, LedgerData } from "@/core/models";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
-import { FeeRuleManager } from "./FeeRuleManager";
+import { FeeRuleManager } from "../FeeRuleManager";
 
 afterEach(() => {
   cleanup();
