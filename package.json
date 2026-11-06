@@ -8,6 +8,7 @@
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint . --max-warnings=0",
     "lint:unused": "knip --include exports,types",
+    "check:comments-only": "node scripts/compareStrippedSources.mjs",
     "test": "vitest run",
     "bench:test:generator": "vitest run --config vitest.benchmarks.config.ts benchmarks/generator/syntheticLedger.contract.ts",
     "bench:test:node": "vitest run --config vitest.benchmarks.config.ts benchmarks/measure/nodeMetrics.contract.ts",
