@@ -37,7 +37,7 @@ vi.mock("echarts/renderers", () => ({
   CanvasRenderer: {},
 }));
 
-import { EChart } from "./EChart";
+import { EChart } from "../EChart";
 
 const observe = vi.fn();
 const disconnect = vi.fn();

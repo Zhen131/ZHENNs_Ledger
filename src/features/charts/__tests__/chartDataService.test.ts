@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { add } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
-import { buildHoldingAllocation } from "./chartDataServiceAllocation";
+import { buildHoldingAllocation } from "../chartDataServiceAllocation";
 import { getPositionsFromLedger } from "@/features/portfolio";
 import {
   TODAY,

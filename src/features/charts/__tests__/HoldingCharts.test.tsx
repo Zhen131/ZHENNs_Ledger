@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   HoldingAllocation,
   HoldingHistoryPoint,
-} from "./chartDataService";
+} from "../chartDataService";
 
-vi.mock("./EChart", () => ({
+vi.mock("../EChart", () => ({
   EChart: ({
     ariaLabel,
     events,
@@ -28,8 +28,8 @@ vi.mock("./EChart", () => ({
   ),
 }));
 
-import { HoldingAllocationChart } from "./HoldingAllocationChart";
-import { HoldingTrendChart } from "./HoldingTrendChart";
+import { HoldingAllocationChart } from "../HoldingAllocationChart";
+import { HoldingTrendChart } from "../HoldingTrendChart";
 
 const allocation: HoldingAllocation = {
   slices: [

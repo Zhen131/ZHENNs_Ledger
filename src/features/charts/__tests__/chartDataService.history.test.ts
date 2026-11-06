@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";
-import { buildHoldingAllocation } from "./chartDataServiceAllocation";
-import { buildTradeHeatmap } from "./chartDataServiceHeatmap";
-import { buildHoldingHistory } from "./chartDataServiceHistory";
+import { buildHoldingAllocation } from "../chartDataServiceAllocation";
+import { buildTradeHeatmap } from "../chartDataServiceHeatmap";
+import { buildHoldingHistory } from "../chartDataServiceHistory";
 import {
   TODAY,
   apiPrice,

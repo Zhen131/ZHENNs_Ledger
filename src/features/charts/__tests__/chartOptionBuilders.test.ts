@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import type {
   HoldingAllocationSlice,
   HoldingHistoryPoint,
-} from "./chartDataService";
+} from "../chartDataService";
 import {
   ALLOCATION_CHART_COLORS,
   buildAllocationChartOption,
   buildHoldingHistoryChartOption,
   GROUPED_ALLOCATION_COLOR,
   toFiniteChartNumber,
-} from "./chartOptionBuilders";
+} from "../chartOptionBuilders";
 
 describe("chart option builders", () => {
   it("converts Decimal strings only at the pie render boundary and preserves provenance", () => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade, sampleUsdtTrades } from "@/test-support";
-import { buildTradeHeatmap } from "./chartDataServiceHeatmap";
+import { buildTradeHeatmap } from "../chartDataServiceHeatmap";
 import { TODAY } from "./chartDataService.testHelpers";
 
 describe("trade heatmap", () => {

@@ -4,8 +4,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { addLedgerDays } from "@/core/shared";
-import type { TradeHeatmapDay } from "./chartDataService";
-import { TradeHeatmapChart } from "./TradeHeatmapChart";
+import type { TradeHeatmapDay } from "../chartDataService";
+import { TradeHeatmapChart } from "../TradeHeatmapChart";
 
 afterEach(cleanup);
 
