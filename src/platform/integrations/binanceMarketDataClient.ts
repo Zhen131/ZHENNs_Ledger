@@ -1,3 +1,10 @@
+/**
+ * 这个文件管联网跟 Binance 要两样东西。
+ * 查一个交易对能不能用，取最新价格。
+ * 它不管把价格存进账本，那在功能区的行情部分。
+ * 不显然的决定：只在用户点了才联网，不重试、不轮询。2026-08-19 定（W14 01A 第三节）。
+ */
+
 import { isPositive } from "@/core/shared";
 import type {
   BinanceExchangeSymbol,
@@ -6,11 +13,23 @@ import type {
   BinanceTickerBatchResult,
 } from "./binanceMarketDataTypes";
 
+/**
+ * Binance 公开行情的网址。不带任何密钥或登录信息。
+ * 为什么用它：2026-08-19 定（W14 01B 第 5.1 节）。
+ */
 export const BINANCE_MARKET_DATA_BASE_URL =
   "https://data-api.binance.vision";
+/**
+ * 一次联网最多等多久：8 秒。超时就放弃，不重试。
+ * 为什么是 8 秒：2026-08-19 定（W14 01B 第 5.4 节）。
+ */
 export const BINANCE_MARKET_DATA_TIMEOUT_MS = 8_000;
 const DECIMAL_STRING_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
+/**
+ * 跟 Binance 要行情的那一方能做的两件事。
+ * 包括查交易对、取最新价格。
+ */
 export type BinanceMarketDataClient = {
   validateSpotSymbol(
     assetSymbol: string,
@@ -29,6 +48,20 @@ type BinanceMarketDataClientOptions = {
   timeoutMs?: number;
 };
 
+/**
+ * 这个函数做一个跟 Binance 要行情的工具。
+ * 它查交易对时要求。
+ * 状态必须是在交易，基础币要对得上。
+ * 报价币必须是 USDT，还要能现货交易。
+ * 取价格时，价格必须是大于 0 的数字。
+ * 举例：BTC 配 BTCUSDT → 答查得过；BTC 配 ETHUSDT → 答基础币对不上。
+ *
+ * 为什么拿不到可读回答时不猜原因：只说「当前无法验证」。
+ * 2026-08-19 定（W14 01B 第 5.4 节）。
+ *
+ * 出错时不抛错，返回带原因代码的失败。
+ * 超时 `BINANCE_TIMEOUT`，限流 `BINANCE_RATE_LIMITED`，断网 `BINANCE_NETWORK_ERROR`。
+ */
 export function createBinanceMarketDataClient(
   options: BinanceMarketDataClientOptions = {},
 ): BinanceMarketDataClient {
