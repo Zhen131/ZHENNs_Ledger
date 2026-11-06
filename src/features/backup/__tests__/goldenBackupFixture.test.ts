@@ -5,17 +5,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseBackupJson,
-} from "./backupEnvelope";
+} from "../backupEnvelope";
 
 const GOLDEN_BACKUP_URL = new URL(
-  "../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v4.json",
+  "../../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v4.json",
   import.meta.url,
 );
 // This digest freezes these bytes; future versions must add another fixture.
 const GOLDEN_BACKUP_SHA256 =
   "bb1403b1a8b198ee53ab904dd03ed26dc0ec6f8976ff2f5faeb1fbdf3eeeb710";
 const GOLDEN_V5_BACKUP_URL = new URL(
-  "../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v5-time-zone.json",
+  "../../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v5-time-zone.json",
   import.meta.url,
 );
 const GOLDEN_V5_BACKUP_SHA256 =

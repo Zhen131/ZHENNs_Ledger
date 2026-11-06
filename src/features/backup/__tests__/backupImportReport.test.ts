@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { preflightBackupJson } from "./backupImportPreflight";
-import { formatBackupImportReportMarkdown } from "./backupImportReport";
+import { preflightBackupJson } from "../backupImportPreflight";
+import { formatBackupImportReportMarkdown } from "../backupImportReport";
 
 const TODAY = "2026-07-31";
 
@@ -102,7 +102,7 @@ function preflight(serialized: string) {
 
 function readFixture(name: string): string {
   const serialized = readFileSync(
-    new URL(`../../../test-fixtures/w11-b-import/${name}`, import.meta.url),
+    new URL(`../../../../test-fixtures/w11-b-import/${name}`, import.meta.url),
     "utf8",
   );
   const parsed = JSON.parse(serialized);

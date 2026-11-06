@@ -4,7 +4,7 @@ import type { Trade } from "@/core/models";
 import {
   groupSuspiciousBackupTrades,
   type IndexedBackupTrade,
-} from "./backupDuplicateGrouping";
+} from "../backupDuplicateGrouping";
 
 const BASE_TRADE: Trade = {
   id: "trade-base",

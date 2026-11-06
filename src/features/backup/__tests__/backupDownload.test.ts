@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createBackupFilename, downloadBackupJson } from "./backupDownload";
+import { createBackupFilename, downloadBackupJson } from "../backupDownload";
 
 describe("backup download", () => {
   it("uses a stable UTC filename", () => {

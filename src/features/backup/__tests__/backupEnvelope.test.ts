@@ -7,7 +7,7 @@ import {
   parseBackupJson,
   serializeBackupEnvelope,
   validateBackupEnvelope,
-} from "./backupEnvelope";
+} from "../backupEnvelope";
 
 const metadata = {
   appVersion: "0.1.0",

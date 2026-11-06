@@ -19,24 +19,24 @@ import {
   createBackupEnvelope,
   parseBackupJson,
   serializeBackupEnvelope,
-} from "./backupEnvelope";
-import { preflightBackupJson } from "./backupImportPreflight";
+} from "../backupEnvelope";
+import { preflightBackupJson } from "../backupImportPreflight";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   inspectLedgerBackupImportEvidence,
-} from "./backupImportPreflightReceipts";
+} from "../backupImportPreflightReceipts";
 import {
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
-} from "./backupImportPreflightResult";
+} from "../backupImportPreflightResult";
 import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
 import type { LedgerData } from "@/core/models";
 import type { BinanceMarketDataClient } from "@/platform/integrations";
-import { BackupControls } from "./BackupControls";
+import { BackupControls } from "../BackupControls";
 import { createDeferred } from "@/test-support";
 
 afterEach(() => {

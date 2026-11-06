@@ -10,21 +10,21 @@ import { createLedgerDataContentIdentity } from "@/platform/persistence/identity
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
-} from "./backupEnvelope";
+} from "../backupEnvelope";
 import {
   BACKUP_PREFLIGHT_PAGE_DETAIL_LIMIT,
   BACKUP_PREFLIGHT_REPORT_DETAIL_LIMIT,
   preflightBackupJson,
-} from "./backupImportPreflight";
+} from "../backupImportPreflight";
 import {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   inspectLedgerBackupImportEvidence,
   revokeBackupImportPreflightReceipt,
-} from "./backupImportPreflightReceipts";
+} from "../backupImportPreflightReceipts";
 import {
   type BackupPreflightSuspiciousDetail,
-} from "./backupImportPreflightTypes";
+} from "../backupImportPreflightTypes";
 
 const TODAY = "2026-07-31";
 
@@ -652,7 +652,7 @@ function getSuspiciousDetails(
 
 function readFixture(name: string): string {
   const serialized = readFileSync(
-    new URL(`../../../test-fixtures/w11-b-import/${name}`, import.meta.url),
+    new URL(`../../../../test-fixtures/w11-b-import/${name}`, import.meta.url),
     "utf8",
   );
   const parsed = JSON.parse(serialized);
