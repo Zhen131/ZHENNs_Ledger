@@ -14,6 +14,7 @@ import {
   applyLedgerFileWritableDataForTest,
 } from "@/test-support";
 import type { LedgerClock } from "@/core/shared";
+import { createDeferred, type Deferred } from "@/test-support";
 
 export const PASSPHRASE = "correct horse battery staple";
 export const HOOK_TEST_LEASE: LedgerFileSessionLease = {
@@ -27,22 +28,6 @@ export const fixedClock: LedgerClock = {
 };
 
 afterEach(cleanup);
-
-export type Deferred<T> = {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-  reject: (reason?: unknown) => void;
-};
-
-export function createDeferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, resolve, reject };
-}
 
 export class ControlledLedgerHandle implements LedgerFileHandle {
   bytes: Uint8Array = new Uint8Array();

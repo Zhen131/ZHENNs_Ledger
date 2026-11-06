@@ -24,9 +24,9 @@ import {
 } from "./ledgerRepositoryReadyAuthorization";
 import {
   createLedger,
-  createDeferred,
   createReadyImportEvidence,
 } from "./ledgerRepository.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("LedgerSession lifecycle", () => {
   function createRuntimeSession(options: {

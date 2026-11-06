@@ -30,6 +30,7 @@ import {
   ledgerFileTestStringToBytes,
   applyLedgerFileWritableDataForTest,
 } from "@/test-support";
+import { createDeferred, type Deferred } from "@/test-support";
 
 export const PASSPHRASE = "correct horse battery staple";
 export const FIXED_CLOCK: LedgerClock = {
@@ -37,19 +38,6 @@ export const FIXED_CLOCK: LedgerClock = {
 };
 
 afterEach(cleanup);
-
-export type Deferred<T> = {
-  promise: Promise<T>;
-  resolve(value: T): void;
-};
-
-export function createDeferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
-}
 
 export class ImportLedgerHandle implements LedgerFileHandle {
   bytes: Uint8Array<ArrayBuffer> = new Uint8Array(new ArrayBuffer(0));

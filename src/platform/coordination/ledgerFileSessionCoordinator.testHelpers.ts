@@ -6,6 +6,7 @@ import {
   type LedgerFileCoordinationRuntimeLease,
   type LedgerFileEntryComparison,
 } from "./ledgerFileSessionCoordinator";
+import { createDeferred } from "@/test-support";
 
 export class IdentityFileHandle implements LedgerFileHandle {
   readonly name = "ledger.lftl";
@@ -171,19 +172,6 @@ export class FakeRuntimeLease implements LedgerFileCoordinationRuntimeLease {
       this.active.delete(this.sessionId);
     }
   }
-}
-
-export type Deferred<T> = {
-  promise: Promise<T>;
-  resolve(value: T): void;
-};
-
-export function createDeferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
 }
 
 export type TestBrowserLockRequest = {

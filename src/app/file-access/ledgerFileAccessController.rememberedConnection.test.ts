@@ -7,10 +7,10 @@ import {
   PASSPHRASE,
   createConnectionAdapter,
   createController,
-  createDeferred,
   createExistingLedgerHandle,
   createTestCoordinator,
 } from "./ledgerFileAccessController.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("DefaultLedgerFileAccessController", () => {
   it("rejects 7 code points before the picker and creates with 8 Unicode code points", async () => {

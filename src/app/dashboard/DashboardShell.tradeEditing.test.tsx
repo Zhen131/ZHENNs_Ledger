@@ -18,7 +18,6 @@ import { createInitialLedgerData } from "@/core/state";
 import {
   DashboardShell,
   confirmNegativeCashIfNeeded,
-  createDeferred,
   createMemoryRepository,
   createSimpleTrade,
   createTrade,
@@ -26,6 +25,7 @@ import {
   getSection,
   renderDashboard,
 } from "./DashboardShell.testHelpers";
+import { createDeferred } from "@/test-support";
 
 vi.mock("echarts/core", () => ({
   init: vi.fn((container: HTMLElement) => {

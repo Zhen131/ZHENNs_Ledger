@@ -29,13 +29,13 @@ import {
   DashboardShell,
   createBackupFile,
   createCompleteLedger,
-  createDeferred,
   createMemoryRepository,
   createRawBackupFile,
   createSimpleTrade,
   getSection,
   renderDashboard,
 } from "./DashboardShell.testHelpers";
+import { createDeferred } from "@/test-support";
 
 vi.mock("echarts/core", () => ({
   init: vi.fn((container: HTMLElement) => {

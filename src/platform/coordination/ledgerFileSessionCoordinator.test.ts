@@ -5,8 +5,8 @@ import {
 import {
   IdentityFileHandle,
   FakeCoordinationRuntime,
-  createDeferred,
 } from "./ledgerFileSessionCoordinator.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("DefaultLedgerFileSessionCoordinator", () => {
   it("serializes simultaneous admission and rejects the same actual file immediately", async () => {

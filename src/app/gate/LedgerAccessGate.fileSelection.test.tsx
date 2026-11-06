@@ -40,12 +40,12 @@ import {
   MemoryLedgerFileHandle,
   PASSPHRASE,
   createController,
-  createDeferred,
   createFileController,
   createFileSession,
   createInspectableLedgerFile,
   getMockPersistencePort,
 } from "./LedgerAccessGate.testHelpers";
+import { createDeferred } from "@/test-support";
 
 vi.mock("@/app/dashboard", () => ({
   DashboardShell: ({

@@ -21,10 +21,10 @@ import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import {
   addTrade,
   createCompleteLedger,
-  createDeferred,
   createRepository,
   usePersistentLedger,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger clear sequencing", () => {
   it("clears every persisted collection without recreating the initial ledger", async () => {

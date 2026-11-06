@@ -21,10 +21,10 @@ import {
   createIdGenerator,
   createClock,
   createLedgerWithTrades,
-  createDeferred,
   GatedSessionLease,
   readVerifiedFile,
 } from "./ledgerFileRepository.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("LedgerFileRepository", () => {
   it(

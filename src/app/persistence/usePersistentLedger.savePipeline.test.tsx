@@ -16,10 +16,10 @@ import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import {
   addTrade,
-  createDeferred,
   createRepository,
   usePersistentLedger,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger hydration safety", () => {
   it("serializes rapid writes so an older save cannot finish after a newer save", async () => {

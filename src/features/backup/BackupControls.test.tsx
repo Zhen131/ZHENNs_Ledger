@@ -37,6 +37,7 @@ import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
 import type { LedgerData } from "@/core/models";
 import type { BinanceMarketDataClient } from "@/platform/integrations";
 import { BackupControls } from "./BackupControls";
+import { createDeferred } from "@/test-support";
 
 afterEach(() => {
   cleanup();
@@ -63,17 +64,6 @@ function padSerializedBackupToBytes(serialized: string, targetBytes: number): st
   }
 
   return `${serialized}${" ".repeat(targetBytes - currentBytes)}`;
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-
-  return { promise, resolve, reject };
 }
 
 function createBackupFile(name = "ledger.json") {

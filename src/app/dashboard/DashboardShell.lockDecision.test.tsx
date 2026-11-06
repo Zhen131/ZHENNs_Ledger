@@ -24,10 +24,10 @@ import type { PersistentLedgerState } from "@/app/persistence";
 import {
   DashboardShell,
   confirmNegativeCashIfNeeded,
-  createDeferred,
   createMemoryRepository,
   fillBuyTrade,
 } from "./DashboardShell.testHelpers";
+import { createDeferred } from "@/test-support";
 
 vi.mock("echarts/core", () => ({
   init: vi.fn((container: HTMLElement) => {

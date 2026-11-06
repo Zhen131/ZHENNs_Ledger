@@ -34,11 +34,11 @@ import {
   addTrade,
   createCompleteBackupLedger,
   createCompleteLedger,
-  createDeferred,
   createMemoryStorageAdapter,
   createRepository,
   usePersistentLedger,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger backup import", () => {
   it("validates a candidate before opening a repository write", async () => {

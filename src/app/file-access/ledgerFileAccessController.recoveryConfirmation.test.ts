@@ -7,10 +7,10 @@ import { LEDGER_FILE_ACCESS_ERROR_CODES } from "./ledgerFileAccessController";
 import {
   PASSPHRASE,
   createController,
-  createDeferred,
   createRecoverableLedgerHandle,
   createTestLease,
 } from "./ledgerFileAccessController.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("DefaultLedgerFileAccessController", () => {
   it(

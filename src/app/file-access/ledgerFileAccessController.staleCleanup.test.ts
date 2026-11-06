@@ -15,11 +15,11 @@ import {
   MemoryFileHandle,
   PASSPHRASE,
   createController,
-  createDeferred,
   createExistingLedgerHandle,
   createRecoverableLedgerHandle,
   createTestLease,
 } from "./ledgerFileAccessController.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("DefaultLedgerFileAccessController", () => {
   it(

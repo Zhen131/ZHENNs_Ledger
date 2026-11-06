@@ -25,11 +25,11 @@ import type {
 import {
   PASSPHRASE,
   createController,
-  createDeferred,
   createFileController,
   createFileSession,
   getMockPersistencePort,
 } from "./LedgerAccessGate.testHelpers";
+import { createDeferred } from "@/test-support";
 
 vi.mock("@/app/dashboard", () => ({
   DashboardShell: ({

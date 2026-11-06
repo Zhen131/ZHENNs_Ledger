@@ -23,11 +23,11 @@ import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersiste
 import {
   addTrade,
   createCompleteLedger,
-  createDeferred,
   createRepository,
   fixedClock,
   usePersistentLedger,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger clear recovery and lifecycle", () => {
   it("recovers a hydration error through controlled clear", async () => {

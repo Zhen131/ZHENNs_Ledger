@@ -4,11 +4,11 @@ import {
 } from "./ledgerFileSessionCoordinator";
 import {
   IdentityFileHandle,
-  createDeferred,
   createBrowserRuntimeHarness,
   BROWSER_ADMISSION_LOCK,
   BROWSER_SESSION_LOCK_PREFIX,
 } from "./ledgerFileSessionCoordinator.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("BrowserLedgerFileCoordinationRuntime", () => {
   it("reports held sessions and rejects a pending session-lock snapshot", async () => {

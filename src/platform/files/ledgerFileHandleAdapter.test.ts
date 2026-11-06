@@ -9,6 +9,7 @@ import {
   type LedgerFileWritable,
 } from "./ledgerFileHandleAdapterContract";
 import { applyLedgerFileWritableDataForTest } from "@/test-support";
+import { createDeferred } from "@/test-support";
 
 class AtomicFakeHandle implements LedgerFileHandle {
   bytes: Uint8Array;
@@ -81,14 +82,6 @@ function createPickerProvider(
     showSaveFilePicker: vi.fn(async () => saveHandle),
     showOpenFilePicker: vi.fn(async () => [openHandle]),
   };
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
 }
 
 describe("LedgerFileHandleAdapter", () => {

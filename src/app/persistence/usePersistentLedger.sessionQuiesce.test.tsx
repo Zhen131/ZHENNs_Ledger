@@ -26,10 +26,10 @@ import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
 import {
   addTrade,
-  createDeferred,
   createRepository,
   fixedClock,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger clear recovery and lifecycle", () => {
   it("does not let an abandoned session render replace the committed repository refs", async () => {

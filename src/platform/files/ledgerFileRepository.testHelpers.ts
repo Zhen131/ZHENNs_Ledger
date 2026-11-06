@@ -48,6 +48,7 @@ import {
   validateLedgerFileForTest,
   applyLedgerFileWritableDataForTest,
 } from "@/test-support";
+import { createDeferred, type Deferred } from "@/test-support";
 
 export const PASSPHRASE = "correct horse battery staple";
 export const TEST_SESSION_LEASE: LedgerFileSessionLease = {
@@ -423,19 +424,6 @@ export function createSessionLease(
     },
     release: vi.fn(async () => undefined),
   };
-}
-
-export type Deferred<T> = {
-  promise: Promise<T>;
-  resolve(value: T): void;
-};
-
-export function createDeferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
 }
 
 export class GatedSessionLease implements LedgerFileSessionLease {

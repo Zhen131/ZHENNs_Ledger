@@ -117,19 +117,6 @@ export const GATE_TEST_LEASE: LedgerFileSessionLease = {
   release: async () => undefined,
 };
 
-export type Deferred<T> = {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-};
-
-export function createDeferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
-}
-
 export class MemoryLedgerFileHandle implements LedgerFileHandle {
   bytes: Uint8Array = new Uint8Array();
   writes = 0;

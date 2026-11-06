@@ -10,11 +10,11 @@ import {
   MemoryFileHandle,
   PASSPHRASE,
   createController,
-  createDeferred,
   createDeferredSelectionController,
   createExistingLedgerHandle,
   expectSelectedTrade,
 } from "./ledgerFileAccessController.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("DefaultLedgerFileAccessController", () => {
   it("selects before asking for a password, keeps wrong-password attempts read-only, and unlocks the same file", async () => {

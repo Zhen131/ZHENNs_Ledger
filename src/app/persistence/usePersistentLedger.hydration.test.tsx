@@ -25,10 +25,10 @@ import type { LedgerClock } from "@/core/shared";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
 import {
   addTrade,
-  createDeferred,
   createRepository,
   usePersistentLedger,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger hydration safety", () => {
   it("refreshes the shared day at local midnight and recalibrates on focus or visibility", async () => {

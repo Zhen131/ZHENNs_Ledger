@@ -16,11 +16,11 @@ import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import {
   addTrade,
-  createDeferred,
   createRepository,
   dispatchBeforeUnload,
   usePersistentLedger,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger dirty lifecycle", () => {
   it("warns while a save is pending and removes the warning after latest success", async () => {

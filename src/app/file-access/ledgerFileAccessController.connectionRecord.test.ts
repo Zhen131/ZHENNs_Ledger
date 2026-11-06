@@ -10,11 +10,11 @@ import {
   PASSPHRASE,
   createConnectionAdapter,
   createController,
-  createDeferred,
   createExistingLedgerHandle,
   createTestCoordinator,
   createTestLease,
 } from "./ledgerFileAccessController.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("DefaultLedgerFileAccessController", () => {
   it("fails closed when physical-entry comparison rejects", async () => {

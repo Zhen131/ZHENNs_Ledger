@@ -23,10 +23,10 @@ import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
 import {
   addTrade,
-  createDeferred,
   createRepository,
   fixedClock,
 } from "./usePersistentLedger.testHelpers";
+import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger clear recovery and lifecycle", () => {
   it("retains each committed session port so an old captured drain can release after a session switch without freezing the new session", async () => {

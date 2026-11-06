@@ -1,4 +1,5 @@
 export * from "./createTestLedgerRepository";
+export * from "./deferred";
 export * from "./fixtures";
 export * from "./goldenStorageScenario";
 export * from "./noopEncryptionService";
