@@ -63,8 +63,8 @@ PBKDF2-SHA-256 at 600,000 iterations and a per-file salt.
 
 ## Source layout
 
-`src/` holds six areas, and each area has a stable entry point that the rest of the
-code imports through:
+`src/` holds seven areas; every area except `src/checks` has a stable entry point that
+the rest of the code imports through:
 
 | Area | What lives there |
 | --- | --- |
@@ -73,7 +73,8 @@ code imports through:
 | `src/features` | One flat folder per feature surface, each with its own logic and UI entry: `activity`, `asset-transfers`, `assets`, `backup`, `cash`, `charts`, `fees`, `market-data`, `portfolio`, `prices`, `trades` |
 | `src/app` | The Next.js app router entry files plus five areas that compose features: `gate`, `dashboard`, `workspaces`, `persistence`, `file-access` |
 | `src/ui` | Shared presentation pieces, number formatting, and the message tables for both languages |
-| `src/test-support` | Fixtures and the guards that hold the layout, the wording, and the translations in place |
+| `src/test-support` | Test doubles and deterministic sample data shared by tests |
+| `src/checks` | The guards that hold the layout, the translations, and number display in place, plus cross-area scenario regressions; nothing imports it |
 
 `benchmarks/` holds the synthetic-ledger generator and the performance probes.
 `test-fixtures/golden/` holds frozen sample files that must never be edited; they are

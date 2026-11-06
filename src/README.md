@@ -1,6 +1,6 @@
 # Source layout
 
-The source tree has six responsibility areas. Keep new code in the area that owns its behavior, keep tests beside the code they verify, and use stable entry points across boundaries.
+The source tree has seven responsibility areas. Keep new code in the area that owns its behavior, keep tests in the `__tests__/` folder of the directory whose code they verify, and use stable entry points across boundaries.
 
 ```text
 src/
@@ -9,7 +9,8 @@ src/
   features/      Flat product capabilities with separate logic and UI entries
   platform/      Browser files, persistence, encryption, coordination, integrations, and retained legacy boundaries
   ui/            Shared UI primitives without feature ownership
-  test-support/  Shared fixtures, test doubles, and permanent structure checks
+  test-support/  Test doubles and deterministic sample data
+  checks/        Code-rule checks and cross-area scenario regressions; imported by nothing
 ```
 
 ## Placement rules
@@ -31,7 +32,7 @@ app/
   file-access/   Ledger file access controller
 ```
 
-Each area has one `index.ts` as its only entry, holds no subdirectory, and holds no Next.js reserved file name (`page`, `layout`, `route`, `loading`, `error`, `not-found`, `template`, `default`, `global-error`), so no area becomes a URL. Inside an area use `./file`; from the root or another area use `@/app/<area>`. Code inside `app` never imports `@/app`, and an area never imports its own `@/app/<area>`. Areas depend in one direction: `gate` uses `dashboard`, `file-access`, and `persistence`; `dashboard` uses `persistence` and `workspaces`; `workspaces` uses `persistence`; `persistence` and `file-access` use no other area. The source-layout test rejects any import that closes a loop.
+Each area has one `index.ts` as its only entry, holds no subdirectory except its `__tests__/` folder, and holds no Next.js reserved file name (`page`, `layout`, `route`, `loading`, `error`, `not-found`, `template`, `default`, `global-error`), so no area becomes a URL. Inside an area use `./file`; from the root or another area use `@/app/<area>`. Code inside `app` never imports `@/app`, and an area never imports its own `@/app/<area>`. Areas depend in one direction: `gate` uses `dashboard`, `file-access`, and `persistence`; `dashboard` uses `persistence` and `workspaces`; `workspaces` uses `persistence`; `persistence` and `file-access` use no other area. The source-layout test rejects any import that closes a loop.
 
 ### `core`
 
@@ -49,7 +50,7 @@ Every directory under `src/features/` is one feature. The source-layout test and
 
 - `index.ts` exports logic only.
 - `ui.ts` exports UI only; it may be an empty module when a feature has no independent UI component.
-- implementation files and their tests stay beside one another.
+- implementation files stay flat; their tests and test helpers sit in the feature's `__tests__/` folder, the only subdirectory allowed.
 
 ### `platform`
 
@@ -64,11 +65,19 @@ The active IndexedDB boundary stores only `connectionFormatVersion`, the browser
 
 ### `ui` and `test-support`
 
-`ui` contains reusable visual primitives such as `ConfirmDeleteButton`, and the interface language mechanism in `i18n.tsx`; the Chinese, English, and Hungarian message tables sit beside it in `i18nMessages.zh.ts`, `i18nMessages.en.ts`, and `i18nMessages.hu.ts`. `test-support` contains deterministic fixtures and test-only doubles; production composition must never import them.
+`ui` contains reusable visual primitives such as `ConfirmDeleteButton`, and the interface language mechanism in `i18n.tsx`; the Chinese, English, and Hungarian message tables sit beside it in `i18nMessages.zh.ts`, `i18nMessages.en.ts`, and `i18nMessages.hu.ts`. `test-support` contains test doubles and deterministic sample data, plus the Vitest setup file; production composition must never import them.
+
+### `checks`
+
+`checks` holds only a `__tests__/` folder: the tests that verify the whole repository's code follows its rules (source layout, translation-key usage, English interface coverage, ledger-number display), the cross-area scenario regressions that check several areas against one data set, and the scenario data only they use. It has no `index.ts` and is not an entry point: no other file may import anything from `src/checks/`, and the source-layout test fails if one does. Files inside it may import any stable entry, including `@/test-support`.
+
+### Tests
+
+Every test (`*.test.ts(x)`) and test helper (`*.testHelpers.ts(x)`) sits in a folder named `__tests__` directly under the directory whose code it verifies, together with sample data used only there. A `__tests__` folder has no subdirectories and never sits directly under `src/`, `src/app/`, `src/core/`, `src/features/`, or `src/platform/`. The source-layout test enforces this.
 
 ## Import contract
 
-Use `./file` within one directory. Across boundaries, use only:
+Use `./file` within one directory. A file inside a `__tests__/` folder may also use a single `../file` step to reach a file of the directory it tests; anything deeper (`../a/b`), further up (`../../x`), or the parent's own entry (`../index`, `../ui`) is rejected. Across boundaries, use only:
 
 ```text
 @/core/<area>
@@ -89,4 +98,4 @@ Parent-relative imports, internal deep aliases, and other `@root` targets are re
 
 ## Adding a feature
 
-Create one flat `src/features/<feature>/` directory. Add its logic and colocated tests, export logic from `index.ts`, export UI from `ui.ts`, and have other areas import only those two stable addresses. Do not create empty `components`, `services`, or `tests` subdirectories, and do not add an unimplemented feature shell.
+Create one flat `src/features/<feature>/` directory. Add its logic, put its tests in its `__tests__/` folder, export logic from `index.ts`, export UI from `ui.ts`, and have other areas import only those two stable addresses. Do not create empty `components`, `services`, or `tests` subdirectories, and do not add an unimplemented feature shell.
