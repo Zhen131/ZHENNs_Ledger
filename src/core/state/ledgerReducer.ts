@@ -1,3 +1,10 @@
+/**
+ * 这个文件管账本怎么改。
+ * 收到一张改账的单子，就给出改完的新账本。
+ * 它不检查单子里的东西对不对，那在 validation 区；也不存文件。
+ * 不显然的决定：没改到任何东西时原样返回旧账本。这是猜的，日志里没写，要核。
+ */
+
 import type {
   Asset,
   AssetTransfer,
@@ -9,6 +16,11 @@ import type {
 } from "@/core/models";
 import { createInitialLedgerData } from "./initialLedgerData";
 
+/**
+ * 改账本的一张单子。
+ * 有加、删、改记录，停用和替换手续费规则。
+ * 还有删掉未来的记录、整本替换、清空。
+ */
 export type LedgerAction =
   | {
       type: "trade/add";
@@ -81,6 +93,16 @@ export type LedgerAction =
       type: "ledger/reset";
     };
 
+/**
+ * 这个函数回答：旧账本按这张单子改完，变成什么样？
+ * 它不动旧账本，总是给出一份新的；没改到东西就原样返回旧的。
+ * 举例：旧账本 2 笔买卖，单子是删掉第 1 笔 → 答剩 1 笔的新账本。
+ * 举例：要删的编号不存在 → 答原来那本，一点没变。
+ *
+ * 为什么删未来记录只看前 10 位：哪一天按当地日期算。
+ * 2026-09-07 定（W16 03A 第二节 D-3a）。
+ * 不抛错。
+ */
 export function ledgerReducer(
   state: LedgerData,
   action: LedgerAction,
