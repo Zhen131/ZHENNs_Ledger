@@ -12,25 +12,25 @@ import {
   readLedgerFileForTest,
   serializeLedgerFileForTest,
 } from "@/test-support";
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
-import { type LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
+import { type LedgerFileHandle } from "../ledgerFileHandleAdapterContract";
 import {
   inspectLedgerFile,
   LedgerFileRepository,
-} from "./ledgerFileRepository";
-import { LEDGER_FILE_REPOSITORY_ERROR_CODES } from "./ledgerFileRepositoryContract";
-import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
+} from "../ledgerFileRepository";
+import { LEDGER_FILE_REPOSITORY_ERROR_CODES } from "../ledgerFileRepositoryContract";
+import type { LedgerFileSessionLease } from "../ledgerFileSessionLease";
 
 const GOLDEN_BACKUP_URL = new URL(
-  "../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v4-rich.json",
+  "../../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v4-rich.json",
   import.meta.url,
 );
 const GOLDEN_LEDGER_FILE_URL = new URL(
-  "../../../test-fixtures/golden/golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl",
+  "../../../../test-fixtures/golden/golden-ledger-file-format-v2-crypto-v1-ledger-schema-v4.lftl",
   import.meta.url,
 );
 const GOLDEN_LEDGER_FILE_V3_URL = new URL(
-  "../../../test-fixtures/golden/golden-ledger-file-format-v3-crypto-v1-ledger-schema-v4.lftl",
+  "../../../../test-fixtures/golden/golden-ledger-file-format-v3-crypto-v1-ledger-schema-v4.lftl",
   import.meta.url,
 );
 const GOLDEN_BACKUP_SHA256 =
@@ -40,7 +40,7 @@ const GOLDEN_LEDGER_FILE_SHA256 =
 const GOLDEN_LEDGER_FILE_V3_SHA256 =
   "116bbeab8d8a9c610bd2946319dbcc1d243264601a772d0f8c78dd15704f0668";
 const GOLDEN_LEDGER_FILE_V5_URL = new URL(
-  "../../../test-fixtures/golden/golden-ledger-file-format-v3-crypto-v1-ledger-schema-v5-time-zone.lftl",
+  "../../../../test-fixtures/golden/golden-ledger-file-format-v3-crypto-v1-ledger-schema-v5-time-zone.lftl",
   import.meta.url,
 );
 const GOLDEN_LEDGER_FILE_V5_SHA256 =

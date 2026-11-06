@@ -1,13 +1,13 @@
 import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, vi } from "vitest";
 
-import type { LedgerFileHandle } from "./ledgerFileHandleAdapterContract";
+import type { LedgerFileHandle } from "../ledgerFileHandleAdapterContract";
 import {
   IndexedDbLedgerFileConnectionAdapter,
   LEDGER_FILE_CONNECTION_DEFAULTS,
   LedgerFileConnectionRecordError,
   validateLedgerFileConnectionRecord,
-} from "./ledgerFileConnectionAdapter";
+} from "../ledgerFileConnectionAdapter";
 
 function createCloneableHandle(name = "ledger.lftl"): LedgerFileHandle {
   return { name } as LedgerFileHandle;

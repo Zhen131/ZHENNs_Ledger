@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
 import { createInitialLedgerData } from "@/core/state";
 import {
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
   LedgerSessionLifecycleError,
 } from "@/platform/persistence";
-import { LedgerFileRepository } from "./ledgerFileRepository";
+import { LedgerFileRepository } from "../ledgerFileRepository";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
-} from "./ledgerFileRepositoryContract";
-import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
+} from "../ledgerFileRepositoryContract";
+import type { LedgerFileSessionLease } from "../ledgerFileSessionLease";
 import { readLedgerFileForTest } from "@/test-support";
 import {
   PASSPHRASE,

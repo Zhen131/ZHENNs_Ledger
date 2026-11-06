@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { byteArraysEqual } from "./byteArraysEqual";
+import { byteArraysEqual } from "../byteArraysEqual";
 
 describe("byteArraysEqual", () => {
   it("compares aligned words and trailing bytes exactly", () => {

@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
 import type { CryptoProvider } from "@/platform/encryption";
 import { createInitialLedgerData } from "@/core/state";
-import { LedgerFileRepository } from "./ledgerFileRepository";
+import { LedgerFileRepository } from "../ledgerFileRepository";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
-} from "./ledgerFileRepositoryContract";
+} from "../ledgerFileRepositoryContract";
 import {
   appendLedgerFileJsonWhitespaceForTest,
   ledgerFileTestStringToBytes,

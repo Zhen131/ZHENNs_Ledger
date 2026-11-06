@@ -4,14 +4,14 @@ import { bytesToBase64Url } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
   type LedgerFileCryptoV2,
-} from "./ledgerFileContract";
+} from "../ledgerFileContract";
 import {
   LEDGER_FILE_OUTER_V3_CONSTANTS,
   LEDGER_FILE_V3_MAGIC,
   type LedgerFileV3S1,
-} from "./ledgerFileContainerV3";
-import { parseLedgerFileV3S1 } from "./ledgerFileContainerV3Parse";
-import { serializeLedgerFileV3S1 } from "./ledgerFileContainerV3Serialize";
+} from "../ledgerFileContainerV3";
+import { parseLedgerFileV3S1 } from "../ledgerFileContainerV3Parse";
+import { serializeLedgerFileV3S1 } from "../ledgerFileContainerV3Serialize";
 
 const CRYPTO: LedgerFileCryptoV2 = {
   cryptoVersion: 1,

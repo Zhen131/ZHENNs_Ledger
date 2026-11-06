@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
 import { createInitialLedgerData, ledgerReducer } from "@/core/state";
-import { LedgerFileRepository } from "./ledgerFileRepository";
-import { LEDGER_FILE_REPOSITORY_ERROR_CODES } from "./ledgerFileRepositoryContract";
+import { LedgerFileRepository } from "../ledgerFileRepository";
+import { LEDGER_FILE_REPOSITORY_ERROR_CODES } from "../ledgerFileRepositoryContract";
 import {
   ledgerFileBodySlotOffsetV3S2,
-} from "./ledgerFileSlotContainerV3";
+} from "../ledgerFileSlotContainerV3";
 import {
   parseLedgerFileV3S3Candidates,
-} from "./ledgerFileChunkedContainerV3Parse";
+} from "../ledgerFileChunkedContainerV3Parse";
 import {
   readLedgerFileBodySlotForTest,
   readLedgerFileSlotViewForTest,

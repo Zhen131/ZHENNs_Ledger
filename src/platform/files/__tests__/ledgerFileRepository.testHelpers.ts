@@ -1,10 +1,10 @@
 import { expect, vi } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
 import {
   type LedgerFileHandle,
   type LedgerFileWritable,
-} from "./ledgerFileHandleAdapterContract";
+} from "../ledgerFileHandleAdapterContract";
 import { createLedgerDataContentIdentity } from "@/platform/persistence";
 import {
   createBackupEnvelope,
@@ -16,9 +16,9 @@ import {
   preflightBackupJson,
 } from "@/features/backup";
 import { bytesToBase64Url } from "@/platform/encryption";
-import { type DecryptedLedgerPayloadV4 } from "./ledgerFileContract";
-import { validateDecryptedLedgerPayloadV4 } from "./ledgerFileContractPayload";
-import { LedgerFileCrypto } from "./ledgerFileCrypto";
+import { type DecryptedLedgerPayloadV4 } from "../ledgerFileContract";
+import { validateDecryptedLedgerPayloadV4 } from "../ledgerFileContractPayload";
+import { LedgerFileCrypto } from "../ledgerFileCrypto";
 import type { CashEvent, LedgerData, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import {
@@ -27,16 +27,16 @@ import {
   LEDGER_FILE_READY_IMPORT_CAPABILITIES,
   type LedgerBackupImportEvidence,
 } from "@/platform/persistence";
-import { LedgerFileRepository } from "./ledgerFileRepository";
-import type { LedgerFileSessionLease } from "./ledgerFileSessionLease";
+import { LedgerFileRepository } from "../ledgerFileRepository";
+import type { LedgerFileSessionLease } from "../ledgerFileSessionLease";
 import {
   ledgerFileBodySlotOffsetV3S3,
   LEDGER_FILE_V3_S3_BODY_SLOT_BYTES,
   type LedgerFileV3S3,
-} from "./ledgerFileChunkedContainerV3";
+} from "../ledgerFileChunkedContainerV3";
 import {
   parseLedgerFileV3S3Candidates,
-} from "./ledgerFileChunkedContainerV3Parse";
+} from "../ledgerFileChunkedContainerV3Parse";
 import {
   decryptLedgerFileGenerationForTest,
   encryptLedgerFileGenerationForTest,

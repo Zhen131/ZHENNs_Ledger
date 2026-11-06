@@ -1,25 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import { bytesToBase64Url } from "@/platform/encryption";
-import type { LedgerFileCryptoV2 } from "./ledgerFileContract";
+import type { LedgerFileCryptoV2 } from "../ledgerFileContract";
 import {
   ledgerFileBodySlotOffsetV3S3,
   ledgerFileHeaderSlotOffsetV3S3,
   type EncryptedLedgerBlockV3S3,
   type LedgerFileV3S3,
   type LedgerGenerationV3S3,
-} from "./ledgerFileChunkedContainerV3";
+} from "../ledgerFileChunkedContainerV3";
 import {
   createLedgerFileBlockAadV3S3,
-} from "./ledgerFileChunkedContainerV3Aad";
+} from "../ledgerFileChunkedContainerV3Aad";
 import {
   parseLedgerFileV3S3,
   validateLedgerFileV3S3,
-} from "./ledgerFileChunkedContainerV3Parse";
+} from "../ledgerFileChunkedContainerV3Parse";
 import {
   prepareLedgerFileUpdateV3S3,
   serializeLedgerFileV3S3,
-} from "./ledgerFileChunkedContainerV3Serialize";
+} from "../ledgerFileChunkedContainerV3Serialize";
 
 const CRYPTO: LedgerFileCryptoV2 = {
   cryptoVersion: 1,

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
-import { LedgerFileRepository } from "./ledgerFileRepository";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
+import { LedgerFileRepository } from "../ledgerFileRepository";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
-} from "./ledgerFileRepositoryContract";
+} from "../ledgerFileRepositoryContract";
 import {
   readLedgerFileForTest,
   serializeLedgerFileForTest,

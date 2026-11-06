@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
-import { LedgerFileRepository } from "./ledgerFileRepository";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
+import { LedgerFileRepository } from "../ledgerFileRepository";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
-} from "./ledgerFileRepositoryContract";
-import { ledgerFileBodySlotOffsetV3S2 } from "./ledgerFileSlotContainerV3";
+} from "../ledgerFileRepositoryContract";
+import { ledgerFileBodySlotOffsetV3S2 } from "../ledgerFileSlotContainerV3";
 import {
   ledgerFileBodySlotOffsetV3S3,
   ledgerFileHeaderSlotOffsetV3S3,
   LEDGER_FILE_V3_S3_HEADER_SLOT_BYTES,
-} from "./ledgerFileChunkedContainerV3";
+} from "../ledgerFileChunkedContainerV3";
 import { readLedgerFileSlotViewForTest } from "@/test-support";
 import {
   PASSPHRASE,

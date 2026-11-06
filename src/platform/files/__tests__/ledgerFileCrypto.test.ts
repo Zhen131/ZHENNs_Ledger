@@ -5,8 +5,8 @@ import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
   type EncryptedLedgerGenerationV4,
   type LedgerFileCryptoV2,
-} from "./ledgerFileContract";
-import { LedgerFileCrypto } from "./ledgerFileCrypto";
+} from "../ledgerFileContract";
+import { LedgerFileCrypto } from "../ledgerFileCrypto";
 import type { CryptoProvider } from "@/platform/encryption";
 
 const PASSPHRASE = "correct horse battery staple";

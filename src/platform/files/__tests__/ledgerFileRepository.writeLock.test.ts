@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
 import type { LedgerData } from "@/core/models";
-import { LedgerFileRepository } from "./ledgerFileRepository";
+import { LedgerFileRepository } from "../ledgerFileRepository";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
-} from "./ledgerFileRepositoryContract";
+} from "../ledgerFileRepositoryContract";
 import {
   PASSPHRASE,
   TEST_SESSION_LEASE,

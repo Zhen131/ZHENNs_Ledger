@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";
+import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
 import { bytesToBase64Url } from "@/platform/encryption";
 import type { LedgerData } from "@/core/models";
-import { LedgerFileRepository } from "./ledgerFileRepository";
+import { LedgerFileRepository } from "../ledgerFileRepository";
 import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
-} from "./ledgerFileRepositoryContract";
+} from "../ledgerFileRepositoryContract";
 import {
   readLedgerFileForTest,
   serializeLedgerFileForTest,
