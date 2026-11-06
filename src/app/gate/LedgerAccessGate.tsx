@@ -36,7 +36,6 @@ import type {
 } from "./LedgerAccessGateTypes";
 import {
   pendingSessionCompletions,
-  getAccessErrorMessage,
   getFileAccessErrorMessage,
 } from "./LedgerAccessGateHelpers";
 import { AccessPanel } from "./AccessPanel";
@@ -49,7 +48,9 @@ import {
   doFinishSessionLifecycle,
   doInitialize,
   doRetryFailedSessionRelease,
+  routeRememberedConnection,
   runGateLifecycleEffect,
+  type RememberedConnectionInspection,
 } from "./ledgerAccessGateSession";
 import {
   doCancelFileRecovery,
@@ -94,6 +95,8 @@ export function LedgerAccessGate({
     promise: Promise<void>;
   } | null>(null);
   const retryReleaseRef = useRef<(() => Promise<void>) | null>(null);
+  const legacyReconnectRef =
+    useRef<RememberedConnectionInspection | null>(null);
   const sessionLifecycleStarterRef = useRef<
     (args: {
       session: LedgerSession;
@@ -109,6 +112,7 @@ export function LedgerAccessGate({
         accessController,
         activeSessionRef,
         fileAccessController,
+        legacyReconnectRef,
         mountedRef,
         operationGenerationRef,
         retryReleaseRef,
@@ -339,6 +343,28 @@ export function LedgerAccessGate({
     setAccessPath("choice");
   }
 
+  function leaveLegacyNoticeToCreate() {
+    legacyReconnectRef.current = null;
+    setFormError("");
+    setAccessPath("file-create");
+  }
+
+  function leaveLegacyNoticeToSelectExisting() {
+    const reconnect = legacyReconnectRef.current ?? {
+      status: "none" as const,
+      ok: true as const,
+    };
+    legacyReconnectRef.current = null;
+    setFormError("");
+    routeRememberedConnection(reconnect, setAccessPath, setReconnectError);
+    if (reconnect.status === "none") {
+      // Same handler as the choice panel's "select a ledger" button; the
+      // choice panel is already showing, so a cancel or failure has a place
+      // to display its FormError.
+      void selectFileToOpen();
+    }
+  }
+
   function registerSessionDrain(
     session: LedgerSession,
     drain: PersistentLedgerState["drainForSessionQuiesce"],
@@ -565,7 +591,13 @@ export function LedgerAccessGate({
 
   if (accessPath === "legacy-retired") {
     return (
-      <LegacyRetiredPanel t={t} />
+      <LegacyRetiredPanel
+        formError={formError}
+        isSubmitting={isSubmitting}
+        onCreate={leaveLegacyNoticeToCreate}
+        onSelectExisting={leaveLegacyNoticeToSelectExisting}
+        t={t}
+      />
     );
   }
 
@@ -778,23 +810,6 @@ export function LedgerAccessGate({
             {t("access.recovery.cancel")}
           </button>
         </div>
-      </AccessPanel>
-    );
-  }
-
-  if (accessState.status === "error") {
-    return (
-      <AccessPanel
-        description={`${getAccessErrorMessage(accessState.code, t)} ${t("access.error.legacySuffix")}`}
-        title={t("access.error.legacyTitle")}
-      >
-        <button
-          className="w-full rounded-xl bg-[var(--ledger-accent-strong)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--ledger-accent)]"
-          onClick={() => void initialize()}
-          type="button"
-        >
-          {t("access.action.recheck")}
-        </button>
       </AccessPanel>
     );
   }

@@ -1,9 +1,5 @@
 import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import {
-  LEDGER_ACCESS_ERROR_CODES,
-  type LedgerAccessErrorCode,
-} from "@/platform/legacy";
-import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
   type LedgerFileAccessController,
   type LedgerFileAccessErrorCode,
@@ -15,22 +11,6 @@ export const pendingSessionCompletions = new WeakMap<
   LedgerFileAccessController,
   PendingSessionCompletion
 >();
-export function getAccessErrorMessage(
-  code: LedgerAccessErrorCode,
-  t: Translate,
-): string {
-  switch (code) {
-    case LEDGER_ACCESS_ERROR_CODES.READ_FAILED:
-      return t("access.legacyError.readFailed");
-    case LEDGER_ACCESS_ERROR_CODES.UNSUPPORTED_FORMAT:
-      return t("access.legacyError.unsupportedFormat");
-    case LEDGER_ACCESS_ERROR_CODES.INVALID_ENVELOPE:
-      return t("access.legacyError.invalidEnvelope");
-    default:
-      return t("access.legacyError.default");
-  }
-}
-
 export function getFileAccessErrorMessage(
   code: LedgerFileAccessErrorCode,
   t: Translate,

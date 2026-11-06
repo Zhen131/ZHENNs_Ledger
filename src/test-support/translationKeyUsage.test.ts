@@ -10,8 +10,6 @@ const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   // The repeated access buttons all use the same Back label.
   "access.action.back",
-  // The repeated access buttons all use the same Recheck label.
-  "access.action.recheck",
   // Both reconnect prompts offer the same Forget action.
   "access.reconnectPrompt.forget",
   // Both reconnect prompts offer the same Reselect action.

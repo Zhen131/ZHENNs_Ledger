@@ -1,15 +1,12 @@
-import { type LedgerAccessErrorCode } from "@/platform/legacy";
 import { type LedgerSession } from "@/platform/persistence";
 
 export type AccessState =
   | { status: "checking" }
   | { status: "setup-required" }
-  | { status: "unlock-required"; notice?: string }
   | { status: "unlocked"; session: LedgerSession }
   | { status: "locking"; fatal: boolean }
   | { status: "lock-error"; fatal: boolean }
-  | { status: "fatal-closed" }
-  | { status: "error"; code: LedgerAccessErrorCode };
+  | { status: "fatal-closed" };
 
 export type AccessPath =
   | "choice"

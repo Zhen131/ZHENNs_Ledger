@@ -17,16 +17,42 @@ import type {
   AccessState,
 } from "./LedgerAccessGateTypes";
 import { pendingSessionCompletions } from "./LedgerAccessGateHelpers";
-import { LEDGER_ACCESS_ERROR_CODES } from "@/platform/legacy";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,
 } from "@/app/persistence";
 
+export type RememberedConnectionInspection = Awaited<
+  ReturnType<LedgerFileAccessController["inspectRememberedConnection"]>
+>;
+
+/**
+ * Routes the access screen from the remembered-connection result computed
+ * when the gate started. The retired-legacy notice reuses it, so leaving that
+ * notice lands on exactly the screen the user would have seen without it.
+ */
+export function routeRememberedConnection(
+  reconnect: RememberedConnectionInspection,
+  setAccessPath: Dispatch<SetStateAction<AccessPath>>,
+  setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>,
+): void {
+  if (reconnect.status === "ready") {
+    setAccessPath("file-open-unlock");
+  } else if (reconnect.status === "permission-prompt") {
+    setAccessPath("file-reconnect-prompt");
+  } else if (reconnect.status === "error") {
+    setReconnectError(reconnect.code);
+    setAccessPath("file-reconnect-error");
+  } else {
+    setAccessPath("choice");
+  }
+}
+
 type InitializeDeps = {
   accessController: LedgerAccessController;
   activeSessionRef: RefObject<LedgerSession | null>;
   fileAccessController: LedgerFileAccessController;
+  legacyReconnectRef: RefObject<RememberedConnectionInspection | null>;
   mountedRef: RefObject<boolean>;
   operationGenerationRef: RefObject<number>;
   retryReleaseRef: RefObject<(() => Promise<void>) | null>;
@@ -43,6 +69,7 @@ export async function doInitialize(
     accessController,
     activeSessionRef,
     fileAccessController,
+    legacyReconnectRef,
     mountedRef,
     operationGenerationRef,
     retryReleaseRef,
@@ -114,31 +141,24 @@ export async function doInitialize(
       return;
     }
 
-    if (
-      legacy.status === "unlock-required" ||
-      legacy.status === "error"
-    ) {
-      setAccessState({
-        status: "error",
-        code:
-          legacy.status === "error"
-            ? legacy.code
-            : LEDGER_ACCESS_ERROR_CODES.UNSUPPORTED_FORMAT,
-      });
+    legacyReconnectRef.current = null;
+    setAccessState({ status: "setup-required" });
+    if (legacy.status === "unlock-required") {
+      // A retired browser ledger is still there. Say so first, and keep the
+      // remembered-connection result for the notice's "select existing" exit.
+      legacyReconnectRef.current = reconnect;
       setAccessPath("legacy-retired");
       return;
     }
-    setAccessState(legacy);
-    if (reconnect.status === "ready") {
-      setAccessPath("file-open-unlock");
-    } else if (reconnect.status === "permission-prompt") {
-      setAccessPath("file-reconnect-prompt");
-    } else if (reconnect.status === "error") {
-      setReconnectError(reconnect.code);
-      setAccessPath("file-reconnect-error");
-    } else {
-      setAccessPath("choice");
+    if (legacy.status === "error") {
+      // An unreadable presence check is not evidence of a legacy ledger, so
+      // the normal flow continues. Only the error code is logged: never the
+      // record, never the thrown value.
+      console.warn(
+        `Legacy browser-ledger presence check failed (${legacy.code}); continuing with the normal ledger choice.`,
+      );
     }
+    routeRememberedConnection(reconnect, setAccessPath, setReconnectError);
 }
 
 type GateLifecycleEffectDeps = {

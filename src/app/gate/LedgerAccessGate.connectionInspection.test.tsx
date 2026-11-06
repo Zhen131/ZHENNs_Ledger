@@ -13,6 +13,7 @@ import {
   vi,
 } from "vitest";
 import {
+  LEDGER_ACCESS_ERROR_CODES,
   type LedgerAccessController,
 } from "@/platform/legacy";
 import { LEDGER_FILE_ACCESS_ERROR_CODES } from "@/app/file-access";
@@ -262,7 +263,7 @@ describe("LedgerAccessGate", () => {
     expect(screen.queryByText("dashboard-mounted")).toBeNull();
   });
 
-  it("retires a detected legacy record without exposing unlock, migration, or deletion", async () => {
+  it("retires a detected legacy record without exposing unlock, migration, or deletion, and offers two exits", async () => {
     const controller = createController({
       inspect: vi.fn(async () => ({
         status: "unlock-required" as const,
@@ -294,6 +295,130 @@ describe("LedgerAccessGate", () => {
     expect("unlockLegacyForMigration" in controller).toBe(false);
     expect("authorizeLegacyMigrationDeletion" in controller).toBe(false);
     expect("deleteLegacyAfterMigration" in controller).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "新建账本" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "选择已有账本" }),
+    ).toBeTruthy();
+  });
+
+  it("leaves the legacy notice for the create panel, whose back button returns to the choice panel", async () => {
+    const user = userEvent.setup();
+    render(
+      <LedgerAccessGate
+        accessController={createController({
+          inspect: vi.fn(async () => ({
+            status: "unlock-required" as const,
+          })),
+        })}
+        fileAccessController={createFileController()}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "新建账本" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "新建加密账本" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "旧版账本已退役" }),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "返回" }));
+    expect(
+      await screen.findByRole("heading", { name: "选择账本" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "旧版账本已退役" }),
+    ).toBeNull();
+  });
+
+  it("sends select-existing on the legacy notice straight to the unlock panel when the remembered C is ready", async () => {
+    const user = userEvent.setup();
+    const fileController = createFileController({
+      inspectRememberedConnection: vi.fn(async () => ({
+        status: "ready" as const,
+        ok: true as const,
+      })),
+    });
+    render(
+      <LedgerAccessGate
+        accessController={createController({
+          inspect: vi.fn(async () => ({
+            status: "unlock-required" as const,
+          })),
+        })}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择已有账本" }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "解锁所选账本" }),
+    ).toBeTruthy();
+    expect(fileController.selectExisting).not.toHaveBeenCalled();
+    expect(fileController.inspectRememberedConnection).toHaveBeenCalledOnce();
+  });
+
+  it("sends select-existing on the legacy notice to the file picker when no C is remembered", async () => {
+    const user = userEvent.setup();
+    const fileController = createFileController();
+    render(
+      <LedgerAccessGate
+        accessController={createController({
+          inspect: vi.fn(async () => ({
+            status: "unlock-required" as const,
+          })),
+        })}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择已有账本" }),
+    );
+    expect(fileController.selectExisting).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", { name: "解锁所选账本" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "旧版账本已退役" }),
+    ).toBeNull();
+  });
+
+  it("treats an unreadable legacy check as no legacy record and warns with only the error code", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      render(
+        <LedgerAccessGate
+          accessController={createController({
+            inspect: vi.fn(async () => ({
+              status: "error" as const,
+              code: LEDGER_ACCESS_ERROR_CODES.READ_FAILED,
+            })),
+          })}
+          fileAccessController={createFileController()}
+        />,
+      );
+
+      expect(
+        await screen.findByRole("heading", { name: "选择账本" }),
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole("heading", { name: "旧版账本已退役" }),
+      ).toBeNull();
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn.mock.calls[0]).toHaveLength(1);
+      expect(String(warn.mock.calls[0][0])).toContain(
+        "LEDGER_ACCESS_READ_FAILED",
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("ignores an old inspect result after the controllers change and a new C session is published", async () => {
