@@ -1,3 +1,9 @@
+/**
+ * 这个文件管「用一份备份整本换掉当前账本」这一步。
+ * 备份文件的预检、报告在 `features/backup`，这里只做最后的换账。
+ * 不显然的决定：换完后把写进去的账和备份逐字比一遍。
+ * 对不上就锁住这本账。
+ */
 import type { LedgerData } from "@/core/models";
 import { validateLedgerImportPolicy } from "@/core/policies";
 import {
@@ -78,6 +84,17 @@ type ReplaceLedgerFromBackupDeps = {
   writeQueueRef: { current: Promise<void> };
 };
 
+/**
+ * 这个函数回答：用这份备份换掉当前账本，成没成？
+ * 先查：允不允许导入，账本状态干不干净，备份合不合格。
+ * 合格还要过导入规矩，比如不许有未来日期的记录。
+ * 账本文件要拿着预检凭证，交给会话的导入通道去写。
+ * 举例：一份 5 笔交易的合格备份 → 答 `ok: true`，页面换成这本账。
+ * 失败不抛错，返回 `ok: false` 和代码。
+ * 不合格是 `LEDGER_IMPORT_INVALID_BACKUP`，被取消是 `LEDGER_IMPORT_CANCELLED`。
+ * 写回来对不上是 `LEDGER_IMPORT_RECOVERY_BLOCKED`，账本随即锁住。
+ * 同一次导入正在跑时，交回那一次的结果。
+ */
 export function doReplaceLedgerFromBackup(
   deps: ReplaceLedgerFromBackupDeps,
   candidate: unknown,

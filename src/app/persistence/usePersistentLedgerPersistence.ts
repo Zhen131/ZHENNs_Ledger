@@ -1,3 +1,9 @@
+/**
+ * 这个文件管账本自动存盘：排队，重试，存完后更新状态。
+ * 改账入口在 `usePersistentLedgerActions.ts`，清空和导入在别的文件。
+ * 不显然的决定：存在账本文件里时，不在这边比文字省掉存盘。
+ * 是否真的没变，交给文件仓库自己核。
+ */
 import type { LedgerData } from "@/core/models";
 import {
   type LedgerSession,
@@ -35,6 +41,12 @@ type RegisterAcceptedPersistenceDeps = {
   publishPersistenceVersionState: (nextState: PersistenceVersionState) => void;
 };
 
+/**
+ * 这个函数把一次已接受的改动排进存盘队。
+ * 不是账本文件时，账本文字和上次存的一样，就直接算存好。
+ * 举例：改完又改回原样 → 不真存，状态直接变「存好了」。
+ * 不会出错；存盘的结果由排队那一步处理。
+ */
 export function doRegisterAcceptedPersistence(
   deps: RegisterAcceptedPersistenceDeps,
   ledgerSnapshot: LedgerData,
@@ -108,6 +120,13 @@ type RetryPersistenceDeps = {
   setPersistenceError: (nextValue: string | null) => void;
 };
 
+/**
+ * 这个函数回答：用户点重试存盘，能不能重试，成没成？
+ * 只有最近一次存失败、而且之后没再改过，才重试。
+ * 同一次改动正在重试时，交回那一次的结果，不另起一次。
+ * 举例：存失败后点重试，这次存好了 → 答 true。
+ * 不能重试或重试又失败，答 false，不抛错。
+ */
 export function doRetryPersistence(
   deps: RetryPersistenceDeps,
 ): Promise<boolean> {
@@ -224,6 +243,11 @@ type RunAutomaticPersistenceEffectDeps = {
   readOnlyRef: { current: boolean };
 };
 
+/**
+ * 这个函数在页面每次刷新后，看有没有改动还没排进存盘队。
+ * 有就补排一次；已经在排或已经存好，就不动。
+ * 不会出错。
+ */
 export function runAutomaticPersistenceEffect(
   deps: RunAutomaticPersistenceEffectDeps,
 ): void {
@@ -278,8 +302,9 @@ export function runAutomaticPersistenceEffect(
 
     const failedSnapshot = failedSnapshotRef.current;
 
-    // A failed version is retried only by the explicit retry action or a new mutation.
-    // Re-rendering after an unrelated failed import must not enqueue it again.
+    // 为什么失败的那次不在这里再排：它只等重试或下次改动。
+    // 否则一次无关的导入失败后页面刷新，又会把它排进去。
+    // 2026-07-23 提交 0fabe6f 写下这个理由。
     if (
       failedSnapshot?.generation === generation &&
       failedSnapshot.version === mutationVersion
@@ -338,6 +363,15 @@ type EnqueuePersistenceDeps = {
   writeQueueRef: { current: Promise<void> };
 };
 
+/**
+ * 这个函数真正发起一次存盘，并在结束后更新存盘状态。
+ * 账本文件直接交给文件仓库，它自己保证只留最新一次。
+ * 别的仓库要等前一次存完才开始。
+ * 存好答 `saved`；失败答 `failed` 并记下失败的那次。
+ * 存完时已经换了账本或有了更新的改动，答 `ignored`，不改状态。
+ * 文件被别的程序改过时，提示重新打开，不留重试。
+ * 不抛错，结果都在返回值里。
+ */
 export function doEnqueuePersistence(
   deps: EnqueuePersistenceDeps,
   scheduledSnapshot: ScheduledSnapshot,

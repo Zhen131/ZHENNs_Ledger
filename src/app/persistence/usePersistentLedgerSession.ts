@@ -1,3 +1,9 @@
+/**
+ * 这个文件管账本存取 hook 和会话之间的三件小事。
+ * 记下会话手上的活；放弃没存的改动去换账本；读完后宣布可用。
+ * 读账本、存盘排队本身在同目录别的文件里。
+ * 没有特别的决定。
+ */
 import type {
   Dispatch,
   RefObject,
@@ -22,6 +28,12 @@ type TrackSessionAcceptedWorkDeps = {
   sessionPersistenceBindingsRef: RefObject<WeakMap<LedgerSession, SessionPersistenceBinding>>;
 };
 
+/**
+ * 这个函数把一件已接下的活记到会话名下，做完自动划掉。
+ * 会话要停工时，靠这张单子等手上的活都做完。
+ * 没有会话时什么都不做。
+ * 会话的存盘通道还没接上时抛错。
+ */
 export function doTrackSessionAcceptedWork(
   deps: TrackSessionAcceptedWorkDeps,
   session: LedgerSession | undefined,
@@ -60,6 +72,12 @@ type DiscardDirtyChangesAndSwitchRepositoryDeps = {
   retryAttemptRef: RefObject<RetryAttempt | null>;
 };
 
+/**
+ * 这个函数回答：要不要放弃没存好的改动，换到新请求的账本？
+ * 确实要换、手上没大动作、还有没存的改动，才答应。
+ * 举例：改了 3 次只存了 2 次，又要换账本 → 答 true，允许换。
+ * 答 false 就是不用换或不能换。不会出错。
+ */
 export function doDiscardDirtyChangesAndSwitchRepository(
   deps: DiscardDirtyChangesAndSwitchRepositoryDeps,
 ): boolean {
@@ -114,6 +132,12 @@ type HydrationCompletionEffectDeps = {
   setLedgerEpoch: Dispatch<SetStateAction<number>>;
 };
 
+/**
+ * 这个函数在读到的账本显示到页面上后，宣布账本可用。
+ * 它先对一遍：同一个仓库，同一轮，页面上的账和读到的一样。
+ * 对上了，就把状态改成「读好了」，并算换了一本账本。
+ * 对不上就什么都不做。不会出错。
+ */
 export function runHydrationCompletionEffect(
   deps: HydrationCompletionEffectDeps,
 ) {

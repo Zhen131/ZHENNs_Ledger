@@ -1,3 +1,9 @@
+/**
+ * 这个文件管页面改账的两个入口。
+ * 先查能不能改，再改，再排进存盘队。
+ * 存盘队本身在同目录 `usePersistentLedgerPersistence.ts`。
+ * 不显然的决定：账本里有未来记录时，只许删未来记录。
+ */
 import type { LedgerData } from "@/core/models";
 import { ledgerReducer, type LedgerAction } from "@/core/state";
 import {
@@ -54,6 +60,13 @@ type ApplyLedgerMutationDeps = {
   ) => void;
 };
 
+/**
+ * 这个函数回答：按「整本账怎么变」来改账，改不改得成？
+ * 账没读好、只读、正在清空或导入、有未来记录，都拒绝。
+ * 改完超出条数或大小上限，也拒绝并留下上限错误。
+ * 举例：改完和原来是同一本账 → 答 `noop`，什么都不存。
+ * 改成了答 `applied`，并排一次存盘。不抛错。
+ */
 export function doApplyLedgerMutation(
   deps: ApplyLedgerMutationDeps,
   mutation: (current: LedgerData) => LedgerData,
@@ -164,6 +177,14 @@ type ApplyLedgerActionDeps = {
   ) => void;
 };
 
+/**
+ * 这个函数回答：拿一个改账单子来改账，改不改得成？
+ * 拒绝的情形和上面那个一样，只是有未来记录时允许删它们。
+ * 新加一笔买卖时，只查这一笔带来的上限变化。
+ * 举例：记一笔买 0.1 BTC、成交 6500 USDT → 答 `applied`，排一次存盘。
+ * 上次已全存好时，存盘带上这张单子，文件只写变了的部分。
+ * 不抛错，失败都靠返回值说。
+ */
 export function doApplyLedgerAction(
   deps: ApplyLedgerActionDeps,
   action: LedgerAction,

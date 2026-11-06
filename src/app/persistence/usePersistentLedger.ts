@@ -1,3 +1,9 @@
+/**
+ * 这个文件是账本存取的总 hook。
+ * 它管开机读账本，改账，自动存盘，清空，导入。
+ * 每件事的细节分在同目录 `usePersistentLedger*.ts` 里，这里只把它们配在一起。
+ * 不显然的决定：读好账本之前，不许改账。
+ */
 "use client";
 
 import {
@@ -94,7 +100,12 @@ export type {
 } from "./usePersistentLedgerTypes";
 
 /**
- * 统一管理启动读取、hydration 门禁和 ready 后的串行自动保存。
+ * 这个 hook 管一本账从打开到关掉的全部存取。
+ * 它先把账本从仓库读进来，读好之前页面不能改账。
+ * 读好后，每次改账都排进存盘队。
+ * 它返回一整包：当前账本，改账入口，存盘状态，清空和导入。
+ * 读失败、存失败都不抛错，放在返回的状态和提示文字里。
+ * 传了会话时，存盘走会话给的通道；通道没接上就去存，会抛错。
  */
 export function usePersistentLedger(
   requestedRepository: LedgerRepository,
@@ -368,8 +379,9 @@ export function usePersistentLedger(
     return () => {
       mountedRef.current = false;
       acceptingOperationsRef.current = false;
-      // Abort the current controller rather than a controller captured at mount.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      // 为什么读 `.current` 而不是挂载时那个：要停掉的是此刻正在跑的导入。
+      // 2026-09-02 提交 41630e6 写下这个理由。
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 卸载时要取消此刻那次导入，不是挂载时的
       importAbortControllerRef.current?.abort();
       generationRef.current += 1;
       failedSnapshotRef.current = null;

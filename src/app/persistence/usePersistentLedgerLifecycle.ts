@@ -1,3 +1,9 @@
+/**
+ * 这个文件管账本存取的几件大事。
+ * 开机读账本，换存盘目标，停工，清空，出致命错时锁住。
+ * 日常改账和存盘排队在同目录别的文件里。
+ * 不显然的决定：读到的账本超出上限时，照样打开，但只读。
+ */
 import {
   assertSessionQuiesceRequest,
   claimLedgerSessionPersistencePort,
@@ -53,6 +59,12 @@ type StopForImportRecoveryFatalDeps = {
   setSessionFatalSignal: (nextValue: LedgerSessionFatalSignal) => void;
 };
 
+/**
+ * 这个函数在导入后没法恢复时锁住这本账。
+ * 它停止接新活，改成只读，取消正在跑的导入，并发出致命信号。
+ * 页面看到信号就换成出错面板，再交给外层去锁账本。
+ * 只对账本文件会话起作用；同一个会话只发一次。不抛错。
+ */
 export function doStopForImportRecoveryFatal(
   deps: StopForImportRecoveryFatalDeps,
   message: string,
@@ -140,6 +152,12 @@ type RunPersistenceTargetEffectDeps = {
   setActivePersistenceTarget: (nextValue: PersistenceTarget) => void;
 };
 
+/**
+ * 这个函数在页面请求换存盘目标时决定换不换。
+ * 没有没存好的改动，或者用户已同意放弃改动，才换。
+ * 正在导入时不换；导入中途目标变了，就取消那次导入。
+ * 新会话第一次用时，给它领一个存盘通道。不抛错。
+ */
 export function runPersistenceTargetEffect(
   deps: RunPersistenceTargetEffectDeps,
 ): void {
@@ -239,6 +257,13 @@ type DrainForSessionQuiesceDeps = {
   writeQueueRef: { current: Promise<void> };
 };
 
+/**
+ * 这个函数回答会话的停工请求：停止接新活，等手上的活做完。
+ * 手上的活包括存盘队、读账本、清空、导入、重试。
+ * 都做完后，交回会话要的「活都做完了」的凭证。
+ * 同一个请求再来，交回同一个结果。
+ * 没有会话、通道不归这个 hook、已有别的停工请求时，抛错。
+ */
 export function doDrainForSessionQuiesce(
   deps: DrainForSessionQuiesceDeps,
   request: SessionQuiesceRequest,
@@ -372,6 +397,13 @@ type RunHydrationEffectDeps = {
   writeQueueRef: { current: Promise<void> };
 };
 
+/**
+ * 这个函数在存盘目标确定后，开机把账本从仓库读进来。
+ * 读之前先清掉上一本的状态；读到空的就新建一本空账。
+ * 读到的账超出条数或大小上限，照样显示，但改成只读。
+ * 读失败就把状态改成「读失败」，留一句提示。
+ * 返回一个函数，页面换目标时调它，作废这次读。不抛错。
+ */
 export function runHydrationEffect(
   deps: RunHydrationEffectDeps,
 ): void | (() => void) {
@@ -567,6 +599,14 @@ type ClearLedgerDeps = {
   writeQueueRef: { current: Promise<void> };
 };
 
+/**
+ * 这个函数回答：把当前账本清空成一本空账，成没成？
+ * 只有账读好了、或读失败了，且会话权限允许，才清。
+ * 账本文件要先拿到会话的批准，再交给会话去清。
+ * 举例：一本 5 笔交易的账，清空成功 → 答 `ok: true`，页面显示空账。
+ * 失败不抛错，返回 `ok: false` 和清空失败的代码，并留一句提示。
+ * 同一次清空正在跑时，交回那一次的结果。
+ */
 export function doClearLedger(
   deps: ClearLedgerDeps,
   confirmationNonce = "",
