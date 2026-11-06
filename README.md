@@ -71,7 +71,7 @@ code imports through:
 | `src/core` | Pure domain logic, no I/O and no React: `calculations`, `catalog`, `models`, `policies`, `shared`, `state`, `validation` |
 | `src/platform` | Everything that touches the outside world: `coordination`, `encryption`, `files`, `integrations`, `legacy`, `persistence` |
 | `src/features` | One flat folder per feature surface, each with its own logic and UI entry: `activity`, `asset-transfers`, `assets`, `backup`, `cash`, `charts`, `fees`, `market-data`, `portfolio`, `prices`, `trades` |
-| `src/app` | The Next.js app router entry, the dashboard shell, and the workspaces that compose features |
+| `src/app` | The Next.js app router entry files plus five areas that compose features: `gate`, `dashboard`, `workspaces`, `persistence`, `file-access` |
 | `src/ui` | Shared presentation pieces, number formatting, and the message tables for both languages |
 | `src/test-support` | Fixtures and the guards that hold the layout, the wording, and the translations in place |
 
@@ -105,9 +105,14 @@ npm run dev
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint, warnings treated as failures |
 
-Benchmarks are separate and each has a contract test beside it:
+Benchmarks are separate from the product and from `npm test`. Their scripts are
 `bench:test:generator`, `bench:test:node`, `bench:node`, `bench:test:browser`,
-`bench:browser`, `bench:test:m9`, `bench:m9`, `bench:m3-breakdown`, `bench:probe`.
+`bench:browser`, `bench:test:m9`, `bench:m9`, `bench:m3-breakdown`, and `bench:probe`.
+The generator, `bench:node`, `bench:browser`, and `bench:m9` each have a contract test
+(the matching `bench:test:*` script). `bench:m3-breakdown` and `bench:probe` have no
+contract test. `benchmarks/measure/derivedSnapshot.contract.ts` has a contract test but
+no script; run it directly with
+`npx vitest run --config vitest.benchmarks.config.ts benchmarks/measure/derivedSnapshot.contract.ts`.
 
 ## Limits at this stage
 

@@ -53,7 +53,7 @@ Every directory under `src/features/` is one feature. The source-layout test and
 
 ### `platform`
 
-- `files` owns file handles, the minimal connection record, `.lftl V2` contracts and encryption, and `LedgerFileRepository`.
+- `files` owns file handles, the minimal connection record, the current `.lftl` file format V3 contracts and encryption (V2 remains only as a rejection path), and `LedgerFileRepository`.
 - `persistence` owns the shared ledger repository/session contracts and content identity. `ledgerContentIdentity.ts` retains the existing `createLedgerDataContentIdentity` export.
 - `encryption` owns Base64URL encoding, explicit key derivation primitives, and passphrase policy.
 - `coordination` owns the cooperative page lease and short write lock.
