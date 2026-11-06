@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseBackupJson,
 } from "../backupEnvelope";
+import { preflightBackupJson } from "../backupImportPreflight";
 
 const GOLDEN_BACKUP_URL = new URL(
   "../../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v4.json",
@@ -188,3 +189,41 @@ const GOLDEN_V5_BACKUP_TEXT_TRANSCRIPT = {
     feeRules: [],
   },
 };
+
+const GOLDEN_V3_BACKUP_URL = new URL(
+  "../../../../test-fixtures/golden/golden-backup-format-v3-ledger-schema-v3.json",
+  import.meta.url,
+);
+// Frozen-baseline digest (W16 golden baseline, section 1).
+const GOLDEN_V3_BACKUP_SHA256 =
+  "5a9c5cfec55480f6ce873c711a2a8ddfcca4c55b93750ba4c1bf3cebf5571b23";
+
+describe("legacy ledger schema V3 golden backup fixture", () => {
+  it("is rejected by the product import preflight as an unsupported ledger schema version", async () => {
+    const serialized = readFileSync(GOLDEN_V3_BACKUP_URL, "utf8");
+
+    expect(createHash("sha256").update(serialized).digest("hex")).toBe(
+      GOLDEN_V3_BACKUP_SHA256,
+    );
+
+    const result = await preflightBackupJson(serialized, {
+      todayKey: "2026-08-02",
+      selectionGeneration: 1,
+      sourceFileName: "golden-backup-format-v3-ledger-schema-v3.json",
+      requireHistoricalRawText: false,
+    });
+
+    expect(result.hardErrorCount).toBeGreaterThan(0);
+    expect(result.retainedDetails).toContainEqual(
+      expect.objectContaining({
+        kind: "hard-error",
+        code: "BACKUP_SCHEMA_VERSION_MISMATCH",
+        path: "ledgerSchemaVersion",
+        message: "这是账本 schema V3 的备份；当前账本 schema 为 V5，且不提供迁移",
+      }),
+    );
+    expect(result.candidate).toBeUndefined();
+    expect(result.candidateIdentity).toBeUndefined();
+    expect(readFileSync(GOLDEN_V3_BACKUP_URL, "utf8")).toBe(serialized);
+  });
+});
