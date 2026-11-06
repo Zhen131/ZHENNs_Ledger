@@ -75,6 +75,10 @@ const PLATFORM_AREAS = [
 const PUBLIC_PLATFORM_SUBENTRIES = new Set([
   "@/platform/persistence/identity",
 ]);
+const TESTS_DIRECTORY = "__tests__";
+// Same definition as the ESLint __tests__ rule: one ../<file> step only.
+const TESTS_PARENT_ENTRY_IMPORT = /^\.\.\/(?:index|ui)(?:\.[cm]?[jt]sx?)?$/iu;
+const TESTS_PARENT_RELATIVE_IMPORT = /^\.\.(?!\/[^./][^/]*$)/iu;
 
 describe("source layout", () => {
   it("keeps only the six responsibility areas and README at the src root", () => {
@@ -106,7 +110,9 @@ describe("source layout", () => {
         true,
       );
       expect(
-        entries.filter((entry) => entry.isDirectory()),
+        entries.filter(
+          (entry) => entry.isDirectory() && entry.name !== TESTS_DIRECTORY,
+        ),
         `${feature} must remain flat`,
       ).toEqual([]);
     }
@@ -136,7 +142,10 @@ describe("source layout", () => {
         "index.ts",
       );
       expect(
-        entries.filter((entry) => entry.isDirectory()).map(({ name }) => name),
+        entries
+          .filter((entry) => entry.isDirectory())
+          .map(({ name }) => name)
+          .filter((name) => name !== TESTS_DIRECTORY),
         `app/${area} must remain flat`,
       ).toEqual([]);
       expect(
@@ -157,7 +166,7 @@ describe("source layout", () => {
     for (const file of sourceFiles(SRC_ROOT)) {
       for (const sourceImport of sourceImports(file)) {
         const { line, specifier } = sourceImport;
-        const reason = importViolation(specifier);
+        const reason = importViolation(file, specifier);
         if (reason) {
           violations.push(
             `${sourcePath(file)}:${line}: ${specifier} (${reason})`,
@@ -225,8 +234,15 @@ function fileNames(directory: string): string[] {
     .map((entry) => entry.name);
 }
 
-function importViolation(specifier: string): string | undefined {
-  if (specifier.startsWith("../")) {
+function importViolation(file: string, specifier: string): string | undefined {
+  if (basename(dirname(file)) === TESTS_DIRECTORY) {
+    if (TESTS_PARENT_ENTRY_IMPORT.test(specifier)) {
+      return "self stable-entry import from __tests__";
+    }
+    if (TESTS_PARENT_RELATIVE_IMPORT.test(specifier)) {
+      return "parent-relative import beyond one ../<file> step";
+    }
+  } else if (specifier.startsWith("../")) {
     return "parent-relative import";
   }
   if (/^@\/core\/[^/]+\/.+/.test(specifier)) {

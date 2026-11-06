@@ -22,11 +22,23 @@ const appAreas = directoryNames("src/app");
 const appAreaPattern =
   appAreas.length > 0 ? `(?:${appAreas.map(escapeRegex).join("|")})` : "(?!)";
 
+const parentRelativeImportPattern = {
+  regex: "^\\.\\./",
+  message: "Parent-relative imports are not allowed; use a stable source entry point.",
+};
+
+// Inside a __tests__ directory, one step back to a sibling file of the parent
+// directory is allowed (../tradeValidator); nothing deeper, nothing further up,
+// and never the parent's own entry (../index, ../ui).
+const testsParentRelativeImportPattern = {
+  regex:
+    "^\\.\\.(?!/[^./][^/]*$)|^\\.\\./(?:index|ui)(?:\\.[cm]?[jt]sx?)?$",
+  message:
+    "Inside __tests__, only a single ../<file> import of the parent directory is allowed; otherwise use a stable source entry point.",
+};
+
 const stableImportPatterns = [
-  {
-    regex: "^\\.\\./",
-    message: "Parent-relative imports are not allowed; use a stable source entry point.",
-  },
+  parentRelativeImportPattern,
   {
     regex: "^@/core/[^/]+/.+",
     message: "Import core code through @/core/<area>.",
@@ -135,17 +147,41 @@ const eslintConfig = [
         {
           patterns: [
             ...stableImportPatterns,
-            ...(selfImportRegexes ?? [`^${escapeRegex(entry)}(?:$|/)`]).map(
-              (regex) => ({
-                regex,
-                message: `Code inside ${entry} must use same-directory ./file imports instead of its own stable entry.`,
-              }),
-            ),
+            ...selfImportPatterns(entry, selfImportRegexes),
           ],
         },
       ],
     },
   })),
+  // Must come after the area objects: a later object replaces the whole rule.
+  ...sourceAreaEntries
+    .filter(({ files }) => files[0].endsWith("/**/*.{ts,tsx}"))
+    .map(({ files, entry, selfImportRegexes }) => ({
+      files: [files[0].replace(/\/\*\*\/\*\.\{ts,tsx\}$/, "/__tests__/*.{ts,tsx}")],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              ...stableImportPatterns.filter(
+                (pattern) => pattern !== parentRelativeImportPattern,
+              ),
+              testsParentRelativeImportPattern,
+              ...selfImportPatterns(entry, selfImportRegexes),
+            ],
+          },
+        ],
+      },
+    })),
 ];
+
+function selfImportPatterns(entry, selfImportRegexes) {
+  return (selfImportRegexes ?? [`^${escapeRegex(entry)}(?:$|/)`]).map(
+    (regex) => ({
+      regex,
+      message: `Code inside ${entry} must use same-directory ./file imports instead of its own stable entry.`,
+    }),
+  );
+}
 
 export default eslintConfig;
