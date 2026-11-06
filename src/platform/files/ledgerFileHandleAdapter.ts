@@ -625,7 +625,7 @@ async function bestEffortAbort(
     await writable.abort(reason);
   } catch {
     // 为什么不管这个错：写或关上时的那个错才是要报的。
-    // 出处：这是猜的，日志里没写，要核。
+    // 出处：2026-07-28 提交 983ff4c。
   }
 }
 

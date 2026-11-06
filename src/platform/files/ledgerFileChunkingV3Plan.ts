@@ -177,7 +177,7 @@ export function createLedgerGenerationPlanV3S3(
   ) {
     // 为什么整本重建：整本被换掉或顺序变了，只能全部重建。
     // 平常的新增、修改、删除都保持记录待在原来的块里。
-    // （这是猜的，日志里没写，要核。）
+    // 出处：2026-09-01 提交 9e69cc5。
     return createFullPlan(
       revisionId,
       payload,
