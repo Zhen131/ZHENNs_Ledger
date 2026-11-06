@@ -3,8 +3,8 @@ import { expect, test } from "vitest";
 import {
   createInitialLedgerData,
   initialLedgerData,
-} from "./initialLedgerData";
-import { ledgerReducer } from "./ledgerReducer";
+} from "../initialLedgerData";
+import { ledgerReducer } from "../ledgerReducer";
 import { createBuiltInAssets } from "@/core/catalog";
 import { createPriceSnapshot, createSimpleTrade } from "@/test-support";
 import type {
