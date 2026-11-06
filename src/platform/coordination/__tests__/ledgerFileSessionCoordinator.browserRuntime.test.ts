@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DefaultLedgerFileSessionCoordinator,
-} from "./ledgerFileSessionCoordinator";
+} from "../ledgerFileSessionCoordinator";
 import {
   IdentityFileHandle,
   createBrowserRuntimeHarness,

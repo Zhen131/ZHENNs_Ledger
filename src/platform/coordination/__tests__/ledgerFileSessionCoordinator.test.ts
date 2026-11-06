@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   DefaultLedgerFileSessionCoordinator,
-} from "./ledgerFileSessionCoordinator";
+} from "../ledgerFileSessionCoordinator";
 import {
   IdentityFileHandle,
   FakeCoordinationRuntime,

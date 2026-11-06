@@ -5,7 +5,7 @@ import {
   type LedgerFileCoordinationRuntime,
   type LedgerFileCoordinationRuntimeLease,
   type LedgerFileEntryComparison,
-} from "./ledgerFileSessionCoordinator";
+} from "../ledgerFileSessionCoordinator";
 import { createDeferred } from "@/test-support";
 
 export class IdentityFileHandle implements LedgerFileHandle {
