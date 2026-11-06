@@ -1,3 +1,8 @@
+/**
+ * 这个文件管完整的持仓明细弹窗。
+ * 首页那张只放前几名的概览表在 `HoldingsOverview.tsx`。
+ * 不显然的决定：现金行的成本、盈亏都显示「—」；2026-08-19 定（W14 01B 第 6.4 节）。
+ */
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
@@ -7,6 +12,15 @@ import { LedgerIcon, LedgerNumber, useLanguage } from "@/ui";
 
 import type { SummaryMetric } from "./pnlSummaryService";
 
+/**
+ * 这个组件画完整的持仓明细弹窗。
+ * 第一行是现金，下面每种币一行。
+ * 每行有总数量，和交易所、冷钱包、冷钱包理财各放多少。
+ * 还有成本、盈亏、市值和买入总支出。
+ * `open` 为真时才显示；打开后焦点落在关闭按钮上。
+ * 点关闭按钮或按 Esc 会叫 `onClose`。
+ * 手续费算不准的币，成本和盈亏显示「不可靠」。
+ */
 export function HoldingsDetails({
   open,
   positions,

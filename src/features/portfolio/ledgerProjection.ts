@@ -1,3 +1,8 @@
+/**
+ * 这个文件管一件事：从账本算出首页要看的那一整份数。
+ * 它自己不算现金和持仓，交给 core 的 `cashReplay`、`positionReplay` 和本区的 `positionService.ts`。
+ * 不显然的决定：各页面共用这一份，不各写公式；2026-08-19 定（W14 01B 第 6.1 节）。
+ */
 import {
   calculateCashEventUsdtDelta,
   calculateTradeUsdtCashDelta,
@@ -30,6 +35,11 @@ import { translateDefault } from "@/ui";
 import { getValuedPositionsFromLedger } from "./positionService";
 import { selectPriceAsOf } from "./priceSelectionService";
 
+/**
+ * 算总资产时碰到的一个问题。
+ * 要么某种币缺价格，要么它不是用 USDT 计价。
+ * 带着给人看的说明文字。
+ */
 export type LedgerProjectionIssue =
   | Readonly<{
       code: "MISSING_CURRENT_PRICE";
@@ -42,6 +52,10 @@ export type LedgerProjectionIssue =
       message: string;
     }>;
 
+/**
+ * 现金那一块：USDT 余额，和余额为负时缺多少。
+ * 还有每笔记录让现金动了多少。
+ */
 export type LedgerCashProjection = Readonly<{
   currency: "USDT";
   balance: DecimalString;
@@ -49,6 +63,11 @@ export type LedgerCashProjection = Readonly<{
   effects: ReturnType<typeof replayUsdtCash>["effects"];
 }>;
 
+/**
+ * 总资产那一块：有价格的币值多少、加上现金一共多少。
+ * 还说明算全了没有、缺了哪些币。
+ * 每种币用的价格来自哪里，也记在里面。
+ */
 export type LedgerValuationProjection = Readonly<{
   currency: "USDT";
   pricedAssetMarketValue: DecimalString;
@@ -67,6 +86,7 @@ export type LedgerValuationProjection = Readonly<{
   >;
 }>;
 
+/** 首页要看的那一整份数：现金、持仓、总资产、问题清单。 */
 export type LedgerProjection = Readonly<{
   cash: LedgerCashProjection;
   positions: readonly Position[];
@@ -74,18 +94,37 @@ export type LedgerProjection = Readonly<{
   issues: readonly LedgerProjectionIssue[];
 }>;
 
+/**
+ * 刚加进账本的一笔记录。
+ * 它是买卖、现金进出、转账、价格四种之一。
+ */
 export type AppendedLedgerFact =
   | Readonly<{ kind: "trade"; fact: Trade }>
   | Readonly<{ kind: "cash-event"; fact: CashEvent }>
   | Readonly<{ kind: "asset-transfer"; fact: AssetTransfer }>
   | Readonly<{ kind: "price-snapshot"; fact: PriceSnapshot }>;
 
+/**
+ * 只补算一笔新记录后的结果。
+ * 另外说明现金和持仓各是怎么补算的。
+ * 「full-fallback」表示那一块只好从头再算。
+ */
 export type IncrementalLedgerProjection = Readonly<{
   projection: LedgerProjection;
   cashReplay: "unchanged" | "appended" | "full-fallback";
   positionReplay: "unchanged" | "affected-asset" | "full-fallback";
 }>;
 
+/**
+ * 这个函数回答：到某一天为止，现金、持仓、总资产各多少？
+ * 总资产等于有价格的币的市值加上现金。
+ * 现金可以是负数。
+ * 举例：剩 0.06 BTC，价格 70000，现金 -200 USDT。
+ * → 答总资产 4000，缺口 200。
+ * 缺价格的币不按 0 算，而是列进问题清单，标成「没算全」。
+ * 为什么不按 0 算：按 0 会冒充完整；2026-08-19 定（W14 01B 第 6.4 节）。
+ * 不会出错。
+ */
 export function buildLedgerProjection(
   ledgerData: LedgerData,
   options: Readonly<{
@@ -101,6 +140,15 @@ export function buildLedgerProjection(
   return createLedgerProjection(valuedPositions, cashReplay);
 }
 
+/**
+ * 这个函数回答：只加了一笔新记录，能不能只补算这一笔？
+ * 新记录排在已有记录后面，就只补这一笔。
+ * 插到中间，或那种币原来没有持仓，就从头算。
+ * 举例：上一份现金 1000，再加一笔最晚的入金 500。
+ * → 答现金 1500，现金一块标「appended」。
+ * 为什么要补算：账本大了每次从头算会卡；这是猜的，要核。
+ * 不会出错；补不了就自动从头算。
+ */
 export function updateLedgerProjectionForAppendedFact(
   previous: LedgerProjection,
   ledgerData: LedgerData,
@@ -225,6 +273,7 @@ function updateCashProjection(
   value: ReturnType<typeof replayUsdtCash>;
   mode: IncrementalLedgerProjection["cashReplay"];
 }> {
+  // 转账和价格不动现金，现金一块原样留着。
   if (appended.kind !== "trade" && appended.kind !== "cash-event") {
     return {
       value: {
@@ -302,6 +351,7 @@ function updateAffectedPosition(
   const previousPosition = previous.positions.find(
     (position) => position.assetSymbol === assetSymbol,
   );
+  // 这种币原来没有持仓，补算会漏掉它，只好整份从头算。
   if (!previousPosition && appended.kind !== "price-snapshot") {
     return null;
   }

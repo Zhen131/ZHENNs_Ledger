@@ -1,8 +1,21 @@
+/**
+ * 这个文件管首页的持仓概览表。
+ * 完整的持仓明细不在这里，在 `HoldingsDetails.tsx`。
+ * 不显然的决定：概览只放市值前 5 的币；为什么是 5，这是猜的，要核。
+ */
 import type { DecimalString, Position } from "@/core/models";
 import { compare, divide, isZero, subtract } from "@/core/shared";
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { Ref } from "react";
 
+/**
+ * 这个函数回答：有价格的持仓里，市值最大的是哪几个？
+ * 市值一样时按币的代码字母顺序排。
+ * 举例：BTC 市值 4200，ETH 3000，ADA 没价格 → 答 BTC、ETH。
+ * 数量为 0 或缺价格的币不进结果。
+ * 默认最多给 5 个。
+ * 不会出错。
+ */
 export function getTopMarketValuePositions(
   positions: readonly Position[],
   limit = 5,
@@ -29,6 +42,13 @@ export function getTopMarketValuePositions(
     .slice(0, limit);
 }
 
+/**
+ * 这个函数回答：最新价格比平均成本涨跌了多少？
+ * 举例：平均成本 65050，最新价格 70000 → 答约 0.0761，即涨约 7.6%。
+ * 三种情况返回空，表格显示「不可用」。
+ * 它们是：没有最新价格、平均成本是 0、手续费算不准。
+ * 不会出错。
+ */
 export function calculatePriceChangeRatio(
   position: Pick<
     Position,
@@ -48,6 +68,13 @@ export function calculatePriceChangeRatio(
   );
 }
 
+/**
+ * 这个组件画首页的持仓概览表。
+ * 第一行是现金余额，下面是市值最大的几种币。
+ * 每行有价格、成本、涨跌、盈亏、数量和市值。
+ * 点「查看全部」会叫 `onShowAll`，打开完整明细。
+ * 缺价格的币不进表，表下面会列出它们的名字。
+ */
 export function HoldingsOverview({
   positions,
   cashBalance,
