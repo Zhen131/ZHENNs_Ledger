@@ -2,8 +2,9 @@
  * 这个文件放进账本前那道检查里各个按钮背后的动作。
  * 新建，选已有文件，重连上次的，忘掉它，解锁，恢复。
  * 真正开文件的活交给 `app/file-access`；画面在 `LedgerAccessGate.tsx`。
- * 不显然的决定：一次只做一个动作。
+ * 一次只做一个动作。
  * 做到一半换了动作，旧结果作废。
+ * 没有特别的决定。
  */
 import type { LedgerSession } from "@/platform/persistence";
 import type {
