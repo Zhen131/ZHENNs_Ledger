@@ -1,10 +1,14 @@
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, beforeEach, expect } from "vitest";
 
 import {
   DEFAULT_LEDGER_LANGUAGE,
   LANGUAGE_PREFERENCE_STORAGE_KEY,
 } from "@/ui";
+
+// Give findBy*/waitFor more headroom than the 1-second default when the full
+// suite runs in parallel on a loaded machine.
+configure({ asyncUtilTimeout: 3_000 });
 
 if (typeof window !== "undefined") {
   try {

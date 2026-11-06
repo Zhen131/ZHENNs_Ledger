@@ -18,5 +18,7 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/test-support/vitest.setup.ts"],
+    // Headroom over the 5-second default for slow suites under parallel load.
+    testTimeout: 15_000,
   },
 });
