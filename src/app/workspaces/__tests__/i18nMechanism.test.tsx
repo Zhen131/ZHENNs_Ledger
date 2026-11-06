@@ -3,9 +3,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getLedgerDateKey } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
@@ -21,14 +21,19 @@ import {
 import {
   DEFAULT_LEDGER_LANGUAGE,
   LANGUAGE_PREFERENCE_STORAGE_KEY,
+  LEDGER_LANGUAGES,
   LanguageProvider,
+  SELECTABLE_LEDGER_LANGUAGES,
   formatMoney,
   readLanguagePreference,
   translate,
   useLanguage,
+  writeLanguagePreference,
 } from "@/ui";
 import { HomeWorkspace } from "../HomeWorkspace";
 import { SettingsWorkspace } from "../SettingsWorkspace";
+
+afterEach(cleanup);
 
 vi.mock("echarts/core", () => ({
   init: vi.fn(() => ({
@@ -62,7 +67,7 @@ const history = buildHoldingHistory(ledgerData, {
 });
 const heatmap = buildTradeHeatmap(ledgerData, TODAY_KEY);
 
-describe("Week 15 language mechanism contracts", () => {
+describe("language mechanism contracts", () => {
   it("T-A1 renders the home workspace in Chinese by default", () => {
     render(<LanguageMechanismHarness />);
 
@@ -269,20 +274,142 @@ function InvariantProbe() {
   );
 }
 
-function createMemoryStorage(): Storage {
-  const values = new Map<string, string>();
+/**
+ * Hungarian is withdrawn from the picker but not from the product: its code,
+ * its translations, and its branch of `translate` all stay, so putting the
+ * option back later is one list entry rather than a re-translation (04A D-3).
+ * These tests pin both halves of that promise, including the one that only
+ * shows up on a browser that already stored "hu".
+ */
+describe("withdrawing the Hungarian option", () => {
+  it("keeps the language code and every Hungarian translation", () => {
+    expect(LEDGER_LANGUAGES).toContain("hu");
+    expect(translate("hu", "home.workspace.ariaLabel")).toBe(
+      "Kezdőlap munkaterület",
+    );
+    expect(translate("hu", "settings.language.optionHungarian")).toBe("Magyar");
+  });
+
+  it("offers only Chinese and English in the settings picker", () => {
+    expect([...SELECTABLE_LEDGER_LANGUAGES]).toEqual(["zh-CN", "en"]);
+
+    render(
+      <LanguageProvider storage={createMemoryStorage()}>
+        <SettingsWorkspace
+          active
+          canClearHydrationError={false}
+          canClearReadyLedger={false}
+          feePanel={null}
+          hydrationStatus="ready"
+          isReadOnly={false}
+          ledgerEpoch={0}
+          marketPanel={null}
+          onClear={async () => false}
+          persistenceOperation="idle"
+          repositorySwitchBlocked={false}
+          storageKind="ledger-file"
+        />
+      </LanguageProvider>,
+    );
+
+    const picker = screen.getByRole("combobox", { name: "选择界面语言" });
+    const values = Array.from(
+      picker.querySelectorAll("option"),
+      (option) => option.value,
+    );
+    expect(values).toEqual(["zh-CN", "en"]);
+  });
+
+  it("reads a stored Hungarian preference back as the default language", () => {
+    const storage = createMemoryStorage("hu");
+
+    expect(readLanguagePreference(storage)).toBe(DEFAULT_LEDGER_LANGUAGE);
+    expect(storage.read()).toBe("hu");
+  });
+
+  it("renders the default language for a browser that stored Hungarian", () => {
+    const storage = createMemoryStorage("hu");
+
+    render(
+      <LanguageProvider storage={storage}>
+        <SettingsWorkspace
+          active
+          canClearHydrationError={false}
+          canClearReadyLedger={false}
+          feePanel={null}
+          hydrationStatus="ready"
+          isReadOnly={false}
+          ledgerEpoch={0}
+          marketPanel={null}
+          onClear={async () => false}
+          persistenceOperation="idle"
+          repositorySwitchBlocked={false}
+          storageKind="ledger-file"
+        />
+      </LanguageProvider>,
+    );
+
+    const picker = screen.getByRole("combobox", { name: "选择界面语言" });
+    expect((picker as HTMLSelectElement).value).toBe(DEFAULT_LEDGER_LANGUAGE);
+    expect(screen.getByText("账本设置")).toBeTruthy();
+  });
+
+  it("still writes and reads a selectable preference unchanged", () => {
+    const storage = createMemoryStorage();
+
+    writeLanguagePreference("en", storage);
+
+    expect(storage.read()).toBe("en");
+    expect(readLanguagePreference(storage)).toBe("en");
+  });
+});
+
+function LanguageProbe() {
+  const { language, setLanguage } = useLanguage();
+  return (
+    <button onClick={() => setLanguage("en")} type="button">
+      {language}
+    </button>
+  );
+}
+
+describe("LanguageProvider", () => {
+  it("changes the in-memory language and persists the browser preference", async () => {
+    const user = userEvent.setup();
+    render(
+      <LanguageProvider>
+        <LanguageProbe />
+      </LanguageProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "zh-CN" }));
+
+    expect(screen.getByRole("button", { name: "en" })).toBeTruthy();
+    expect(window.localStorage.getItem(LANGUAGE_PREFERENCE_STORAGE_KEY)).toBe(
+      "en",
+    );
+  });
+
+  it("starts the next test in Chinese without leaked language state", () => {
+    render(
+      <LanguageProvider>
+        <LanguageProbe />
+      </LanguageProvider>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: DEFAULT_LEDGER_LANGUAGE }),
+    ).toBeTruthy();
+  });
+});
+
+function createMemoryStorage(initial?: string) {
+  let value = initial;
   return {
-    get length() {
-      return values.size;
+    getItem: () => value ?? null,
+    setItem: (_key: string, next: string) => {
+      value = next;
     },
-    clear: () => values.clear(),
-    getItem: (key) => values.get(key) ?? null,
-    key: (index) => Array.from(values.keys())[index] ?? null,
-    removeItem: (key) => {
-      values.delete(key);
-    },
-    setItem: (key, value) => {
-      values.set(key, value);
-    },
+    read: () => value,
   };
 }
