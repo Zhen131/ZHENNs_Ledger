@@ -1,3 +1,8 @@
+/**
+ * 这个文件放交易表「跳到某天」那件事后要做的事。
+ * 什么时候触发由 `ActivityTable.tsx` 定，谁发起跳转在 app 的交易页。
+ * 没有特别的决定。
+ */
 import type { LedgerActivityItem } from "./activityService";
 import type {
   Dispatch,
@@ -15,6 +20,13 @@ type ActivityLocateEffectDeps = {
   setLocationMode: Dispatch<SetStateAction<"flashing" | "static" | null>>;
 };
 
+/**
+ * 这个函数把交易表滚到某天的第一行，并让那一行闪一下。
+ * 那天在当前页上没有行，就告诉发起的一方「没找到」。
+ * 用户设了减少动画时，直接跳过去，高亮停一会儿再消失。
+ * 跳完后告诉发起的一方「找到了」。
+ * 返回的收尾函数会取消还没走完的计时。
+ */
 export function runActivityLocateEffect(
   deps: ActivityLocateEffectDeps,
 ) {

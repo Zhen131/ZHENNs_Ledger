@@ -1,3 +1,8 @@
+/**
+ * 这个文件管交易页的那张交易表。
+ * 一行怎么画在 `ActivityTableRow.tsx`，删除和跳转由上层交易页管。
+ * 不显然的决定：时刻默认按记录地点显示，可以切换；2026-09-06 定（W16 02A 第二节 D-4d）。
+ */
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
@@ -24,6 +29,10 @@ export {
   formatRecordedOccurredAt,
 } from "./activityTimeFormat";
 
+/**
+ * 交易表的删除状态：哪一行等确认。
+ * 哪一行在倒计时或存盘、还剩几毫秒。
+ */
 export type ActivityDeleteState = Readonly<{
   armedItemId: string | null;
   pendingItemId: string | null;
@@ -31,6 +40,12 @@ export type ActivityDeleteState = Readonly<{
   remainingMs: number;
 }>;
 
+/**
+ * 这个组件画交易页的交易表。
+ * 上面有「按记录地点 / 按现在地点」看时刻的下拉框。
+ * 每行可以展开看详情，可以删除。
+ * 上层发来「跳到某天」时，滚到那天并让那行闪一下。
+ */
 export function ActivityTable({
   items,
   sequenceByItemKey,

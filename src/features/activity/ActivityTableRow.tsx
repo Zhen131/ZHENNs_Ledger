@@ -1,3 +1,8 @@
+/**
+ * 这个文件管交易表里的一行，加上它展开后的详情。
+ * 整张表在 `ActivityTable.tsx`，删除按钮在 trades 功能区的 `TradeDeleteControl`。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { isLedgerFactInFuture } from "@/core/shared";
@@ -19,6 +24,13 @@ import type { TradeDeletePhase } from "@/features/trades/ui";
 import type { Translate } from "@/ui";
 import type { ActivityTimeZoneView } from "./activityTimeFormat";
 
+/**
+ * 这个组件画交易表的一行。
+ * 有编号、日期、类型、币、金额、删除按钮。
+ * 可以展开或收起这一行的详情。
+ * 今天以后的记录会标出来。
+ * 正在被删的那一行会显示倒计时和「撤回」。
+ */
 export function ActivityTableRow({
   currentTimeZone,
   dateKey,

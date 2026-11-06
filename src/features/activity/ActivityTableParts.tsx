@@ -1,3 +1,8 @@
+/**
+ * 这个文件放交易表用的两个小组件：一格和展开后的详情。
+ * 一行怎么拼在 `ActivityTableRow.tsx`。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { type ReactNode } from "react";
@@ -6,6 +11,10 @@ import { LedgerNumber, useLanguage } from "@/ui";
 import type { LedgerActivityItem } from "./activityService";
 import { cashEventTypeLabel } from "./activityTableLabels";
 
+/**
+ * 这个组件画交易表的一格。
+ * 窄屏时一格前面带上这一栏的名字，宽屏时只显示内容。
+ */
 export function ActivityCell({
   label,
   children,
@@ -21,6 +30,13 @@ export function ActivityCell({
   );
 }
 
+/**
+ * 这个组件画一行展开后的详情。
+ * 买卖有编号、数量、单价、成交金额、手续费。
+ * 还有平台、手续费来源、现金影响。
+ * 现金记录有各自存下的字段；校准还有前后余额和差额。
+ * 完整的原始时刻和地点也列在里面。
+ */
 export function ActivityDetails({ item }: Readonly<{ item: LedgerActivityItem }>) {
   const { t } = useLanguage();
   if (item.kind === "trade") {
