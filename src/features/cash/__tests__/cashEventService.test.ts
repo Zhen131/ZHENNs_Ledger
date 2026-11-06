@@ -7,7 +7,7 @@ import {
   CASH_EVENT_SERVICE_ERROR_CODES,
   createValidatedCashEvent,
   type CashEventServiceDependencies,
-} from "./cashEventService";
+} from "../cashEventService";
 
 const NOW = "2026-08-18T08:00:00.000Z";
 

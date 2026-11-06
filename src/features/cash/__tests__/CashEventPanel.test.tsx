@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LedgerData } from "@/core/models";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
-import { CashEventPanel } from "./CashEventPanel";
+import { CashEventPanel } from "../CashEventPanel";
 
 const clock: LedgerClock = {
   now: () => new Date("2026-08-18T08:00:00.000Z"),

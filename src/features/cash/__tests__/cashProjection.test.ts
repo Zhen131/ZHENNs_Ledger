@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";
-import { projectLedgerCashMutation } from "./cashProjection";
+import { projectLedgerCashMutation } from "../cashProjection";
 
 describe("projectLedgerCashMutation", () => {
   it("projects additions and deletions without persisting a balance", () => {
