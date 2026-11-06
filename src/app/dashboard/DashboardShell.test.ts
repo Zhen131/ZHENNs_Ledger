@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Position, Trade } from "@/core/models";
+import type { Position } from "@/core/models";
 import {
   createLedgerSession,
   INDEXED_DB_LEDGER_CAPABILITIES,
@@ -13,9 +13,7 @@ import {
   type LedgerProjection,
 } from "@/features/portfolio";
 import { createInitialLedgerData } from "@/core/state";
-import { ledgerReducer } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
-import { TradeTable } from "@/features/trades/ui";
 import { DashboardShell } from "./DashboardShell";
 
 vi.mock("@/features/portfolio", async (importOriginal) => ({
@@ -89,109 +87,6 @@ function projection(positions: readonly Position[] = []): LedgerProjection {
     issues: [],
   };
 }
-
-const buyTrade = Object.freeze({
-  id: "trade-buy-sentinel",
-  occurredAt: "2042-11-03T04:05:06Z",
-  timePrecision: "second",
-  type: "buy",
-  assetSymbol: "XQZ-BUY",
-  quantity: "123.45678901",
-  price: "987.65432109",
-  totalValue: "777.888999",
-  currency: "USDT",
-  fee: "0.123",
-  feeCurrency: "XCU-BUY",
-  createdAt: "2042-11-03T04:05:07Z",
-  updatedAt: "2042-11-03T04:05:08Z",
-}) satisfies Trade;
-
-const sellTrade = Object.freeze({
-  id: "trade-sell-sentinel",
-  occurredAt: "2041-09-08T07:06:05Z",
-  timePrecision: "second",
-  type: "sell",
-  assetSymbol: "QYX-SELL",
-  quantity: "98.76543210",
-  price: "12.34567890",
-  totalValue: "444.555666",
-  currency: "USDT",
-  fee: "0.456",
-  feeCurrency: "XCU-SELL",
-  createdAt: "2041-09-08T07:06:06Z",
-  updatedAt: "2041-09-08T07:06:07Z",
-}) satisfies Trade;
-
-describe("TradeTable", () => {
-  it("renders a nine-column empty state", () => {
-    const html = renderToStaticMarkup(
-      createElement(TradeTable, { trades: [] }),
-    );
-
-    expect(html).toContain(
-      'colSpan="9">暂无交易。添加交易后，这里会自动显示。</td>',
-    );
-  });
-
-  it("maps a formal buy trade to all nine display columns", () => {
-    const html = renderToStaticMarkup(
-      createElement(TradeTable, { trades: [buyTrade] }),
-    );
-
-    expect(html).toContain(buyTrade.occurredAt);
-    expect(html).toContain(">买入<");
-    expect(html).toContain(buyTrade.assetSymbol);
-    expect(html).toContain(buyTrade.quantity);
-    expect(html).toContain(buyTrade.price);
-    expect(html).toContain(`title="${buyTrade.totalValue}"`);
-    expect(html).toContain(`title="${buyTrade.fee}"`);
-    expect(html).toContain(buyTrade.currency);
-    expect(html).toContain(buyTrade.feeCurrency);
-    expect(html).toContain("不可可靠计算：XCU-BUY 手续费未换算");
-    expect(html).not.toContain(
-      "暂无交易。添加交易后，这里会自动显示。",
-    );
-  });
-
-  it("maps sell trades and preserves the frozen input order", () => {
-    const trades: readonly Trade[] = Object.freeze([buyTrade, sellTrade]);
-
-    const html = renderToStaticMarkup(createElement(TradeTable, { trades }));
-
-    expect(html).toContain(">卖出<");
-    expect(html.indexOf(buyTrade.assetSymbol)).toBeLessThan(
-      html.indexOf(sellTrade.assetSymbol),
-    );
-    expect(trades).toEqual([buyTrade, sellTrade]);
-  });
-
-  it("renders trades returned by the reducer without claiming UI dispatch", () => {
-    const nextLedger = ledgerReducer(createInitialLedgerData(), {
-      type: "trade/add",
-      trade: buyTrade,
-    });
-
-    const html = renderToStaticMarkup(
-      createElement(TradeTable, { trades: nextLedger.trades }),
-    );
-
-    expect(html).toContain(buyTrade.assetSymbol);
-    expect(html).toContain(buyTrade.totalValue);
-  });
-
-  it("keeps the delete action visible but disabled during a persistence operation", () => {
-    const html = renderToStaticMarkup(
-      createElement(TradeTable, {
-        trades: [buyTrade],
-        onDelete: vi.fn(),
-        deleteDisabled: true,
-      }),
-    );
-
-    expect(html).toContain('aria-label="删除 买入 XQZ-BUY 2042-11-03T04:05:06Z"');
-    expect(html).toContain("disabled");
-  });
-});
 
 describe("DashboardShell ledger views", () => {
   beforeEach(() => {

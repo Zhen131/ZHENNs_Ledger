@@ -201,34 +201,6 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "trades.form.action.saving",
   // Trade-form fields use the same Total-value label.
   "trades.form.field.totalValue",
-  // Trade table contexts use the same Actions column label.
-  "trades.table.actions",
-  // Trade table contexts use the same Asset column label.
-  "trades.table.asset",
-  // Trade table contexts use the same buy-outflow label.
-  "trades.table.buyOutflow",
-  // Trade table contexts use the same cash-impact label.
-  "trades.table.cashImpact",
-  // Trade table contexts use the same Date column label.
-  "trades.table.date",
-  // Trade table confirmations use the same delete prefix.
-  "trades.table.deletePrefix",
-  // Trade table contexts use the same Manual marker.
-  "trades.table.manual",
-  // Trade table contexts use the same not-filled placeholder.
-  "trades.table.notFilled",
-  // Trade table contexts use the same Quantity column label.
-  "trades.table.quantity",
-  // Trade table contexts use the same sell-proceeds label.
-  "trades.table.sellProceeds",
-  // Trade table contexts use the same Type column label.
-  "trades.table.type",
-  // Trade table contexts use the same unconverted-fee label.
-  "trades.table.unconvertedFee",
-  // Trade table contexts use the same unreliable prefix.
-  "trades.table.unreliablePrefix",
-  // Trade table contexts use the same unreliable separator.
-  "trades.table.unreliableSeparator",
   // Dashboard, activity, forms, and tables use the same Buy type name.
   "trades.type.buy",
   // Dashboard, activity, forms, and tables use the same Sell type name.
