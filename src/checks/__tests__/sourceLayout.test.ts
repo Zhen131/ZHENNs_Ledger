@@ -77,6 +77,9 @@ const PUBLIC_PLATFORM_SUBENTRIES = new Set([
   "@/platform/persistence/identity",
 ]);
 const TESTS_DIRECTORY = "__tests__";
+const TEST_FILE_NAME = /\.(?:test|testHelpers)\.[^/]+$/u;
+const TESTS_FORBIDDEN_PARENTS = new Set(["", "app", "core", "features", "platform"]);
+const CHECKS_AREA = "checks";
 // Same definition as the ESLint __tests__ rule: one ../<file> step only.
 const TESTS_PARENT_ENTRY_IMPORT = /^\.\.\/(?:index|ui)(?:\.[cm]?[jt]sx?)?$/iu;
 const TESTS_PARENT_RELATIVE_IMPORT = /^\.\.(?!\/[^./][^/]*$)/iu;
@@ -192,6 +195,59 @@ describe("source layout", () => {
     expect(
       violations,
       `Self stable-entry imports (${violations.length}):\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("keeps every test and test helper directly inside a __tests__ directory", () => {
+    const violations: string[] = [];
+
+    for (const path of allPaths(SRC_ROOT)) {
+      const relativePath = sourcePath(path.path);
+      const parent = dirname(relativePath);
+      if (path.isDirectory) {
+        if (basename(relativePath) === TESTS_DIRECTORY) {
+          const tidyParent = parent === "." ? "" : parent;
+          if (TESTS_FORBIDDEN_PARENTS.has(tidyParent)) {
+            violations.push(`${relativePath} (__tests__ under an area root)`);
+          }
+        }
+        if (basename(parent) === TESTS_DIRECTORY) {
+          violations.push(`${relativePath} (subdirectory inside __tests__)`);
+        }
+      } else if (
+        TEST_FILE_NAME.test(basename(relativePath)) &&
+        basename(parent) !== TESTS_DIRECTORY
+      ) {
+        violations.push(`${relativePath} (test outside __tests__)`);
+      }
+    }
+
+    expect(
+      violations,
+      `Misplaced tests (${violations.length}):\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("keeps src/checks out of every other file's imports", () => {
+    const graph = sourceDependencyGraph();
+    const violations = graph.files
+      .filter((file) => sourcePath(file).split("/")[0] !== CHECKS_AREA)
+      .flatMap((file) =>
+        (graph.edges.get(file) ?? [])
+          .filter(
+            (edge) =>
+              edge.target !== undefined &&
+              sourcePath(edge.target).split("/")[0] === CHECKS_AREA,
+          )
+          .map(
+            ({ line, specifier }) =>
+              `${sourcePath(file)}:${line}: ${specifier} (imports src/checks)`,
+          ),
+      );
+
+    expect(
+      violations,
+      `Imports into src/checks (${violations.length}):\n${violations.join("\n")}`,
     ).toEqual([]);
   });
 
@@ -489,6 +545,20 @@ function describeCycle(
 
 function sourcePath(file: string): string {
   return relative(SRC_ROOT, file).split(sep).join("/");
+}
+
+function allPaths(
+  directory: string,
+): { path: string; isDirectory: boolean }[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    if (entry.name.startsWith(".")) {
+      return [];
+    }
+    const path = join(directory, entry.name);
+    return entry.isDirectory()
+      ? [{ path, isDirectory: true }, ...allPaths(path)]
+      : [{ path, isDirectory: false }];
+  });
 }
 
 function sourceFiles(directory: string): string[] {
