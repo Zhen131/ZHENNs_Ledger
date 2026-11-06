@@ -50,7 +50,8 @@ type PositionAccumulator = {
 
 /**
  * 按顺序过到一半的状态：每种币当前的数量、成本、盈亏。
- * 只在这个文件的函数之间传。
+ * 这个文件和图表区都会建它。
+ * 改它、读它都只通过这个文件的函数。
  */
 export type PositionReplayState = {
   readonly positionsByAsset: Map<string, PositionAccumulator>;
