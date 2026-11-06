@@ -30,7 +30,7 @@ export type TradeServiceDependencies = {
   todayKey?: () => string;
 };
 
-export type TradeServiceOperationalError =
+type TradeServiceOperationalError =
   | {
       code: "TRADE_ID_GENERATION_EXHAUSTED";
       message: string;
@@ -41,7 +41,7 @@ export type TradeServiceOperationalError =
       message: string;
     };
 
-export type CreateTradeResult =
+type CreateTradeResult =
   | {
       ok: true;
       trade: Trade;

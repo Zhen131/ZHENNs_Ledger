@@ -27,7 +27,7 @@ export type LedgerActivityTypeFilter =
   | "external-expense"
   | "balance-adjustment";
 
-export type LedgerActivityFilter = Readonly<{
+type LedgerActivityFilter = Readonly<{
   type?: LedgerActivityTypeFilter;
   asset?: "all" | "USDT" | string;
   exactDate?: string;
@@ -62,13 +62,13 @@ export function filterLedgerActivityItems(
   });
 }
 
-export function getActivityType(
+function getActivityType(
   item: LedgerActivityItem,
 ): Exclude<LedgerActivityTypeFilter, "all"> {
   return item.kind === "trade" ? item.trade.type : item.cashEvent.type;
 }
 
-export function compareLedgerActivityItemsDescending(
+function compareLedgerActivityItemsDescending(
   left: LedgerActivityItem,
   right: LedgerActivityItem,
 ): number {

@@ -8,7 +8,7 @@ export type FeeRuleCandidate = Readonly<{
   formula: string;
 }>;
 
-export type FeeRuleMatchResult =
+type FeeRuleMatchResult =
   | { status: "missing-platform" }
   | { status: "invalid-total-value" }
   | { status: "no-match" }

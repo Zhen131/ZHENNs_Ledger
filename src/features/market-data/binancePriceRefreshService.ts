@@ -30,12 +30,12 @@ export type BinanceAssetRefreshFailure = BinanceMarketDataFailure & {
   assetSymbol: string;
 };
 
-export type BinancePriceRefreshResult = {
+type BinancePriceRefreshResult = {
   successes: BinanceRefreshSuccess[];
   failures: BinanceAssetRefreshFailure[];
 };
 
-export type BinancePriceRefreshDependencies = {
+type BinancePriceRefreshDependencies = {
   client: BinanceMarketDataClient;
   clock: LedgerClock;
 };
@@ -134,7 +134,7 @@ export async function refreshBinancePrices(
   return { successes, failures };
 }
 
-export type BinanceRefreshMergeResult = {
+type BinanceRefreshMergeResult = {
   ledgerData: LedgerData;
   appliedAssetSymbols: string[];
   skippedAssetSymbols: string[];

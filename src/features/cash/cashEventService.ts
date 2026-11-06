@@ -38,7 +38,7 @@ export const CASH_EVENT_SERVICE_ERROR_CODES = {
   LEDGER_VALIDATION_FAILED: "CASH_EVENT_LEDGER_VALIDATION_FAILED",
 } as const;
 
-export type CashEventServiceError = Readonly<{
+type CashEventServiceError = Readonly<{
   code: (typeof CASH_EVENT_SERVICE_ERROR_CODES)[keyof typeof CASH_EVENT_SERVICE_ERROR_CODES];
   field: "form" | "type" | "occurredAt" | "amountOrTarget" | "note";
   message: string;
@@ -50,7 +50,7 @@ export type CashEventServiceDependencies = Readonly<{
   todayKey: () => string;
 }>;
 
-export type CreateCashEventResult =
+type CreateCashEventResult =
   | {
       ok: true;
       cashEvent: CashEvent;

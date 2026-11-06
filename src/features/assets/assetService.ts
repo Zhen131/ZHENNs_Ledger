@@ -38,26 +38,26 @@ export type AssetDependencySummary = Readonly<{
   paths: readonly string[];
 }>;
 
-export type AssetServiceError = Readonly<{
+type AssetServiceError = Readonly<{
   code: AssetErrorCode;
   message: string;
   dependencies?: readonly AssetDependencySummary[];
   operation?: "generateId" | "now";
 }>;
 
-export type NormalizeAssetSymbolResult =
+type NormalizeAssetSymbolResult =
   | { ok: true; symbol: string }
   | { ok: false; error: AssetServiceError };
 
-export type CreateLocalAssetResult =
+type CreateLocalAssetResult =
   | { ok: true; asset: Asset }
   | { ok: false; error: AssetServiceError };
 
-export type RemoveLocalAssetResult =
+type RemoveLocalAssetResult =
   | { ok: true; ledgerData: LedgerData }
   | { ok: false; error: AssetServiceError };
 
-export type AssetServiceDependencies = Readonly<{
+type AssetServiceDependencies = Readonly<{
   generateId: () => string;
   now: () => ISODateTimeString;
 }>;

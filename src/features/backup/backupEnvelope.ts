@@ -46,11 +46,11 @@ export type BackupEnvelopeError =
   | LedgerResourcePolicyError
   | LedgerImportPolicyError;
 
-export type BackupEnvelopeResult =
+type BackupEnvelopeResult =
   | { ok: true; value: BackupEnvelopeV3 }
   | { ok: false; errors: BackupEnvelopeError[] };
 
-export type BackupMetadata = {
+type BackupMetadata = {
   appVersion: string;
   exportedAt: string;
 };

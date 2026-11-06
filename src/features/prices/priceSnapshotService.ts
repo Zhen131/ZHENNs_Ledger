@@ -26,7 +26,7 @@ export type PriceSnapshotServiceDependencies = {
   todayKey?: () => string;
 };
 
-export type CreatePriceSnapshotResult =
+type CreatePriceSnapshotResult =
   | {
       ok: true;
       priceSnapshot: PriceSnapshot;

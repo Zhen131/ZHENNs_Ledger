@@ -8,11 +8,11 @@ import type {
 } from "@/platform/integrations";
 import type { BinanceMarketDataFailure } from "@/platform/integrations";
 
-export type BinanceMappingValidationResult =
+type BinanceMappingValidationResult =
   | { ok: true; mapping: BinanceMarketMapping }
   | { ok: false; error: BinanceMarketDataFailure };
 
-export type BinanceSymbolCandidateResult =
+type BinanceSymbolCandidateResult =
   | { ok: true; symbol: string }
   | { ok: false; error: BinanceMarketDataFailure };
 
@@ -25,7 +25,7 @@ export type BinanceAutoPairFailure = BinanceMarketDataFailure & {
   assetSymbol: string;
 };
 
-export type BinanceAutoPairResult = {
+type BinanceAutoPairResult = {
   successes: BinanceAutoPairSuccess[];
   failures: BinanceAutoPairFailure[];
 };

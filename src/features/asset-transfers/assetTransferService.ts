@@ -33,7 +33,7 @@ import {
 const MAX_ID_ATTEMPTS = 3;
 const DECIMAL_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
-export type CreateAssetTransferResult =
+type CreateAssetTransferResult =
   | { ok: true; assetTransfer: AssetTransfer }
   | AssetTransferFailure;
 

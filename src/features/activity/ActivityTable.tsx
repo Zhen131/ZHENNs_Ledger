@@ -20,11 +20,9 @@ import {
 } from "./activityTimeFormat";
 import { ActivityTableRow } from "./ActivityTableRow";
 export {
-  DEFAULT_ACTIVITY_TIME_ZONE_VIEW,
   formatOccurredAtForView,
   formatRecordedOccurredAt,
 } from "./activityTimeFormat";
-export type { ActivityTimeZoneView } from "./activityTimeFormat";
 
 export type ActivityDeleteState = Readonly<{
   armedItemId: string | null;

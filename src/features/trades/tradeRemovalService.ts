@@ -6,7 +6,7 @@ export const TRADE_REMOVAL_ERROR_CODES = {
   BREAKS_LEDGER_TIMELINE: "TRADE_REMOVAL_BREAKS_LEDGER_TIMELINE",
 } as const;
 
-export type TradeRemovalResult =
+type TradeRemovalResult =
   | {
       ok: true;
       tradeId: string;

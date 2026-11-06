@@ -11,14 +11,14 @@ export function createBackupFilename(exportedAt: string): string {
   return `local-first-trading-ledger-backup-v3-${year}${month}${day}-${hour}${minute}${second}Z.json`;
 }
 
-export type BackupDownloadFailureCode =
+type BackupDownloadFailureCode =
   | "BACKUP_DOWNLOAD_FILENAME_FAILED"
   | "BACKUP_DOWNLOAD_BLOB_FAILED"
   | "BACKUP_DOWNLOAD_OBJECT_URL_FAILED"
   | "BACKUP_DOWNLOAD_CLICK_FAILED"
   | "BACKUP_DOWNLOAD_REVOKE_FAILED";
 
-export type BackupDownloadResult =
+type BackupDownloadResult =
   | {
       ok: true;
       filename: string;

@@ -38,7 +38,7 @@ registerEChartsModules([
   VisualMapComponent,
 ]);
 
-export type EChartEventHandlers = Readonly<
+type EChartEventHandlers = Readonly<
   Record<string, (params: unknown) => void>
 >;
 

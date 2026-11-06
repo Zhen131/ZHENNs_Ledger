@@ -54,7 +54,7 @@ import type {
 export const BACKUP_PREFLIGHT_PAGE_DETAIL_LIMIT = 50;
 export const BACKUP_PREFLIGHT_REPORT_DETAIL_LIMIT = 1000;
 
-export type BackupImportPreflightOptions = Readonly<{
+type BackupImportPreflightOptions = Readonly<{
   todayKey: string;
   selectionGeneration: number;
   sourceFileName?: string;
