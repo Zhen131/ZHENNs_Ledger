@@ -10,7 +10,7 @@ import {
   normalizeBinanceSymbolCandidate,
   setAssetBinanceMapping,
   validateBinanceMapping,
-} from "./binanceMappingService";
+} from "../binanceMappingService";
 
 const UPDATED_AT = "2026-08-10T08:00:00.000Z";
 const BTC_MAPPING = {

@@ -21,7 +21,7 @@ import type {
   BinanceTickerBatchResult,
 } from "@/platform/integrations";
 import { createSimpleTrade } from "@/test-support";
-import { MarketDataControls } from "./MarketDataControls";
+import { MarketDataControls } from "../MarketDataControls";
 
 afterEach(cleanup);
 

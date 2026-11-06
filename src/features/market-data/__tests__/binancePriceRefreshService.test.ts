@@ -11,7 +11,7 @@ import {
   mergeBinancePriceRefresh,
   refreshBinancePrices,
   type BinanceRefreshSuccess,
-} from "./binancePriceRefreshService";
+} from "../binancePriceRefreshService";
 
 const TODAY = "2026-07-25";
 const RESPONSE_TIME = new Date(2026, 6, 26, 0, 0, 1);
