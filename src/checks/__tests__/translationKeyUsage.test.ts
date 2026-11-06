@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const SRC_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   // The repeated access buttons all use the same Back label.

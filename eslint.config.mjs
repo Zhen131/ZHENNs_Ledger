@@ -97,7 +97,7 @@ const sourceAreaEntries = [
     files: [`src/features/${feature}/**/*.{ts,tsx}`],
     entry: `@/features/${feature}`,
   })),
-  ...["test-support", "ui"].map((area) => ({
+  ...["checks", "test-support", "ui"].map((area) => ({
     files: [`src/${area}/**/*.{ts,tsx}`],
     entry: `@/${area}`,
   })),

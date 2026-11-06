@@ -11,9 +11,9 @@ import {
   parseBackupJson,
   serializeBackupEnvelope,
 } from "@/features/backup";
-import { createValidatingMemoryLedgerRepository } from "./validatingMemoryLedgerRepository";
+import { createValidatingMemoryLedgerRepository } from "@/test-support";
 
-const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const SRC_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const DISPLAY_ROOTS = [join(SRC_ROOT, "app"), join(SRC_ROOT, "features")];
 const SAFE_LEDGER_NUMBER_FORMATTERS = new Set([
   "formatMoney",

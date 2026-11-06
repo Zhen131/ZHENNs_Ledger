@@ -5,13 +5,15 @@ import { describe, expect, it } from "vitest";
 
 import { parseBackupJson } from "@/features/backup";
 import {
-  createGoldenStorageScenario,
-  GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
-  GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
   ledgerFileTestStringToBytes,
   readLedgerFileForTest,
   serializeLedgerFileForTest,
 } from "@/test-support";
+import {
+  createGoldenStorageScenario,
+  GOLDEN_LEDGER_FILE_V2_PASSPHRASE,
+  GOLDEN_LEDGER_FILE_V3_PASSPHRASE,
+} from "./goldenStorageScenario";
 import { LedgerFileHandleAdapter } from "../ledgerFileHandleAdapter";
 import { type LedgerFileHandle } from "../ledgerFileHandleAdapterContract";
 import {

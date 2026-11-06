@@ -24,7 +24,7 @@ import {
  * completeness bar would either block this batch or force a machine
  * translation nobody has reviewed (04A D-3d).
  */
-const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const SRC_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 // The two files that hold Chinese as data rather than as interface wording:
 // the message table itself, and the glossary whose left-hand column is by
 // definition Chinese words. Both are named individually, not by directory.

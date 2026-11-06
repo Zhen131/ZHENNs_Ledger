@@ -13,9 +13,10 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const SRC_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const SOURCE_AREAS = [
   "app",
+  "checks",
   "core",
   "features",
   "platform",
@@ -81,7 +82,7 @@ const TESTS_PARENT_ENTRY_IMPORT = /^\.\.\/(?:index|ui)(?:\.[cm]?[jt]sx?)?$/iu;
 const TESTS_PARENT_RELATIVE_IMPORT = /^\.\.(?!\/[^./][^/]*$)/iu;
 
 describe("source layout", () => {
-  it("keeps only the six responsibility areas and README at the src root", () => {
+  it("keeps only the seven responsibility areas and README at the src root", () => {
     const entries = readdirSync(SRC_ROOT, { withFileTypes: true })
       .filter((entry) => !entry.name.startsWith("."))
       .map((entry) => entry.name)
