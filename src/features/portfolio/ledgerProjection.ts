@@ -123,7 +123,7 @@ export type IncrementalLedgerProjection = Readonly<{
  * → 答总资产 4000，缺口 200。
  * 缺价格的币不按 0 算，而是列进问题清单，标成「没算全」。
  * 为什么不按 0 算：按 0 会冒充完整；2026-08-19 定（W14 01B 第 6.4 节）。
- * 不会出错。
+ * 账本合格时不会出错。
  */
 export function buildLedgerProjection(
   ledgerData: LedgerData,

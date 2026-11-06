@@ -37,7 +37,7 @@ const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
 /**
  * 这个函数回答：一条检查错误在界面上怎么说？
  * 按错误代码挑一句话，必要时在前面加上那一栏的名字。
- * 举例：数量写成「abc」→ 答「数量必须是数字」（按当前语言）。
+ * 举例：中文界面数量写成「abc」→ 答「数量必须是有效数字」。
  * 不会出错。
  */
 export function formatValidationError(

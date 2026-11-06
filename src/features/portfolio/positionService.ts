@@ -58,7 +58,7 @@ export function getPositionsFromLedger(
  * 手续费算不进成本的币：给市值，不给浮动盈亏。
  * 为什么后一条：成本不准，算出的盈亏会冒充准数；2026-08-09 定（W12 01A 第 6.3 节）。
  * 不传 `todayKey` 就看设备时钟取今天。
- * 不会出错。
+ * 账本合格时不会出错。
  */
 export function getValuedPositionsFromLedger(
   ledgerData: LedgerData,
