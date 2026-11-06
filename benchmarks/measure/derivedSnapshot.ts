@@ -26,7 +26,7 @@ const SNAPSHOT_DIRECTORY = resolve(
   "benchmarks/snapshots/derived-results",
 );
 
-export type DerivedSnapshot = Readonly<{
+type DerivedSnapshot = Readonly<{
   kind: "derived-result-snapshot";
   snapshotFormatVersion: 1;
   seed: string;
@@ -51,7 +51,7 @@ export type DerivedSnapshot = Readonly<{
   }>;
 }>;
 
-export type SnapshotComparison = Readonly<{
+type SnapshotComparison = Readonly<{
   equal: boolean;
   expectedSha256: string;
   actualSha256: string;
@@ -109,7 +109,7 @@ export function createDerivedSnapshot(scale: SyntheticScale): DerivedSnapshot {
   };
 }
 
-export function serializeDerivedSnapshot(snapshot: DerivedSnapshot): string {
+function serializeDerivedSnapshot(snapshot: DerivedSnapshot): string {
   return `${JSON.stringify(snapshot, null, 2)}\n`;
 }
 
@@ -126,7 +126,7 @@ export function compareDerivedSnapshots(
   };
 }
 
-export function snapshotPath(scale: SyntheticScale): string {
+function snapshotPath(scale: SyntheticScale): string {
   return resolve(
     SNAPSHOT_DIRECTORY,
     `${DEFAULT_SYNTHETIC_SEED}-${scale}.derived.json`,
@@ -139,7 +139,7 @@ export async function readFrozenDerivedSnapshot(
   return JSON.parse(await readFile(snapshotPath(scale), "utf8")) as DerivedSnapshot;
 }
 
-export async function writeFrozenDerivedSnapshots(): Promise<
+async function writeFrozenDerivedSnapshots(): Promise<
   readonly Readonly<{ scale: SyntheticScale; path: string; sha256: string }>[]
 > {
   const written = [];

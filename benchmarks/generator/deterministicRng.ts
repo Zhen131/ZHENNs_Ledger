@@ -1,6 +1,6 @@
 export type DeterministicSeed = number | string;
 
-export type DeterministicRng = Readonly<{
+type DeterministicRng = Readonly<{
   next: () => number;
   integer: (minimum: number, maximum: number) => number;
 }>;

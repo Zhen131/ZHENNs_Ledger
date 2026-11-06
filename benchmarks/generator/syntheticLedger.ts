@@ -20,7 +20,7 @@ import {
 } from "./deterministicRng";
 
 export const DEFAULT_SYNTHETIC_SEED = "w15-main-perf-baseline-v1";
-export const DEFAULT_SYNTHETIC_TODAY = "2026-08-28";
+const DEFAULT_SYNTHETIC_TODAY = "2026-08-28";
 
 export const SYNTHETIC_SCALE_TRADE_COUNTS = {
   "S-100": 100,
@@ -32,7 +32,7 @@ export const SYNTHETIC_SCALE_TRADE_COUNTS = {
 
 export type SyntheticScale = keyof typeof SYNTHETIC_SCALE_TRADE_COUNTS;
 
-export type SyntheticLedgerOptions = Readonly<{
+type SyntheticLedgerOptions = Readonly<{
   scale: SyntheticScale;
   seed?: DeterministicSeed;
   todayKey?: string;
