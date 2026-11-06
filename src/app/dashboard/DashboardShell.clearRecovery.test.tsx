@@ -95,7 +95,7 @@ describe("DashboardShell data management", () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
-  it("disables every write path while clear runs and shows success only afterward", async () => {
+  it("disables every write path while clear runs and empties the ledger afterward", async () => {
     const clearDeferred = createDeferred<void>();
     const repository = createMemoryRepository(createCompleteLedger());
     repository.clear = vi.fn(() => clearDeferred.promise);

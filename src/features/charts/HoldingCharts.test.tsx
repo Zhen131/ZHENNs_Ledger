@@ -121,4 +121,18 @@ describe("HoldingAllocationChart and HoldingTrendChart", () => {
       "现金 USDT",
     );
   });
+
+  it("marks the one-day range as having no reliable intraday change", () => {
+    render(
+      <HoldingTrendChart
+        history={history}
+        onRangeChange={vi.fn()}
+        range="1d"
+      />,
+    );
+
+    expect(
+      screen.getByText("无可靠日内变化，边界点仅用于显示。"),
+    ).not.toBeNull();
+  });
 });
