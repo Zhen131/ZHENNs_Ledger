@@ -18,7 +18,7 @@ import type { LedgerWorkspacePage } from "@/app/workspaces";
 
 /**
  * 这个组件画账本外面那个框。
- * 导航有五项：首页，记账，交易，转移，设置。点了就切页。
+ * 导航有五项：首页，记账，交易，导入与导出，设置。点了就切页。
  * 顶上显示文件状态，旁边有上锁按钮（传了 `onLock` 才有）。
  */
 export function LedgerWorkspaceFrame({

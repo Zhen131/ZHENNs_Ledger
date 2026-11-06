@@ -3,8 +3,8 @@
  * 选文件，输密码，新建，恢复，上锁，都从这里走。
  * 各个按钮背后的动作在 `ledgerAccessGateActions.ts`，开场和收场在 `ledgerAccessGateSession.ts`。
  * 打开之后的账本界面在 `app/dashboard`。
- * 上锁要等会话停工、放掉文件后才算完。
- * 没有特别的决定。
+ * 不显然的决定：上锁要等会话停工、放掉文件后才算完。
+ * 2026-07-31 提交 40c7fa4 起这样做。
  */
 "use client";
 

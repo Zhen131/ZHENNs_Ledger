@@ -26,7 +26,7 @@ export const sampleAssets: Asset[] = [
  * 五笔虚构买卖的草稿，2026-01-01 到 01-05 每天一笔。
  * 前四笔是买：2 BTC、3 ETH、10 ADA、20 ADA。
  * 第五笔卖出 15 ADA，成交 60 USDT。
- * 全部用 USDT，手续费 0。给算持仓、算成本的测试用。
+ * 全部用 USDT，手续费 0。给各种测试当现成的几笔买卖用。
  */
 export const sampleTradeDrafts: TradeDraft[] = [
   {

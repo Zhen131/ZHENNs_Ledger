@@ -2,9 +2,9 @@
  * 这个文件放打开账本文件那一套的几个小帮手。
  * 它们把错误翻成错误码，或给出几个固定结果。
  * 打开、新建、解锁的步骤本身在同目录 `ledgerFileAccessController.ts`。
- * 释放独占凭证失败时不报错。
+ * 不显然的决定：释放独占凭证失败时不报错。
  * 凭证先留着，等用户重试时再放。
- * 没有特别的决定。
+ * 2026-07-31 提交 40c7fa4 写下这个理由。
  */
 import { LedgerFileAdapterError } from "@/platform/files";
 import { LedgerFileConnectionRecordError } from "@/platform/files";
@@ -128,6 +128,7 @@ export function mapCreateError(error: unknown): LedgerFileAccessErrorCode {
 /**
  * 这个函数把选已有文件时的错误翻成错误码。
  * 举例：文件里的账本结构版本是 4 → 答 `RETIRED_LEDGER_SCHEMA_V4`。
+ * 扩展名不对答 `INVALID_EXTENSION`；浏览器不能选文件答 `PICKER_UNAVAILABLE`。
  * 文件版本或结构版本不认识，答对应的「不支持」错误码。
  * 认不出的错一律答 `INVALID_FILE`。
  */

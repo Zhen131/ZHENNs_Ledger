@@ -2,7 +2,7 @@
  * 这个文件管每个测试开跑前的准备。
  * 它放宽等待，重置界面语言，让两段字节按内容比。
  * 它不放测试样例，样例在同目录 `fixtures.ts`。
- * 不显然的决定：等待时间放宽到 3 秒，理由见下方。
+ * 不显然的决定：等待时间放宽到 3 秒，2026-11-06 提交 c4acaa9 写下理由。
  */
 import { cleanup, configure } from "@testing-library/react";
 import { afterEach, beforeEach, expect } from "vitest";

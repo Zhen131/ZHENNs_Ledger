@@ -22,7 +22,7 @@ import {
 } from "@/features/trades";
 import type { RecordTarget } from "./workspaceDrafts";
 
-/** 五个工作区页面：首页、记账、交易、转账、设置。 */
+/** 五个工作区页面：首页、记账、交易、导入与导出、设置。 */
 export type LedgerWorkspacePage =
   | "home"
   | "record"

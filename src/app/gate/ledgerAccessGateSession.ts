@@ -38,8 +38,10 @@ export type RememberedConnectionInspection = Awaited<
 /**
  * 这个函数按开场时查到的上次文件，决定停在哪个面板。
  * 能直接用就去输密码；要再问权限就去重连；出错就显示重连错误；没有就去选择面板。
- * 退役提示走开后也用它，所以用户看到的和没有提示时一样。
- * 2026-11-06 提交 20b53b8 写下这个理由。不会出错。
+ * 不会出错。
+ *
+ * 为什么退役提示走开后也用它：用户看到的和没提示时一样。
+ * 2026-11-06 提交 20b53b8 写下这个理由。
  */
 export function routeRememberedConnection(
   reconnect: RememberedConnectionInspection,

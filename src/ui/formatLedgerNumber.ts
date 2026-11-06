@@ -16,14 +16,15 @@ type LedgerNumberFormat = {
 };
 
 // 金额：保留 6 位有效数字；大于等于 1 时固定 2 位小数；最多 12 位小数。
-// 为什么是这几个数：2026-08-28 提交 45701d4 写下，没写理由（这是猜的，要核）。
+// 为什么是这几个数：原来金额会显示二十位小数，没法读。
+// 2026-08-27 定（W15 01A 第二部分第十一、十二节）。
 const MONEY_FORMAT = {
   significantDigits: 6,
   fixedDecimalsWhenAtLeastOne: 2,
   maxDecimals: 12,
 } as const satisfies LedgerNumberFormat;
 
-// 数量：保留 8 位有效数字，不固定小数位，最多 12 位小数。理由同上，也是猜的。
+// 数量：保留 8 位有效数字，不固定小数位，最多 12 位小数。理由和出处同上。
 const QUANTITY_FORMAT = {
   significantDigits: 8,
   fixedDecimalsWhenAtLeastOne: null,
