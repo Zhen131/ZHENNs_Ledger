@@ -12,12 +12,12 @@ import {
 import {
   type TradeValidationResult,
   validateTradeDraft,
-} from "./tradeValidator";
+} from "../tradeValidator";
 import {
   TRADE_VALIDATION_ERROR_CODES,
   type TradeValidationErrorCode,
   type TradeValidationField,
-} from "./tradeValidatorErrors";
+} from "../tradeValidatorErrors";
 
 const validDraft = sampleTradeDrafts[0];
 

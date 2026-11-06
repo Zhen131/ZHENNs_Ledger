@@ -3,8 +3,8 @@ import { createInitialLedgerData } from "@/core/state";
 import {
   collectValidLedgerTradeProjections,
   validateLedgerData,
-} from "./ledgerDataValidator";
-import { LEDGER_DATA_VALIDATION_ERROR_CODES } from "./ledgerDataValidatorSchema";
+} from "../ledgerDataValidator";
+import { LEDGER_DATA_VALIDATION_ERROR_CODES } from "../ledgerDataValidatorSchema";
 import {
   createCompleteLedger,
   expectError,

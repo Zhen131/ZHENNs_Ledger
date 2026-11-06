@@ -7,7 +7,7 @@ import type {
 } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createPriceSnapshot, sampleTrades } from "@/test-support";
-import { validateLedgerData } from "./ledgerDataValidator";
+import { validateLedgerData } from "../ledgerDataValidator";
 
 export function createCompleteLedger(): LedgerData {
   const initialLedger = createInitialLedgerData();

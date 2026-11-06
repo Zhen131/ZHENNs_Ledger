@@ -13,7 +13,7 @@ import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
   evaluateLedgerResourcePolicyAfterTradeAppend,
-} from "./resourcePolicy";
+} from "../resourcePolicy";
 
 function padSerializedBackupToBytes(serialized: string, targetBytes: number): string {
   const currentBytes = new TextEncoder().encode(serialized).byteLength;

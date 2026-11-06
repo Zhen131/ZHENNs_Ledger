@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createInitialLedgerData } from "@/core/state";
-import { validateLedgerData } from "./ledgerDataValidator";
+import { validateLedgerData } from "../ledgerDataValidator";
 import {
   LEDGER_DATA_VALIDATION_ERROR_CODES,
-} from "./ledgerDataValidatorSchema";
+} from "../ledgerDataValidatorSchema";
 import {
   expectError,
   transferForCategory,
