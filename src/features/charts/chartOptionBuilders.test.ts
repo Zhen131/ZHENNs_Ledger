@@ -3,15 +3,12 @@ import { describe, expect, it } from "vitest";
 import type {
   HoldingAllocationSlice,
   HoldingHistoryPoint,
-  TradeHeatmapDay,
 } from "./chartDataService";
 import {
   ALLOCATION_CHART_COLORS,
   buildAllocationChartOption,
   buildHoldingHistoryChartOption,
-  buildTradeHeatmapChartOption,
   GROUPED_ALLOCATION_COLOR,
-  TRADE_HEATMAP_LEVEL_COLORS,
   toFiniteChartNumber,
 } from "./chartOptionBuilders";
 
@@ -193,55 +190,6 @@ describe("chart option builders", () => {
     expect(tooltip.formatter({ axisValue: "2026-07-25" })).toContain(
       "手续费币种问题：BTC",
     );
-  });
-
-  it("renders all 365 heatmap days with five textual levels", () => {
-    const days: TradeHeatmapDay[] = Array.from(
-      { length: 365 },
-      (_, index) => ({
-        date: `day-${index}`,
-        total: index === 364 ? 2 : 0,
-        buys: index === 364 ? 1 : 0,
-        sells: index === 364 ? 1 : 0,
-        level: index === 364 ? 4 : 0,
-        activityGroups:
-          index === 364
-            ? [
-                { assetSymbol: "BTC", type: "buy", count: 1 },
-                { assetSymbol: "BTC", type: "sell", count: 1 },
-              ]
-            : [],
-      }),
-    );
-
-    const option = buildTradeHeatmapChartOption(days);
-    const series = option.series as Array<Record<string, unknown>>;
-    const data = series[0].data as unknown[];
-    const visualMap = option.visualMap as {
-      pieces: Array<Record<string, unknown>>;
-    };
-    const calendar = option.calendar as Record<string, unknown>;
-    const tooltip = option.tooltip as Record<string, unknown>;
-
-    expect(series[0]).toMatchObject({
-      type: "heatmap",
-      coordinateSystem: "calendar",
-    });
-    expect(tooltip.appendTo).toBe("body");
-    expect(tooltip).not.toHaveProperty("confine");
-    expect(data).toHaveLength(365);
-    expect(data.at(-1)).toEqual(["day-364", 4, 2, 1, 1]);
-    expect(visualMap.pieces.map((piece) => piece.label)).toEqual([
-      "无交易",
-      "低",
-      "较低",
-      "较高",
-      "最高",
-    ]);
-    expect(visualMap.pieces.map((piece) => piece.color)).toEqual(
-      TRADE_HEATMAP_LEVEL_COLORS,
-    );
-    expect(calendar.range).toEqual(["day-0", "day-364"]);
   });
 
   it("rejects non-finite render values", () => {

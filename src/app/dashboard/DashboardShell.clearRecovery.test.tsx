@@ -20,7 +20,7 @@ import {
   goToPage,
   goToTradeForm,
   openActivityTable,
-  renderSessionDashboard,
+  renderDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
 
@@ -66,7 +66,7 @@ async function openSettingsClear() {
 describe("DashboardShell data management", () => {
   it("does not clear when confirmation is cancelled or the fixed text is wrong", async () => {
     const repository = createMemoryRepository(createCompleteLedger());
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
 
     await openSettingsClear();
@@ -99,7 +99,7 @@ describe("DashboardShell data management", () => {
     const clearDeferred = createDeferred<void>();
     const repository = createMemoryRepository(createCompleteLedger());
     repository.clear = vi.fn(() => clearDeferred.promise);
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
 
     await goToPage("记账");
@@ -160,7 +160,7 @@ describe("DashboardShell data management", () => {
     repository.load = vi.fn(async () => {
       throw new Error("read failed");
     });
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
 
     expect(
@@ -216,7 +216,7 @@ describe("DashboardShell data management", () => {
     repository.clear = vi.fn(async () => {
       throw new Error("clear failed");
     });
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
 
     await openSettingsClear();
@@ -257,7 +257,7 @@ describe("DashboardShell data management", () => {
       ],
     };
     const repository = createMemoryRepository(oversizedLedger);
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
 
     expect(
       screen.getByText(/当前账本超过资源上限，已只读加载/),

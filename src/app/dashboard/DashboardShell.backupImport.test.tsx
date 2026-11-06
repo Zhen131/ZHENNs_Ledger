@@ -35,7 +35,7 @@ import {
   goToPage,
   goToTradeForm,
   openActivityTable,
-  renderSessionDashboard,
+  renderDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
 
@@ -67,7 +67,7 @@ vi.mock("echarts/core", () => ({
 describe("DashboardShell data management", () => {
   it("describes C as the only full ledger, opens pure B preflight and keeps B import fail-closed", async () => {
     const repository = createMemoryRepository();
-    await renderSessionDashboard(repository, {
+    await renderDashboard(repository, {
       storageKind: "ledger-file",
       capabilities: {
         canClearReadyLedger: false,
@@ -207,7 +207,7 @@ describe("DashboardShell data management", () => {
   it("imports a confirmed backup through the UI and updates every dashboard view", async () => {
     const repository = createMemoryRepository();
     const candidate = createCompleteLedger();
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
 
     await goToPage("记账");
@@ -258,7 +258,7 @@ describe("DashboardShell data management", () => {
   it("rejects corrupt, future and non-USD/USDT backups without changing page or storage", async () => {
     const priorLedger = createCompleteLedger();
     const repository = createMemoryRepository(priorLedger);
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     await goToPage("导入与导出");
     const user = userEvent.setup();
     const futureLedger = createInitialLedgerData();
@@ -339,7 +339,7 @@ describe("DashboardShell data management", () => {
     const repository = createMemoryRepository(createCompleteLedger());
     repository.save = vi.fn(() => saveDeferred.promise);
     const imported = createInitialLedgerData();
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
     await goToTradeForm();
     await goToPage("导入与导出");

@@ -16,7 +16,6 @@ export function BackupControlsActionRow({
   handleExport,
   handleFileChange,
   persistenceOperation,
-  presentation,
   showExport,
   showPreflight,
   t,
@@ -27,18 +26,13 @@ export function BackupControlsActionRow({
   handleExport: () => void;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   persistenceOperation: PersistenceOperation;
-  presentation: "legacy" | "transfer";
   showExport: boolean;
   showPreflight: boolean;
   t: Translate;
 }>) {
   return (
       <div
-        className={
-          presentation === "transfer"
-            ? "grid gap-3 min-[1100px]:grid-cols-[minmax(220px,.7fr)_minmax(0,1.3fr)]"
-            : "flex flex-wrap gap-3"
-        }
+        className="grid gap-3 min-[1100px]:grid-cols-[minmax(220px,.7fr)_minmax(0,1.3fr)]"
       >
         {showExport ? (
           <button
@@ -48,16 +42,12 @@ export function BackupControlsActionRow({
             onClick={handleExport}
             type="button"
           >
-            {presentation === "transfer"
-              ? t("backup.action.exportPlaintext")
-              : t("backup.action.export")}
+            {t("backup.action.exportPlaintext")}
           </button>
         ) : null}
         {showPreflight ? (
           <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-2 text-center font-medium text-slate-800 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-            {presentation === "transfer"
-              ? t("backup.action.selectPlaintext")
-              : t("backup.action.select")}
+            {t("backup.action.selectPlaintext")}
             <input
               accept="application/json,.json"
               aria-describedby={persistenceOperation !== "idle" ? "backup-controls-disabled-reason" : undefined}

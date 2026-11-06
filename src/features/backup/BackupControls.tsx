@@ -101,7 +101,6 @@ type BackupControlsProps = {
     code?: string;
     errors?: BackupEnvelopeError[];
   }>;
-  presentation?: "legacy" | "transfer";
   showPlaintextWarning?: boolean;
 };
 
@@ -126,7 +125,6 @@ export function BackupControls({
   generateId = () => globalThis.crypto.randomUUID(),
   preflight = preflightBackupJson,
   onImport,
-  presentation = "legacy",
   showPlaintextWarning = true,
 }: Readonly<BackupControlsProps>) {
   const { t } = useLanguage();
@@ -443,11 +441,7 @@ export function BackupControls({
 
   return (
     <div
-      className={
-        presentation === "transfer"
-          ? "grid min-w-0 gap-4"
-          : "grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4"
-      }
+      className="grid min-w-0 gap-4"
     >
       {showPlaintextWarning ? (
       <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950">
@@ -461,7 +455,6 @@ export function BackupControls({
         handleExport={handleExport}
         handleFileChange={handleFileChange}
         persistenceOperation={persistenceOperation}
-        presentation={presentation}
         showExport={showExport}
         showPreflight={showPreflight}
         t={t}

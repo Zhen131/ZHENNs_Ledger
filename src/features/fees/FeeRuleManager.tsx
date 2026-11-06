@@ -36,7 +36,6 @@ type FeeRuleManagerProps = Readonly<{
   persistedVersion: number;
   persistenceStatus: PersistenceStatus;
   onAction: (action: LedgerAction) => ApplyLedgerActionResult;
-  presentation?: "legacy" | "settings";
 }>;
 
 export function FeeRuleManager({
@@ -48,7 +47,6 @@ export function FeeRuleManager({
   persistedVersion,
   persistenceStatus,
   onAction,
-  presentation = "legacy",
 }: FeeRuleManagerProps) {
   const { t } = useLanguage();
   const certifiedSavedMessage = t("fees.status.certifiedSaved");
@@ -179,17 +177,12 @@ export function FeeRuleManager({
       ) : null}
 
       <div
-        className={
-          presentation === "settings"
-            ? "grid min-w-0 gap-5 min-[1100px]:grid-cols-[minmax(260px,.4fr)_minmax(0,.6fr)]"
-            : "contents"
-        }
+        className="grid min-w-0 gap-5 min-[1100px]:grid-cols-[minmax(260px,.4fr)_minmax(0,.6fr)]"
       >
       <FeeRuleManagerForm
         form={form}
         isWritable={isWritable}
         ledgerData={ledgerData}
-        presentation={presentation}
         setForm={setForm}
         submitNewRule={submitNewRule}
         t={t}
@@ -199,7 +192,6 @@ export function FeeRuleManager({
         deactivateRule={deactivateRule}
         isWritable={isWritable}
         ledgerData={ledgerData}
-        presentation={presentation}
         replaceRule={replaceRule}
         revisionValues={revisionValues}
         setRevisionValues={setRevisionValues}

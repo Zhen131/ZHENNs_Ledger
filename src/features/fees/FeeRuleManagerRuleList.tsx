@@ -15,7 +15,6 @@ export function FeeRuleManagerRuleList({
   deactivateRule,
   isWritable,
   ledgerData,
-  presentation,
   replaceRule,
   revisionValues,
   setRevisionValues,
@@ -24,7 +23,6 @@ export function FeeRuleManagerRuleList({
   deactivateRule: (rule: FeeRule) => void;
   isWritable: boolean;
   ledgerData: LedgerData;
-  presentation: "legacy" | "settings";
   replaceRule: (rule: FeeRule) => void;
   revisionValues: Record<string, string>;
   setRevisionValues: Dispatch<SetStateAction<Record<string, string>>>;
@@ -32,15 +30,9 @@ export function FeeRuleManagerRuleList({
 }>) {
   return (
       <div
-        className={
-          presentation === "settings"
-            ? "order-1 grid content-start gap-3"
-            : "grid gap-3"
-        }
+        className="order-1 grid content-start gap-3"
       >
-        {presentation === "settings" ? (
-          <h3 className="font-semibold">{t("fees.history.heading")}</h3>
-        ) : null}
+        <h3 className="font-semibold">{t("fees.history.heading")}</h3>
         {ledgerData.feeRules.length === 0 ? (
           <p className="text-sm text-slate-500">{t("fees.history.empty")}</p>
         ) : ledgerData.feeRules.map((rule) => (

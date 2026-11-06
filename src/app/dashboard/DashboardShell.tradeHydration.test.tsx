@@ -23,12 +23,10 @@ import {
   fillBuyTrade,
   closeHoldingsDetails,
   deleteTradeAfterReview,
-  getSection,
   goToPage,
   openActivityTable,
   openHoldingsDetails,
   renderDashboard,
-  renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 
 vi.mock("echarts/core", () => ({
@@ -72,7 +70,7 @@ describe("DashboardShell trade interactions", () => {
     };
     const repository = createMemoryRepository(savedLedger);
 
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
 
     const tradeSection = await openActivityTable();
     expect(within(tradeSection).getByText("ETH")).not.toBeNull();
@@ -94,7 +92,7 @@ describe("DashboardShell trade interactions", () => {
       ],
     };
 
-    await renderSessionDashboard(createMemoryRepository(savedLedger));
+    await renderDashboard(createMemoryRepository(savedLedger));
     await goToPage("记账");
 
     // The record page opens on the cash form; the trade form appears only
@@ -125,7 +123,7 @@ describe("DashboardShell trade interactions", () => {
     };
     const firstRepository =
       createTestLedgerRepository(storageOptions);
-    const firstView = await renderSessionDashboard(firstRepository);
+    const firstView = await renderDashboard(firstRepository);
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -145,7 +143,7 @@ describe("DashboardShell trade interactions", () => {
 
     const secondRepository =
       createTestLedgerRepository(storageOptions);
-    const secondView = await renderSessionDashboard(secondRepository);
+    const secondView = await renderDashboard(secondRepository);
 
     const tradeSection = await openActivityTable();
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
@@ -168,7 +166,7 @@ describe("DashboardShell trade interactions", () => {
 
     const thirdRepository =
       createTestLedgerRepository(storageOptions);
-    const thirdView = await renderSessionDashboard(thirdRepository);
+    const thirdView = await renderDashboard(thirdRepository);
     expect(
       within(await openActivityTable()).getByText(
         "没有符合当前筛选的流水。",
@@ -198,7 +196,7 @@ describe("DashboardShell trade interactions", () => {
 
     const fourthRepository =
       createTestLedgerRepository(storageOptions);
-    await renderSessionDashboard(fourthRepository);
+    await renderDashboard(fourthRepository);
     expect(screen.getByText("还没有交易记录")).not.toBeNull();
     expect(
       within(await openActivityTable()).getByText(
@@ -206,48 +204,5 @@ describe("DashboardShell trade interactions", () => {
       ),
     ).not.toBeNull();
     await expect(fourthRepository.load()).resolves.toBeNull();
-  });
-
-  it("filters the trade table from a heatmap day and toggles the same day off", async () => {
-    const initialLedger = {
-      ...createInitialLedgerData(),
-      trades: [
-        createSimpleTrade(
-          "trade-filter-btc",
-          "buy",
-          "BTC",
-          "1",
-          "2026-07-14",
-        ),
-        createSimpleTrade(
-          "trade-filter-eth",
-          "buy",
-          "ETH",
-          "1",
-          "2026-07-15",
-        ),
-      ],
-    };
-    await renderDashboard(createMemoryRepository(initialLedger));
-    const user = userEvent.setup();
-
-    await user.click(
-      screen.getByRole("img", {
-        name: "最近 365 天交易活跃热力图",
-      }),
-    );
-
-    const filteredSection = getSection("交易列表 · 2026-07-14");
-    expect(within(filteredSection).getByText("BTC")).not.toBeNull();
-    expect(within(filteredSection).queryByText("ETH")).toBeNull();
-
-    await user.click(
-      screen.getByRole("img", {
-        name: "最近 365 天交易活跃热力图",
-      }),
-    );
-    const restoredSection = getSection("交易列表");
-    expect(within(restoredSection).getByText("BTC")).not.toBeNull();
-    expect(within(restoredSection).getByText("ETH")).not.toBeNull();
   });
 });

@@ -25,7 +25,7 @@ import {
   goToTradeForm,
   openActivityTable,
   openHoldingsDetails,
-  renderSessionDashboard,
+  renderDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
 
@@ -75,7 +75,7 @@ describe("DashboardShell trade interactions", () => {
     const saveDeferred = createDeferred<void>();
     const repository = createMemoryRepository();
     repository.save = vi.fn(() => saveDeferred.promise);
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -123,7 +123,7 @@ describe("DashboardShell trade interactions", () => {
       .fn<LedgerRepository["save"]>()
       .mockRejectedValueOnce(new Error("write failed"))
       .mockResolvedValueOnce();
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -144,7 +144,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("creates a validated buy and updates both the trade list and positions", async () => {
-    await renderSessionDashboard();
+    await renderDashboard();
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -167,7 +167,7 @@ describe("DashboardShell trade interactions", () => {
 
   it("creates, versions, and deactivates fee rules only after authenticated persistence", async () => {
     const repository = createMemoryRepository();
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
     const section = await openFeeRules();
 
@@ -241,7 +241,7 @@ describe("DashboardShell trade interactions", () => {
       },
     ];
     const repository = createMemoryRepository(ledger);
-    await renderSessionDashboard(repository);
+    await renderDashboard(repository);
     const user = userEvent.setup();
     await goToTradeForm();
     const tradeSection = getTradeForm();
@@ -327,7 +327,7 @@ describe("DashboardShell trade interactions", () => {
       { ...common, id: "fee-okx-a", amount: "5" },
       { ...common, id: "fee-okx-b", amount: "7" },
     ];
-    await renderSessionDashboard(createMemoryRepository(ledger));
+    await renderDashboard(createMemoryRepository(ledger));
     const user = await fillBuyTrade();
     const tradeSection = getTradeForm();
     await user.type(
@@ -348,7 +348,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("shows validator feedback and keeps the ledger unchanged for invalid input", async () => {
-    await renderSessionDashboard();
+    await renderDashboard();
     await goToTradeForm();
     const user = userEvent.setup();
 
@@ -373,7 +373,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("blocks deletion when removing a buy would invalidate a later sell", async () => {
-    await renderSessionDashboard();
+    await renderDashboard();
     await goToTradeForm();
 
     await createTrade({
@@ -413,7 +413,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("deletes a safe trade and updates both empty states", async () => {
-    await renderSessionDashboard();
+    await renderDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
     await confirmNegativeCashIfNeeded(user);
@@ -432,7 +432,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("saves a manual price and updates market value and unrealized PnL", async () => {
-    await renderSessionDashboard();
+    await renderDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
     await confirmNegativeCashIfNeeded(user);

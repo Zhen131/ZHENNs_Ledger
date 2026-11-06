@@ -76,7 +76,6 @@ export function DashboardShellSettingsPage({
               onAction={applyLedgerAction}
               persistedVersion={persistedVersion}
               persistenceStatus={persistenceStatus}
-              presentation="settings"
             />
           }
           hydrationStatus={hydrationStatus}

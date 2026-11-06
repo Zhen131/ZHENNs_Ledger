@@ -27,7 +27,6 @@ import {
   type LedgerStorageKind,
 } from "@/platform/persistence";
 import {
-  getLedgerDateKey,
   isLedgerFactInFuture,
   systemLedgerClock,
   type LedgerClock,
@@ -44,19 +43,16 @@ import {
   type DashboardDerivationOptions,
   type DashboardDerivations,
 } from "./dashboardDerivations";
-import type { ClearConfirmationMode } from "./DashboardShellTypes";
 import { getWorkspaceFileStatus } from "./DashboardShellHelpers";
 import { SessionFatalPanel } from "./SessionFatalPanel";
 import { SessionQuiescingPanel } from "./SessionQuiescingPanel";
 import { LockConfirmationPanel } from "./LockConfirmationPanel";
 import { FutureCorrectionPanel } from "./FutureCorrectionPanel";
 import {
-  doHandleClearLedger,
   doHandleDeleteAllFutureFacts,
   doHandleDeleteFutureAssetTransfer,
   doHandleDeleteFuturePrice,
   doHandleSettingsClear,
-  doOpenClearConfirmation,
   doRemoveValidatedTrade,
   doRequestImmediateLock,
   runSavedFeedbackEffect,
@@ -67,7 +63,6 @@ import { RepositorySwitchBlockedNotice } from "./RepositorySwitchBlockedNotice";
 import { PersistenceErrorNotice } from "./PersistenceErrorNotice";
 import { DashboardShellHomePage } from "./DashboardShellHomePage";
 import { DashboardShellSettingsPage } from "./DashboardShellSettingsPage";
-import { DashboardShellLegacyLayout } from "./DashboardShellLegacyLayout";
 
 export function DashboardShell({
   repository: providedRepository,
@@ -83,7 +78,7 @@ export function DashboardShell({
   clock?: LedgerClock;
   capabilities?: LedgerSessionCapabilities;
   storageKind?: LedgerStorageKind;
-  session?: LedgerSession;
+  session: LedgerSession;
   onFinalLock?: (
     drain: PersistentLedgerState["drainForSessionQuiesce"],
     reason: SessionQuiesceReason,
@@ -98,21 +93,14 @@ export function DashboardShell({
   ) => void;
 }>) {
   const { t } = useLanguage();
-  const repository = session?.repository ?? providedRepository;
+  const repository = session.repository ?? providedRepository;
   if (!repository) {
     throw new Error("DashboardShell requires a LedgerSession or repository");
   }
   const capabilities =
-    session?.capabilities ?? providedCapabilities;
+    session.capabilities ?? providedCapabilities;
   const storageKind =
-    session?.storageKind ?? providedStorageKind;
-  // What the reader is shown and must type: the phrase for the language on
-  // screen (04A D-16a). It is deliberately NOT what gets handed to the
-  // repository.
-  const clearConfirmationPhrase =
-    storageKind === "ledger-file"
-      ? t("dashboard.dataManagement.confirmPhrase")
-      : t("dashboard.clearConfirmation.legacy");
+    session.storageKind ?? providedStorageKind;
   // What the repository is handed once the typed phrase matches: the one
   // canonical value it has always accepted. Widening what the repository
   // accepts is out of bounds (04A D-16b).
@@ -164,16 +152,7 @@ export function DashboardShell({
     chartRange,
     setChartRange,
   } = workspace;
-  const [selectedTradeDate, setSelectedTradeDate] = useState<string | null>(
-    null,
-  );
-  const [tradeRemovalError, setTradeRemovalError] = useState("");
   const [futureCorrectionError, setFutureCorrectionError] = useState("");
-  const [clearConfirmationMode, setClearConfirmationMode] =
-    useState<ClearConfirmationMode | null>(null);
-  const [clearConfirmationValue, setClearConfirmationValue] = useState("");
-  const [clearConfirmationError, setClearConfirmationError] = useState("");
-  const [clearSuccessMessage, setClearSuccessMessage] = useState("");
   const [showLockConfirmation, setShowLockConfirmation] =
     useState(false);
   const [lockConfirmationHasDrafts, setLockConfirmationHasDrafts] =
@@ -224,9 +203,7 @@ export function DashboardShell({
   ]);
 
   useLayoutEffect(() => {
-    if (session) {
-      onSessionDrainReady?.(session, drainForSessionQuiesce);
-    }
+    onSessionDrainReady?.(session, drainForSessionQuiesce);
   }, [drainForSessionQuiesce, onSessionDrainReady, session]);
 
   useEffect(() => {
@@ -245,17 +222,6 @@ export function DashboardShell({
     session,
     sessionFatalSignal,
   ]);
-
-  useEffect(() => {
-    setClearConfirmationMode(null);
-    setClearConfirmationValue("");
-    setClearConfirmationError("");
-    setClearSuccessMessage("");
-  }, [repository]);
-
-  useEffect(() => {
-    setSelectedTradeDate(null);
-  }, [ledgerEpoch]);
 
   const isWritable =
     lifecycleStatus === "active" &&
@@ -286,11 +252,6 @@ export function DashboardShell({
     ledgerEpoch,
   );
   const positions = projection.positions;
-  const displayedTrades = selectedTradeDate
-    ? ledgerData.trades.filter(
-        (trade) => getLedgerDateKey(trade.occurredAt) === selectedTradeDate,
-      )
-    : ledgerData.trades;
   const futureTrades = ledgerData.trades.filter((trade) =>
     isLedgerFactInFuture(trade.occurredAt, todayKey),
   );
@@ -314,13 +275,6 @@ export function DashboardShell({
       tradeId,
       setError,
     );
-  }
-
-  function handleDeleteTrade(tradeId: string): ConfirmDeleteOutcome {
-    if (!isWritable) {
-      return "rejected";
-    }
-    return removeValidatedTrade(tradeId, setTradeRemovalError);
   }
 
   function handleDeleteFutureTrade(tradeId: string): ConfirmDeleteOutcome {
@@ -371,54 +325,6 @@ export function DashboardShell({
     );
   }
 
-  function openClearConfirmation(mode: ClearConfirmationMode) {
-    return doOpenClearConfirmation(
-      {
-        hydrationStatus,
-        isReadOnly,
-        persistenceOperation,
-        repositorySwitchBlocked,
-        setClearConfirmationError,
-        setClearConfirmationMode,
-        setClearConfirmationValue,
-        setClearSuccessMessage,
-      },
-      mode,
-    );
-  }
-
-  function cancelClearConfirmation() {
-    if (persistenceOperation !== "idle") {
-      return;
-    }
-
-    setClearConfirmationMode(null);
-    setClearConfirmationValue("");
-    setClearConfirmationError("");
-  }
-
-  async function handleClearLedger() {
-    return doHandleClearLedger(
-      {
-        clearConfirmationNonce,
-        clearConfirmationPhrase,
-        clearConfirmationValue,
-        clearLedger,
-        currentRepositoryRef,
-        mountedRef,
-        repository,
-        setClearConfirmationError,
-        setClearConfirmationMode,
-        setClearConfirmationValue,
-        setClearSuccessMessage,
-        setSelectedTradeDate,
-        setTradeRemovalError,
-        storageKind,
-        t,
-      },
-    );
-  }
-
   async function handleSettingsClear(
     mode: "normal" | "recovery",
   ): Promise<boolean> {
@@ -430,8 +336,6 @@ export function DashboardShell({
         hydrationStatus,
         mountedRef,
         repository,
-        setSelectedTradeDate,
-        setTradeRemovalError,
       },
       mode,
     );
@@ -455,7 +359,7 @@ export function DashboardShell({
   }
 
   function confirmDiscardAndLock() {
-    if (!session || !onFinalLock || lifecycleStatus !== "active") {
+    if (!onFinalLock || lifecycleStatus !== "active") {
       return;
     }
     setShowLockConfirmation(false);
@@ -480,10 +384,7 @@ export function DashboardShell({
     t,
   });
 
-  if (
-    session &&
-    sessionFatalSignal?.sessionId === session.sessionId
-  ) {
+  if (sessionFatalSignal?.sessionId === session.sessionId) {
     return (
       <SessionFatalPanel t={t} />
     );
@@ -501,12 +402,11 @@ export function DashboardShell({
       fileStatusLabel={fileStatus.label}
       fileStatusTone={fileStatus.tone}
       onLock={
-        session?.storageKind === "ledger-file" && onFinalLock
+        session.storageKind === "ledger-file" && onFinalLock
           ? requestImmediateLock
           : undefined
       }
       onNavigate={(page) => {
-        setSelectedTradeDate(null);
         workspace.navigateToPage(page);
       }}
     >
@@ -601,55 +501,7 @@ export function DashboardShell({
             />
           ) : null}
 
-          {session === undefined ? (
-          <DashboardShellLegacyLayout
-            allocation={allocation}
-            applyLedgerAction={applyLedgerAction}
-            applyLedgerMutation={applyLedgerMutation}
-            cancelClearConfirmation={cancelClearConfirmation}
-            capabilities={capabilities}
-            chartRange={chartRange}
-            clearConfirmationError={clearConfirmationError}
-            clearConfirmationMode={clearConfirmationMode}
-            clearConfirmationPhrase={clearConfirmationPhrase}
-            clearConfirmationValue={clearConfirmationValue}
-            clearSuccessMessage={clearSuccessMessage}
-            clock={clock}
-            displayedTrades={displayedTrades}
-            handleClearLedger={handleClearLedger}
-            handleDeleteTrade={handleDeleteTrade}
-            heatmap={heatmap}
-            history={history}
-            hydrationStatus={hydrationStatus}
-            isDirty={isDirty}
-            isReadOnly={isReadOnly}
-            isWritable={isWritable}
-            ledgerData={ledgerData}
-            ledgerEpoch={ledgerEpoch}
-            mutationVersion={mutationVersion}
-            openClearConfirmation={openClearConfirmation}
-            persistedVersion={persistedVersion}
-            persistenceOperation={persistenceOperation}
-            persistenceStatus={persistenceStatus}
-            pnlSummary={pnlSummary}
-            positions={positions}
-            replaceLedgerFromBackup={replaceLedgerFromBackup}
-            repositorySwitchBlocked={repositorySwitchBlocked}
-            selectedTradeDate={selectedTradeDate}
-            session={session}
-            setChartRange={setChartRange}
-            setClearConfirmationError={setClearConfirmationError}
-            setClearConfirmationValue={setClearConfirmationValue}
-            setSelectedTradeDate={setSelectedTradeDate}
-            setValuationPriceMode={setValuationPriceMode}
-            storageKind={storageKind}
-            t={t}
-            todayKey={todayKey}
-            tradeRemovalError={tradeRemovalError}
-            valuationPriceMode={valuationPriceMode}
-          />
-          ) : null}
-      {session && workspace.currentPage === "home" ? (
+      {workspace.currentPage === "home" ? (
         <DashboardShellHomePage
           allocation={allocation}
           chartRange={chartRange}
@@ -665,7 +517,7 @@ export function DashboardShell({
           workspace={workspace}
         />
       ) : null}
-      {session && workspace.currentPage === "record" ? (
+      {workspace.currentPage === "record" ? (
         <RecordWorkspace
           active
           cashBalance={projection.cash.balance}
@@ -749,7 +601,7 @@ export function DashboardShell({
           recordTarget={workspace.recordTarget}
         />
       ) : null}
-      {session && workspace.currentPage === "transactions" ? (
+      {workspace.currentPage === "transactions" ? (
         <TransactionsWorkspace
           active
           intent={
@@ -773,7 +625,7 @@ export function DashboardShell({
           todayKey={todayKey}
         />
       ) : null}
-      {session && workspace.currentPage === "transfer" ? (
+      {workspace.currentPage === "transfer" ? (
         <TransferWorkspace
           active
           backupPanel={
@@ -792,7 +644,6 @@ export function DashboardShell({
               persistenceOperation={persistenceOperation}
               persistenceStatus={persistenceStatus}
               persistedVersion={persistedVersion}
-              presentation="transfer"
               sessionGeneration={session.generation}
               showPlaintextWarning={false}
             />
@@ -800,7 +651,7 @@ export function DashboardShell({
           storageKind={storageKind}
         />
       ) : null}
-      {session && workspace.currentPage === "settings" ? (
+      {workspace.currentPage === "settings" ? (
         <DashboardShellSettingsPage
           applyLedgerAction={applyLedgerAction}
           applyLedgerMutation={applyLedgerMutation}

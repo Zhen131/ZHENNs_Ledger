@@ -13,7 +13,6 @@ export function FeeRuleManagerForm({
   form,
   isWritable,
   ledgerData,
-  presentation,
   setForm,
   submitNewRule,
   t,
@@ -21,28 +20,21 @@ export function FeeRuleManagerForm({
   form: FormState;
   isWritable: boolean;
   ledgerData: LedgerData;
-  presentation: "legacy" | "settings";
   setForm: Dispatch<SetStateAction<FormState>>;
   submitNewRule: (event: FormEvent<HTMLFormElement>) => void;
   t: Translate;
 }>) {
   return (
       <form
-        className={
-          presentation === "settings"
-            ? "order-2 grid content-start gap-3 rounded-lg border border-slate-200 p-4 md:grid-cols-2"
-            : "grid gap-3 md:grid-cols-5"
-        }
+        className="order-2 grid content-start gap-3 rounded-lg border border-slate-200 p-4 md:grid-cols-2"
         onSubmit={submitNewRule}
       >
-        {presentation === "settings" ? (
-          <div className="md:col-span-2">
-            <h3 className="font-semibold">{t("fees.newVersion.heading")}</h3>
-            <p className="mt-1 text-xs text-slate-500">
-              {t("fees.newVersion.description")}
-            </p>
-          </div>
-        ) : null}
+        <div className="md:col-span-2">
+          <h3 className="font-semibold">{t("fees.newVersion.heading")}</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            {t("fees.newVersion.description")}
+          </p>
+        </div>
         <label className="grid gap-1 text-sm font-medium">
           {t("fees.field.name")}
           <input

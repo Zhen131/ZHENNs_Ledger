@@ -3,25 +3,13 @@
 import {
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 
 import type { TradeHeatmapDay } from "./chartDataService";
-import {
-  buildTradeHeatmapChartOption,
-  TRADE_HEATMAP_LEVEL_COLORS,
-} from "./chartOptionBuilders";
-import { EChart } from "./EChart";
+import { TRADE_HEATMAP_LEVEL_COLORS } from "./chartOptionBuilders";
 import { useLanguage, type Translate } from "@/ui";
-
-type OverviewTradeHeatmapProps = Readonly<{
-  heatmap: readonly TradeHeatmapDay[];
-  selectedTradeDate: string | null;
-  onSelectedTradeDateChange: (date: string | null) => void;
-  variant?: "overview";
-}>;
 
 type HomeTradeHeatmapProps = Readonly<{
   heatmap: readonly TradeHeatmapDay[];
@@ -43,77 +31,8 @@ type TooltipPosition = Readonly<{
 const HOME_HEATMAP_COLUMN_COUNT = 53;
 const TOOLTIP_EDGE_GAP = 8;
 
-export function TradeHeatmapChart(
-  props: OverviewTradeHeatmapProps | HomeTradeHeatmapProps,
-) {
-  return props.variant === "home" ? (
-    <HomeTradeHeatmap {...props} />
-  ) : (
-    <OverviewTradeHeatmap {...props} />
-  );
-}
-
-function OverviewTradeHeatmap({
-  heatmap,
-  selectedTradeDate,
-  onSelectedTradeDateChange,
-}: OverviewTradeHeatmapProps) {
-  const { t } = useLanguage();
-  const option = useMemo(
-    () => buildTradeHeatmapChartOption(heatmap, t),
-    [heatmap, t],
-  );
-  const events = useMemo(
-    () => ({
-      click: (params: unknown) => {
-        const date = readHeatmapDate(params);
-        if (!date) return;
-        onSelectedTradeDateChange(
-          selectedTradeDate === date ? null : date,
-        );
-      },
-    }),
-    [onSelectedTradeDateChange, selectedTradeDate],
-  );
-  const totalTrades = heatmap.reduce((total, day) => total + day.total, 0);
-
-  return (
-    <article className="min-w-0 overflow-hidden rounded-2xl border border-[var(--ledger-border)] bg-[var(--ledger-surface)] p-4 min-[1100px]:p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-[var(--ledger-ink)]">
-            {t("charts.heatmap.overview.heading")}
-          </h3>
-          <p className="mt-1 text-xs leading-5 text-[var(--ledger-muted)]">
-            {t("charts.heatmap.overview.descriptionPrefix")} {heatmap.length}{" "}
-            {t("charts.heatmap.overview.daysSuffix")}{t("charts.heatmap.overview.listSeparator")}{totalTrades}{" "}
-            {t("charts.heatmap.overview.tradesSuffix")}
-          </p>
-        </div>
-        {selectedTradeDate ? (
-          <button
-            className="rounded-lg border border-[var(--ledger-border)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ledger-muted)]"
-            onClick={() => onSelectedTradeDateChange(null)}
-            type="button"
-          >
-            {t("charts.heatmap.overview.clearSelection")}
-          </button>
-        ) : null}
-      </div>
-      <EChart
-        ariaLabel={t("charts.heatmap.overview.ariaLabel")}
-        className="mt-3 h-56 w-full"
-        events={events}
-        option={option}
-      />
-      <p className="text-sm leading-6 text-[var(--ledger-muted)]">
-        {t("charts.heatmap.overview.levels")} {" "}
-        {selectedTradeDate
-          ? `${t("charts.heatmap.overview.selectedPrefix")} ${selectedTradeDate} ${t("charts.heatmap.overview.selectedSuffix")}`
-          : t("charts.heatmap.overview.idleHint")}
-      </p>
-    </article>
-  );
+export function TradeHeatmapChart(props: HomeTradeHeatmapProps) {
+  return <HomeTradeHeatmap {...props} />;
 }
 
 function HomeTradeHeatmap({
@@ -331,17 +250,4 @@ function getMondayDayRow(dateKey: string): number {
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
-}
-
-function readHeatmapDate(params: unknown): string | undefined {
-  if (
-    !params ||
-    typeof params !== "object" ||
-    !("data" in params) ||
-    !Array.isArray(params.data) ||
-    typeof params.data[0] !== "string"
-  ) {
-    return undefined;
-  }
-  return params.data[0];
 }

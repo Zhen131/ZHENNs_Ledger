@@ -126,13 +126,6 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "charts.option.history.listSeparator",
   // History chart series use the same total-assets label.
   "charts.option.history.totalAssetsSeries",
-  // Dashboard controls all expose the same Cancel action.
-  "dashboard.action.cancel",
-  // The legacy clear phrase is both what the reader types and the value the
-  // legacy path hands on, so the panel reads it twice.
-  "dashboard.clearConfirmation.legacy",
-  // Dashboard asset rows use the same unreliable marker.
-  "dashboard.assets.unreliable",
   // Dashboard delete paths use the same ledger-not-writable sentence.
   "dashboard.delete.ledgerNotWritable",
   // Dashboard future-fact rows use the same colon separator.
@@ -147,14 +140,6 @@ const APPROVED_SHARED_TRANSLATION_KEYS = new Set<string>([
   "dashboard.futureFacts.deleteTrade",
   // Future-fact rows use the same Quantity label.
   "dashboard.futureFacts.quantity",
-  // Dashboard summaries use the same realized-PnL label.
-  "dashboard.pnl.realized",
-  // Dashboard summaries use the same remaining-cost-basis label.
-  "dashboard.pnl.remainingCostBasis",
-  // Dashboard summaries use the same unrealized-PnL label.
-  "dashboard.pnl.unrealized",
-  // Dashboard headings use the same trade-list title.
-  "dashboard.section.tradeList",
   // Fee-rule save paths share the same ID-exhausted error.
   "fees.error.idGenerationExhausted",
   // Fee replacement controls use the same Amount label.

@@ -10,7 +10,6 @@ import {
 import type {
   HoldingAllocationSlice,
   HoldingHistoryPoint,
-  TradeHeatmapDay,
 } from "./chartDataService";
 
 type PieDatum = {
@@ -253,108 +252,4 @@ function getHistoryValuationLabel(
     return points[0]?.valuation.label ?? "USDT";
   }
   return t("charts.option.history.approximation");
-}
-
-export function buildTradeHeatmapChartOption(
-  days: readonly TradeHeatmapDay[],
-  t: Translate = defaultTranslate,
-): EChartsCoreOption {
-  const startDate = days[0]?.date ?? "";
-  const endDate = days.at(-1)?.date ?? "";
-
-  return {
-    tooltip: {
-      appendTo: "body",
-      formatter: (params: TooltipParams) => {
-        const datum = params.data as
-          | [string, number, number, number, number]
-          | undefined;
-        if (!datum) {
-          return "";
-        }
-        return [
-          `<strong>${datum[0]}</strong>`,
-          `${t("charts.option.heatmap.total")}${datum[2]}`,
-          `${t("charts.option.heatmap.buy")}${datum[3]}`,
-          `${t("charts.option.heatmap.sell")}${datum[4]}`,
-        ].join("<br/>");
-      },
-    },
-    visualMap: {
-      type: "piecewise",
-      dimension: 1,
-      seriesIndex: 0,
-      orient: "horizontal",
-      left: "center",
-      bottom: 0,
-      pieces: [
-        { value: 0, label: t("charts.option.heatmap.none"), color: TRADE_HEATMAP_LEVEL_COLORS[0] },
-        { value: 1, label: t("charts.option.heatmap.low"), color: TRADE_HEATMAP_LEVEL_COLORS[1] },
-        { value: 2, label: t("charts.option.heatmap.lower"), color: TRADE_HEATMAP_LEVEL_COLORS[2] },
-        { value: 3, label: t("charts.option.heatmap.higher"), color: TRADE_HEATMAP_LEVEL_COLORS[3] },
-        { value: 4, label: t("charts.option.heatmap.highest"), color: TRADE_HEATMAP_LEVEL_COLORS[4] },
-      ],
-    },
-    calendar: {
-      range: [startDate, endDate],
-      orient: "horizontal",
-      left: 42,
-      right: 16,
-      top: 36,
-      bottom: 72,
-      cellSize: ["auto", 16],
-      splitLine: {
-        show: false,
-      },
-      itemStyle: {
-        borderColor: "#ffffff",
-        borderWidth: 2,
-      },
-      yearLabel: {
-        show: false,
-      },
-      dayLabel: {
-        firstDay: 1,
-        nameMap: [
-          t("charts.option.heatmap.sunday"),
-          t("charts.option.heatmap.monday"),
-          t("charts.option.heatmap.tuesday"),
-          t("charts.option.heatmap.wednesday"),
-          t("charts.option.heatmap.thursday"),
-          t("charts.option.heatmap.friday"),
-          t("charts.option.heatmap.saturday"),
-        ],
-      },
-      monthLabel: {
-        nameMap: [
-          t("charts.option.heatmap.january"),
-          t("charts.option.heatmap.february"),
-          t("charts.option.heatmap.march"),
-          t("charts.option.heatmap.april"),
-          t("charts.option.heatmap.may"),
-          t("charts.option.heatmap.june"),
-          t("charts.option.heatmap.july"),
-          t("charts.option.heatmap.august"),
-          t("charts.option.heatmap.september"),
-          t("charts.option.heatmap.october"),
-          t("charts.option.heatmap.november"),
-          t("charts.option.heatmap.december"),
-        ],
-      },
-    },
-    series: [
-      {
-        name: t("charts.option.heatmap.series"),
-        type: "heatmap",
-        coordinateSystem: "calendar",
-        data: days.map((day) => [
-          day.date,
-          day.level,
-          day.total,
-          day.buys,
-          day.sells,
-        ]),
-      },
-    ],
-  };
 }

@@ -314,7 +314,7 @@ describe("BackupControls", () => {
     renderControls({ clock: fixedClock, ledgerData });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "导出明文账本" }));
 
     expect(download.createObjectURL).toHaveBeenCalledOnce();
     expect(download.revokeObjectURL).toHaveBeenCalledOnce();
@@ -341,7 +341,7 @@ describe("BackupControls", () => {
     const user = userEvent.setup();
 
     await user.click(
-      screen.getByRole("button", { name: "导出完整账本备份" }),
+      screen.getByRole("button", { name: "导出明文账本" }),
     );
 
     const downloaded = getDownloadedEnvelope(download.blobConstructor);
@@ -386,7 +386,7 @@ describe("BackupControls", () => {
     });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "导出明文账本" }));
 
     expect(download.createObjectURL).toHaveBeenCalledOnce();
     expect(download.getFilename()).toBe(FIXED_BACKUP_FILENAME);
@@ -411,7 +411,7 @@ describe("BackupControls", () => {
     });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "导出明文账本" }));
 
     expect(blobConstructor).not.toHaveBeenCalled();
     expect(createObjectURL).not.toHaveBeenCalled();
@@ -434,7 +434,7 @@ describe("BackupControls", () => {
     });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "导出明文账本" }));
 
     expect(blobConstructor).not.toHaveBeenCalled();
     expect(createObjectURL).not.toHaveBeenCalled();
@@ -1682,7 +1682,7 @@ describe("BackupControls", () => {
     const user = userEvent.setup();
 
     await user.click(
-      screen.getByRole("button", { name: "导出完整账本备份" }),
+      screen.getByRole("button", { name: "导出明文账本" }),
     );
 
     expect(screen.getByText(/无法确认下载是否成功/)).not.toBeNull();
@@ -1695,7 +1695,7 @@ describe("BackupControls", () => {
     renderControls({ clock: fixedClock, isReadOnly: true });
     const user = userEvent.setup();
 
-    expect(screen.getByRole("button", { name: "导出完整账本备份" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "导出明文账本" })).not.toBeNull();
     expect(screen.queryByLabelText("选择账本备份文件")).toBeNull();
     expect(
       screen.getByText(
@@ -1703,7 +1703,7 @@ describe("BackupControls", () => {
       ),
     ).not.toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "导出完整账本备份" }));
+    await user.click(screen.getByRole("button", { name: "导出明文账本" }));
 
     expect(download.createObjectURL).toHaveBeenCalledOnce();
     expect(download.getFilename()).toBe(FIXED_BACKUP_FILENAME);
@@ -1723,7 +1723,7 @@ describe("BackupControls", () => {
   it("shows recovery import but no export after hydration fails", () => {
     renderControls({ hydrationStatus: "error" });
 
-    expect(screen.queryByRole("button", { name: "导出完整账本备份" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "导出明文账本" })).toBeNull();
     expect(screen.getByLabelText("选择账本备份文件")).not.toBeNull();
     expect(screen.getByText("可使用有效备份恢复本地账本。")).not.toBeNull();
   });

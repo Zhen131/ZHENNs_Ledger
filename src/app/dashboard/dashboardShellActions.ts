@@ -16,11 +16,9 @@ import {
   type Translate,
 } from "@/ui";
 import { validateAssetTransferRemoval } from "@/features/asset-transfers";
-import type { ClearConfirmationMode } from "./DashboardShellTypes";
 import type {
   LedgerRepository,
   LedgerSession,
-  LedgerStorageKind,
   SessionQuiesceReason,
 } from "@/platform/persistence";
 import type { useLedgerWorkspaceSession } from "@/app/workspaces";
@@ -162,119 +160,6 @@ export function doHandleDeleteAllFutureFacts(
     return outcome;
 }
 
-type OpenClearConfirmationDeps = {
-  hydrationStatus: PersistentLedgerState["hydrationStatus"];
-  isReadOnly: PersistentLedgerState["isReadOnly"];
-  persistenceOperation: PersistentLedgerState["persistenceOperation"];
-  repositorySwitchBlocked: PersistentLedgerState["repositorySwitchBlocked"];
-  setClearConfirmationError: Dispatch<SetStateAction<string>>;
-  setClearConfirmationMode: Dispatch<SetStateAction<ClearConfirmationMode | null>>;
-  setClearConfirmationValue: Dispatch<SetStateAction<string>>;
-  setClearSuccessMessage: Dispatch<SetStateAction<string>>;
-};
-
-export function doOpenClearConfirmation(
-  deps: OpenClearConfirmationDeps,
-  mode: ClearConfirmationMode,
-) {
-  const {
-    hydrationStatus,
-    isReadOnly,
-    persistenceOperation,
-    repositorySwitchBlocked,
-    setClearConfirmationError,
-    setClearConfirmationMode,
-    setClearConfirmationValue,
-    setClearSuccessMessage,
-  } = deps;
-    if (
-      persistenceOperation !== "idle" ||
-      repositorySwitchBlocked ||
-      isReadOnly ||
-      (mode === "normal" && hydrationStatus !== "ready") ||
-      (mode === "recovery" && hydrationStatus !== "error")
-    ) {
-      return;
-    }
-
-    setClearConfirmationMode(mode);
-    setClearConfirmationValue("");
-    setClearConfirmationError("");
-    setClearSuccessMessage("");
-}
-
-type HandleClearLedgerDeps = {
-  clearConfirmationNonce: string;
-  clearConfirmationPhrase: string;
-  clearConfirmationValue: string;
-  clearLedger: PersistentLedgerState["clearLedger"];
-  currentRepositoryRef: RefObject<LedgerRepository>;
-  mountedRef: RefObject<boolean>;
-  repository: LedgerRepository | undefined;
-  setClearConfirmationError: Dispatch<SetStateAction<string>>;
-  setClearConfirmationMode: Dispatch<SetStateAction<ClearConfirmationMode | null>>;
-  setClearConfirmationValue: Dispatch<SetStateAction<string>>;
-  setClearSuccessMessage: Dispatch<SetStateAction<string>>;
-  setSelectedTradeDate: Dispatch<SetStateAction<string | null>>;
-  setTradeRemovalError: Dispatch<SetStateAction<string>>;
-  storageKind: LedgerStorageKind;
-  t: Translate;
-};
-
-export async function doHandleClearLedger(
-  deps: HandleClearLedgerDeps,
-) {
-  const {
-    clearConfirmationNonce,
-    clearConfirmationPhrase,
-    clearConfirmationValue,
-    clearLedger,
-    currentRepositoryRef,
-    mountedRef,
-    repository,
-    setClearConfirmationError,
-    setClearConfirmationMode,
-    setClearConfirmationValue,
-    setClearSuccessMessage,
-    setSelectedTradeDate,
-    setTradeRemovalError,
-    storageKind,
-    t,
-  } = deps;
-    if (clearConfirmationValue !== clearConfirmationPhrase) {
-      setClearConfirmationError(
-        `${t("dashboard.clearConfirmation.errorPrefix")}“${clearConfirmationPhrase}”`,
-      );
-      return;
-    }
-
-    const operationRepository = repository;
-    setClearConfirmationError("");
-    setClearSuccessMessage("");
-    const result = await clearLedger(clearConfirmationNonce);
-
-    if (
-      !mountedRef.current ||
-      currentRepositoryRef.current !== operationRepository
-    ) {
-      return;
-    }
-
-    if (!result.ok) {
-      return;
-    }
-
-    setTradeRemovalError("");
-    setSelectedTradeDate(null);
-    setClearConfirmationMode(null);
-    setClearConfirmationValue("");
-    setClearSuccessMessage(
-      storageKind === "ledger-file"
-        ? t("dashboard.clearSuccess.file")
-        : t("dashboard.clearSuccess.legacy"),
-    );
-}
-
 type HandleSettingsClearDeps = {
   clearConfirmationNonce: string;
   clearLedger: PersistentLedgerState["clearLedger"];
@@ -282,8 +167,6 @@ type HandleSettingsClearDeps = {
   hydrationStatus: PersistentLedgerState["hydrationStatus"];
   mountedRef: RefObject<boolean>;
   repository: LedgerRepository | undefined;
-  setSelectedTradeDate: Dispatch<SetStateAction<string | null>>;
-  setTradeRemovalError: Dispatch<SetStateAction<string>>;
 };
 
 export async function doHandleSettingsClear(
@@ -297,8 +180,6 @@ export async function doHandleSettingsClear(
     hydrationStatus,
     mountedRef,
     repository,
-    setSelectedTradeDate,
-    setTradeRemovalError,
   } = deps;
     if (
       (mode === "normal" && hydrationStatus !== "ready") ||
@@ -315,8 +196,6 @@ export async function doHandleSettingsClear(
     ) {
       return false;
     }
-    setTradeRemovalError("");
-    setSelectedTradeDate(null);
     return true;
 }
 

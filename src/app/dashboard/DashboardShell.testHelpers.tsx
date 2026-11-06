@@ -74,16 +74,10 @@ export function createPriceSnapshot(
 }
 
 export function DashboardShell({
-  repository,
-  capabilities,
-  storageKind,
   session,
   onFinalLock,
 }: {
-  repository?: LedgerRepository;
-  capabilities?: LedgerSessionCapabilities;
-  storageKind?: LedgerStorageKind;
-  session?: LedgerSession;
+  session: LedgerSession;
   onFinalLock?: (
     drain: PersistentLedgerState["drainForSessionQuiesce"],
     reason: SessionQuiesceReason,
@@ -91,12 +85,9 @@ export function DashboardShell({
 }) {
   return (
     <DashboardShellRuntime
-      capabilities={capabilities}
       clock={fixedClock}
       onFinalLock={onFinalLock}
-      repository={repository}
       session={session}
-      storageKind={storageKind}
     />
   );
 }
@@ -226,16 +217,6 @@ export function createRawBackupFile(contents: string, name: string): File {
   return file;
 }
 
-export function getSection(title: string): HTMLElement {
-  const section = screen.getByRole("heading", { name: title }).closest("section");
-
-  if (!section) {
-    throw new Error(`Section not found: ${title}`);
-  }
-
-  return section;
-}
-
 export function createMemoryRepository(
   initialData: LedgerData | null = null,
 ): LedgerRepository {
@@ -255,27 +236,13 @@ export function createMemoryRepository(
   };
 }
 
-export async function renderDashboard(
-  repository: LedgerRepository = createMemoryRepository(),
-) {
-  const view = render(<DashboardShell repository={repository} />);
-
-  await waitFor(() => {
-    expect(
-      screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
-    ).toBeNull();
-  });
-
-  return view;
-}
-
 /**
  * Renders the shell the way the real entry does: always with a session.
  * The storage semantics default to what the shell itself defaults to when no
  * storage is named ("indexeddb" with its capabilities), so a migrated case
  * keeps the semantics it ran under before (08B section 3 item 2).
  */
-export async function renderSessionDashboard(
+export async function renderDashboard(
   repository: LedgerRepository = createMemoryRepository(),
   {
     storageKind = "indexeddb",
@@ -304,7 +271,7 @@ export async function renderSessionDashboard(
   return { ...view, session };
 }
 
-export type DashboardPageName =
+type DashboardPageName =
   | "首页"
   | "记账"
   | "交易"
