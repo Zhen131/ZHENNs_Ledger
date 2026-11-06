@@ -2,8 +2,9 @@
  * 这个文件放打开账本文件那一套的几个小帮手。
  * 它们把错误翻成错误码，或给出几个固定结果。
  * 打开、新建、解锁的步骤本身在同目录 `ledgerFileAccessController.ts`。
- * 不显然的决定：释放独占凭证失败时不报错。
+ * 释放独占凭证失败时不报错。
  * 凭证先留着，等用户重试时再放。
+ * 没有特别的决定。
  */
 import { LedgerFileAdapterError } from "@/platform/files";
 import { LedgerFileConnectionRecordError } from "@/platform/files";
