@@ -19,7 +19,7 @@ import {
   type LedgerFileReconnectResult,
 } from "./ledgerFileAccessControllerTypes";
 
-/** 文件验过了、但「记住这个文件」那一步存失败时抛的错。 */
+/** 这个类是「记住这个文件」那一步存失败时抛的错。此时文件本身已经验过。 */
 export class LedgerFileConnectionCommitError extends Error {
   constructor(readonly cause: unknown) {
     super("Could not save the verified ledger file connection");
@@ -189,6 +189,7 @@ function hasLedgerFileContractError(
 
 /**
  * 这个函数把解锁时的错误翻成错误码。
+ * 文件验过、但记住它那一步存失败 → 答 `CONNECTION_SAVE_FAILED`。
  * 文件被别的程序改过答 `EXTERNAL_CHANGE`；别的一律答 `UNLOCK_FAILED`。
  * 举例：密码输错 → 答 `UNLOCK_FAILED`。
  */
