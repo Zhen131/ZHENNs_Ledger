@@ -1,3 +1,11 @@
+/**
+ * 这个文件管把一串字节读成 S-3 格式的文件。
+ * 从两个文件头槽里挑出能用的那份。
+ * 它不解密，解密和块清单验证在 ledgerFileCrypto.ts。
+ * 不显然的决定。
+ * 最新的头槽坏了而旧的还好时，走明确的恢复，不悄悄退回。2026-09-01 定（W15 06C 第 R-2 节 F-1）。
+ */
+
 import { base64UrlToBytes } from "@/platform/encryption";
 import {
   LEDGER_FILE_OUTER_V2_CONSTANTS,
@@ -58,6 +66,12 @@ import {
   invalidWithCode,
 } from "./ledgerFileChunkedContainerV3Shared";
 
+/**
+ * 这个函数回答：这串字节能读成哪一份 S-3 文件？
+ * 两个头槽都能用时，选写到次数更大的那份。
+ * 举例：1 号头槽写到一半断电、0 号完好 → 答 0 号那份。
+ * 都不能用、或两份次数一样时，不抛错，返回 ok:false。
+ */
 export function parseLedgerFileV3S3(
   bytes: Uint8Array,
 ): LedgerFileV3S3ValidationResult {
@@ -82,6 +96,12 @@ export function parseLedgerFileV3S3(
   return { ok: true, value: selected.file };
 }
 
+/**
+ * 这个函数把两个头槽都读一遍。
+ * 列出能用的那几份和它们用到的内容槽。
+ * 举例：两个头槽都完好 → 答两份，次数一大一小。
+ * 外层坏了或两个头槽都是空的、坏的，不抛错，返回 ok:false。
+ */
 export function parseLedgerFileV3S3Candidates(
   bytes: Uint8Array,
 ): LedgerFileV3S3CandidatesResult {
@@ -115,6 +135,12 @@ export function parseLedgerFileV3S3Candidates(
   return { ok: true, value: { candidates, reachableBodySlots } };
 }
 
+/**
+ * 这个函数回答。
+ * 一个已经读出来的对象是不是合规矩的 S-3 文件？
+ * 举例：两个不同的块占了同一个内容槽 → 答不是。
+ * 出错时不抛错，返回 ok:false 和错误。
+ */
 export function validateLedgerFileV3S3(
   input: unknown,
 ): LedgerFileV3S3ValidationResult {

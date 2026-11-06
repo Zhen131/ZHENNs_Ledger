@@ -1,3 +1,10 @@
+/**
+ * 这个文件管把 S-3 文件写成字节。
+ * 以及准备一次只写变化部分的保存。
+ * 它不管真正写到磁盘，那在 ledgerFileHandleAdapter.ts。
+ * 不显然的决定：改一条旧记录只重写它所在的那一块。2026-08-31 定（W15 06A 第 2.2 节）。
+ */
+
 import { LEDGER_FILE_V3_MAGIC } from "./ledgerFileContainerV3";
 import type {
   EncryptedLedgerBlockV3S3,
@@ -26,6 +33,11 @@ import {
   expectedFileByteLength,
 } from "./ledgerFileChunkedContainerV3Shared";
 
+/**
+ * 这个函数把一份 S-3 文件完整写成一串字节，空白处填 0。
+ * 举例：用到 3 个内容槽 → 答 16 + 524288 + 3 × 1048576 = 3670032 字节。
+ * 文件本身不合规矩、文件头放不进槽时抛错。
+ */
 export function serializeLedgerFileV3S3(
   file: LedgerFileV3S3,
 ): Uint8Array {
@@ -48,6 +60,13 @@ export function serializeLedgerFileV3S3(
   return bytes;
 }
 
+/**
+ * 这个函数准备一次 S-3 保存：只写新的块、换一个文件头槽写。
+ * 没变的块一个字节都不碰。
+ * 举例：只改了 1 号记录块 → 答两处局部写入。
+ * 一处是新块的槽，一处是一个头槽。
+ * 新旧文件不合规矩、新文件不是接着旧文件写的，就抛错。
+ */
 export function prepareLedgerFileUpdateV3S3(
   baseFile: LedgerFileV3S3,
   baseSerializedFile: Uint8Array,

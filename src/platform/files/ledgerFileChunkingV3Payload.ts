@@ -1,3 +1,10 @@
+/**
+ * 这个文件管把解密出来的块读回成内容。
+ * 再把所有块拼回一整本账本。
+ * 它不管分块计划，那在 ledgerFileChunkingV3Plan.ts。
+ * 不显然的决定：拼回来以后整本再查一遍，和整本存时一样严。2026-09-01 定（W15 06C 第 R-2 节 F-3）。
+ */
+
 import { isValidISODateOrDateTime } from "@/core/validation";
 import { type CanonicalLedgerPayloadV4 } from "./ledgerFileContract";
 import { createCanonicalLedgerPayloadV4 } from "./ledgerFileContractPayload";
@@ -11,6 +18,13 @@ import {
   flattenLedgerData,
 } from "./ledgerFileChunkingV3Shared";
 
+/**
+ * 这个函数回答。
+ * 解密出来的这段文字，能不能读成一块合法的内容？
+ * 控制块里不许有记录；记录块的条数必须和说明里写的一样。
+ * 举例：说明写 2000 条，实际只有 1999 条 → 抛错。
+ * 不是合法 JSON、形状不对、写法不是标准写法时都抛错。
+ */
 export function parseLedgerBlockPayloadV3S3(
   serialized: string,
   role: "control" | "facts",
@@ -60,6 +74,12 @@ export function parseLedgerBlockPayloadV3S3(
   return payload;
 }
 
+/**
+ * 这个函数把控制块和全部记录块拼回一整本账本。
+ * 再整本查一遍。
+ * 举例：控制块加 3 个记录块 → 答一整份检查过的内容。
+ * 拼出来的账本查不过时抛错。
+ */
 export function mergeBlockPayloadsV3S3(
   control: LedgerBlockPayloadV3S3,
   facts: readonly LedgerBlockPayloadV3S3[],

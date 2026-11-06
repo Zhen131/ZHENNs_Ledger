@@ -1,3 +1,10 @@
+/**
+ * 这个文件管保存时怎么分块。
+ * 哪些块原样沿用，哪些块要重写，新记录放哪。
+ * 它不管加密和写盘，那在 ledgerFileCrypto.ts 和 ledgerFileRepositoryWrite.ts。
+ * 不显然的决定：删了记录变稀的块不合并、不回填。2026-08-31 定（W15 06A 第 2.6 节）。
+ */
+
 import type { LedgerAction } from "@/core/state";
 import { type CanonicalLedgerPayloadV4 } from "./ledgerFileContract";
 import {
@@ -19,6 +26,17 @@ import {
   collectionArray,
 } from "./ledgerFileChunkingV3Shared";
 
+/**
+ * 这个函数回答：这次保存，每个记录块是沿用、重写还是新开？
+ * 没有旧文件时全部新建；新记一笔买卖时只动没装满的那块。
+ * 改或删旧记录时，只重写它所在的块；新记录先填进没装满的块。
+ * 举例：已有 2 块，2000 条封好、500 条没满。
+ * 新记 1 笔 → 只重写第 2 块，变成 501 条。
+ * 旧块的明文找不到时抛错。
+ *
+ * 为什么新记录不按日期放：分块只为写得快，和读取无关。
+ * 2026-08-31 定（W15 06A 第 2.4 节）。
+ */
 export function createLedgerGenerationPlanV3S3(
   revisionId: string,
   payload: CanonicalLedgerPayloadV4,
@@ -113,8 +131,9 @@ export function createLedgerGenerationPlanV3S3(
 
   const plans = working.map(({ block, entries }) => {
     const order = block.order;
-    // A deletion may leave a previously sealed block sparse. Compaction is
-    // deliberately out of scope: the block stays sealed and is never refilled.
+    // 为什么删了记录的块还保持封好：不合并、不回填。
+    // 这是接受的稀疏块。
+    // 2026-08-31 定（W15 06A 第 2.6 节）。
     const sealed = block.sealed || entries.length === RECORDS_PER_LEDGER_BLOCK;
     const changedSerializedPayload = serializeBlockPayload(
       payload.value.savedAt,
@@ -156,8 +175,9 @@ export function createLedgerGenerationPlanV3S3(
     JSON.stringify(reconstructedLedgerData) !==
       payload.serializedLedgerData
   ) {
-    // A reordered or otherwise whole-ledger replacement is allowed to rebuild
-    // all fact blocks. Ordinary append/edit/delete paths preserve membership.
+    // 为什么整本重建：整本被换掉或顺序变了，只能全部重建。
+    // 平常的新增、修改、删除都保持记录待在原来的块里。
+    // （这是猜的，日志里没写，要核。）
     return createFullPlan(
       revisionId,
       payload,
