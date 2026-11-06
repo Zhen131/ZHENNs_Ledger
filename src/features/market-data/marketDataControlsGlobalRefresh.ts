@@ -1,3 +1,9 @@
+/**
+ * 这个文件管「刷新手里的币」那个按钮。
+ * 它一次刷新全部手里不为 0 的币。
+ * 单个币的刷新在 `marketDataControlsAssetActions.ts`。
+ * 不显然的决定：只在人点按钮时联网，不自动刷；2026-08-19 定（W14 01A 第三节）。
+ */
 import type { LedgerData } from "@/core/models";
 import { captureLedgerTime } from "@/core/shared";
 import type {
@@ -40,6 +46,13 @@ type RefreshNonZeroHoldingsDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「刷新手里的币」。
+ * 先取消所有单币操作，再取价，一次合进账本，等存盘。
+ * 举例：手里有 BTC、ETH，都配了交易对。
+ * → 两条当天币安价一起写进去。
+ * 取价期间对应关系被改过，就放弃这次，不写。
+ */
 export async function doRefreshNonZeroHoldings(
   deps: RefreshNonZeroHoldingsDeps,
 ) {
@@ -145,6 +158,11 @@ type FinishGlobalOperationDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数给这次全局刷新下结论，写上提示。
+ * 结论有全成、部分成、全失败三种。
+ * 操作已不算数时什么都不做。
+ */
 export function doFinishGlobalOperation(
   deps: FinishGlobalOperationDeps,
   operation: GlobalOperation,

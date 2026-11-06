@@ -1,3 +1,9 @@
+/**
+ * 这个文件放行情区的几个小函数。
+ * 管初始提示、操作还算不算数、草稿、失败说明。
+ * 按钮的处理在 `marketDataControlsAssetActions.ts` 和 `marketDataControlsGlobalRefresh.ts`。
+ * 没有特别的决定。
+ */
 import type { Asset, LedgerData } from "@/core/models";
 import { resolveAssetBinanceMappingForRuntime } from "@/core/policies";
 import { type BinanceMarketDataFailure } from "@/platform/integrations";
@@ -8,6 +14,10 @@ import type {
 } from "./marketDataControlsTypes";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个函数给「刷新」那一块一个初始状态。
+ * 空闲、默认提示、没有失败。
+ */
 export function createInitialRefreshState(t: Translate): GlobalRefreshState {
   return {
   status: "idle",
@@ -16,6 +26,11 @@ export function createInitialRefreshState(t: Translate): GlobalRefreshState {
   };
 }
 
+/**
+ * 这个函数回答：这次单币操作还算数吗？
+ * 要账本能写、没取消、没换账本、币还在。
+ * 还要对应关系没被别处改过，才算数。
+ */
 export function isAssetOperationContextCurrent(
   operation: AssetOperation,
   latest: {
@@ -45,6 +60,10 @@ export function isAssetOperationContextCurrent(
   return latest.mappingSignature === expectedSignature;
 }
 
+/**
+ * 这个函数回答：这次全局刷新还算数吗？
+ * 账本能写、没取消、没换账本、对应关系没变，才算数。
+ */
 export function isGlobalOperationContextCurrent(
   operation: GlobalOperation,
   latest: {
@@ -63,6 +82,10 @@ export function isGlobalOperationContextCurrent(
   );
 }
 
+/**
+ * 这个函数给每种币的交易对输入框准备初始值。
+ * 已配的写交易对，没配的空着。
+ */
 export function createMappingDrafts(
   assets: readonly Asset[],
 ): Record<string, string> {
@@ -74,6 +97,11 @@ export function createMappingDrafts(
   );
 }
 
+/**
+ * 这个函数把一条币安失败写成「代码 · 说明」。
+ * 举例：超时 → 答「BINANCE_TIMEOUT · 」加上超时的说明。
+ * 限流或 HTTP 错误时，说明后面带上状态码。
+ */
 export function formatBinanceFailure(
   failure: BinanceMarketDataFailure,
   t: Translate,

@@ -1,3 +1,8 @@
+/**
+ * 这个文件管行情区最上面那一排：价格模式和「刷新」按钮。
+ * 点了以后做什么由上层 `MarketDataControls.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type { ValuationPriceMode } from "@/core/models";
@@ -6,6 +11,11 @@ import type { Translate } from "@/ui";
 
 
 
+/**
+ * 这个组件画价格模式切换和「刷新手里的币」按钮。
+ * 模式有「自动」和「手动价格」，点了叫 `onModeChange`。
+ * 刷新进行中按钮显示「正在更新」。
+ */
 export function MarketDataControlsRefreshBar({
   anyAssetOperation,
   globalBusy,

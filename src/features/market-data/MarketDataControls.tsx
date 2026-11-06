@@ -1,3 +1,9 @@
+/**
+ * 这个文件管行情区。
+ * 选价格模式、刷新价格、配币安交易对都在这里。
+ * 按钮的处理在旁边几个 `marketDataControls*.ts`，每种币一行在 `MappingRow.tsx`。
+ * 不显然的决定：联网只发生在人点按钮之后；2026-08-19 定（W14 01A 第三节）。
+ */
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -93,6 +99,13 @@ type MarketDataControlsProps = {
   compactMappings?: boolean;
 };
 
+/**
+ * 这个组件画行情区。
+ * 上面一排是价格模式和「刷新」按钮。
+ * 下面是手里的币和各自的价格。
+ * `showMappings` 为真时，再列出每种币的交易对设置。
+ * 账本不能写时，按钮不起作用。
+ */
 export function MarketDataControls({
   ledgerData,
   positions,
@@ -265,9 +278,12 @@ export function MarketDataControls({
         t,
       },
     );
-    // Operations are ref-owned tokens. Only persisted-version transitions may
-    // advance them; render-local callback identities must not retrigger this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 进行中的操作记在 ref 里，只在存盘版本变化时往下走。
+    // 每次重画都会新造的函数不列进依赖。
+    // 免得白白再跑一遍。
+    // 原句 2026-08-19 提交 a4f26a5 写的，日志里没写理由。
+    // 这是猜的，要核。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在存盘版本变化时推动操作，理由是猜的，见上方
   }, [mappingSignature, mutationVersion, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {

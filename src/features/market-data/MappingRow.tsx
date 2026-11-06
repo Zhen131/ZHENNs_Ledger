@@ -1,3 +1,9 @@
+/**
+ * 这个文件管行情区里一种币的那一行。
+ * 交易对、编辑、保存、刷新、去掉都在这一行。
+ * 点了以后做什么由上层 `MarketDataControls.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type { Asset } from "@/core/models";
@@ -9,6 +15,13 @@ import {
 } from "@/ui";
 import type { AssetFeedback } from "./marketDataControlsTypes";
 
+/**
+ * 这个组件画一种币的交易对设置行。
+ * 编辑时有输入框和「验证并保存」「取消」。
+ * 不编辑时有「编辑」「刷新」。
+ * 还有要点两次的「去掉交易对」。
+ * 旁边显示这种币当前操作的提示。
+ */
 export function MappingRow({
   asset,
   compact,

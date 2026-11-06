@@ -1,3 +1,10 @@
+/**
+ * 这个文件管一件事：从币安取回手里那些币的最新价格。
+ * 取回的价格再合进账本。
+ * 联网的细节在 platform 的币安客户端里，按钮在 `MarketDataControls.tsx`。
+ * 不显然的决定：一种币一天只留一条币安价，后取的覆盖。
+ * 这条 2026-08-19 定（W14 01B 第 5.2 节）。
+ */
 import { replayPositions } from "@/core/calculations";
 import type {
   BinanceMarketMapping,
@@ -18,6 +25,10 @@ import {
   type LedgerClock,
 } from "@/core/shared";
 
+/**
+ * 取价成功的一种币：本地代码、交易对、价格。
+ * 还有算哪天、什么时刻取的。
+ */
 export type BinanceRefreshSuccess = {
   assetSymbol: string;
   mapping: BinanceMarketMapping;
@@ -26,6 +37,7 @@ export type BinanceRefreshSuccess = {
   fetchedAt: string;
 };
 
+/** 取价失败的一种币：本地代码，加上币安的失败代码和说明。 */
 export type BinanceAssetRefreshFailure = BinanceMarketDataFailure & {
   assetSymbol: string;
 };
@@ -40,6 +52,13 @@ type BinancePriceRefreshDependencies = {
   clock: LedgerClock;
 };
 
+/**
+ * 这个函数回答：手里有、又配了交易对的币，币安价多少？
+ * 先逐个确认交易对还能用，再一次取回全部价格。
+ * 举例：手里有 BTC、SOL，只有 BTC 配了 → 只取 BTCUSDT。
+ * 它只取价，不改账本；合进账本用 `mergeBinancePriceRefresh`。
+ * 失败的币列进失败清单，不影响别的币。
+ */
 export async function refreshBinancePrices(
   ledgerData: LedgerData,
   todayKey: string,
@@ -140,6 +159,14 @@ type BinanceRefreshMergeResult = {
   skippedAssetSymbols: string[];
 };
 
+/**
+ * 这个函数把取回的价格合进账本。
+ * 每种币当天只留一条币安价。
+ * 当天已有币安价就改那一条，没有就新加一条。
+ * 举例：BTC 今天上午取过 69000，下午取到 70000 → 那一条改成 70000。
+ * 取价后对应关系被改过的币不合，列进「跳过」。
+ * 编号撞了 3 次的也跳过。
+ */
 export function mergeBinancePriceRefresh(
   ledgerData: LedgerData,
   successes: readonly BinanceRefreshSuccess[],

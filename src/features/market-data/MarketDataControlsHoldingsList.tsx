@@ -1,3 +1,8 @@
+/**
+ * 这个文件管行情区里「手里的币」那张小清单。
+ * 数据由上层 `MarketDataControls.tsx` 传进来。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { selectPriceAsOf } from "@/features/portfolio";
@@ -11,6 +16,11 @@ import type {
 import type { GlobalRefreshState } from "./marketDataControlsTypes";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件列出手里不为 0 的币。
+ * 每种币显示现在用的价格、来自手动还是币安、算到哪天。
+ * 上次刷新失败的币，后面跟上失败原因。
+ */
 export function MarketDataControlsHoldingsList({
   activeTodayKey,
   currentPositions,

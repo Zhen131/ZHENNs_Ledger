@@ -1,3 +1,9 @@
+/**
+ * 这个文件管单个币的三种操作。
+ * 保存交易对、刷新价格、去掉交易对。
+ * 全局刷新在 `marketDataControlsGlobalRefresh.ts`，画面在 `MarketDataControls.tsx`。
+ * 不显然的决定：交易对存上后才去取第一次价格；2026-08-19 定（W14 01B 第 5.2 节）。
+ */
 import type {
   Dispatch,
   RefObject,
@@ -37,6 +43,10 @@ type CancelAssetOperationDeps = {
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
 };
 
+/**
+ * 这个函数取消某种币正在进行的操作。
+ * `resetFeedback` 为真时，顺便清掉那种币旁边的提示。
+ */
 export function doCancelAssetOperation(
   deps: CancelAssetOperationDeps,
   assetSymbol: string,
@@ -68,6 +78,11 @@ type FinishAssetOperationDeps = {
   setEditingAssetSymbol: Dispatch<SetStateAction<string | null>>;
 };
 
+/**
+ * 这个函数结束一次单币操作，写上结果提示。
+ * 保存交易对成功后，退出编辑状态。
+ * 操作已不算数时什么都不做。
+ */
 export function doFinishAssetOperation(
   deps: FinishAssetOperationDeps,
   operation: AssetOperation,
@@ -105,6 +120,11 @@ type FetchAndPersistAssetPriceDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数给一种币取一次币安价，合进账本，然后等存盘。
+ * 举例：SOL 刚配好，取到 150 → 账本多一条 SOL 当天的币安价。
+ * 取不到价时结束并说明；已存的交易对不回滚。
+ */
 export async function doFetchAndPersistAssetPrice(
   deps: FetchAndPersistAssetPriceDeps,
   operation: AssetOperation,
@@ -212,6 +232,11 @@ type CreateAssetOperationDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数为一种币开一次新操作。
+ * 同时取消这种币之前的操作和全局刷新。
+ * 账本不能写时返回空。
+ */
 export function doCreateAssetOperation(
   deps: CreateAssetOperationDeps,
   asset: Asset,
@@ -273,6 +298,13 @@ type SaveMappingDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「验证并保存」交易对。
+ * 先去币安验证，通过后写进账本，等存好再取第一次价格。
+ * 举例：SOL 填 SOL → 验证 SOLUSDT → 存上 → 取价。
+ * 验证期间对应关系被别处改过，就悄悄放弃这次。
+ * 验证失败：显示原因，不改账本。
+ */
 export async function doSaveMapping(
   deps: SaveMappingDeps,
   asset: Asset,
@@ -386,6 +418,11 @@ type RefreshAssetDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理某种币的「刷新」。
+ * 先确认交易对还能用，再取价、合进账本、等存盘。
+ * 没配交易对的币，什么都不做。
+ */
 export async function doRefreshAsset(
   deps: RefreshAssetDeps,
   asset: Asset,
@@ -440,6 +477,13 @@ type RemoveMappingDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数去掉一种币的币安交易对。
+ * 先取消这种币的操作和全局刷新。
+ * 免得晚到的结果把对应关系写回来。
+ * 币、买卖、价格都保留。
+ * 为什么要先取消：2026-08-19 定（W14 01B 第 5.4 节）。
+ */
 export function doRemoveMapping(
   deps: RemoveMappingDeps,
   asset: Asset,
