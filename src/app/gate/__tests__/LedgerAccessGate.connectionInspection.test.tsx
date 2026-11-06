@@ -390,6 +390,94 @@ describe("LedgerAccessGate", () => {
     ).toBeNull();
   });
 
+
+  it("sends select-existing on the legacy notice to the reconnect prompt when the remembered C needs permission", async () => {
+    const user = userEvent.setup();
+    const requestRememberedPermission = vi.fn(async () => ({
+      status: "ready" as const,
+      ok: true as const,
+    }));
+    const fileController = createFileController({
+      inspectRememberedConnection: vi.fn(async () => ({
+        status: "permission-prompt" as const,
+        ok: false as const,
+      })),
+      requestRememberedPermission,
+    });
+    render(
+      <LedgerAccessGate
+        accessController={createController({
+          inspect: vi.fn(async () => ({
+            status: "unlock-required" as const,
+          })),
+        })}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择已有账本" }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "重新连接上次的账本",
+      }),
+    ).toBeTruthy();
+    expect(requestRememberedPermission).not.toHaveBeenCalled();
+    expect(fileController.selectExisting).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("heading", { name: "旧版账本已退役" }),
+    ).toBeNull();
+    expect(fileController.inspectRememberedConnection).toHaveBeenCalledOnce();
+  });
+
+  it("sends select-existing on the legacy notice to the reconnect error when the remembered C fails, and forget returns to the choice panel", async () => {
+    const user = userEvent.setup();
+    const forgetRememberedConnection = vi.fn(async () => undefined);
+    const fileController = createFileController({
+      inspectRememberedConnection: vi.fn(async () => ({
+        status: "error" as const,
+        ok: false as const,
+        code: LEDGER_FILE_ACCESS_ERROR_CODES.PERMISSION_DENIED,
+      })),
+      forgetRememberedConnection,
+    });
+    render(
+      <LedgerAccessGate
+        accessController={createController({
+          inspect: vi.fn(async () => ({
+            status: "unlock-required" as const,
+          })),
+        })}
+        fileAccessController={fileController}
+      />,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "选择已有账本" }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: "上次的账本暂时不可用",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/不会创建空账本或退回另一份账本/),
+    ).toBeTruthy();
+    expect(fileController.selectExisting).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "忘记这条连接并选择另一本账",
+      }),
+    );
+    expect(forgetRememberedConnection).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", {
+        name: "选择账本",
+      }),
+    ).toBeTruthy();
+  });
   it("treats an unreadable legacy check as no legacy record and warns with only the error code", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     try {
