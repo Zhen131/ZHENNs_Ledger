@@ -58,13 +58,13 @@ Every directory under `src/features/` is one feature. The source-layout test and
 - `encryption` owns Base64URL encoding, explicit key derivation primitives, and passphrase policy.
 - `coordination` owns the cooperative page lease and short write lock.
 - `integrations` owns the Binance public REST boundary.
-- `legacy` retains whole-ledger IndexedDB detection, the retired envelope/encryption implementation, and the read-only legacy access controller. These files remain required for rejection and negative-test coverage; they are not a migration path.
+- `legacy` holds only the retired-ledger presence check: a read-only IndexedDB reader that answers whether an old whole-ledger record exists, and the access controller that reports that answer. It never reads the record's contents, never writes or deletes it, and is not a migration path.
 
 The active IndexedDB boundary stores only `connectionFormatVersion`, the browser file handle, and `expectedFileId`. Ledger data, revisions, fee rules, passwords, and cryptographic keys stay outside that connection record.
 
 ### `ui` and `test-support`
 
-`ui` contains reusable visual primitives such as `ConfirmDeleteButton`, and the interface language mechanism in `i18n.tsx`; the Chinese, English, and Hungarian message tables sit beside it in `i18nMessages.zh.ts`, `i18nMessages.en.ts`, and `i18nMessages.hu.ts`. `test-support` contains deterministic fixtures and test-only doubles; production composition must never import the test-only `NoopEncryptionService`.
+`ui` contains reusable visual primitives such as `ConfirmDeleteButton`, and the interface language mechanism in `i18n.tsx`; the Chinese, English, and Hungarian message tables sit beside it in `i18nMessages.zh.ts`, `i18nMessages.en.ts`, and `i18nMessages.hu.ts`. `test-support` contains deterministic fixtures and test-only doubles; production composition must never import them.
 
 ## Import contract
 
