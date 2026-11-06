@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/app/layout.tsx",
+    "src/app/page.tsx",
+    "src/**/*.test.{ts,tsx}",
+    "src/test-support/vitest.setup.ts",
+    "benchmarks/**/*.contract.ts",
+    "benchmarks/measure/nodeMetrics.ts",
+    "benchmarks/measure/browserMetrics.ts",
+    "benchmarks/measure/renderedElementCount.ts",
+    "benchmarks/measure/runM3Breakdown.ts",
+    "benchmarks/measure/scaleProbe.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "benchmarks/**/*.ts"],
+  "ignore": ["**/* 2.ts", "**/* 2.tsx"]
+}
