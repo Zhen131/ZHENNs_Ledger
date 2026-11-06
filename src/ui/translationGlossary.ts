@@ -1,44 +1,41 @@
 /**
- * The Chinese-to-English glossary for the ledger's domain vocabulary.
+ * 这个文件是账本领域词的中英对照表（术语表）。
+ * 它只存数据；英文译文在 `i18nMessages.en.ts`，检查在 `src/checks/__tests__/englishInterface.test.ts`。
+ * 不显然的决定：一个中文词只许有一种英文说法。
+ * 2026-09-07 定（W16 04A 第二节 D-4）。
+ */
+/**
+ * 术语表里的一条：一个中文词，钉死的英文说法，定没定，备注。
  *
- * The interface repeats a small set of accounting and trading words. When the
- * same Chinese word reaches English as three different phrasings, a reader
- * assumes three different concepts, so every entry below pins exactly one
- * English wording for one Chinese word. `translationGlossary.test.ts` reads
- * this table as data and turns red when an English message drops the pinned
- * wording, which is why this file holds data rather than prose.
+ * 为什么钉死：同一个词翻成三种说法，读者会以为是三个概念。
  *
- * Matching rule (the guard implements exactly this):
- *   1. Terms are matched against the Chinese message longest term first. The
- *      characters a longer term consumes are not offered to a shorter one, so
- *      "交易所" consumes its characters before "交易" is considered and an
- *      "exchange" label is never asked to also say "transaction".
- *   2. For every term that survives step 1, the English message must contain
- *      the pinned wording, compared case-insensitively, with runs of spaces in
- *      the pinned wording matching any run of whitespace, and with an optional
- *      plural "s"/"es" allowed on its final word.
+ * 检查怎么对：
+ * 1. 先拿长词去对中文句子；长词占掉的字，短词不能再用。
+ *    所以「交易所」先占字，标签不会被要求再写 transaction。
+ * 2. 剩下的每个词，英文句子里必须有钉死的说法。
+ *    不分大小写；多个空格算一个；末词可带规则结尾，见 `inflections`。
  */
 export type GlossaryTerm = Readonly<{
-  /** The Chinese word as it appears inside a message value. */
+  /** 中文词，和它在句子里出现的样子一样。 */
   chinese: string;
-  /** The single English wording every message carrying that word must use. */
+  /** 带这个词的英文句子都必须用的那一种说法。 */
   english: string;
   /**
-   * "confirmed" means the wording is settled. "unconfirmed" means it was
-   * applied consistently so the interface stays coherent, but the product
-   * owner should still rule on it; the reason is recorded in `note`.
+   * confirmed 是定了；unconfirmed 是先统一用着，还要产品负责人拍板。
+   * 没定的原因写在 `note` 里。
    */
   status: "confirmed" | "unconfirmed";
-  /** Why this word is in the glossary, or why its wording is still open. */
+  /** 这个词为什么进术语表，或者它的说法为什么还没定。 */
   note: string;
   /**
-   * Irregular English forms that also satisfy this term. The guard already
-   * accepts the regular "s"/"es"/"ed"/"d"/"ing" endings, so this is only for
-   * words whose stem changes, such as "undo" becoming "undone".
+   * 也算数的不规则英文变形。
+   * 检查已经认 s、es、ed、d、ing 这些规则结尾。
+   * 这里只放词根会变的，比如 undo 变成 undone。
    */
   inflections?: readonly string[];
 }>;
 
+/** 整张术语表。检查按中文词长短排序后逐条对。 */
 export const TRANSLATION_GLOSSARY: readonly GlossaryTerm[] = [
   {
     chinese: "账本文件",

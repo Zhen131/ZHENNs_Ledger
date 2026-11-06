@@ -1,5 +1,11 @@
+/**
+ * 这个文件放界面上用的一套线条小图标。
+ * 图标放在哪、什么意思，由用它的组件定。
+ * 没有特别的决定。
+ */
 import type { SVGProps } from "react";
 
+/** 这套图标的名字，共 11 个，比如首页、记账、设置、锁。 */
 export type LedgerIconName =
   | "home"
   | "record"
@@ -66,6 +72,10 @@ const ICON_PATHS: Record<LedgerIconName, React.ReactNode> = {
   close: <path d="m6 6 12 12M18 6 6 18" />,
 };
 
+/**
+ * 这个组件按名字画一个 24 格的线条图标，颜色跟着文字走。
+ * 传了 `title` 就当图片让读屏读出来；没传就对读屏隐藏。
+ */
 export function LedgerIcon({
   name,
   title,

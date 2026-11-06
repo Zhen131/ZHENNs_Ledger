@@ -1,3 +1,8 @@
+/**
+ * 这个文件管普通删除用的「点两下才删」按钮。
+ * 删什么、删完怎么撤回，由用它的列表自己管。
+ * 不显然的决定：按住回车自动连发的那一下不算第二次点。
+ */
 "use client";
 
 import {
@@ -9,6 +14,7 @@ import {
 } from "react";
 import { useLanguage } from "./i18n";
 
+/** 确认删除之后的结果：删掉了、被拒绝了、或者什么都没变。 */
 export type ConfirmDeleteOutcome = "applied" | "rejected" | "noop";
 
 type ConfirmDeleteButtonProps = Readonly<{
@@ -22,9 +28,12 @@ type ConfirmDeleteButtonProps = Readonly<{
 }>;
 
 /**
- * 普通删除的共享两段确认控件。
- *
- * 第一次激活只改变局部 armed 状态；第二次完整激活才调用业务回调。
+ * 这个组件画一个两段确认的删除按钮。
+ * 它用在各个列表的普通删除上。
+ * 第一次点，按钮变红变宽，文字换成确认的说法。
+ * 第二次点，才叫 `onConfirm` 去真删。
+ * 点按钮外面或按 Esc，就退回第一次点之前。
+ * 删的过程中按钮变灰，不能再点。
  */
 export function ConfirmDeleteButton({
   label,

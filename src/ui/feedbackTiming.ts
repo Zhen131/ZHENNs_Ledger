@@ -1,2 +1,11 @@
-/** How long a success message stays visible before it clears itself. */
+/**
+ * 这个文件放界面上「成功」提示停留多久的那个数。
+ * 提示怎么显示、什么时候清掉，在用它的各个页面里。
+ * 没有特别的决定。
+ */
+/**
+ * 成功提示自己消失前停留的时间，4 秒。
+ * 为什么是 4 秒：2026-08-13 提交 3611489 写下，没写理由。
+ * 大概是够读完一句、又不挡事（这是猜的，要核）。
+ */
 export const SUCCESS_FEEDBACK_MS = 4_000;

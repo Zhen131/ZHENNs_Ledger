@@ -1,13 +1,17 @@
+/**
+ * 这个文件管分页列表下面那一条翻页条。
+ * 它不翻译任何文字，那些句子由调用方按当前语言给好。
+ * 不显然的决定：总数那句交给调用方，因为各列表说法不同。
+ */
 import type { ReactNode } from "react";
 
 const PAGE_BUTTON_CLASS =
   "rounded-md border border-[var(--ledger-border)] bg-white px-3 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * The "N in total · page x of y · previous / next" strip under a paged list.
- * It translates nothing: the caller hands in the summary sentence, the two
- * button labels, and the region label already in the reader's language,
- * because each list words its summary differently.
+ * 这个组件画列表下面的翻页条。
+ * 左边是总数那句话，右边是上一页和下一页两个按钮。
+ * 在第一页时上一页点不了，在最后一页时下一页点不了。
  */
 export function PaginationBar({
   ariaLabel,

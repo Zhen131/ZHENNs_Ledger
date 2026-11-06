@@ -1,3 +1,9 @@
+/**
+ * 这个文件管界面上金额、数量、百分比怎么显示。
+ * 它只管显示，不参与任何计算；算钱在 `core` 里。
+ * 不显然的决定：千位之间用空格分开，不用逗号，也不随语言变。
+ * 不随语言变，2026-09-07 定（W16 04A 修订 B 第五节 D-15）。
+ */
 import Decimal from "decimal.js";
 
 import type { DecimalString } from "@/core/models";
@@ -9,26 +15,47 @@ type LedgerNumberFormat = {
   maxDecimals: number;
 };
 
+// 金额：保留 6 位有效数字；大于等于 1 时固定 2 位小数；最多 12 位小数。
+// 为什么是这几个数：2026-08-28 提交 45701d4 写下，没写理由（这是猜的，要核）。
 const MONEY_FORMAT = {
   significantDigits: 6,
   fixedDecimalsWhenAtLeastOne: 2,
   maxDecimals: 12,
 } as const satisfies LedgerNumberFormat;
 
+// 数量：保留 8 位有效数字，不固定小数位，最多 12 位小数。理由同上，也是猜的。
 const QUANTITY_FORMAT = {
   significantDigits: 8,
   fixedDecimalsWhenAtLeastOne: null,
   maxDecimals: 12,
 } as const satisfies LedgerNumberFormat;
 
+/**
+ * 这个函数回答：一个金额在界面上写成什么样？
+ * 大于等于 1 的固定两位小数；小于 1 的留 6 位有效数字。
+ * 举例：6505 → 答 "6 505.00"；0.000123456789 → 答 "0.000123457"。
+ * 四舍五入到最近的一位。不是合法数字文字时会抛错。
+ */
 export function formatMoney(value: DecimalString): string {
   return formatWithRules(value, MONEY_FORMAT);
 }
 
+/**
+ * 这个函数回答：一个数量在界面上写成什么样？
+ * 留 8 位有效数字，末尾多余的 0 去掉。
+ * 举例：0.1 BTC → 答 "0.1"；1234.5678 → 答 "1 234.5678"。
+ * 不是合法数字文字时会抛错。
+ */
 export function formatQuantity(value: DecimalString): string {
   return formatWithRules(value, QUANTITY_FORMAT);
 }
 
+/**
+ * 这个函数回答：一个比例写成百分比是什么样？
+ * 乘 100，留两位小数；正数前面加加号。
+ * 举例：0.0523 → 答 "+5.23%"；-0.1 → 答 "-10.00%"；0 → 答 "0.00%"。
+ * 不是合法数字文字时会抛错。
+ */
 export function formatPercent(ratio: DecimalString): string {
   const decimal = toDecimal(ratio);
   const fixed = formatDecimal(decimal.times(100), {

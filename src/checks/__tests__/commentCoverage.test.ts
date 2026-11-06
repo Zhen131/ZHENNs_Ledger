@@ -78,16 +78,6 @@ const NOT_YET_DOCUMENTED: readonly string[] = [
   "app/workspaces/transactionsWorkspaceTypes.ts",
   "app/workspaces/useLedgerWorkspaceSession.ts",
   "app/workspaces/workspaceDrafts.ts",
-  "ui/ConfirmDeleteButton.tsx",
-  "ui/FileStatusIndicator.tsx",
-  "ui/LedgerIcon.tsx",
-  "ui/LedgerNumber.tsx",
-  "ui/PaginationBar.tsx",
-  "ui/SurfaceCard.tsx",
-  "ui/feedbackTiming.ts",
-  "ui/formatLedgerNumber.ts",
-  "ui/i18n.tsx",
-  "ui/translationGlossary.ts",
 ];
 
 describe("comment coverage", () => {
