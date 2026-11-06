@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Position } from "@/core/models";
 import {
   createLedgerSession,
-  INDEXED_DB_LEDGER_CAPABILITIES,
   type LedgerRepository,
 } from "@/platform/persistence";
+import { ALL_ENABLED_TEST_LEDGER_CAPABILITIES } from "@/test-support";
 import {
   buildLedgerProjection,
   type LedgerProjection,
@@ -29,9 +29,9 @@ const staticRepository: LedgerRepository = {
 };
 function staticSession() {
   return createLedgerSession({
-    storageKind: "indexeddb",
+    storageKind: "ledger-file",
     repository: staticRepository,
-    capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+    capabilities: ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
   });
 }
 const fixedClock: LedgerClock = {

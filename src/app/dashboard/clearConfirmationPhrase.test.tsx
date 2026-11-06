@@ -10,7 +10,6 @@ import {
   claimReadyLedgerClearExecutionContextForDriver,
   createLedgerSession,
   createReadyLedgerClearAuthorizationForDriver,
-  INDEXED_DB_LEDGER_CAPABILITIES,
   LEDGER_FILE_CAPABILITIES,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
 } from "@/platform/persistence";
@@ -20,6 +19,10 @@ import {
   translate,
   type LedgerLanguage,
 } from "@/ui";
+import {
+  ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
+  createRepositoryBackedReadyDrivers,
+} from "@/test-support";
 
 import {
   DashboardShell,
@@ -201,15 +204,17 @@ describe("the settings panel's typed clear phrase", () => {
 });
 
 describe("the data management panel's typed clear phrase", () => {
-  // The data management panel is gone; under the browser (indexeddb)
-  // storage the same gate is the settings page's clear panel, which asks for
-  // the settings phrase. What the repository sees is unchanged.
+  // The data management panel is gone; the same gate is the settings page's
+  // clear panel, which asks for the settings phrase. The session's clear
+  // driver finishes on the repository, so what the repository sees is
+  // unchanged.
   async function renderDashboardIn(language: LedgerLanguage) {
     const repository = createMemoryRepository(createCompleteLedger());
     const session = createLedgerSession({
-      storageKind: "indexeddb",
+      storageKind: "ledger-file",
       repository,
-      capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+      capabilities: ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
+      ...createRepositoryBackedReadyDrivers(repository),
     });
     render(
       <LanguageProvider storage={memoryStorage(language)}>

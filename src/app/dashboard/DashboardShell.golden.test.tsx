@@ -13,10 +13,12 @@ import userEvent from "@testing-library/user-event";
 import type { LedgerData } from "@/core/models";
 import {
   createLedgerSession,
-  INDEXED_DB_LEDGER_CAPABILITIES,
   type LedgerRepository,
 } from "@/platform/persistence";
-import { sampleTradeDrafts } from "@/test-support";
+import {
+  ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
+  sampleTradeDrafts,
+} from "@/test-support";
 import { createInitialLedgerData } from "@/core/state";
 import { isWithinTolerance } from "@/core/shared";
 import type { LedgerClock } from "@/core/shared";
@@ -38,15 +40,15 @@ function DashboardShell({
 }: {
   repository: LedgerRepository;
 }) {
-  // The storage semantics are what the shell defaulted to when these cases
-  // rendered it without a session: "indexeddb" with its capabilities.
+  // A ledger-file session with every capability on, the same switches these
+  // cases ran under before the browser storage kind was retired.
   return (
     <DashboardShellRuntime
       clock={fixedClock}
       session={createLedgerSession({
-        storageKind: "indexeddb",
+        storageKind: "ledger-file",
         repository,
-        capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+        capabilities: ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
       })}
     />
   );

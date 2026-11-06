@@ -2,7 +2,10 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { StoredLedgerEnvelopeV2 } from "./cryptoEnvelope";
-import { createNoopStoredLedgerEnvelope } from "@/test-support";
+import {
+  createNoopStoredLedgerEnvelope,
+  seedRetiredBrowserLedgerRecord,
+} from "@/test-support";
 import { IndexedDbStorageAdapter } from "./indexedDbStorageAdapter";
 
 const adapters: IndexedDbStorageAdapter[] = [];
@@ -35,6 +38,20 @@ function createAdapter(
 describe("IndexedDbStorageAdapter", () => {
   it("returns null for an empty database", async () => {
     await expect(createAdapter().read()).resolves.toBeNull();
+  });
+
+  it("reads a record that is already in the store", async () => {
+    const factory = new IDBFactory();
+    const options = {
+      indexedDBFactory: factory,
+      databaseName: "ledger-read-seeded",
+    };
+    const record = { fictionalRetiredLedger: "seeded" };
+    await seedRetiredBrowserLedgerRecord(options, record);
+
+    await expect(createAdapter(factory, options).read()).resolves.toEqual(
+      record,
+    );
   });
 
   it("round-trips and atomically replaces the whole envelope", async () => {

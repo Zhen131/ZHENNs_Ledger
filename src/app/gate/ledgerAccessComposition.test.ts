@@ -2,8 +2,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it, vi } from "vitest";
 
 import type { LedgerFileHandle } from "@/platform/files";
-import { IndexedDbStorageAdapter } from "@/platform/legacy";
-import { createNoopStoredLedgerEnvelope } from "@/test-support";
+import { seedRetiredBrowserLedgerRecord } from "@/test-support";
 import { LEDGER_FILE_ACCESS_ERROR_CODES } from "@/app/file-access";
 import {
   createApplicationLedgerAccessController,
@@ -32,9 +31,7 @@ describe("ledger access composition", () => {
     const indexedDBFactory = new IDBFactory();
     const databaseName = "composition-legacy-detection-test";
     const options = { databaseName, indexedDBFactory };
-    const storage = new IndexedDbStorageAdapter(options);
-    await storage.write(createNoopStoredLedgerEnvelope("{}"));
-    await storage.close();
+    await seedRetiredBrowserLedgerRecord(options);
 
     const controller = createApplicationLedgerAccessController(options);
     await expect(controller.inspect()).resolves.toEqual({
@@ -61,9 +58,7 @@ describe("ledger access composition", () => {
       databaseName: "composition-legacy-ledger",
       indexedDBFactory,
     };
-    const legacyStorage = new IndexedDbStorageAdapter(legacyOptions);
-    await legacyStorage.write(createNoopStoredLedgerEnvelope("{}"));
-    await legacyStorage.close();
+    await seedRetiredBrowserLedgerRecord(legacyOptions);
 
     const fileController = createApplicationLedgerFileAccessController({
       databaseName: "composition-file-connections",

@@ -5,26 +5,22 @@ import {
   renderHook,
   waitFor,
 } from "@testing-library/react";
-import { IDBFactory } from "fake-indexeddb";
 import {
   describe,
   expect,
   it,
   vi,
 } from "vitest";
-import type { StorageAdapter } from "@/platform/legacy";
 import {
-  createNoopStoredLedgerEnvelope,
-  NoopEncryptionService,
+  createValidatingMemoryLedgerRepository,
+  createValidatingMemoryLedgerStore,
 } from "@/test-support";
 import {
   createBackupEnvelope,
   parseBackupJson,
   serializeBackupEnvelope,
 } from "@/features/backup";
-import { createTestLedgerRepository } from "@/test-support";
 import {
-  DefaultLedgerRepository,
   LEDGER_REPOSITORY_ERROR_CODES,
   type LedgerRepository,
 } from "@/platform/persistence";
@@ -34,7 +30,6 @@ import {
   addTrade,
   createCompleteBackupLedger,
   createCompleteLedger,
-  createMemoryStorageAdapter,
   createRepository,
   usePersistentLedger,
 } from "./usePersistentLedger.testHelpers";
@@ -127,17 +122,15 @@ describe("usePersistentLedger backup import", () => {
     await expect(retryPromise).resolves.toBe(true);
   });
 
-  it("keeps the prior record and page data when DefaultLedgerRepository import write fails", async () => {
+  it("keeps the prior record and page data when the repository import write fails", async () => {
     const priorLedger = createCompleteLedger();
-    const { adapter, readStored } = createMemoryStorageAdapter(
-      priorLedger,
-      async () => {
-        throw new Error("write failed");
+    const { repository, store } = createValidatingMemoryLedgerRepository(
+      createValidatingMemoryLedgerStore(priorLedger),
+      {
+        write: async () => {
+          throw new Error("write failed");
+        },
       },
-    );
-    const repository = new DefaultLedgerRepository(
-      adapter,
-      new NoopEncryptionService(),
     );
     const { result } = renderHook(() => usePersistentLedger(repository));
 
@@ -156,26 +149,23 @@ describe("usePersistentLedger backup import", () => {
     });
 
     expect(result.current.ledgerData).toEqual(pageBeforeImport);
-    expect(readStored()).toEqual(
-      createNoopStoredLedgerEnvelope(JSON.stringify(priorLedger)),
-    );
+    expect(store.serialized).toBe(JSON.stringify(priorLedger));
     await expect(repository.load()).resolves.toEqual(priorLedger);
   });
 
   it("does not auto-save a failed mutation again after a failed import", async () => {
     const initialLedger = createInitialLedgerData();
     let writeCount = 0;
-    const { adapter, readStored } = createMemoryStorageAdapter(
-      initialLedger,
-      async () => {
-        writeCount += 1;
-        throw new Error(`write ${writeCount} failed`);
-      },
-    );
-    const repository = new DefaultLedgerRepository(
-      adapter,
-      new NoopEncryptionService(),
-    );
+    const { repository, store, write } =
+      createValidatingMemoryLedgerRepository(
+        createValidatingMemoryLedgerStore(initialLedger),
+        {
+          write: async () => {
+            writeCount += 1;
+            throw new Error(`write ${writeCount} failed`);
+          },
+        },
+      );
     const { result } = renderHook(() => usePersistentLedger(repository));
 
     await waitFor(() => {
@@ -189,7 +179,7 @@ describe("usePersistentLedger backup import", () => {
       );
     });
     await waitFor(() => {
-      expect(adapter.write).toHaveBeenCalledTimes(1);
+      expect(write).toHaveBeenCalledTimes(1);
       expect(result.current.persistenceStatus).toBe("error");
       expect(result.current.canRetryPersistence).toBe(true);
     });
@@ -206,38 +196,37 @@ describe("usePersistentLedger backup import", () => {
     });
 
     await waitFor(() => {
-      expect(adapter.write).toHaveBeenCalledTimes(2);
+      expect(write).toHaveBeenCalledTimes(2);
     });
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(adapter.write).toHaveBeenCalledTimes(2);
+    expect(write).toHaveBeenCalledTimes(2);
     expect(result.current.ledgerData).toEqual(pageBeforeImport);
     expect(result.current.mutationVersion).toBe(mutationVersionBeforeImport);
     expect(result.current.persistedVersion).toBe(persistedVersionBeforeImport);
     expect(result.current.persistenceStatus).toBe("error");
     expect(result.current.canRetryPersistence).toBe(true);
     expect(result.current.isDirty).toBe(true);
-    expect(readStored()).toEqual(
-      createNoopStoredLedgerEnvelope(JSON.stringify(initialLedger)),
-    );
+    expect(store.serialized).toBe(JSON.stringify(initialLedger));
   });
 
   it("queues import after an in-flight save and preserves the last successful record on import failure", async () => {
     const queuedSave = createDeferred<void>();
     let writeCount = 0;
     const priorLedger = createInitialLedgerData();
-    const { adapter } = createMemoryStorageAdapter(priorLedger, async () => {
-      writeCount += 1;
-      if (writeCount === 1) {
-        await queuedSave.promise;
-        return;
-      }
-      throw new Error("import failed");
-    });
-    const repository = new DefaultLedgerRepository(
-      adapter,
-      new NoopEncryptionService(),
+    const { repository, write } = createValidatingMemoryLedgerRepository(
+      createValidatingMemoryLedgerStore(priorLedger),
+      {
+        write: async () => {
+          writeCount += 1;
+          if (writeCount === 1) {
+            await queuedSave.promise;
+            return;
+          }
+          throw new Error("import failed");
+        },
+      },
     );
     const { result } = renderHook(() => usePersistentLedger(repository));
 
@@ -251,7 +240,7 @@ describe("usePersistentLedger backup import", () => {
       );
     });
     await waitFor(() => {
-      expect(adapter.write).toHaveBeenCalledTimes(1);
+      expect(write).toHaveBeenCalledTimes(1);
     });
     const queuedLedger = result.current.ledgerData;
     const importPromise = result.current.replaceLedgerFromBackup(
@@ -293,24 +282,16 @@ describe("usePersistentLedger backup import", () => {
   });
 
   it("preserves a corrupt record when hydration recovery import cannot write", async () => {
-    const corruptEnvelope = {
-      ...createNoopStoredLedgerEnvelope("{"),
-      ciphertextBase64Url: "not valid!",
-    };
-    let storedEnvelope: unknown | null = corruptEnvelope;
-    const adapter: StorageAdapter = {
-      read: vi.fn(async () => storedEnvelope),
-      write: vi.fn(async () => {
-        throw new Error("write failed");
-      }),
-      clear: vi.fn(async () => {
-        storedEnvelope = null;
-      }),
-    };
-    const repository = new DefaultLedgerRepository(
-      adapter,
-      new NoopEncryptionService(),
-    );
+    const corruptRecord = "{";
+    const { repository, store, clear } =
+      createValidatingMemoryLedgerRepository(
+        { serialized: corruptRecord },
+        {
+          write: async () => {
+            throw new Error("write failed");
+          },
+        },
+      );
     const { result } = renderHook(() => usePersistentLedger(repository));
 
     await waitFor(() => {
@@ -324,9 +305,10 @@ describe("usePersistentLedger backup import", () => {
     });
 
     expect(result.current.hydrationStatus).toBe("error");
-    expect(storedEnvelope).toEqual(corruptEnvelope);
-    expect(adapter.clear).not.toHaveBeenCalled();
-    await expect(adapter.read()).resolves.toEqual(corruptEnvelope);
+    expect(store.serialized).toBe(corruptRecord);
+    expect(clear).not.toHaveBeenCalled();
+    await expect(repository.load()).rejects.toThrow();
+    expect(store.serialized).toBe(corruptRecord);
   });
 
   it("rejects import from a ready read-only ledger without opening a write", async () => {
@@ -467,12 +449,9 @@ describe("usePersistentLedger backup import", () => {
   });
 
   it("round-trips a complete backup through Hook clear, import, and repository remount", async () => {
-    const indexedDBFactory = new IDBFactory();
-    const databaseName = "hook-backup-roundtrip";
-    const firstRepository = createTestLedgerRepository({
-      databaseName,
-      indexedDBFactory,
-    });
+    const savedLedgerStore = createValidatingMemoryLedgerStore();
+    const firstRepository =
+      createValidatingMemoryLedgerRepository(savedLedgerStore).repository;
     const fixture = createCompleteBackupLedger();
     const { result, unmount } = renderHook(() => usePersistentLedger(firstRepository));
 
@@ -507,10 +486,8 @@ describe("usePersistentLedger backup import", () => {
     });
 
     unmount();
-    const remountedRepository = createTestLedgerRepository({
-      databaseName,
-      indexedDBFactory,
-    });
+    const remountedRepository =
+      createValidatingMemoryLedgerRepository(savedLedgerStore).repository;
     const remounted = renderHook(() => usePersistentLedger(remountedRepository));
     await waitFor(() => {
       expect(remounted.result.current.hydrationStatus).toBe("ready");

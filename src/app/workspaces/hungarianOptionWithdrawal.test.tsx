@@ -61,7 +61,7 @@ describe("withdrawing the Hungarian option", () => {
           onClear={async () => false}
           persistenceOperation="idle"
           repositorySwitchBlocked={false}
-          storageKind="indexeddb"
+          storageKind="ledger-file"
         />
       </LanguageProvider>,
     );
@@ -98,7 +98,7 @@ describe("withdrawing the Hungarian option", () => {
           onClear={async () => false}
           persistenceOperation="idle"
           repositorySwitchBlocked={false}
-          storageKind="indexeddb"
+          storageKind="ledger-file"
         />
       </LanguageProvider>,
     );

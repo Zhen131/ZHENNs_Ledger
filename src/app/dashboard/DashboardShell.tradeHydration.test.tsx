@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 
-import { IDBFactory } from "fake-indexeddb";
 import {
   describe,
   expect,
@@ -13,7 +12,10 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createTestLedgerRepository } from "@/test-support";
+import {
+  createValidatingMemoryLedgerRepository,
+  createValidatingMemoryLedgerStore,
+} from "@/test-support";
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import {
@@ -116,13 +118,9 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("restores add, price, and delete across remounts, then keeps clear empty", async () => {
-    const indexedDBFactory = new IDBFactory();
-    const storageOptions = {
-      indexedDBFactory,
-      databaseName: "dashboard-persistence-round-trip",
-    };
+    const savedLedgerStore = createValidatingMemoryLedgerStore();
     const firstRepository =
-      createTestLedgerRepository(storageOptions);
+      createValidatingMemoryLedgerRepository(savedLedgerStore).repository;
     const firstView = await renderDashboard(firstRepository);
     const user = await fillBuyTrade();
 
@@ -142,7 +140,7 @@ describe("DashboardShell trade interactions", () => {
     firstView.unmount();
 
     const secondRepository =
-      createTestLedgerRepository(storageOptions);
+      createValidatingMemoryLedgerRepository(savedLedgerStore).repository;
     const secondView = await renderDashboard(secondRepository);
 
     const tradeSection = await openActivityTable();
@@ -165,7 +163,7 @@ describe("DashboardShell trade interactions", () => {
     secondView.unmount();
 
     const thirdRepository =
-      createTestLedgerRepository(storageOptions);
+      createValidatingMemoryLedgerRepository(savedLedgerStore).repository;
     const thirdView = await renderDashboard(thirdRepository);
     expect(
       within(await openActivityTable()).getByText(
@@ -195,7 +193,7 @@ describe("DashboardShell trade interactions", () => {
     thirdView.unmount();
 
     const fourthRepository =
-      createTestLedgerRepository(storageOptions);
+      createValidatingMemoryLedgerRepository(savedLedgerStore).repository;
     await renderDashboard(fourthRepository);
     expect(screen.getByText("还没有交易记录")).not.toBeNull();
     expect(

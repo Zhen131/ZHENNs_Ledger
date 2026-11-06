@@ -2,7 +2,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { IDBFactory } from "fake-indexeddb";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
@@ -12,7 +11,7 @@ import {
   parseBackupJson,
   serializeBackupEnvelope,
 } from "@/features/backup";
-import { createTestLedgerRepository } from "./createTestLedgerRepository";
+import { createValidatingMemoryLedgerRepository } from "./validatingMemoryLedgerRepository";
 
 const SRC_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DISPLAY_ROOTS = [join(SRC_ROOT, "app"), join(SRC_ROOT, "features")];
@@ -103,10 +102,7 @@ describe("ledger number display boundary", () => {
       updatedAt: "2026-07-20T11:00:00Z",
     });
 
-    const repository = createTestLedgerRepository({
-      indexedDBFactory: new IDBFactory(),
-      databaseName: "ledger-number-display-boundary",
-    });
+    const { repository } = createValidatingMemoryLedgerRepository();
     await repository.save(ledger);
     const reopened = await repository.load();
     expect(reopened).not.toBeNull();

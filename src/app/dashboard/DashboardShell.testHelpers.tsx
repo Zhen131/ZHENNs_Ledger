@@ -20,7 +20,6 @@ import {
 import type { LedgerData } from "@/core/models";
 import {
   createLedgerSession,
-  INDEXED_DB_LEDGER_CAPABILITIES,
   type LedgerReadyClearDriver,
   type LedgerRepository,
   type LedgerSession,
@@ -31,6 +30,8 @@ import {
 import type { PersistentLedgerState } from "@/app/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import {
+  ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
+  createRepositoryBackedReadyDrivers,
   createAsset as createUsdAssetFixture,
   createPriceSnapshot as createUsdPriceFixture,
   createSimpleTrade as createUsdTradeFixture,
@@ -246,7 +247,7 @@ export async function renderDashboard(
   repository: LedgerRepository = createMemoryRepository(),
   {
     storageKind = "indexeddb",
-    capabilities = INDEXED_DB_LEDGER_CAPABILITIES,
+    capabilities = ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
     readyClearDriver,
   }: {
     storageKind?: LedgerStorageKind;
@@ -254,11 +255,13 @@ export async function renderDashboard(
     readyClearDriver?: LedgerReadyClearDriver;
   } = {},
 ) {
+  const repositoryDrivers = createRepositoryBackedReadyDrivers(repository);
   const session = createLedgerSession({
     storageKind,
     repository,
     capabilities,
-    readyClearDriver,
+    readyClearDriver: readyClearDriver ?? repositoryDrivers.readyClearDriver,
+    readyImportDriver: repositoryDrivers.readyImportDriver,
   });
   const view = render(<DashboardShell session={session} />);
 
