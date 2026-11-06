@@ -1,5 +1,14 @@
+/**
+ * 这个文件放进账本前那几个画面共用的外框。
+ * 每个画面里放什么，由各个面板组件自己定。
+ * 没有特别的决定。
+ */
 import { type ReactNode } from "react";
 
+/**
+ * 这个组件画一张卡片：上面是应用名，标题，说明。
+ * 下面放传进来的内容。
+ */
 export function AccessPanel({
   title,
   description,

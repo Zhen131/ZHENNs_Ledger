@@ -1,7 +1,18 @@
+/**
+ * 这个文件管浏览器里还留着旧账本时的退役提示。
+ * 要不要显示它，由 `ledgerAccessGateSession.ts` 判断。
+ * 不显然的决定：提示页留着，再给新建、选已有两个出口。
+ * 2026-11-06 定（W24 06 第二节第 1 条）。
+ */
 import type { Translate } from "@/ui";
 import { AccessPanel } from "./AccessPanel";
 import { FormError } from "./FormError";
 
+/**
+ * 这个组件画旧账本退役的提示：旧的浏览器账本已经不用了。
+ * 用户可以选一个已有的账本文件，或新建一本。
+ * 动作失败时下面显示红字。
+ */
 export function LegacyRetiredPanel({
   formError,
   isSubmitting,

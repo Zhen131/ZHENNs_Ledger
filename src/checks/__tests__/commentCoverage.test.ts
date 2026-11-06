@@ -16,18 +16,6 @@ const ESLINT_REASON = " -- ";
 const TYPED_TAG = /@(?:param|returns|type) \{/u;
 
 const NOT_YET_DOCUMENTED: readonly string[] = [
-  "app/gate/AccessCheckingPanel.tsx",
-  "app/gate/AccessPanel.tsx",
-  "app/gate/FormError.tsx",
-  "app/gate/LedgerAccessGate.tsx",
-  "app/gate/LedgerAccessGateHelpers.ts",
-  "app/gate/LedgerAccessGateTypes.ts",
-  "app/gate/LegacyRetiredPanel.tsx",
-  "app/gate/PasswordField.tsx",
-  "app/gate/SessionLockingPanel.tsx",
-  "app/gate/ledgerAccessComposition.ts",
-  "app/gate/ledgerAccessGateActions.ts",
-  "app/gate/ledgerAccessGateSession.ts",
   "app/layout.tsx",
   "app/page.tsx",
 ];

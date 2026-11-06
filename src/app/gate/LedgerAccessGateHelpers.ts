@@ -1,3 +1,9 @@
+/**
+ * 这个文件放进账本前那道检查的两个小帮手。
+ * 一个记着没收完尾的会话，一个把错误码翻成给用户看的话。
+ * 不显然的决定：结构版本不对的提示里，版本号不写死。
+ * 2026-09-07 提交 2a61870 起这样做。
+ */
 import { SUPPORTED_LEDGER_SCHEMA_VERSION } from "@/platform/files";
 import {
   LEDGER_FILE_ACCESS_ERROR_CODES,
@@ -7,10 +13,20 @@ import {
 import type { Translate } from "@/ui";
 import type { PendingSessionCompletion } from "./LedgerAccessGateTypes";
 
+/**
+ * 每个文件打开器名下还没收完尾的会话。
+ * 页面重新挂上时，靠它接着等上一次的收尾。
+ */
 export const pendingSessionCompletions = new WeakMap<
   LedgerFileAccessController,
   PendingSessionCompletion
 >();
+/**
+ * 这个函数把打开账本文件的错误码翻成给用户看的一句话。
+ * 举例：`FILE_IN_USE` → 答「这个实际账本已被另一个页面……占用」那句。
+ * 用户自己取消的（`CANCELLED`）答空字符串，不显示错误。
+ * 认不出的错误码答一句通用的话。不会出错。
+ */
 export function getFileAccessErrorMessage(
   code: LedgerFileAccessErrorCode,
   t: Translate,
@@ -25,8 +41,8 @@ export function getFileAccessErrorMessage(
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_FILE_VERSION:
       return t("access.fileError.unsupportedFileVersion");
     case LEDGER_FILE_ACCESS_ERROR_CODES.UNSUPPORTED_LEDGER_SCHEMA:
-      // The version is read from its definition so this sentence follows the
-      // next schema bump instead of quietly naming a retired one.
+      // 为什么从定义处读：下次升结构版本，这句话自动跟着变。
+      // 免得悄悄写着一个已退役的版本。2026-09-07 提交 2a61870 写下这个理由。
       return (
         t("access.fileError.unsupportedLedgerSchemaPrefix") +
         SUPPORTED_LEDGER_SCHEMA_VERSION +

@@ -1,8 +1,18 @@
+/**
+ * 这个文件管进账本前用的密码输入框，带「显示密码」开关。
+ * 离开窗口、页面藏起或提交表单时，密码自动遮回去。
+ * 密码对不对、够不够长，由调用方判断。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useLanguage } from "@/ui";
 
+/**
+ * 这个组件画一个带标题的密码框，旁边有显示或隐藏的按钮。
+ * 切走窗口、页面藏起、提交、框变灰时，密码自动遮回去。
+ */
 export function PasswordField({
   label,
   value,

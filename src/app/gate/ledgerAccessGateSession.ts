@@ -1,3 +1,11 @@
+/**
+ * 这个文件管进账本前那道检查的开场和收场。
+ * 开场：查上次的文件和浏览器旧账本，决定先给哪个面板。
+ * 收场：上锁或出致命错时，让会话停工、放掉文件，再回到检查。
+ * 各个按钮背后的动作在同目录 `ledgerAccessGateActions.ts`。
+ * 不显然的决定：浏览器里还有旧账本时，先给退役提示。
+ * 查旧账本出错不当作有旧账本。2026-11-06 定（W24 06 第二节第 1 条）。
+ */
 import type { LedgerAccessController } from "@/platform/legacy";
 import type {
   Dispatch,
@@ -22,14 +30,16 @@ import type {
   PersistentLedgerState,
 } from "@/app/persistence";
 
+/** 开场时查「上次那个文件」得到的结果。 */
 export type RememberedConnectionInspection = Awaited<
   ReturnType<LedgerFileAccessController["inspectRememberedConnection"]>
 >;
 
 /**
- * Routes the access screen from the remembered-connection result computed
- * when the gate started. The retired-legacy notice reuses it, so leaving that
- * notice lands on exactly the screen the user would have seen without it.
+ * 这个函数按开场时查到的上次文件，决定停在哪个面板。
+ * 能直接用就去输密码；要再问权限就去重连；出错就显示重连错误；没有就去选择面板。
+ * 退役提示走开后也用它，所以用户看到的和没有提示时一样。
+ * 2026-11-06 提交 20b53b8 写下这个理由。不会出错。
  */
 export function routeRememberedConnection(
   reconnect: RememberedConnectionInspection,
@@ -62,6 +72,13 @@ type InitializeDeps = {
   setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>;
 };
 
+/**
+ * 这个函数做开场检查，决定先给用户看哪个面板。
+ * 上一次的会话还没收完尾，就先等它收完。
+ * 再查上次的文件，再查浏览器里有没有旧账本。
+ * 有旧账本就先给退役提示；查旧账本出错就照常往下走。
+ * 不抛错。
+ */
 export async function doInitialize(
   deps: InitializeDeps,
 ) {
@@ -144,16 +161,18 @@ export async function doInitialize(
     legacyReconnectRef.current = null;
     setAccessState({ status: "setup-required" });
     if (legacy.status === "unlock-required") {
-      // A retired browser ledger is still there. Say so first, and keep the
-      // remembered-connection result for the notice's "select existing" exit.
+      // 为什么先说退役：只有这页告诉老用户旧数据去哪了。
+      // 2026-11-06 定（W24 06 第二节第 1 条）。
+      // 上次文件的结果留着，提示里点「选已有」时要用。
+      // 2026-11-06 提交 20b53b8 写下。
       legacyReconnectRef.current = reconnect;
       setAccessPath("legacy-retired");
       return;
     }
     if (legacy.status === "error") {
-      // An unreadable presence check is not evidence of a legacy ledger, so
-      // the normal flow continues. Only the error code is logged: never the
-      // record, never the thrown value.
+      // 为什么出错照常走：查不出来不能当作有旧账本。
+      // 2026-11-06 定（W24 06 第二节第 1 条）。
+      // 控制台只记错误码，不记内容和抛出的值（2026-11-06 提交 20b53b8）。
       console.warn(
         `Legacy browser-ledger presence check failed (${legacy.code}); continuing with the normal ledger choice.`,
       );
@@ -190,6 +209,11 @@ type GateLifecycleEffectDeps = {
   setRecoveryId: Dispatch<SetStateAction<string | null>>;
 };
 
+/**
+ * 这个函数在检查画面挂上时做开场，在它卸下时收场。
+ * 卸下时还开着账本，就让会话停工；没开账本，就取消选了一半的文件。
+ * 返回一个收拾的函数。不抛错。
+ */
 export function runGateLifecycleEffect(
   deps: GateLifecycleEffectDeps,
 ) {
@@ -241,7 +265,7 @@ export function runGateLifecycleEffect(
         try {
           fileAccessController.cancelPendingSelection();
         } catch {
-          // Cleanup remains fail-closed if a custom controller reports failure.
+          // 为什么吞掉：凭证还留着，出错就停下，不乱动文件。2026-07-31 提交 40c7fa4。
         }
       }
     };
@@ -262,6 +286,11 @@ type FinishSessionLifecycleDeps = {
   startSessionLifecycle: ({ session, drain, reason, fatal, }: { session: LedgerSession; drain: PersistentLedgerState["drainForSessionQuiesce"]; reason: SessionQuiesceReason; fatal?: boolean; }) => Promise<void>;
 };
 
+/**
+ * 这个函数处理正常上锁：清掉输入，让会话停工。
+ * 同一个会话已经在上锁，交回那一次的结果。
+ * 没有打开的账本时什么都不做。不抛错。
+ */
 export function doFinishSessionLifecycle(
   deps: FinishSessionLifecycleDeps,
   drain: PersistentLedgerState["drainForSessionQuiesce"],
@@ -317,6 +346,11 @@ type FinishFatalSessionLifecycleDeps = {
   startSessionLifecycle: ({ session, drain, reason, fatal, }: { session: LedgerSession; drain: PersistentLedgerState["drainForSessionQuiesce"]; reason: SessionQuiesceReason; fatal?: boolean; }) => Promise<void>;
 };
 
+/**
+ * 这个函数处理导入后没法恢复的致命错：立刻上锁。
+ * 信号不是当前会话的就不理。
+ * 锁完后不重新检查，直接停在「已关」画面。不抛错。
+ */
 export function doFinishFatalSessionLifecycle(
   deps: FinishFatalSessionLifecycleDeps,
   drain: PersistentLedgerState["drainForSessionQuiesce"],
@@ -378,6 +412,11 @@ type RetryFailedSessionReleaseDeps = {
   setAccessState: Dispatch<SetStateAction<AccessState>>;
 };
 
+/**
+ * 这个函数处理用户点「重试释放」：再试一次放掉文件。
+ * 放掉了：致命错就停在「已关」，正常上锁就重新开场。
+ * 还是放不掉就回到「上锁出错」画面。不抛错。
+ */
 export async function doRetryFailedSessionRelease(
   deps: RetryFailedSessionReleaseDeps,
 ) {

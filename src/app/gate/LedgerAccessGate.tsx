@@ -1,3 +1,11 @@
+/**
+ * 这个文件是进账本前的那道检查。
+ * 选文件，输密码，新建，恢复，上锁，都从这里走。
+ * 各个按钮背后的动作在 `ledgerAccessGateActions.ts`，开场和收场在 `ledgerAccessGateSession.ts`。
+ * 打开之后的账本界面在 `app/dashboard`。
+ * 上锁要等会话停工、放掉文件后才算完。
+ * 没有特别的决定。
+ */
 "use client";
 
 import {
@@ -63,6 +71,13 @@ import {
   doSubmitFileUnlock,
 } from "./ledgerAccessGateActions";
 
+/**
+ * 这个组件画进账本前的那道检查，过了就换成账本界面。
+ * 开场先查上次的文件和浏览器旧账本，再给出对应面板。
+ * 面板有：选择，退役提示，新建，重连，输密码解锁，恢复。
+ * 上锁时显示「正在上锁」；放不掉文件时显示出错和重试按钮。
+ * 测试可以传入假的打开器和旧账本探测器。
+ */
 export function LedgerAccessGate({
   accessController = getDefaultLedgerAccessController(),
   fileAccessController = getDefaultLedgerFileAccessController(),
@@ -358,9 +373,9 @@ export function LedgerAccessGate({
     setFormError("");
     routeRememberedConnection(reconnect, setAccessPath, setReconnectError);
     if (reconnect.status === "none") {
-      // Same handler as the choice panel's "select a ledger" button; the
-      // choice panel is already showing, so a cancel or failure has a place
-      // to display its FormError.
+      // 为什么直接弹选文件：它和选择面板上选账本是同一个动作。
+      // 这时选择面板已经显示，取消或失败都有地方显示红字。
+      // 2026-11-06 提交 20b53b8 写下这个理由。
       void selectFileToOpen();
     }
   }
