@@ -35,8 +35,7 @@ export function expectedFileByteLength(bodySlotBytes: number): number {
 }
 
 /**
- * 这个函数回答。
- * 这个内容槽大小合不合规矩：整数，不小于 64 KiB，不超过上限。
+ * 这个函数回答：内容槽大小合不合规矩？规矩是整数，不小于 64 KiB，不超过上限。
  * 举例：65536 → 答合；1000 → 答不合。
  */
 export function isValidBodySlotBytes(value: unknown): value is number {
@@ -121,8 +120,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * 这个函数回答。
- * 一个对象的字段名是不是正好就是这几个，不多不少？
+ * 这个函数回答：字段名是不是正好这几个，不多不少？
  * 举例：要 ["a", "b"]，给 {a: 1, b: 2, c: 3} → 答不是。
  */
 export function isExactObject(

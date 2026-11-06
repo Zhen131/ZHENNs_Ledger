@@ -3,8 +3,7 @@
  * 包括两个文件头槽、三个内容槽。
  * 现在的程序只读写 S-3 分块那种。
  * 这份 S-2 格式只剩测试辅助代码在用。
- * 不显然的决定。
- * 保存时只写新的那一槽，上一代所在的槽一个字节都不碰。2026-09-01 定（W15 06B 修订 E 第 E.1 节）。
+ * 不显然的决定：保存只写新的一槽，上一代那槽不碰。2026-09-01 定（W15 06B 修订 E 第 E.1 节）。
  */
 
 import {
@@ -20,7 +19,7 @@ import { PREFIX_BYTES } from "./ledgerFileSlotContainerV3Constants";
 export const LEDGER_FILE_HEADER_SLOT_BYTES = 256 * 1024;
 /**
  * 内容槽有几个：3 个。
- * 为什么是 3：这一代、上一代各占一个，还要空一个给下次写。这是猜的，日志里没写，要核。
+ * 为什么是 3：这一代、上一代各占一个，还要空一个给下次写。2026-09-01 定（W15 06C 第 R-15 节）。
  */
 export const LEDGER_FILE_BODY_SLOT_COUNT = 3 as const;
 /** 每个内容槽最少多大：64 KiB。为什么是这个数：这是猜的，日志里没写，要核。 */
@@ -136,8 +135,7 @@ export type PreparedLedgerFileV3S2Write = {
 };
 
 /**
- * 这个函数回答。
- * 这串字节是不是以文件格式 3 的识别字节开头？
+ * 这个函数回答：这串字节开头是不是格式 3 的识别字节？
  * 举例：开头是 "LFTL3\r\n\0" → 答是。
  */
 export function isLedgerFileV3S2Bytes(bytes: Uint8Array): boolean {

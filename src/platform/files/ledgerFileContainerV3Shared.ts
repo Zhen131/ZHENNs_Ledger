@@ -88,8 +88,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * 这个函数回答。
- * 一个对象的字段名是不是正好就是这几个，不多不少？
+ * 这个函数回答：字段名是不是正好这几个，不多不少？
  * 举例：要 ["a", "b"]，给 {a: 1, b: 2} → 答是。
  */
 export function isExactObject(

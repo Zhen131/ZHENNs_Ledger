@@ -146,8 +146,7 @@ export function parseLedgerFileV3S1(
 }
 
 /**
- * 这个函数回答。
- * 一个已经读出来的对象是不是合规矩的 S-1 文件？
+ * 这个函数回答：读出来的对象是不是合规矩的 S-1 文件？
  * 举例：fileFormatVersion 是 2 → 答不是，`LEDGER_FILE_UNSUPPORTED_VERSION`。
  * 出错时不抛错，返回 ok:false 和错误。
  */

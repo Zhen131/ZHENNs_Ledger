@@ -91,7 +91,7 @@ export function getLedgerTimeZone(clock: LedgerClock): string {
   return clock.timeZone?.() ?? "UTC";
 }
 
-/** 程序平时用的那一个真钟，所有界面共用。 */
+/** 程序平时用的那一个真钟，界面和各区的服务共用。 */
 export const systemLedgerClock = createSystemLedgerClock();
 
 /**

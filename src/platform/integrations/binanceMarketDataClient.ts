@@ -50,8 +50,7 @@ type BinanceMarketDataClientOptions = {
 
 /**
  * 这个函数做一个跟 Binance 要行情的工具。
- * 它查交易对时要求。
- * 状态必须是在交易，基础币要对得上。
+ * 查交易对时，状态必须是在交易，基础币要对得上。
  * 报价币必须是 USDT，还要能现货交易。
  * 取价格时，价格必须是大于 0 的数字。
  * 举例：BTC 配 BTCUSDT → 答查得过；BTC 配 ETHUSDT → 答基础币对不上。

@@ -2,8 +2,7 @@
  * 这个文件管现在真正在用的账本文件格式。
  * 文件格式 3 第三步（S-3），按块存。
  * 它不管怎么分块，那在 ledgerFileChunkingV3Plan.ts；也不管加密，那在 ledgerFileCrypto.ts。
- * 不显然的决定。
- * 按条数分块，每块独立加密，块和块之间不串起来。2026-08-31 定（W15 06A 第 2.1、2.2 节）。
+ * 不显然的决定：按条数分块，每块单独加密，块间不串。2026-08-31 定（W15 06A 第 2.1、2.2 节）。
  */
 
 import {
@@ -155,8 +154,7 @@ export type PreparedLedgerFileV3S3Write = {
 };
 
 /**
- * 这个函数回答。
- * 这串字节是不是以文件格式 3 的识别字节开头？
+ * 这个函数回答：这串字节开头是不是格式 3 的识别字节？
  * 举例：开头是 "LFTL3\r\n\0" → 答是。
  */
 export function isLedgerFileV3S3Bytes(bytes: Uint8Array): boolean {

@@ -2,8 +2,7 @@
  * 这个文件管一个打开着的账本文件。
  * 包括新建、打开、读、存、清空、导入、从上一代恢复。
  * 它不管文件格式细节和加密，那在 Container 文件和 ledgerFileCrypto.ts。
- * 不显然的决定。
- * 每次存完都整份读回来核对，核不上就停下，不再往下写。2026-09-01 定（W15 06B 修订 E 第 E.2 节）。
+ * 不显然的决定：存完都整份读回核对，核不上就停。2026-09-01 定（W15 06B 修订 E 第 E.2 节）。
  */
 
 import { type LedgerFileHandleAdapter } from "./ledgerFileHandleAdapter";

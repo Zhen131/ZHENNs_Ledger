@@ -19,8 +19,7 @@ import { PAYLOAD_KEYS, LEDGER_DATA_KEYS } from "./ledgerFileContractConstants";
 import { isExactObject, failure } from "./ledgerFileContractShared";
 
 /**
- * 这个函数回答。
- * 这本账本配上保存时间，能不能变成要加密的那份内容？
+ * 这个函数回答：账本加上保存时间，能否变成待加密内容？
  * 它查保存时间、整本账本、大小上限。
  * 通过就给出变成文字后的样子。
  * 举例：保存时间 "2026-11-06" 没有时刻 → 答不能，`LEDGER_FILE_INVALID_PAYLOAD`。

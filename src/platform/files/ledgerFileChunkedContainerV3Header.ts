@@ -1,8 +1,7 @@
 /**
  * 这个文件管 S-3 文件头的形状，和按固定顺序把它拼出来。
  * 它不管把文件头写进槽里，那在 ledgerFileChunkedContainerV3Serialize.ts。
- * 不显然的决定。
- * 上一代只记和这一代不同的块，不再整本存两份。2026-09-01 定（W15 06C 第 R-2 节 F-5）。
+ * 不显然的决定：上一代只记不同的块，不整本存两份。2026-09-01 定（W15 06C 第 R-2 节 F-5）。
  */
 
 import { type LedgerFileCryptoV2 } from "./ledgerFileContract";

@@ -81,8 +81,7 @@ export function createReadyLedgerImportAuthorizationForDriver(
 }
 
 /**
- * 这个函数回答。
- * 这份清空申请是不是这一层亲手发出、而且还有效的？
+ * 这个函数回答：清空申请是不是本层发出、仍然有效？
  * 举例：确认句打错了 → 答不是；账本已经开始停止接新活 → 答不是。
  */
 export function isReadyLedgerClearAuthorizationContextForDriver(
@@ -141,8 +140,7 @@ export function claimReadyLedgerClearExecutionContextForDriver(
 }
 
 /**
- * 这个函数回答。
- * 这份导入申请是不是这一层亲手发出、而且还有效的？
+ * 这个函数回答：导入申请是不是本层发出、仍然有效？
  * 举例：备份里有可疑分组、用户还没确认 → 答不是。
  */
 export function isReadyLedgerImportAuthorizationContextForDriver(

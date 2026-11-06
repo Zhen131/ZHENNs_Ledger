@@ -102,8 +102,7 @@ export function expectedFileByteLength(bodySlotCount: number): number {
 }
 
 /**
- * 这个函数回答。
- * 这个对象是不是一份读出来的 S-3 文件，字段一个不少。
+ * 这个函数回答：对象是不是完整的 S-3 文件，字段一个不少？
  * 举例：缺了 manifestAuthTagBytes → 答不是。
  */
 export function isLogicalFile(input: unknown): input is LedgerFileV3S3 {
@@ -133,8 +132,7 @@ export function isLogicalFile(input: unknown): input is LedgerFileV3S3 {
 }
 
 /**
- * 这个函数回答。
- * 一个对象的字段名是不是正好就是这几个，不多不少？
+ * 这个函数回答：字段名是不是正好这几个，不多不少？
  * 举例：要 ["a", "b"]，给 {a: 1} → 答不是。
  */
 export function isExactObject<const Keys extends readonly string[]>(
