@@ -7,7 +7,7 @@ import {
   PRICE_SNAPSHOT_SERVICE_ERROR_CODES,
   createValidatedPriceSnapshot,
   type PriceSnapshotServiceDependencies,
-} from "./priceSnapshotService";
+} from "../priceSnapshotService";
 
 const TIMESTAMP = "2026-07-16T12:00:00.000Z";
 const validDraft: PriceSnapshotDraft = {

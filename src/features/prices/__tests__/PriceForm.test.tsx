@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PersistenceStatus } from "@/app";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
-import { PriceForm } from "./PriceForm";
-import type { PriceWorkspaceDraft } from "./priceWorkspaceDraft";
+import { PriceForm } from "../PriceForm";
+import type { PriceWorkspaceDraft } from "../priceWorkspaceDraft";
 
 afterEach(() => {
   cleanup();
