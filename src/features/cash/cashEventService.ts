@@ -13,6 +13,7 @@ import {
   systemLedgerClock,
 } from "@/core/shared";
 import {
+  isTechnicalId,
   isValidISODateOrDateTime,
   validateLedgerData,
 } from "@/core/validation";
@@ -256,10 +257,6 @@ function isCashEventType(value: unknown): value is CashEventType {
     value === "external-expense" ||
     value === "balance-adjustment"
   );
-}
-
-function isTechnicalId(value: string): boolean {
-  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

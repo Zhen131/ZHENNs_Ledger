@@ -4,6 +4,7 @@ import type {
   PriceSnapshot,
 } from "@/core/models";
 import {
+  isTechnicalId,
   type PriceSnapshotValidationError,
   validatePriceSnapshotDraft,
 } from "@/core/validation";
@@ -141,10 +142,6 @@ export function createValidatedPriceSnapshot(
       updatedAt: timestamp,
     },
   };
-}
-
-function isTechnicalId(value: string): boolean {
-  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function dependencyFailure(

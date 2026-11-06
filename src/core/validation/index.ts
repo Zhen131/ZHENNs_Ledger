@@ -15,6 +15,7 @@ export {
   evaluateLedgerResourcePolicyAfterTradeAppend,
 } from "./resourcePolicy";
 export { isValidISODateOrDateTime } from "./isoDateValidator";
+export { isTechnicalId } from "./technicalId";
 
 export type {
   TradeValidationError,

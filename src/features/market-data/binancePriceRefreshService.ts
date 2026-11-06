@@ -11,6 +11,7 @@ import {
   resolveAssetBinanceMappingForRuntime,
 } from "@/core/policies";
 import { isZero } from "@/core/shared";
+import { isTechnicalId } from "@/core/validation";
 import {
   captureLedgerTime,
   getLedgerDateKey,
@@ -265,10 +266,6 @@ export function mergeBinancePriceRefresh(
     appliedAssetSymbols,
     skippedAssetSymbols,
   };
-}
-
-function isTechnicalId(value: string): boolean {
-  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function chooseCanonicalBinanceSnapshot(

@@ -7,6 +7,7 @@ import type {
 import { replayPositions } from "@/core/calculations";
 import {
   TRADE_VALIDATION_ERROR_CODES,
+  isTechnicalId,
   type TradeValidationError,
   validateTradeDraft,
 } from "@/core/validation";
@@ -182,10 +183,6 @@ export function createValidatedTrade(
   }
 
   return { ok: true, trade };
-}
-
-function isTechnicalId(value: string): boolean {
-  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function createStructuredTradeRawText(

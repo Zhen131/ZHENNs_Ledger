@@ -4,7 +4,7 @@ import type {
   LedgerData,
 } from "@/core/models";
 import { isZero, systemLedgerClock } from "@/core/shared";
-import { validateLedgerData } from "@/core/validation";
+import { isTechnicalId, validateLedgerData } from "@/core/validation";
 
 const MAX_ASSET_ID_GENERATION_ATTEMPTS = 3;
 const MAX_ASSETS = 500;
@@ -267,10 +267,6 @@ function collectLedgerIds(ledgerData: LedgerData): Set<string> {
       ...ledgerData.feeRules,
     ].map(({ id }) => id),
   );
-}
-
-function isTechnicalId(value: string): boolean {
-  return value.length > 0 && value.length <= 128 && value.trim() === value;
 }
 
 function dependencyFailure(
