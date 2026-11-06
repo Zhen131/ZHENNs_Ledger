@@ -11,7 +11,7 @@ import {
   inspectAssetDependencies,
   normalizeAssetSymbol,
   removeLocalAsset,
-} from "./assetService";
+} from "../assetService";
 
 const TIMESTAMP = "2026-08-18T08:00:00.000Z";
 

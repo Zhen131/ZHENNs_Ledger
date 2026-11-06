@@ -8,7 +8,7 @@ import type { Asset, LedgerData } from "@/core/models";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade } from "@/test-support";
-import { LocalAssetManager } from "./LocalAssetManager";
+import { LocalAssetManager } from "../LocalAssetManager";
 
 const TIMESTAMP = "2026-08-18T08:00:00.000Z";
 const clock: LedgerClock = {
