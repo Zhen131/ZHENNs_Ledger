@@ -98,6 +98,7 @@ const DETAIL_COLUMN = {
   latestPrice: 8,
   marketValue: 9,
   unrealizedPnl: 10,
+  buyOutflow: 11,
 } as const;
 
 function getHoldingsTable(): HTMLElement {
@@ -370,10 +371,16 @@ describe("DashboardShell golden UI acceptance", () => {
     });
 
     expect(screen.getByText(/个成本点因异币手续费无法换算而断开/)).not.toBeNull();
+    // The old summary's four incomplete metrics are now three home cards plus
+    // the cumulative buy outflow, which lives in the holdings details.
+    expect(within(getHomeMetrics()).getAllByText("不可完整计算")).toHaveLength(3);
     await openHoldingsDetails();
     const positionRow = getPositionRow("BTC");
     expect(within(positionRow).getAllByText("不可可靠计算")).toHaveLength(4);
     expect(within(positionRow).getAllByTitle("12")).toHaveLength(2);
+    expect(
+      getPositionCellValue("BTC", DETAIL_COLUMN.buyOutflow),
+    ).toBe("不可完整计算");
     await closeHoldingsDetails();
     const tradeSection = await openActivityTable();
     await expandActivityRow(0);

@@ -32,10 +32,9 @@ import {
   createMemoryRepository,
   createRawBackupFile,
   createSimpleTrade,
-  getSection,
   goToPage,
+  goToTradeForm,
   openActivityTable,
-  renderDashboard,
   renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
@@ -68,26 +67,24 @@ vi.mock("echarts/core", () => ({
 describe("DashboardShell data management", () => {
   it("describes C as the only full ledger, opens pure B preflight and keeps B import fail-closed", async () => {
     const repository = createMemoryRepository();
-    render(
-      <DashboardShell
-        capabilities={{
-          canClearReadyLedger: false,
-          canClearHydrationError: false,
-          canImportBackup: false,
-        }}
-        repository={repository}
-        storageKind="ledger-file"
-      />,
-    );
+    await renderSessionDashboard(repository, {
+      storageKind: "ledger-file",
+      capabilities: {
+        canClearReadyLedger: false,
+        canClearHydrationError: false,
+        canImportBackup: false,
+      },
+    });
     const user = userEvent.setup();
+    await goToPage("导入与导出");
 
     expect(
       await screen.findByText(
-        /当前 .lftl 文件是唯一正式完整账本/,
+        "当前 .lftl 是加密正式账本；这里导入或导出的备份文件始终是另一份明文 JSON。",
       ),
     ).toBeTruthy();
     expect(
-      await screen.findByRole("button", { name: "导出完整账本备份" }),
+      await screen.findByRole("button", { name: "导出明文账本" }),
     ).toBeTruthy();
     expect(
       screen.getByLabelText("选择账本备份文件"),
@@ -104,9 +101,15 @@ describe("DashboardShell data management", () => {
     ).toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
     expect(repository.clear).not.toHaveBeenCalled();
+    // The settings page always shows its clear entry; without the clear
+    // capability that entry is disabled instead of absent.
+    await goToPage("设置");
+    await user.click(await screen.findByRole("tab", { name: "危险操作" }));
     expect(
-      screen.queryByRole("button", { name: "清空本地账本" }),
-    ).toBeNull();
+      (screen.getByRole("button", {
+        name: "打开清空账本操作",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   it("clears only the current C through fixed confirmation and accurate two-generation wording", async () => {
@@ -204,17 +207,13 @@ describe("DashboardShell data management", () => {
   it("imports a confirmed backup through the UI and updates every dashboard view", async () => {
     const repository = createMemoryRepository();
     const candidate = createCompleteLedger();
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
 
+    await goToPage("记账");
     await user.click(screen.getByRole("button", { name: "手动价格" }));
-    await user.click(
-      screen.getByRole("img", {
-        name: "最近 365 天交易活跃热力图",
-      }),
-    );
-    expect(getSection("交易列表 · 2026-07-14")).not.toBeNull();
 
+    await goToPage("导入与导出");
     await user.upload(
       screen.getByLabelText("选择账本备份文件"),
       createBackupFile(candidate),
@@ -229,25 +228,26 @@ describe("DashboardShell data management", () => {
     );
     await waitFor(() => {
       expect(repository.save).toHaveBeenCalledWith(candidate);
-      expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
-      expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
       expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
-      expect(getSection("交易列表")).not.toBeNull();
-      const totalMarketValue = screen
-        .getAllByTitle("79999")
-        .find((element) =>
-          element.closest("p")?.textContent?.includes("几何分配"),
-        );
-      expect(totalMarketValue?.closest("p")?.textContent).toContain(
-        "几何分配 1 项；净总资产 79 999.00 USDT",
-      );
-      const deficit = screen
-        .getAllByTitle("1")
-        .find((element) => element.closest("p")?.textContent?.includes("现金缺口"));
-      expect(deficit?.closest("p")?.textContent).toBe(
-        "现金缺口 1.00 USDT；负现金不绘制为正扇区。",
-      );
     });
+    expect(within(await openActivityTable()).getByText("BTC")).not.toBeNull();
+    await goToPage("首页");
+    const totalMarketValue = screen
+      .getAllByTitle("79999")
+      .find((element) =>
+        element.closest("p")?.textContent?.includes("几何分配"),
+      );
+    expect(totalMarketValue?.closest("p")?.textContent).toContain(
+      "几何分配 1 项；净总资产 79 999.00 USDT",
+    );
+    const deficit = screen
+      .getAllByTitle("1")
+      .find((element) => element.closest("p")?.textContent?.includes("现金缺口"));
+    expect(deficit?.closest("p")?.textContent).toBe(
+      "现金缺口 1.00 USDT；负现金不绘制为正扇区。",
+    );
+    await goToPage("记账");
+    expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
     expect(
       screen.getByRole("button", { name: "手动价格" }).getAttribute(
         "aria-pressed",
@@ -338,12 +338,15 @@ describe("DashboardShell data management", () => {
     const saveDeferred = createDeferred<void>();
     const repository = createMemoryRepository(createCompleteLedger());
     repository.save = vi.fn(() => saveDeferred.promise);
-    await renderDashboard(repository);
+    const imported = createInitialLedgerData();
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
+    await goToTradeForm();
+    await goToPage("导入与导出");
 
     await user.upload(
       screen.getByLabelText("选择账本备份文件"),
-      createBackupFile(createInitialLedgerData()),
+      createBackupFile(imported),
     );
     await user.click(
       await screen.findByRole("button", { name: "确认恢复备份" }),
@@ -358,6 +361,19 @@ describe("DashboardShell data management", () => {
       ).not.toBeNull();
     });
     expect(
+      (screen.getByRole("button", {
+        name: "导出明文账本",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("选择账本备份文件") as HTMLInputElement).disabled,
+    ).toBe(true);
+
+    // The other write paths live on other pages. Leaving the transfer page
+    // unmounts its import panel, so the import's own success line cannot be
+    // read afterward; the replaced data is checked instead.
+    await goToPage("记账");
+    expect(
       (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
@@ -365,28 +381,27 @@ describe("DashboardShell data management", () => {
       (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
+    await goToPage("交易");
     expect(
       (screen.getByRole("button", {
         name: "删除 买入 BTC 2026-07-14",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
+    await goToPage("设置");
+    await user.click(await screen.findByRole("tab", { name: "危险操作" }));
     expect(
       (screen.getByRole("button", {
-        name: "清空本地账本",
+        name: "打开清空账本操作",
       }) as HTMLButtonElement).disabled,
-    ).toBe(true);
-    expect(
-      (screen.getByRole("button", {
-        name: "导出完整账本备份",
-      }) as HTMLButtonElement).disabled,
-    ).toBe(true);
-    expect(
-      (screen.getByLabelText("选择账本备份文件") as HTMLInputElement).disabled,
     ).toBe(true);
 
     saveDeferred.resolve();
+    expect(repository.save).toHaveBeenCalledWith(imported);
+    const activityTable = await openActivityTable();
     await waitFor(() => {
-      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
+      expect(
+        within(activityTable).getByText("没有符合当前筛选的流水。"),
+      ).not.toBeNull();
     });
   });
 });

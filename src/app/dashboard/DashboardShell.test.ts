@@ -3,7 +3,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Position, Trade } from "@/core/models";
-import type { LedgerRepository } from "@/platform/persistence";
+import {
+  createLedgerSession,
+  INDEXED_DB_LEDGER_CAPABILITIES,
+  type LedgerRepository,
+} from "@/platform/persistence";
 import {
   buildLedgerProjection,
   type LedgerProjection,
@@ -25,6 +29,13 @@ const staticRepository: LedgerRepository = {
   save: async () => undefined,
   clear: async () => undefined,
 };
+function staticSession() {
+  return createLedgerSession({
+    storageKind: "indexeddb",
+    repository: staticRepository,
+    capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+  });
+}
 const fixedClock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00Z"),
 };
@@ -193,53 +204,18 @@ describe("DashboardShell ledger views", () => {
       projection([pricedPosition, unpricedPosition]),
     );
 
-    const html = renderToStaticMarkup(
+    renderToStaticMarkup(
       createElement(DashboardShell, {
-        repository: staticRepository,
         clock: fixedClock,
+        session: staticSession(),
       }),
     );
 
+    // How each position is displayed is asserted where it is displayed now:
+    // HoldingsOverview.test.tsx T3-01 and T-09.
     expect(buildLedgerProjectionMock).toHaveBeenCalledWith(
       createInitialLedgerData(),
       { asOf: "2026-07-25", mode: "auto" },
-    );
-    expect(html).toContain("SOL");
-    expect(html).toContain("2.3456789");
-    for (const raw of ["100", "200", "0", "120", "240", "40"]) {
-      expect(html).toContain(`title="${raw}"`);
-    }
-    expect(html).toContain(">100.00</span> USD");
-    expect(html).toContain(">200.00</span> USD");
-    expect(html).toContain(">120.00</span> USD");
-    expect(html).toContain(">240.00</span> USD");
-    expect(html).toContain(">40.00</span> USD");
-    expect(html).toContain("DOGE");
-    expect(html).toContain(">0.10</span> USD");
-    expect(html).toContain(">1.00</span> USD");
-    expect(html).toContain("未输入价格");
-    expect(html.match(/>--</g)).toHaveLength(1);
-    expect(html).toContain("缺少合法价格");
-    expect(html).toContain("剩余持仓成本");
-    expect(html).toContain("已实现盈亏");
-  });
-
-  it("renders the initial trade empty state from the current ledger", () => {
-    buildLedgerProjectionMock.mockReturnValue(projection());
-
-    const html = renderToStaticMarkup(
-      createElement(DashboardShell, {
-        repository: staticRepository,
-        clock: fixedClock,
-      }),
-    );
-
-    expect(buildLedgerProjectionMock).toHaveBeenCalledWith(
-      createInitialLedgerData(),
-      { asOf: "2026-07-25", mode: "auto" },
-    );
-    expect(html).toContain(
-      "暂无交易。添加交易后，这里会自动显示。",
     );
   });
 
@@ -248,8 +224,8 @@ describe("DashboardShell ledger views", () => {
 
     const html = renderToStaticMarkup(
       createElement(DashboardShell, {
-        repository: staticRepository,
         clock: fixedClock,
+        session: staticSession(),
       }),
     );
 
@@ -259,6 +235,6 @@ describe("DashboardShell ledger views", () => {
     expect(html).not.toContain("未来这里显示资产净值曲线和 K 线");
     expect(html).toContain("当前 USDT 资产分配");
     expect(html).toContain("总资产 / 剩余持仓成本");
-    expect(html).toContain("最近 365 天交易活跃");
+    expect(html).toContain("最近 365 天交易活动");
   });
 });

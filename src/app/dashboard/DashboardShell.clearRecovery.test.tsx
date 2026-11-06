@@ -17,10 +17,9 @@ import {
   createCompleteLedger,
   createMemoryRepository,
   createSimpleTrade,
-  getSection,
   goToPage,
+  goToTradeForm,
   openActivityTable,
-  renderDashboard,
   renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
@@ -67,35 +66,32 @@ async function openSettingsClear() {
 describe("DashboardShell data management", () => {
   it("does not clear when confirmation is cancelled or the fixed text is wrong", async () => {
     const repository = createMemoryRepository(createCompleteLedger());
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
 
-    await user.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
-    );
+    await openSettingsClear();
     expect(
       screen.getByText(
-        "这会永久删除自定义资产、交易、价格和手续费规则。请先导出完整账本备份。",
+        "自定义资产、交易、价格和手续费规则都会清空；不会删除浏览器或应用本身，也不会增加“删除账本文件”能力。",
       ),
     ).not.toBeNull();
-
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "确认清空账本内容" }),
     );
     expect(
-      screen.getByText("请输入完整确认文本“清空本地账本”"),
+      screen.getByText("请输入完整确认文本“清空账本”"),
     ).not.toBeNull();
     expect(repository.clear).not.toHaveBeenCalled();
 
     await user.type(screen.getByLabelText("输入清空确认文本"), "错误文本");
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "确认清空账本内容" }),
     );
     expect(repository.clear).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(screen.queryByLabelText("输入清空确认文本")).toBeNull();
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(within(await openActivityTable()).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -103,33 +99,36 @@ describe("DashboardShell data management", () => {
     const clearDeferred = createDeferred<void>();
     const repository = createMemoryRepository(createCompleteLedger());
     repository.clear = vi.fn(() => clearDeferred.promise);
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
 
+    await goToPage("记账");
     expect(screen.getAllByRole("option", { name: "SOL · Solana" })).toHaveLength(2);
-    await user.click(
-      screen.getByRole("img", {
-        name: "最近 365 天交易活跃热力图",
-      }),
-    );
-    expect(getSection("交易列表 · 2026-07-14")).not.toBeNull();
-    await user.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
-    );
+    await goToTradeForm();
+
+    await openSettingsClear();
     await user.type(
       screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      "清空账本",
     );
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "确认清空账本内容" }),
     );
 
     await waitFor(() => {
       expect(repository.clear).toHaveBeenCalledOnce();
       expect(
-        screen.getByText("正在清空本地账本，请勿关闭页面。"),
+        screen.getByText("正在清空并复读验证，请勿关闭页面。"),
       ).not.toBeNull();
     });
+    expect(
+      (screen.getByRole("button", {
+        name: "确认清空账本内容",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    // The other write paths live on other pages; leaving the settings page
+    // unmounts its clear panel, so the success line is not read afterward.
+    await goToPage("记账");
     expect(
       (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
@@ -138,28 +137,21 @@ describe("DashboardShell data management", () => {
       (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
     ).toBe(true);
+    await goToPage("交易");
     expect(
       (screen.getByRole("button", {
         name: "删除 买入 BTC 2026-07-14",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
-    expect(
-      (screen.getByRole("button", {
-        name: "确认永久清空",
-      }) as HTMLButtonElement).disabled,
-    ).toBe(true);
 
     clearDeferred.resolve();
     await waitFor(() => {
-      expect(screen.getByText("账本已清空")).not.toBeNull();
+      expect(
+        screen.getByText("没有符合当前筛选的流水。"),
+      ).not.toBeNull();
     });
-
+    await goToPage("记账");
     expect(screen.queryAllByRole("option", { name: "SOL · Solana" })).toEqual([]);
-    expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
-      ),
-    ).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -168,7 +160,7 @@ describe("DashboardShell data management", () => {
     repository.load = vi.fn(async () => {
       throw new Error("read failed");
     });
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
 
     expect(
@@ -176,38 +168,41 @@ describe("DashboardShell data management", () => {
         "本地账本读取失败，已停止自动保存以避免覆盖原数据",
       ),
     ).not.toBeNull();
+    // A failed load locks the record-target picker on the cash form, so the
+    // write path is read from that form's amount field.
+    await goToPage("记账");
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
-        .disabled,
+      (screen.getByLabelText("金额") as HTMLInputElement).disabled,
     ).toBe(true);
-    expect(
-      screen.queryByRole("button", { name: "清空本地账本" }),
-    ).toBeNull();
 
-    await user.click(
-      screen.getByRole("button", {
-        name: "清除损坏或无法读取的本地数据",
-      }),
-    );
+    await openSettingsClear();
     expect(
       screen.getByText(
-        "读取失败可能只是暂时性错误；继续将删除仍可能可恢复的自定义资产、交易、价格和手续费规则。请先使用有效备份恢复，或确认永久删除。",
+        "自定义资产、交易、价格和手续费规则都会清空；不会删除浏览器或应用本身，也不会增加“删除账本文件”能力。",
       ),
     ).not.toBeNull();
     await user.type(
       screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      "清空账本",
     );
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "确认清空账本内容" }),
     );
 
     await waitFor(() => {
-      expect(screen.getByText("账本已清空")).not.toBeNull();
-      expect(
-        screen.getByRole("button", { name: "清空本地账本" }),
-      ).not.toBeNull();
+      expect(screen.getByText("当前浏览器账本已清空")).not.toBeNull();
     });
+    // The recovered ledger is a new ledger epoch, so the settings page
+    // reopens on its first tab.
+    await user.click(screen.getByRole("tab", { name: "危险操作" }));
+    await waitFor(() => {
+      expect(
+        (screen.getByRole("button", {
+          name: "打开清空账本操作",
+        }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+    await goToTradeForm();
     expect(
       (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
         .disabled,

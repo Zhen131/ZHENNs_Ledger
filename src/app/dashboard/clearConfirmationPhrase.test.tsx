@@ -10,6 +10,7 @@ import {
   claimReadyLedgerClearExecutionContextForDriver,
   createLedgerSession,
   createReadyLedgerClearAuthorizationForDriver,
+  INDEXED_DB_LEDGER_CAPABILITIES,
   LEDGER_FILE_CAPABILITIES,
   READY_LEDGER_CLEAR_CONFIRMATION_TEXT,
 } from "@/platform/persistence";
@@ -54,8 +55,6 @@ afterEach(cleanup);
 
 const CHINESE_SETTINGS_PHRASE = "清空账本";
 const ENGLISH_SETTINGS_PHRASE = "clear ledger";
-const CHINESE_DASHBOARD_PHRASE = "清空本地账本";
-const ENGLISH_DASHBOARD_PHRASE = "Clear the local ledger";
 
 function memoryStorage(initial?: string) {
   let value = initial;
@@ -202,11 +201,19 @@ describe("the settings panel's typed clear phrase", () => {
 });
 
 describe("the data management panel's typed clear phrase", () => {
+  // The data management panel is gone; under the browser (indexeddb)
+  // storage the same gate is the settings page's clear panel, which asks for
+  // the settings phrase. What the repository sees is unchanged.
   async function renderDashboardIn(language: LedgerLanguage) {
     const repository = createMemoryRepository(createCompleteLedger());
+    const session = createLedgerSession({
+      storageKind: "indexeddb",
+      repository,
+      capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+    });
     render(
       <LanguageProvider storage={memoryStorage(language)}>
-        <DashboardShell repository={repository} />
+        <DashboardShell session={session} />
       </LanguageProvider>,
     );
     await waitFor(() => {
@@ -217,7 +224,17 @@ describe("the data management panel's typed clear phrase", () => {
     const user = userEvent.setup();
     await user.click(
       screen.getByRole("button", {
-        name: translate(language, "dashboard.dataManagement.clearLegacy"),
+        name: translate(language, "shared.shell.settings"),
+      }),
+    );
+    await user.click(
+      await screen.findByRole("tab", {
+        name: translate(language, "settings.tabs.danger"),
+      }),
+    );
+    await user.click(
+      screen.getByRole("button", {
+        name: translate(language, "settings.clear.open"),
       }),
     );
     return {
@@ -226,14 +243,11 @@ describe("the data management panel's typed clear phrase", () => {
       confirm: () =>
         user.click(
           screen.getByRole("button", {
-            name: translate(
-              language,
-              "dashboard.dataManagement.confirmClearLegacy",
-            ),
+            name: translate(language, "settings.clear.confirmation.confirm"),
           }),
         ),
       input: screen.getByLabelText(
-        translate(language, "dashboard.dataManagement.confirmAriaLabel"),
+        translate(language, "settings.clear.confirmation.inputAriaLabel"),
       ),
     };
   }
@@ -243,17 +257,17 @@ describe("the data management panel's typed clear phrase", () => {
       DEFAULT_LEDGER_LANGUAGE,
     );
 
-    await user.type(input, ENGLISH_DASHBOARD_PHRASE);
+    await user.type(input, ENGLISH_SETTINGS_PHRASE);
     await confirm();
     expect(repository.clear).not.toHaveBeenCalled();
 
     await user.clear(input);
-    await user.type(input, "清空本地");
+    await user.type(input, "清空账");
     await confirm();
     expect(repository.clear).not.toHaveBeenCalled();
 
     await user.clear(input);
-    await user.type(input, CHINESE_DASHBOARD_PHRASE);
+    await user.type(input, CHINESE_SETTINGS_PHRASE);
     await confirm();
     await waitFor(() => expect(repository.clear).toHaveBeenCalledOnce());
   });
@@ -261,17 +275,17 @@ describe("the data management panel's typed clear phrase", () => {
   it("accepts the English phrase and rejects a typo and the Chinese phrase", async () => {
     const { repository, user, confirm, input } = await renderDashboardIn("en");
 
-    await user.type(input, CHINESE_DASHBOARD_PHRASE);
+    await user.type(input, CHINESE_SETTINGS_PHRASE);
     await confirm();
     expect(repository.clear).not.toHaveBeenCalled();
 
     await user.clear(input);
-    await user.type(input, "Clear the local");
+    await user.type(input, "clear ledg");
     await confirm();
     expect(repository.clear).not.toHaveBeenCalled();
 
     await user.clear(input);
-    await user.type(input, ENGLISH_DASHBOARD_PHRASE);
+    await user.type(input, ENGLISH_SETTINGS_PHRASE);
     await confirm();
     await waitFor(() => expect(repository.clear).toHaveBeenCalledOnce());
   });

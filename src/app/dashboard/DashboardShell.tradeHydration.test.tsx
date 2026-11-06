@@ -21,8 +21,12 @@ import {
   createMemoryRepository,
   createSimpleTrade,
   fillBuyTrade,
+  closeHoldingsDetails,
+  deleteTradeAfterReview,
   getSection,
+  goToPage,
   openActivityTable,
+  openHoldingsDetails,
   renderDashboard,
   renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
@@ -90,14 +94,21 @@ describe("DashboardShell trade interactions", () => {
       ],
     };
 
-    await renderDashboard(createMemoryRepository(savedLedger));
+    await renderSessionDashboard(createMemoryRepository(savedLedger));
+    await goToPage("记账");
 
+    // The record page opens on the cash form; the trade form appears only
+    // once an asset is picked, so the trade half checks that the picker
+    // offers the restored asset and not the default one.
     await waitFor(() => {
-      expect(
-        (screen.getByLabelText("资产", {
+      const recordTargets = Array.from(
+        (screen.getByLabelText("记账对象", {
           selector: "select",
-        }) as HTMLSelectElement).value,
-      ).toBe("DOGE");
+        }) as HTMLSelectElement).options,
+        (option) => option.value,
+      );
+      expect(recordTargets).toContain("trade:DOGE");
+      expect(recordTargets).not.toContain("trade:BTC");
       expect(
         (screen.getByLabelText("价格资产", {
           selector: "select",
@@ -114,7 +125,7 @@ describe("DashboardShell trade interactions", () => {
     };
     const firstRepository =
       createTestLedgerRepository(storageOptions);
-    const firstView = await renderDashboard(firstRepository);
+    const firstView = await renderSessionDashboard(firstRepository);
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -134,23 +145,20 @@ describe("DashboardShell trade interactions", () => {
 
     const secondRepository =
       createTestLedgerRepository(storageOptions);
-    const secondView = await renderDashboard(secondRepository);
+    const secondView = await renderSessionDashboard(secondRepository);
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = await openActivityTable();
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
     expect(within(tradeSection).getAllByTitle("70")).not.toHaveLength(0);
 
-    const positionSection = getSection("资产汇总");
+    const positionSection = await openHoldingsDetails();
     expect(within(positionSection).getByTitle("80000")).not.toBeNull();
     expect(within(positionSection).getByTitle("80")).not.toBeNull();
     expect(within(positionSection).getByTitle("10")).not.toBeNull();
+    await closeHoldingsDetails();
 
-    const secondUser = userEvent.setup();
-    const persistedDelete = within(tradeSection).getByRole("button", {
-      name: "删除 买入 BTC 2026-07-14",
-    });
-    await secondUser.click(persistedDelete);
-    await secondUser.click(persistedDelete);
+    await openActivityTable();
+    deleteTradeAfterReview("删除 买入 BTC 2026-07-14");
     await waitFor(async () => {
       const savedLedger = await secondRepository.load();
       expect(savedLedger?.trades).toEqual([]);
@@ -160,41 +168,41 @@ describe("DashboardShell trade interactions", () => {
 
     const thirdRepository =
       createTestLedgerRepository(storageOptions);
-    const thirdView = await renderDashboard(thirdRepository);
+    const thirdView = await renderSessionDashboard(thirdRepository);
     expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
+      within(await openActivityTable()).getByText(
+        "没有符合当前筛选的流水。",
       ),
     ).not.toBeNull();
 
     const thirdUser = userEvent.setup();
+    await goToPage("设置");
     await thirdUser.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
+      await screen.findByRole("tab", { name: "危险操作" }),
+    );
+    await thirdUser.click(
+      screen.getByRole("button", { name: "打开清空账本操作" }),
     );
     await thirdUser.type(
       screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      "清空账本",
     );
     await thirdUser.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "确认清空账本内容" }),
     );
     await waitFor(() => {
-      expect(screen.getByText("账本已清空")).not.toBeNull();
+      expect(screen.getByText("当前浏览器账本已清空")).not.toBeNull();
     });
     await expect(thirdRepository.load()).resolves.toBeNull();
     thirdView.unmount();
 
     const fourthRepository =
       createTestLedgerRepository(storageOptions);
-    await renderDashboard(fourthRepository);
+    await renderSessionDashboard(fourthRepository);
+    expect(screen.getByText("还没有交易记录")).not.toBeNull();
     expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
-      ),
-    ).not.toBeNull();
-    expect(
-      within(getSection("资产汇总")).getByText(
-        "暂无持仓。添加交易后，这里会自动汇总。",
+      within(await openActivityTable()).getByText(
+        "没有符合当前筛选的流水。",
       ),
     ).not.toBeNull();
     await expect(fourthRepository.load()).resolves.toBeNull();

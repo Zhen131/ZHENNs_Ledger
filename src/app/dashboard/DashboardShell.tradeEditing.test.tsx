@@ -16,18 +16,15 @@ import userEvent from "@testing-library/user-event";
 import type { LedgerRepository } from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import {
-  DashboardShell,
   confirmNegativeCashIfNeeded,
   createMemoryRepository,
-  createSimpleTrade,
   createTrade,
+  deleteTradeAfterReview,
   fillBuyTrade,
-  getSection,
   goToPage,
   goToTradeForm,
   openActivityTable,
   openHoldingsDetails,
-  renderDashboard,
   renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
@@ -144,58 +141,6 @@ describe("DashboardShell trade interactions", () => {
       expect(screen.getByText("已保存到本地")).not.toBeNull();
     });
     expect(repository.save).toHaveBeenCalledTimes(2);
-  });
-
-  it("requires explicit confirmation before abandoning dirty state for a repository switch", async () => {
-    const oldRepository = createMemoryRepository();
-    oldRepository.save = vi.fn(async () => {
-      throw new Error("write failed");
-    });
-    const newLedger = {
-      ...createInitialLedgerData(),
-      trades: [
-        createSimpleTrade(
-          "trade-ui-repository-switch",
-          "buy",
-          "ETH",
-          "2",
-          "2026-07-15",
-        ),
-      ],
-    };
-    const newRepository = createMemoryRepository(newLedger);
-    const view = await renderDashboard(oldRepository);
-    const user = await fillBuyTrade();
-
-    await user.click(screen.getByRole("button", { name: "保存交易" }));
-    await confirmNegativeCashIfNeeded(user);
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "重试保存" })).not.toBeNull();
-    });
-
-    view.rerender(<DashboardShell repository={newRepository} />);
-    expect(
-      screen.getByText(
-        "当前账本尚未保存，已阻止切换本地账本存储。请先重试保存，或明确放弃未保存更改。",
-      ),
-    ).not.toBeNull();
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
-    expect(newRepository.load).not.toHaveBeenCalled();
-
-    await user.click(
-      screen.getByRole("button", {
-        name: "放弃未保存更改并切换",
-      }),
-    );
-    await waitFor(() => {
-      expect(newRepository.load).toHaveBeenCalledOnce();
-      expect(within(getSection("交易列表")).getByText("ETH")).not.toBeNull();
-      expect(
-        screen.queryByRole("button", {
-          name: "放弃未保存更改并切换",
-        }),
-      ).toBeNull();
-    });
   });
 
   it("creates a validated buy and updates both the trade list and positions", async () => {
@@ -403,7 +348,8 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("shows validator feedback and keeps the ledger unchanged for invalid input", async () => {
-    await renderDashboard();
+    await renderSessionDashboard();
+    await goToTradeForm();
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText("数量"), "0.001");
@@ -418,15 +364,12 @@ describe("DashboardShell trade interactions", () => {
       screen.getByText("成交金额与数量 × 成交均价不一致"),
     ).not.toBeNull();
     expect(
-      within(getSection("交易列表")).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
+      within(await openActivityTable()).getByText(
+        "没有符合当前筛选的流水。",
       ),
     ).not.toBeNull();
-    expect(
-      within(getSection("资产汇总")).getByText(
-        "暂无持仓。添加交易后，这里会自动汇总。",
-      ),
-    ).not.toBeNull();
+    await goToPage("首页");
+    expect(screen.getByText("还没有交易记录")).not.toBeNull();
   });
 
   it("blocks deletion when removing a buy would invalidate a later sell", async () => {
@@ -470,28 +413,22 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("deletes a safe trade and updates both empty states", async () => {
-    await renderDashboard();
+    await renderSessionDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
     await confirmNegativeCashIfNeeded(user);
+    await screen.findByText("交易已认证保存");
 
-    const tradeSection = getSection("交易列表");
-    const safeDelete = within(tradeSection).getByRole("button", {
-      name: "删除 买入 BTC 2026-07-14",
+    const tradeSection = await openActivityTable();
+    deleteTradeAfterReview("删除 买入 BTC 2026-07-14");
+
+    await waitFor(() => {
+      expect(
+        within(tradeSection).getByText("没有符合当前筛选的流水。"),
+      ).not.toBeNull();
     });
-    await user.click(safeDelete);
-    await user.click(safeDelete);
-
-    expect(
-      within(tradeSection).getByText(
-        "暂无交易。添加交易后，这里会自动显示。",
-      ),
-    ).not.toBeNull();
-    expect(
-      within(getSection("资产汇总")).getByText(
-        "暂无持仓。添加交易后，这里会自动汇总。",
-      ),
-    ).not.toBeNull();
+    await goToPage("首页");
+    expect(screen.getByText("还没有交易记录")).not.toBeNull();
   });
 
   it("saves a manual price and updates market value and unrealized PnL", async () => {
