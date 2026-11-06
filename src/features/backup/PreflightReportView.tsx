@@ -1,3 +1,8 @@
+/**
+ * 这个文件管界面上的预检报告。
+ * 预检结果在 `backupImportPreflight.ts` 算好，可复制的文字版在 `backupImportReport.ts`。
+ * 不显然的决定：页面只显示前 50 条详情，复制的报告有 1000 条；2026-07-31 定（W11 03A 第 4.4 节）。
+ */
 "use client";
 
 import {
@@ -7,6 +12,13 @@ import {
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { CopyState } from "./backupControlsTypes";
 
+/**
+ * 这个组件画一次预检的报告。
+ * 先是隐私提醒和文件情况。
+ * 再是硬错误数、疑似重复数、提醒。
+ * 下面滚动显示详情。
+ * 硬错误带位置，疑似重复带程度和每笔简样。
+ */
 export function PreflightReportView({
   copyState,
   onCopy,

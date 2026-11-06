@@ -1,3 +1,9 @@
+/**
+ * 这个文件管 B 文件（明文备份）的外壳。
+ * 怎么包、怎么拆、怎么检查都在这里。
+ * 账本里面每一笔记录怎么检查，交给 core 的 `validateLedgerData`。
+ * 不显然的决定：旧版本的 B 文件一律拒绝，不做升级；2026-08-27 定（W15 000 第三节）。
+ */
 import type { LedgerData } from "@/core/models";
 import {
   validateLedgerImportPolicy,
@@ -18,8 +24,20 @@ import {
 } from "@/core/validation";
 import { translateDefault } from "@/ui";
 
+/**
+ * B 文件外壳的版本号，现在是 3。
+ * 为什么是 3：账本升到第三版时换了新外壳；2026-08-19 定（W14 01A 第四节）。
+ * 它和账本结构版本各管各的，只在外壳变时才升。
+ * 这条 2026-08-27 定（W15 000 第一节）。
+ */
 export const BACKUP_FORMAT_VERSION = 3 as const;
 
+/**
+ * 第 3 版 B 文件的样子：五个顶层键，顺序固定。
+ * 外壳版本、程序版本、导出时刻。
+ * 账本结构版本、账本本身。
+ * 账本结构版本现在只认 5。
+ */
 export type BackupEnvelopeV3 = {
   backupFormatVersion: 3;
   appVersion: string;
@@ -28,6 +46,10 @@ export type BackupEnvelopeV3 = {
   ledgerData: LedgerData;
 };
 
+/**
+ * 外壳本身出错时的一条错误：代码、出错的位置、说明。
+ * 比如不是 JSON、版本号不认识、导出时刻写错。
+ */
 export type BackupEnvelopeContractError = {
   code:
     | "BACKUP_BAD_JSON"
@@ -40,6 +62,10 @@ export type BackupEnvelopeContractError = {
   message: string;
 };
 
+/**
+ * 检查 B 文件时可能碰到的所有错误，有四种来源。
+ * 外壳、账本结构、大小上限、导入规矩。
+ */
 export type BackupEnvelopeError =
   | BackupEnvelopeContractError
   | LedgerDataValidationError
@@ -55,6 +81,13 @@ type BackupMetadata = {
   exportedAt: string;
 };
 
+/**
+ * 这个函数回答：把当前账本包成一个 B 文件外壳，行不行？
+ * 先检查账本合规矩、不超上限、没有今天以后的记录，再包。
+ * 举例：一本合规的账本，程序版本 0.1.0。
+ * → 答一个外壳版本 3、结构版本 5 的 B。
+ * 什么时候出错：不抛错，返回 `ok:false` 和全部错误。
+ */
 export function createBackupEnvelope(
   ledgerData: unknown,
   metadata: BackupMetadata,
@@ -100,10 +133,20 @@ export function createBackupEnvelope(
   };
 }
 
+/**
+ * 这个函数把 B 文件外壳变成文字，缩进两格，末尾带一个换行。
+ * 不会出错。
+ */
 export function serializeBackupEnvelope(envelope: BackupEnvelopeV3): string {
   return `${JSON.stringify(envelope, null, 2)}\n`;
 }
 
+/**
+ * 这个函数回答：一段文字能不能读成一个合格的 B 文件？
+ * 先看大小，再读 JSON，最后交给 `validateBackupEnvelope` 检查。
+ * 举例：文字超过大小上限 → 答不行，不再往下读。
+ * 什么时候出错：不抛错，返回 `ok:false` 和错误清单。
+ */
 export function parseBackupJson(
   serializedBackup: string,
   todayKey: string = captureLedgerTime(systemLedgerClock).todayKey,
@@ -128,6 +171,16 @@ export function parseBackupJson(
   return validateBackupEnvelope(parsed, todayKey);
 }
 
+/**
+ * 这个函数回答：读进来的是不是合格的第 3 版 B 文件？
+ * 外壳版本低于 3、或结构版本低于 5：直接拒绝。
+ * 说明里写明不提供升级。
+ * 否则外壳、账本、上限、导入规矩全查一遍。
+ * 错误一次报齐。
+ * 举例：外壳版本 2 → 答不行，只报这一条，不往下查。
+ * 为什么旧版本直接拒绝：现在是 Alpha，不做升级；2026-08-27 定（W15 000 第三节）。
+ * 什么时候出错：不抛错，返回 `ok:false`。
+ */
 export function validateBackupEnvelope(
   input: unknown,
   todayKey: string = captureLedgerTime(systemLedgerClock).todayKey,

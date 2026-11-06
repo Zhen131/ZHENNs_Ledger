@@ -1,3 +1,8 @@
+/**
+ * 这个文件管导入后「联网配币安对」那一块的画面。
+ * 配对怎么跑在 `backupControlsPairing.ts`。
+ * 不显然的决定：只给按钮，不自动联网；2026-08-19 定（W14 01B 第 5.3 节）。
+ */
 "use client";
 
 import { isPostImportPairingBusy } from "./backupControlsHelpers";
@@ -7,6 +12,13 @@ import type {
 } from "./backupControlsTypes";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画导入后的配对提示。
+ * 列出还没配币安对的币。
+ * 给「联网自动配对」和「稍后处理」两个按钮。
+ * 跑完后显示结论和每种币的失败原因。
+ * 账本不能写时，说明现在配不了。
+ */
 export function BackupControlsPairingPanel({
   applyLedgerMutation,
   dismissPostImportPairing,

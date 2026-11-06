@@ -1,3 +1,8 @@
+/**
+ * 这个文件管一件事：把预检结果写成一份可以复制的 Markdown 报告。
+ * 预检本身在 `backupImportPreflight.ts`，界面上的报告在 `PreflightReportView.tsx`。
+ * 不显然的决定：报告第一段先提醒里面有隐私；2026-07-31 定（W11 03A 第 4.4 节）。
+ */
 import type { BackupImportPreflightResult } from "./backupImportPreflightResult";
 import type {
   BackupPreflightHardError,
@@ -6,6 +11,14 @@ import type {
 } from "./backupImportPreflightTypes";
 import { translateDefault } from "@/ui";
 
+/**
+ * 这个函数回答：这次预检的报告写成 Markdown 是什么样？
+ * 依次是隐私提醒、总数、文件情况、提醒。
+ * 然后是没做的检查和每条详情。
+ * 详情最多 1000 条，超了在末尾写明截断。
+ * 举例：1200 条详情 → 报告写前 1000 条，并说第 1001 条后已截断。
+ * 不会出错。
+ */
 export function formatBackupImportReportMarkdown(
   result: BackupImportPreflightResult,
 ): string {

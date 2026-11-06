@@ -1,3 +1,9 @@
+/**
+ * 这个文件放预检用的一堆小函数。
+ * 它们收集错误、整理基本情况、排序、去重。
+ * 总的顺序在 `backupImportPreflight.ts` 里定。
+ * 不显然的决定：硬错误按检查阶段、位置、代码排序；2026-07-31 定（W11 03A 第 4.4 节）。
+ */
 import type { LedgerData } from "@/core/models";
 import { replayUsdtCash } from "@/core/calculations";
 import { absolute, isNegative } from "@/core/shared";
@@ -12,6 +18,12 @@ import type {
   BackupPreflightWarning,
 } from "./backupImportPreflightTypes";
 
+/**
+ * 这个函数把一条检查错误变成报告里的一条硬错误。
+ * 它补上检查阶段和说明；出错的是某笔交易时，再补上交易简样。
+ * 举例：`trades[3].quantity` 出错 → 答第 4 阶段的一条，带第 3 笔的简样。
+ * 不会出错。
+ */
 export function normalizeEnvelopeError(
   error: BackupEnvelopeError,
   parsed: unknown,
@@ -32,6 +44,10 @@ export function normalizeEnvelopeError(
   };
 }
 
+// 检查阶段的编号照预检的固定顺序。
+// 大小 1、JSON 2、外壳 3、账本 4。
+// 原句 5、上限 6、导入规矩 7，别的 8。
+// 这个顺序 2026-07-31 定（W11 03A 第 4.3 节）。
 function getValidationStage(code: string): number {
   if (code === "LEDGER_RESOURCE_FILE_TOO_LARGE") return 1;
   if (code === "BACKUP_BAD_JSON") return 2;
@@ -74,6 +90,12 @@ function toChineseErrorMessage(error: BackupEnvelopeError): string {
   return labels[error.code] ?? translateDefault("backup.preflight.validationFailedPrefix") + error.message;
 }
 
+/**
+ * 这个函数回答：哪些交易没带原句？每笔记一条硬错误。
+ * 只在「历史导入」时调用。
+ * 举例：第 146 笔原句是空格 → 答一条，位置 `trades[146].rawText`。
+ * 不会出错。
+ */
 export function collectHistoricalRawTextErrors(
   parsed: unknown,
 ): BackupPreflightHardError[] {
@@ -107,6 +129,11 @@ export function collectHistoricalRawTextErrors(
   return errors;
 }
 
+/**
+ * 这个函数回答：哪些交易的编号和前面某笔重了？每笔记一条硬错误。
+ * 前面已经报过的同一位置，不重复报。
+ * 举例：第 5 笔和第 2 笔编号一样 → 答一条，说和第 2 笔重复。
+ */
 export function collectDuplicateTradeIdErrors(
   parsed: unknown,
   existingErrors: readonly BackupPreflightHardError[],
@@ -153,6 +180,11 @@ export function collectDuplicateTradeIdErrors(
   return errors;
 }
 
+/**
+ * 这个函数回答：哪些位置上的交易编号出现了不止一次？
+ * 举例：第 2、5 笔编号一样 → 答 {2, 5}。
+ * 这些交易不再参加找重复。
+ */
 export function collectDuplicateTradeIdIndexes(parsed: unknown): ReadonlySet<number> {
   const ledgerData = getLedgerDataInput(parsed);
   if (!isRecord(ledgerData) || !Array.isArray(ledgerData.trades)) {
@@ -179,6 +211,12 @@ export function collectDuplicateTradeIdIndexes(parsed: unknown): ReadonlySet<num
   );
 }
 
+/**
+ * 这个函数整理 B 文件的基本情况。
+ * 有文件名、版本号、导出时刻、各类记录条数。
+ * 账本检查过了时，再算出现金余额、缺口和没配币安对的币。
+ * 读不到的就不写。
+ */
 export function collectMetadata(
   parsed: unknown,
   sourceFileName?: string,
@@ -226,6 +264,11 @@ export function collectMetadata(
   return metadata;
 }
 
+/**
+ * 这个函数只整理外壳上的基本情况。
+ * 有文件名、版本号、导出时刻。
+ * 旧版本文件被拒绝时用它，不往账本里面读。
+ */
 export function collectTopLevelMetadata(
   parsed: Record<string, unknown>,
   sourceFileName?: string,
@@ -261,6 +304,11 @@ function collectLedgerSummary(
   };
 }
 
+/**
+ * 这个函数回答：这本账导入后有没有要提醒的？
+ * 现在只看一样：现金会不会是负数。
+ * 举例：导入后 USDT 余额 -200 → 答一条提醒。
+ */
 export function collectWarnings(
   ledgerData: LedgerData | undefined,
 ): BackupPreflightWarning[] {
@@ -279,6 +327,11 @@ export function collectWarnings(
     : [];
 }
 
+/**
+ * 这个函数回答：第几笔交易的简样是什么？
+ * 只取日期、币、买卖、数量、单价、金额、币种。
+ * 读不到的就空着。
+ */
 export function createTradeSummary(
   parsed: unknown,
   index: number | undefined,
@@ -318,19 +371,29 @@ export function createTradeSummary(
   };
 }
 
+/** 这个函数取出 B 文件里 `ledgerData` 那一块，没有就返回空。 */
 export function getLedgerDataInput(parsed: unknown): unknown {
   return isRecord(parsed) ? parsed.ledgerData : undefined;
 }
 
+/** 这个函数回答：账本那一块里有没有一个 `trades` 数组？ */
 export function hasTradeCollection(ledgerInput: unknown): boolean {
   return isRecord(ledgerInput) && Array.isArray(ledgerInput.trades);
 }
 
+/**
+ * 这个函数从出错位置里读出是第几笔交易。
+ * 举例：`trades[146].rawText` → 答 146；别的位置答空。
+ */
 export function getTradeIndex(path: string): number | undefined {
   const match = /^trades\[(\d+)\]/.exec(path);
   return match ? Number(match[1]) : undefined;
 }
 
+/**
+ * 这个函数去掉重复的硬错误。
+ * 阶段、代码、位置、行列都一样才算重复。
+ */
 export function deduplicateHardErrors(
   errors: readonly BackupPreflightHardError[],
 ): BackupPreflightHardError[] {
@@ -351,6 +414,11 @@ export function deduplicateHardErrors(
   });
 }
 
+/**
+ * 这个函数定两条硬错误谁排前面。
+ * 先比阶段，再比位置，最后比代码。
+ * 位置里的数字按大小比，`trades[2]` 排在 `trades[10]` 前面。
+ */
 export function compareHardErrors(
   left: BackupPreflightHardError,
   right: BackupPreflightHardError,
@@ -362,6 +430,12 @@ export function compareHardErrors(
   );
 }
 
+/**
+ * 这个函数回答：JSON 读不下去，错在第几行第几列？
+ * 浏览器的说明里有行列就直接用。
+ * 只有字符位置，就换算成行列。
+ * 都没有就返回空，不编一个出来。
+ */
 export function extractJsonErrorLocation(
   error: unknown,
   serializedBackup: string,
@@ -391,6 +465,7 @@ export function extractJsonErrorLocation(
   };
 }
 
+/** 这个函数算一段字节的 SHA-256 摘要，写成小写十六进制。 */
 export async function digestSha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await globalThis.crypto.subtle.digest(
     "SHA-256",
@@ -401,6 +476,7 @@ export async function digestSha256Hex(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
+/** 这个函数造一条「这项检查没做」的记录：哪一项、为什么。 */
 export function skipped(
   check: BackupPreflightSkippedCheck["check"],
   reason: string,
@@ -408,6 +484,7 @@ export function skipped(
   return { check, reason };
 }
 
+/** 这个函数把一个东西连同里面的每一层都冻住，谁也改不了。 */
 export function deepFreeze<T>(value: T): T {
   if (
     typeof value !== "object" ||
@@ -424,6 +501,10 @@ export function deepFreeze<T>(value: T): T {
   return value;
 }
 
+/**
+ * 这个函数回答：这个值是不是一个普通对象？
+ * 空值和数组都不算。
+ */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

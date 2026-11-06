@@ -1,3 +1,9 @@
+/**
+ * 这个文件管备份区每个按钮按下后做什么。
+ * 按钮有导出、选文件、确认、复制报告、导入。
+ * 画面在 `BackupControls.tsx`，导入后的配对在 `backupControlsPairing.ts`。
+ * 不显然的决定：换文件、取消、离开页面都让旧的预检作废；2026-07-31 定（W11 03A 第 4.6 节）。
+ */
 import packageJson from "@root/package.json";
 import type {
   ChangeEvent,
@@ -54,6 +60,12 @@ type BackupControlsMountEffectDeps = {
   suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
 };
 
+/**
+ * 这个函数在备份区出现时记下「在了」。
+ * 它返回离开时要做的收尾。
+ * 离开时：取消进行中的导入和配对，作废这次预检和确认。
+ * 不会出错。
+ */
 export function runBackupControlsMountEffect(
   deps: BackupControlsMountEffectDeps,
 ) {
@@ -94,6 +106,11 @@ type ResetFileSelectionDeps = {
   suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
 };
 
+/**
+ * 这个函数清掉已选的 B 文件和它的预检结果。
+ * 进行中的导入会被取消，预检和确认都作废。
+ * 不会出错。
+ */
 export function doResetFileSelection(
   deps: ResetFileSelectionDeps,
 ) {
@@ -137,6 +154,13 @@ type HandleExportDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「导出 B 文件」。
+ * 包外壳、变文字、看大小，都过了才交给浏览器下载。
+ * 举例：账本有改动还没存上 → 照样导出。
+ * 这时提示这是一份救援备份，可能比已存的新。
+ * 包不了、太大、超上限、下载出错：显示原因，不下载。
+ */
 export function doHandleExport(
   deps: HandleExportDeps,
 ) {
@@ -221,6 +245,13 @@ type HandleFileChangeDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「选了一个 B 文件」。
+ * 先看大小，再读文字，再交给预检。
+ * 读的过程中又选了别的文件，旧结果直接丢掉。
+ * 预检有硬错误：停下；有疑似重复：等人确认；都没有：等人点导入。
+ * 举例：选了一个 200 MiB 的文件 → 不读，直接说文件太大。
+ */
 export function doHandleFileChange(
   deps: HandleFileChangeDeps,
   event: ChangeEvent<HTMLInputElement>,
@@ -303,8 +334,9 @@ export function doHandleFileChange(
           todayKey: selectionTimeSnapshot.todayKey,
           selectionGeneration,
           sourceFileName: file.name,
-          // Normal V4 restore keeps Trade.rawText optional; only an explicitly
-          // selected historical-ingest surface opts into strict source lines.
+          // 平常恢复备份，交易的原句可有可无。
+          // 只有明确选了「历史导入」入口，才逐笔要原句。
+          // 这条 2026-07-31 定（W11 03A 第 4.3 节第 5 条）。
           requireHistoricalRawText: requiresHistoricalRawText,
         });
       } catch {
@@ -358,6 +390,10 @@ type ConfirmSuspiciousGroupsDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「疑似重复我看过了，照样导入」。
+ * 只对当前这次预检有效；没有疑似重复或已换文件时，什么都不做。
+ */
 export function doConfirmSuspiciousGroups(
   deps: ConfirmSuspiciousGroupsDeps,
 ) {
@@ -405,6 +441,11 @@ type CopyPreflightReportDeps = {
   setCopyState: Dispatch<SetStateAction<CopyState>>;
 };
 
+/**
+ * 这个函数把预检报告复制到剪贴板。
+ * 复制失败就显示失败，不假装复制好了。
+ * 复制期间换了文件，结果不再显示。
+ */
 export async function doCopyPreflightReport(
   deps: CopyPreflightReportDeps,
 ) {
@@ -458,6 +499,14 @@ type ConfirmImportDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「确认导入」。
+ * 它把预检过的账本交给写入那一步。
+ * 零硬错误、疑似重复已确认、文件没换，才会去导入。
+ * 导入成功后，列出还没配币安对的币，提示可以联网配对。
+ * 导入失败：按原因显示。
+ * 比如已恢复原样、外部改过、结果不确定。
+ */
 export async function doConfirmImport(
   deps: ConfirmImportDeps,
 ) {

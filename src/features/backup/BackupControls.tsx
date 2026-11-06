@@ -1,3 +1,9 @@
+/**
+ * 这个文件管设置页的备份区。
+ * 导出、预检、导入、导入后配币安对都在这里。
+ * 每个按钮的处理在 `backupControlsActions.ts` 和 `backupControlsPairing.ts`。
+ * 不显然的决定：有硬错误时没有导入按钮；2026-07-31 定（W11 03A 第 4.6 节）。
+ */
 "use client";
 
 import {
@@ -73,8 +79,9 @@ type BackupControlsProps = {
   isReadOnly: boolean;
   isDirty: boolean;
   /**
-   * This capability controls only the final write. Pure B preflight remains
-   * available to a ready C session while this value is false.
+   * 只管最后那一步写进账本。
+   * 它为假时，读好的账本照样能做预检。
+   * 这条 2026-07-31 定（W11 03A 第 4.6 节）。
    */
   canImportBackup?: boolean;
   canPreflightBackup?: boolean;
@@ -104,6 +111,13 @@ type BackupControlsProps = {
   showPlaintextWarning?: boolean;
 };
 
+/**
+ * 这个组件画设置页的备份区。
+ * 上面是「导出」和「选文件」两个按钮。
+ * 下面是预检报告和导入按钮。
+ * 导入成功后，有没配币安对的币就显示配对那一块。
+ * 账本正在存盘时，按钮暂时不能点。
+ */
 export function BackupControls({
   clock = systemLedgerClock,
   ledgerData,
@@ -206,8 +220,11 @@ export function BackupControls({
         t,
       },
     );
-    // Mutable operation tokens deliberately advance only on persistence facts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 只在存盘结果变化时往前推配对。
+    // 正在进行的那次配对记在 ref 里，不需要列进依赖。
+    // 为什么只看存盘：映射真存上后才去取价格；2026-08-19 定（W14 01B 第 5.3 节）。
+    // 函数不列进依赖这一点，日志里没写，这是猜的，要核。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在存盘结果变化时推动配对，理由部分是猜的，见上方
   }, [mutationVersion, persistedVersion, persistenceStatus]);
 
   const showExport = hydrationStatus === "ready";

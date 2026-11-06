@@ -1,30 +1,40 @@
+/**
+ * 这个文件管一件事：找出 B 里疑似记了两次的买卖。
+ * 它只提醒，不改、不删、不合并任何一笔；要不要导入由人决定。
+ * 不显然的决定：编号重复的交易不进这里，算硬错误；2026-07-31 定（W11 03A 第 4.5 节）。
+ */
 import type { Trade } from "@/core/models";
 import { toDecimalString } from "@/core/shared";
 import { getLedgerDateKey } from "@/core/shared";
 
+/** 一笔交易，加上它在 B 文件 `trades` 里的原位置。 */
 export type IndexedBackupTrade = Readonly<{
   originalIndex: number;
   trade: Readonly<Trade>;
 }>;
 
+/** 疑似重复的程度：`high` 是手续费也一样，`general` 是手续费不一样。 */
 export type BackupDuplicateSuspicionLevel = "high" | "general";
 
+/**
+ * 两笔交易为什么被认为疑似重复。
+ * 记着它们的原位置和触发的那条时间规则。
+ */
 export type BackupDuplicateTriggerEdge = Readonly<{
   leftIndex: number;
   rightIndex: number;
   relation: "same-exact-time" | "same-day-with-day-precision";
 }>;
 
+/** 一组疑似重复的交易：程度、原位置、编号、触发的关系。 */
 export type SuspiciousBackupTradeGroup = Readonly<{
   level: BackupDuplicateSuspicionLevel;
   tradeIndices: readonly number[];
   tradePaths: readonly `trades[${number}]`[];
   tradeIds: readonly string[];
   /**
-   * A deterministic linear-size witness set of real suspicious relations.
-   *
-   * This is intentionally not every pair in a clique. Every member is linked
-   * by actual edges, while N identical trades need only N - 1 edges.
+   * 只记最少几条真实的触发关系，不把组里两两都列出来。
+   * N 笔一模一样的交易，只记 N - 1 条。
    */
   triggerEdges: readonly BackupDuplicateTriggerEdge[];
 }>;
@@ -45,11 +55,17 @@ type InternalEdge = Readonly<{
 }>;
 
 /**
- * Groups suspicious historical trades without changing the candidate ledger.
- *
- * Entries whose ID occurs more than once are excluded completely: duplicate
- * identifiers belong to the hard-error layer and must not be reframed as a
- * warning that a user could confirm past.
+ * 这个函数回答：这些交易里，哪些疑似是同一笔记了两次？
+ * 比较日期时间、买卖、币、数量、单价、成交金额、币种。
+ * 编号、备注、原始文字、创建时间不比。
+ * 举例：两笔都是 2026-07-01 买 0.1 BTC、单价 65000、成交 6500。
+ * → 答一组；手续费也一样就是 `high`，不一样就是 `general`。
+ * 两笔都精确到秒、但时刻不同：不算重复。
+ * 至少一笔只记到天、且同一天：算疑似。
+ * 为什么编号重复的不放进来：那是硬错误。
+ * 不能让人点一下确认就放过。
+ * 这条 2026-07-31 定（W11 03A 第 4.5 节）。
+ * 不会出错。
  */
 export function groupSuspiciousBackupTrades(
   indexedTrades: readonly IndexedBackupTrade[],
@@ -181,8 +197,8 @@ function createExactTimeKey(
     return undefined;
   }
 
-  // Exact records compare their real instant. Source-date semantics apply only
-  // when at least one endpoint has day precision.
+  // 精确时刻的记录比真实时刻。
+  // 只要有一笔只记到天，才按记录那天的日期比。
   return String(instant);
 }
 

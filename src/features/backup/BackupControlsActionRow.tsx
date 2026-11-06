@@ -1,3 +1,9 @@
+/**
+ * 这个文件管备份区最上面那一排按钮。
+ * 一个「导出」，一个「选文件」。
+ * 点了以后做什么由上层 `BackupControls.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type {
@@ -9,6 +15,11 @@ import type { Translate } from "@/ui";
 
 
 
+/**
+ * 这个组件画「导出 B 文件」和「选 B 文件」两个按钮。
+ * 账本打开好了才显示导出。
+ * 正在存盘时按钮不能点，并说明原因。
+ */
 export function BackupControlsActionRow({
   canExport,
   canSelect,

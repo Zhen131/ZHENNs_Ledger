@@ -1,3 +1,9 @@
+/**
+ * 这个文件管导入 B 之后的「联网配币安对」。
+ * 分四步：验证、存映射、取价格、存价格。
+ * 联网和合并的细节交给 market-data 功能区。
+ * 不显然的决定：要人点按钮才联网，映射存上后才去取价格；2026-08-19 定（W14 01B 第 5.3 节）。
+ */
 import type {
   Dispatch,
   RefObject,
@@ -27,7 +33,10 @@ import {
 import { normalizePairingFailure } from "./backupControlsHelpers";
 import type { BinanceRefreshSuccess } from "@/features/market-data";
 
-// Shape of BackupControls' `pairingLatestRef` (inferred there from its useRef initial value).
+/**
+ * `BackupControls` 里 `pairingLatestRef` 存的那份最新状态的样子。
+ * 那边的类型是从初始值推出来的，这里照着写一份。
+ */
 type PairingLatest = {
   ledgerData: LedgerData;
   ledgerEpoch: number;
@@ -44,6 +53,10 @@ type PairingOperationIsCurrentDeps = {
   pairingOperationRef: RefObject<PostImportPairingOperation | null>;
 };
 
+/**
+ * 这个函数回答：这次配对还算数吗？
+ * 页面还在、没有新的配对、账本还能写、没换账本，才算数。
+ */
 export function doPairingOperationIsCurrent(
   deps: PairingOperationIsCurrentDeps,
   operation: PostImportPairingOperation,
@@ -76,6 +89,14 @@ type StartPostImportPairingDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「联网自动配对」。
+ * 先把要配的币冻住，只配仍然没有映射的。
+ * 举例：提示 SOL、DOGE 要配，SOL 已经手动配好 → 只配 DOGE。
+ * 验证成功的一次性写进账本，然后等存盘。
+ * 写进去前发现映射被别处改过，就不写。
+ * 全部失败或写不进去：结束并说明原因。
+ */
 export async function doStartPostImportPairing(
   deps: StartPostImportPairingDeps,
 ) {
@@ -238,6 +259,12 @@ type FetchPostImportPricesDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数在映射存好后，一次取回这些币的最新价格。
+ * 取到的价格合并成当天的币安价，再等存盘。
+ * 举例：配好 DOGE，取到 0.12 → 账本多一条 DOGE 当天的币安价。
+ * 联网出错、取不到的币都记成失败，已存的映射不回滚。
+ */
 export async function doFetchPostImportPrices(
   deps: FetchPostImportPricesDeps,
   operation: PostImportPairingOperation,
@@ -391,6 +418,7 @@ type CompletePostImportPairingDeps = {
   t: Translate;
 };
 
+/** 这个函数给这次配对下结论：全成、部分成、全失败。 */
 export function doCompletePostImportPairing(
   deps: CompletePostImportPairingDeps,
   operation: PostImportPairingOperation,
@@ -424,6 +452,7 @@ type FinishPostImportPairingDeps = {
   setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
 };
 
+/** 这个函数结束这次配对，写上结论、说明和全部失败清单。 */
 export function doFinishPostImportPairing(
   deps: FinishPostImportPairingDeps,
   operation: PostImportPairingOperation,
@@ -460,6 +489,11 @@ type PairingInvalidationEffectDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数取消正在进行的配对。
+ * 账本换了、锁了、不能写了时用。
+ * 取消后显示「已取消」。
+ */
 export function runPairingInvalidationEffect(
   deps: PairingInvalidationEffectDeps,
 ) {
@@ -502,6 +536,12 @@ type PairingPersistenceEffectDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数看存盘结果，推动配对往下走。
+ * 映射存好了：去取价格。
+ * 价格存好了：下结论。
+ * 存盘失败：结束并说明没存上的是映射还是价格。
+ */
 export function runPairingPersistenceEffect(
   deps: PairingPersistenceEffectDeps,
 ) {

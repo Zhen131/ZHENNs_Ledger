@@ -1,3 +1,9 @@
+/**
+ * 这个文件管导入 B 文件前的预检。
+ * 一次查完，把能发现的问题全列出来。
+ * 它不写账本、不碰 C 文件；真正写入在 app 的导入流程里。
+ * 不显然的决定：预检绝对不写 C，问题一次报齐；2026-07-31 定（W11 03A 第 4.1、4.3 节）。
+ */
 import type { LedgerData } from "@/core/models";
 import { validateLedgerImportPolicy } from "@/core/policies";
 import {
@@ -51,7 +57,16 @@ import type {
   BackupImportPreflightResult,
 } from "./backupImportPreflightResult";
 
+/**
+ * 页面上最多显示的详情条数，50。
+ * 为什么是 50：2026-07-31 定（W11 03A 第 4.4 节）。
+ */
 export const BACKUP_PREFLIGHT_PAGE_DETAIL_LIMIT = 50;
+/**
+ * 留在内存、写进复制报告的详情条数上限，1000。
+ * 为什么是 1000：2026-07-31 定（W11 03A 第 4.4 节）。
+ * 页面那 50 条不会挤掉报告里第 51～1000 条。
+ */
 export const BACKUP_PREFLIGHT_REPORT_DETAIL_LIMIT = 1000;
 
 type BackupImportPreflightOptions = Readonly<{
@@ -59,12 +74,25 @@ type BackupImportPreflightOptions = Readonly<{
   selectionGeneration: number;
   sourceFileName?: string;
   /**
-   * Only the explicit historical-ingest path requires every trade to preserve
-   * a source line. Normal ledger schema V4 backup restore keeps Trade.rawText optional.
+   * 只有明确走「历史导入」时，才要求每笔交易都带原句。
+   * 平常恢复备份，原句可有可无。
+   * 这条 2026-07-31 定（W11 03A 第 4.3 节第 5 条）。
    */
   requireHistoricalRawText?: boolean;
 }>;
 
+/**
+ * 这个函数回答：这个 B 文件能不能导入？有哪些问题？
+ * 顺序固定：看大小、读 JSON、查外壳、查账本。
+ * 再查原句、查上限、查导入规矩、找重复。
+ * 前一步做不了时，后面的检查记成「没做」，不算通过。
+ * 举例：BTC 一笔数量写错、ETH 两笔疑似重复。
+ * → 答一条硬错误、一组疑似重复，不给可导入的账本。
+ * 零硬错误时，结果里带一份冻住的账本。
+ * 同时记下底账，供后面核对。
+ * 为什么问题要一次报齐：免得改一处查一次；2026-07-31 定（W11 03A 第 4.3 节）。
+ * 不会抛错，问题都写在结果里。
+ */
 export async function preflightBackupJson(
   serializedBackup: string,
   options: BackupImportPreflightOptions,
@@ -224,8 +252,10 @@ export async function preflightBackupJson(
       ),
     );
   } else {
-    // These calls are intentionally explicit. validateBackupEnvelope() also
-    // applies them, while the preflight records that the layers really ran.
+    // 这两层在查外壳时已经跑过一次。
+    // 这里故意再明着调用，让预检看得出每一层都跑过。
+    // 为什么这样写：2026-07-31 提交 fd680c5 写的，日志里没写。
+    // 这是猜的，要核。
     evaluateLedgerResourcePolicy(ledgerResult.value);
     validateLedgerImportPolicy(ledgerResult.value, options.todayKey);
   }
@@ -365,6 +395,7 @@ async function finalizeResult(
   return result;
 }
 
-// Compile-time guard: preflight consumes backup format V3 carrying ledger schema V4.
+// 编译时的检查：预检只认第 3 版 B 文件外壳。
+// 外壳版本号一改，这里会编译报错，提醒来改预检。
 const _backupEnvelopeV3Contract: BackupEnvelopeV3["backupFormatVersion"] = 3;
 void _backupEnvelopeV3Contract;
