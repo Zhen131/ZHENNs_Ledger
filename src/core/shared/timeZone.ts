@@ -1,3 +1,11 @@
+/**
+ * 这个文件管时区换算。
+ * 它回答某一刻在某地是几点，也回答某地的几点是哪一刻。
+ * 它不管表单怎么用这些结果（那在 factMoment.ts），也不管排序（那在 ledgerFactOrder.ts）。
+ * 不显然的决定：夏令时规则交给浏览器自带的时区库。
+ * 2026-09-06 定（W16 时间与时区决策记录第四节）。
+ */
+
 type ZonedDateTimeParts = Readonly<{
   year: string;
   month: string;
@@ -13,8 +21,9 @@ type WallTimeCandidate = Readonly<{
 }>;
 
 /**
- * Returns the UTC offset that applied in an IANA zone at an exact instant.
- * This deliberately delegates seasonal rules to the runtime's IANA database.
+ * 这个函数回答：某一刻在某地，当地时间比 UTC 快或慢多少。
+ * 举例：2026-07-01 中午在 Europe/Budapest → 答 "+02:00"；1 月同一时刻 → 答 "+01:00"。
+ * 地点认不出或时刻无效时抛错。
  */
 export function getTimeZoneOffsetAt(
   instant: Date,
@@ -41,7 +50,10 @@ export function getTimeZoneOffsetAt(
 }
 
 /**
- * Converts an exact instant to an RFC 3339-like wall-clock string in an IANA zone.
+ * 这个函数回答：某一刻在某地的钟面上是几点。
+ * 答案连同时差一起写出来。
+ * 举例：2026-08-19T21:40:32Z 在 Asia/Shanghai → 答 "2026-08-20T05:40:32+08:00"。
+ * 时刻无效或地点认不出时抛错。
  */
 export function formatWallTimeInTimeZone(
   instant: Date,
@@ -65,9 +77,10 @@ export function formatWallTimeInTimeZone(
 }
 
 /**
- * Resolves every exact instant which the runtime formats as a supplied wall
- * time in an IANA zone. A spring-forward gap has no candidates; a fall-back
- * overlap has two. This uses only the runtime IANA database and fixed input.
+ * 这个函数回答：某地钟面上的这个时间，对应哪几个真实时刻？
+ * 举例：Europe/Budapest 的 2026-03-29T02:30:00 → 答空，钟跳过了这段。
+ * 举例：同地 2026-10-25T02:30:00 → 答两个时刻，这段走了两遍。
+ * 时间写法不是「年-月-日T时:分:秒」或日期不存在时抛错。
  */
 export function resolveWallTimeInTimeZone(
   wallTime: string,
@@ -107,6 +120,10 @@ export function resolveWallTimeInTimeZone(
   return candidates;
 }
 
+/**
+ * 这个函数回答浏览器认不认识这个地点名。
+ * 举例："Asia/Shanghai" → 答认识；"Mars/Base" → 答不认识。
+ */
 export function isSupportedTimeZone(timeZone: string): boolean {
   try {
     new Intl.DateTimeFormat("en", { timeZone });

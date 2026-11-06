@@ -1,3 +1,10 @@
+/**
+ * 这个文件是全仓唯一一份「两笔记录谁排前面」的规矩。
+ * 它不管一笔记录算哪一天，那在 ledgerDate.ts。
+ * 它也不管表单怎么存时刻，那在 factMoment.ts。
+ * 不显然的决定：只记到天的记录排在当地那一天的开头，2026-09-07 定（W16 03A 第二节 D-1c）。
+ */
+
 import type { PriceSnapshot } from "@/core/models";
 
 import { getLedgerDateKey } from "./ledgerDate";
@@ -10,8 +17,8 @@ type LedgerFactOrderKind =
   | "price-snapshot";
 
 /**
- * The single ordering input every ledger fact is projected onto before two
- * facts are compared.
+ * 排序时要看的五样东西。
+ * 它们是时刻、地点、录入时间、种类、编号。
  */
 type LedgerFactOrderInput = Readonly<{
   occurredAt: string;
@@ -25,22 +32,21 @@ const FALLBACK_ORDER_TIME_ZONE = "UTC";
 const MINUTES_SCANNED_FOR_A_MISSING_LOCAL_MIDNIGHT = 4 * 60;
 
 /**
- * Local day starts are stable for a given date and zone, and resolving one
- * costs many Intl formats, so they are memoised. This does not make the
- * function impure: the same date and zone always produce the same instant.
+ * 记住算过的「某地某天从哪个时刻开始」。
+ * 每次现算很慢，所以记下来。
+ * 同一天、同一地点永远算出同一个时刻，所以记住不会出错。
  */
 const localDayStartInstants = new Map<string, number>();
 
 /**
- * The instant a fact is ordered by.
+ * 这个函数回答：排序时，这一笔按哪个时刻排？
+ * 记到分钟的，就按它自己的时刻；只记到天的，按当地那一天的开头。
+ * 没记地点的，按 UTC 那一天的开头。
+ * 举例："2026-08-20"、Asia/Shanghai → 答 2026-08-19T16:00:00Z 那一刻。
  *
- * A fact recorded down to the minute is ordered by its own instant. A fact
- * recorded only to the day is ordered as the start of that day in the place it
- * happened, or in UTC when no place was recorded. Placing it at the start of
- * the day lets the timed facts of the same day settle after it.
- *
- * This is a pure function of the fact alone: it reads neither the device time
- * zone, nor the current time, nor the order the caller passed facts in.
+ * 为什么排在一天开头：同一天记了时刻的几笔会排在它后面，2026-09-07 定（W16 03A 第二节 D-1c、D-1d）。
+ * 结果只看这一笔自己。
+ * 不看设备时区、当前时间和传进来的顺序（同节 D-1e）。
  */
 export function getLedgerFactSortInstant(fact: LedgerFactOrderInput): number {
   if (fact.occurredAt.length > 10) {
@@ -54,10 +60,14 @@ export function getLedgerFactSortInstant(fact: LedgerFactOrderInput): number {
 }
 
 /**
- * The only ledger fact ordering rule in the repository. Every call site that
- * decides which of two facts comes first goes through this function.
+ * 这个函数回答：两笔记录谁排前面？负数左边先，正数右边先。
+ * 先比时刻；一样就比录入时间；再一样，买卖排在别的记录前面；最后比编号。
+ * 举例：同一天只记到天的入金和买入，录入时间也相同。
+ * → 答买入在前。
  *
- * The result never depends on the order the facts were passed in.
+ * 为什么只有这一份：以前三处各写一份，规则还不一样。
+ * 2026-09-07 定（W16 03A 第二节 D-2、D-4）。
+ * 结果和传进来的先后无关，不拿数组下标当判据（同节 D-2c）。
  */
 export function compareLedgerFactOrder(
   left: LedgerFactOrderInput,
@@ -86,8 +96,9 @@ export function compareLedgerFactOrder(
 }
 
 /**
- * Price snapshots name their moment `recordedAt`; every other fact names it
- * `occurredAt`. This is the one place that difference is bridged.
+ * 这个函数把一条记下来的价格，变成排序要看的那几样东西。
+ * 记下来的价格把时刻叫 recordedAt，别的记录叫 occurredAt；只在这里把两个名字对上。
+ * 举例：recordedAt "2026-08-20" → 答 occurredAt "2026-08-20"、种类是价格。
  */
 export function toPriceSnapshotOrderInput(
   snapshot: PriceSnapshot,
@@ -122,10 +133,11 @@ function getLocalDayStartInstant(dateKey: string, timeZone: string): number {
 }
 
 /**
- * Local midnight does not exist in every zone on every day: a few zones move
- * their clocks forward at midnight, which skips it. The day still begins, so
- * the first local wall time that does exist is used. Ordering must never throw,
- * so an unusable zone falls back to the caller's UTC midnight.
+ * 为什么要找那天第一个存在的时刻：有的地点在零点拨钟。
+ * 那天就没有 00:00。
+ * 这时取那天第一个真实存在的时刻。
+ * 地点认不出，就退回 UTC 零点。
+ * 排序永远不许抛错，2026-09-07 定（W16 03A 修订 A 第一节 D-1c′、D-1c″）。
  */
 function resolveLocalDayStartInstant(
   dateKey: string,
