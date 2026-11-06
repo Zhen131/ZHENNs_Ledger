@@ -1,3 +1,8 @@
+/**
+ * 这个文件管交易旁边那个「删除」按钮和它的倒计时。
+ * 真正删账、撤回在 app 的交易页里，这里只画按钮、报点击。
+ * 不显然的决定：删除要点两次，再等倒计时才真删；倒计时长度见 `tradeDeleteDelay.ts`。
+ */
 "use client";
 
 import {
@@ -9,12 +14,22 @@ import {
 import { useLanguage } from "@/ui";
 import { DELETE_DELAY_MS } from "./tradeDeleteDelay";
 
+/** 删除按钮的四个阶段：没点、等确认、倒计时、正在存盘。 */
 export type TradeDeletePhase =
   | "idle"
   | "armed"
   | "countdown"
   | "persisting";
 
+/**
+ * 这个组件画交易旁的删除按钮。
+ * 点它叫 `onActivate`，进哪个阶段由上层定。
+ * 交易页里：第一次点进入等确认，再点开始倒计时。
+ * 等确认时点按钮外面或按 Esc，叫 `onCancel` 取消。
+ * 倒计时中显示剩几秒和「撤回」，点撤回叫 `onUndo`。
+ * 倒计时结束后显示「正在保存」。
+ * 键盘按住不放时，只算一次点击。
+ */
 export function TradeDeleteControl({
   ariaLabel,
   className = "",

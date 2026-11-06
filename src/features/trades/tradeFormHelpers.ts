@@ -1,3 +1,9 @@
+/**
+ * 这个文件放交易表单用的几个小函数。
+ * 它们管错误说明、成交金额、现金预览、选中的规则。
+ * 按钮按下后做什么在 `tradeFormActions.ts`。
+ * 没有特别的决定。
+ */
 import type { TradeDraft } from "@/core/models";
 import { calculateTradeUsdtCashDelta } from "@/core/calculations";
 import { matchFeeRules, type FeeRuleCandidate } from "@/features/fees";
@@ -28,6 +34,12 @@ const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
   rawText: "trades.form.field.rawText",
 };
 
+/**
+ * 这个函数回答：一条检查错误在界面上怎么说？
+ * 按错误代码挑一句话，必要时在前面加上那一栏的名字。
+ * 举例：数量写成「abc」→ 答「数量必须是数字」（按当前语言）。
+ * 不会出错。
+ */
 export function formatValidationError(
   error: TradeValidationError,
   t: Translate,
@@ -69,6 +81,12 @@ export function formatValidationError(
   }
 }
 
+/**
+ * 这个函数回答：一条检查错误该显示在表单哪一栏旁边？
+ * 表单上没有那一栏的，都显示在整个表单的顶上。
+ * 举例：`feeCurrency` 出错 → 答 `form`。
+ * 不会出错。
+ */
 export function toTradeFormField(field: TradeValidationField): TradeFormField {
   switch (field) {
     case "type":
@@ -93,6 +111,12 @@ export function toTradeFormField(field: TradeValidationField): TradeFormField {
   }
 }
 
+/**
+ * 这个函数回答：数量乘单价，自动成交金额是多少？
+ * 举例：数量 0.1，单价 65000 → 答「6500」。
+ * 有一栏空着或写得不是数，返回空字符串。
+ * 不会出错。
+ */
 export function calculateAutomaticTotal(quantity: string, price: string): string {
   if (quantity === "" || price === "") return "";
   try {
@@ -102,6 +126,13 @@ export function calculateAutomaticTotal(quantity: string, price: string): string
   }
 }
 
+/**
+ * 这个函数回答：这笔买卖存了以后，USDT 余额会变成多少？
+ * 举例：余额 10000，买入成交 6500、手续费 5 USDT。
+ * → 答变化 -6505，存后 3495，缺口 0。
+ * 成交金额、手续费、手续费币种有一个空着，返回空。
+ * 数字写错算不出来，也返回空，不抛错。
+ */
 export function getCashImpactPreview(
   form: TradeFormState,
   feeCurrency: string,
@@ -130,6 +161,12 @@ export function getCashImpactPreview(
   }
 }
 
+/**
+ * 这个函数回答：人选中的那条规则，建议手续费是哪个？
+ * 没选、或选的规则已不在匹配结果里，返回空。
+ * 举例：两条规则冲突，人选了其中一条 → 答那一条的建议手续费。
+ * 不会出错。
+ */
 export function getSelectedCandidate(
   match: ReturnType<typeof matchFeeRules>,
   selectedFeeRuleId: string,

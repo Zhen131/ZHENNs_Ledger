@@ -1,3 +1,8 @@
+/**
+ * 这个文件管交易表单底部的预览和「保存」按钮。
+ * 预览里的数在 `tradeFormHelpers.ts` 的 `getCashImpactPreview` 算好再传进来。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { LedgerNumber } from "@/ui";
@@ -10,6 +15,13 @@ import type {
   FeeRule,
 } from "@/core/models";
 
+/**
+ * 这个组件画保存前的预览和「保存」按钮。
+ * 预览有成交金额、手续费、手续费来源。
+ * 还有现在余额、变化和存后余额。
+ * 等存盘时按钮显示「正在保存」，存好后显示「已保存」。
+ * 整个表单的错误也显示在这里。
+ */
 export function TradeFormPreviewAndSubmit({
   cashImpactPreview,
   currency,

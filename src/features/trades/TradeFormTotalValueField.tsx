@@ -1,3 +1,9 @@
+/**
+ * 这个文件管交易表单里「成交金额」那一栏。
+ * 成交金额怎么自动算在 `tradeFormHelpers.ts` 的 `calculateAutomaticTotal`。
+ * 不显然的决定：人改过成交金额后，它不再跟着数量单价变。
+ * 为什么这样，这是猜的，要核。
+ */
 "use client";
 
 import { calculateAutomaticTotal } from "./tradeFormHelpers";
@@ -12,6 +18,12 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画成交金额那一栏，旁边标着「自动」或「手填」。
+ * 自动时点进去会全选，方便直接改。
+ * 点「重新计算」按数量乘单价算一次，并改回自动。
+ * 举例：数量 0.1、单价 65000，点重新计算 → 成交金额变成 6500。
+ */
 export function TradeFormTotalValueField({
   commitForm,
   errors,

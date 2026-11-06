@@ -1,2 +1,11 @@
-/** How long a deleted ledger fact can still be undone before it is removed. */
+/**
+ * 这个文件只放一个数：删掉一笔账后还能撤回多久。
+ * 倒计时的画面在 `TradeDeleteControl.tsx`，真正删账在 app 的交易页里。
+ * 没有特别的决定。
+ */
+/**
+ * 删掉一笔账后还能撤回的时间，5 秒，单位是毫秒。
+ * 为什么是 5 秒：2026-08-13 提交 7195424 加的，日志里没查到理由。
+ * 大概是够看清删的哪笔、又不至于等得烦（这是猜的，要核）。
+ */
 export const DELETE_DELAY_MS = 5_000;

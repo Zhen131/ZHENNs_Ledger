@@ -1,3 +1,9 @@
+/**
+ * 这个文件管交易表单上每个动作做什么。
+ * 动作有改一栏、保存、确认负余额。
+ * 画面在 `TradeForm.tsx` 和它的三个子组件。
+ * 不显然的决定：确认框记着账本版本，版本变了就作废；2026-08-19 定（W14 01B 第 6.2 节）。
+ */
 import type {
   PendingTradeRisk,
   TradeFormField,
@@ -47,6 +53,13 @@ type UpdateFieldDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理交易表单里改了一栏。
+ * 改数量或单价、且成交金额是自动的：顺手重算成交金额。
+ * 人改了成交金额：从此变成手填，不再自动算。
+ * 改了平台或币：清掉已选的手续费规则，并提示来源变了。
+ * 正在等存盘时，改动不起作用。
+ */
 export function doUpdateField<Field extends keyof TradeFormState>(
   deps: UpdateFieldDeps,
   field: Field,
@@ -104,6 +117,11 @@ type ApplyTradeDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数把一笔交易真正加进账本，然后等存盘。
+ * 账本不让写或没起作用，显示错误，不等存盘。
+ * 存盘后要留下的币和平台先记下来，表单清空时用。
+ */
 export function doApplyTrade(
   deps: ApplyTradeDeps,
   trade: Trade,
@@ -159,6 +177,14 @@ type HandleSubmitDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理交易表单的「保存」。
+ * 先把日期、时间、地点拼成一个时刻，再交给 `createValidatedTrade` 检查。
+ * 举例：余额 100，买入成交 6500。
+ * → 不直接保存，先弹「余额会变成 -6400」的确认。
+ * 余额不会变负就直接加进账本。
+ * 检查不过：把错误说明挂到对应的栏旁边。
+ */
 export function doHandleSubmit(
   deps: HandleSubmitDeps,
   event: FormEvent<HTMLFormElement>,
@@ -278,6 +304,12 @@ type ConfirmNegativeBalanceDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理负余额确认框里的「确认」。
+ * 确认前再算一次余额，结果和弹框时不一样就作废。
+ * 账本在弹框后又改过，也作废。
+ * 为什么要再算：弹框后账本可能已变；2026-08-19 定（W14 01B 第 6.2 节）。
+ */
 export function doConfirmNegativeBalance(
   deps: ConfirmNegativeBalanceDeps,
 ) {

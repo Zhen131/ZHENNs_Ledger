@@ -1,3 +1,8 @@
+/**
+ * 这个文件管记账页上的交易表单。
+ * 每个动作的处理在 `tradeFormActions.ts`，三件事后要做的事在 `tradeFormEffects.ts`。
+ * 不显然的决定：手续费规则只给建议，人能改；2026-08-10 定（W12 02A 第 5.3 节）。
+ */
 "use client";
 
 import {
@@ -78,6 +83,16 @@ type TradeFormProps = Readonly<{
   focusTargetRef?: Ref<HTMLSelectElement>;
 }>;
 
+/**
+ * 这个组件画记账页的交易表单。
+ * 填买卖、币、数量、单价、成交金额和时刻。
+ * 还有平台、手续费、备注。
+ * 填了平台就去找手续费规则，给出建议。
+ * 人可以采用建议，也可以改掉。
+ * 保存前显示这笔会让 USDT 余额怎么变。
+ * 余额会变负时，弹确认框。
+ * 传了 `draft` 和 `onDraftChange` 时，表单值由记账页保管。
+ */
 export function TradeForm({
   clock = systemLedgerClock,
   ledgerData,
@@ -132,9 +147,11 @@ export function TradeForm({
         ledgerData,
       },
     );
-    // The callbacks are intentionally omitted: the asset collection is the
-    // only external event that should repair this controlled draft.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 只在币的清单变了时修一次表单。
+    // 不把两个函数列进依赖，否则每次重画都会跑一遍。
+    // 原句 2026-08-13 提交 aa0e022 写的，日志里没写理由。
+    // 这是猜的，要核。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在币的清单变时才修表单，理由是猜的，见上方
   }, [ledgerData.assets]);
 
   useEffect(() => {
@@ -152,8 +169,10 @@ export function TradeForm({
         setSuccessState,
       },
     );
-    // A new ledger epoch is the only event that resets local form state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 只有换了一本账本，才清空表单的状态。
+    // 原句 2026-08-13 提交 aa0e022 写的，日志里没写理由。
+    // 这是猜的，要核。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换账本时清空，理由是猜的，见上方
   }, [ledgerEpoch]);
 
   useEffect(() => {
