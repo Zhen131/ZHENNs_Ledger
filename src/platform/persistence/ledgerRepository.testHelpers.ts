@@ -1,4 +1,3 @@
-import type { StorageAdapter } from "@/platform/legacy";
 import {
   createBackupEnvelope,
   serializeBackupEnvelope,
@@ -10,27 +9,10 @@ import {
   type BackupImportPreflightResult,
   type LedgerBackupImportEvidence,
 } from "@/features/backup";
-import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { validateLedgerData } from "@/core/validation";
 import { sampleUsdtTrades } from "@/test-support";
-
-export class MemoryStorageAdapter implements StorageAdapter {
-  envelope: unknown | null = null;
-
-  async read() {
-    return this.envelope;
-  }
-
-  async write(envelope: StoredLedgerEnvelopeV2) {
-    this.envelope = structuredClone(envelope);
-  }
-
-  async clear() {
-    this.envelope = null;
-  }
-}
 
 export function createLedger(): LedgerData {
   return {

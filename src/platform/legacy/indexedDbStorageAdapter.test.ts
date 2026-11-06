@@ -1,11 +1,7 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { StoredLedgerEnvelopeV2 } from "./cryptoEnvelope";
-import {
-  createNoopStoredLedgerEnvelope,
-  seedRetiredBrowserLedgerRecord,
-} from "@/test-support";
+import { seedRetiredBrowserLedgerRecord } from "@/test-support";
 import { IndexedDbStorageAdapter } from "./indexedDbStorageAdapter";
 
 const adapters: IndexedDbStorageAdapter[] = [];
@@ -54,84 +50,6 @@ describe("IndexedDbStorageAdapter", () => {
     );
   });
 
-  it("round-trips and atomically replaces the whole envelope", async () => {
-    const adapter = createAdapter();
-    const first = createNoopStoredLedgerEnvelope("first");
-    const second = createNoopStoredLedgerEnvelope("second");
-
-    await adapter.write(first);
-    await expect(adapter.read()).resolves.toEqual(first);
-    await adapter.write(second);
-    await expect(adapter.read()).resolves.toEqual(second);
-  });
-
-  it("clears only the current ledger record", async () => {
-    const adapter = createAdapter();
-    await adapter.write(createNoopStoredLedgerEnvelope("saved"));
-
-    await adapter.clear();
-
-    await expect(adapter.read()).resolves.toBeNull();
-  });
-
-  it("deletes only the exact legacy envelope verified earlier", async () => {
-    const adapter = createAdapter();
-    const verified = createNoopStoredLedgerEnvelope("verified");
-    await adapter.write(verified);
-
-    await expect(
-      adapter.deleteIfUnchanged(verified),
-    ).resolves.toBe("deleted");
-    await expect(adapter.read()).resolves.toBeNull();
-  });
-
-  it("retains a legacy record that changed after verification", async () => {
-    const adapter = createAdapter();
-    const verified = createNoopStoredLedgerEnvelope("verified");
-    const changed = createNoopStoredLedgerEnvelope("changed");
-    await adapter.write(verified);
-    await adapter.write(changed);
-
-    await expect(
-      adapter.deleteIfUnchanged(verified),
-    ).resolves.toBe("changed");
-    await expect(adapter.read()).resolves.toEqual(changed);
-  });
-
-  it("reports a missing legacy record without inventing deletion success", async () => {
-    const adapter = createAdapter();
-
-    await expect(
-      adapter.deleteIfUnchanged(
-        createNoopStoredLedgerEnvelope("verified"),
-      ),
-    ).resolves.toBe("missing");
-    await expect(adapter.read()).resolves.toBeNull();
-  });
-
-  it("does not delete another record in the same store", async () => {
-    const factory = new IDBFactory();
-    const legacy = createAdapter(factory, {
-      databaseName: "conditional-delete-key-scope",
-      recordKey: "ledger:v1",
-    });
-    const other = createAdapter(factory, {
-      databaseName: "conditional-delete-key-scope",
-      recordKey: "other",
-    });
-    const legacyEnvelope =
-      createNoopStoredLedgerEnvelope("legacy");
-    const otherEnvelope = createNoopStoredLedgerEnvelope("other");
-    await legacy.write(legacyEnvelope);
-    await other.write(otherEnvelope);
-
-    await expect(
-      legacy.deleteIfUnchanged(legacyEnvelope),
-    ).resolves.toBe("deleted");
-    await expect(legacy.read()).resolves.toBeNull();
-    await expect(other.read()).resolves.toEqual(otherEnvelope);
-  });
-
   it("creates the ledger store during a database version upgrade", async () => {
     const factory = new IDBFactory();
     const databaseName = "ledger-upgrade-test";
@@ -160,19 +78,6 @@ describe("IndexedDbStorageAdapter", () => {
     upgradedDatabase.close();
   });
 
-  it("keeps the previous record when a replacement cannot be cloned", async () => {
-    const adapter = createAdapter();
-    const previous = createNoopStoredLedgerEnvelope("safe-old-record");
-    await adapter.write(previous);
-
-    const invalidEnvelope = {
-      ...createNoopStoredLedgerEnvelope("replacement"),
-      ciphertextBase64Url: () => "not cloneable",
-    } as unknown as StoredLedgerEnvelopeV2;
-
-    await expect(adapter.write(invalidEnvelope)).rejects.toBeDefined();
-    await expect(adapter.read()).resolves.toEqual(previous);
-  });
 });
 
 function openDatabase(

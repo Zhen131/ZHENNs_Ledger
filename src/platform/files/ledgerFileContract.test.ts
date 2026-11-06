@@ -226,13 +226,9 @@ describe("LedgerFileV2 contract", () => {
     ).toMatchObject({ ok: false });
   });
 
-  it("keeps the file and IndexedDB version systems independent", async () => {
-    const { LEDGER_CRYPTO_CONSTANTS } = await import("@/platform/legacy");
-
+  it("keeps the file and ledger schema version systems independent", async () => {
     expect(LEDGER_FILE_OUTER_V2_CONSTANTS.fileFormatVersion).toBe(2);
-    expect(LEDGER_CRYPTO_CONSTANTS.formatVersion).toBe(2);
     expect(SUPPORTED_LEDGER_SCHEMA_VERSION).toBe(5);
-    expect(LEDGER_CRYPTO_CONSTANTS.ledgerSchemaVersion).toBe(1);
     expect(validateLedgerFileV2(createFile()).ok).toBe(true);
   });
 

@@ -7,9 +7,6 @@ import type {
   LedgerData,
   Trade,
 } from "@/core/models";
-import type { StorageAdapter } from "@/platform/legacy";
-import type { StoredLedgerEnvelopeV2 } from "@/platform/legacy";
-import { createNoopStoredLedgerEnvelope } from "@/test-support";
 import { type LedgerRepository } from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import {
@@ -53,28 +50,6 @@ export function createRepository(overrides: Partial<LedgerRepository> = {}) {
     clear: vi.fn(async () => undefined),
     ...overrides,
   } satisfies LedgerRepository;
-}
-
-export function createMemoryStorageAdapter(
-  initialLedger: LedgerData | null,
-  write: (envelope: StoredLedgerEnvelopeV2) => Promise<void> = async () => undefined,
-) {
-  let stored: StoredLedgerEnvelopeV2 | null = initialLedger
-    ? createNoopStoredLedgerEnvelope(JSON.stringify(initialLedger))
-    : null;
-
-  const adapter: StorageAdapter = {
-    read: vi.fn(async () => stored),
-    write: vi.fn(async (envelope) => {
-      await write(envelope);
-      stored = envelope;
-    }),
-    clear: vi.fn(async () => {
-      stored = null;
-    }),
-  };
-
-  return { adapter, readStored: () => stored };
 }
 
 export function addTrade(

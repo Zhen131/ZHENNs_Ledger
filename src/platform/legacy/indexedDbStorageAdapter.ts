@@ -1,12 +1,3 @@
-import {
-  type StoredLedgerEnvelopeV2,
-  validateStoredLedgerEnvelopeV2,
-} from "./cryptoEnvelope";
-import type {
-  LegacyLedgerConditionalDeleteResult,
-  LegacyLedgerExitStorageAdapter,
-} from "./storageAdapter";
-
 export const INDEXED_DB_STORAGE_DEFAULTS = {
   databaseName: "local-first-trading-ledger",
   databaseVersion: 1,
@@ -23,15 +14,14 @@ export type IndexedDbStorageAdapterOptions = {
 };
 
 /**
- * Retired native IndexedDB whole-blob implementation.
+ * Read-only view of where the retired browser whole-ledger used to live.
  *
- * The V2 production composition calls only `read()` and reduces the result to
- * legacy presence. Historical write, clear, and conditional-delete methods
- * remain available to explicit negative tests, not to the V2 UI controller.
+ * The production composition calls only `read()` and reduces the result to
+ * legacy presence. Nothing here writes, clears, or deletes that record; the
+ * only side effect is the one `open()` itself has, which creates the empty
+ * database and store when they do not exist yet.
  */
-export class IndexedDbStorageAdapter
-  implements LegacyLedgerExitStorageAdapter
-{
+export class IndexedDbStorageAdapter {
   private readonly databaseName: string;
   private readonly databaseVersion: number;
   private readonly storeName: string;
@@ -78,133 +68,6 @@ export class IndexedDbStorageAdapter
       transaction.onabort = () => {
         reject(
           transaction.error ?? new Error("IndexedDB read transaction aborted"),
-        );
-      };
-    });
-  }
-
-  async write(envelope: StoredLedgerEnvelopeV2): Promise<void> {
-    const database = await this.openDatabase();
-
-    return new Promise((resolve, reject) => {
-      let transaction: IDBTransaction;
-
-      try {
-        transaction = database.transaction(this.storeName, "readwrite");
-        transaction
-          .objectStore(this.storeName)
-          .put(envelope, this.recordKey);
-      } catch (error) {
-        reject(error);
-        return;
-      }
-
-      transaction.oncomplete = () => {
-        resolve();
-      };
-      transaction.onerror = () => {
-        reject(
-          transaction.error ?? new Error("IndexedDB write transaction failed"),
-        );
-      };
-      transaction.onabort = () => {
-        reject(
-          transaction.error ?? new Error("IndexedDB write transaction aborted"),
-        );
-      };
-    });
-  }
-
-  async clear(): Promise<void> {
-    const database = await this.openDatabase();
-
-    return new Promise((resolve, reject) => {
-      const transaction = database.transaction(this.storeName, "readwrite");
-      transaction.objectStore(this.storeName).delete(this.recordKey);
-
-      transaction.oncomplete = () => {
-        resolve();
-      };
-      transaction.onerror = () => {
-        reject(
-          transaction.error ?? new Error("IndexedDB clear transaction failed"),
-        );
-      };
-      transaction.onabort = () => {
-        reject(
-          transaction.error ?? new Error("IndexedDB clear transaction aborted"),
-        );
-      };
-    });
-  }
-
-  async deleteIfUnchanged(
-    expectedEnvelope: StoredLedgerEnvelopeV2,
-  ): Promise<LegacyLedgerConditionalDeleteResult> {
-    const expectedValidation =
-      validateStoredLedgerEnvelopeV2(expectedEnvelope);
-    if (!expectedValidation.ok) {
-      throw new Error(
-        "Legacy ledger conditional delete requires a valid V2 envelope",
-      );
-    }
-    const database = await this.openDatabase();
-
-    return new Promise((resolve, reject) => {
-      let result: LegacyLedgerConditionalDeleteResult = "changed";
-      let transaction: IDBTransaction;
-      try {
-        transaction = database.transaction(
-          this.storeName,
-          "readwrite",
-        );
-        const store = transaction.objectStore(this.storeName);
-        const readRequest = store.get(this.recordKey);
-        readRequest.onsuccess = () => {
-          if (readRequest.result === undefined) {
-            result = "missing";
-            return;
-          }
-          const currentValidation =
-            validateStoredLedgerEnvelopeV2(readRequest.result);
-          if (
-            !currentValidation.ok ||
-            !sameStoredLedgerEnvelope(
-              currentValidation.value,
-              expectedValidation.value,
-            )
-          ) {
-            result = "changed";
-            return;
-          }
-          result = "deleted";
-          store.delete(this.recordKey);
-        };
-        readRequest.onerror = () => {
-          transaction.abort();
-        };
-      } catch (error) {
-        reject(error);
-        return;
-      }
-
-      transaction.oncomplete = () => {
-        resolve(result);
-      };
-      transaction.onerror = () => {
-        reject(
-          transaction.error ??
-            new Error(
-              "IndexedDB conditional delete transaction failed",
-            ),
-        );
-      };
-      transaction.onabort = () => {
-        reject(
-          transaction.error ??
-            new Error(
-              "IndexedDB conditional delete transaction aborted",
-            ),
         );
       };
     });
@@ -265,24 +128,4 @@ export class IndexedDbStorageAdapter
 
     return this.databasePromise;
   }
-}
-
-function sameStoredLedgerEnvelope(
-  left: StoredLedgerEnvelopeV2,
-  right: StoredLedgerEnvelopeV2,
-): boolean {
-  return (
-    left.formatVersion === right.formatVersion &&
-    left.cryptoVersion === right.cryptoVersion &&
-    left.ledgerSchemaVersion === right.ledgerSchemaVersion &&
-    left.kdf.name === right.kdf.name &&
-    left.kdf.hash === right.kdf.hash &&
-    left.kdf.iterations === right.kdf.iterations &&
-    left.kdf.saltBase64Url === right.kdf.saltBase64Url &&
-    left.cipher.name === right.cipher.name &&
-    left.cipher.keyLength === right.cipher.keyLength &&
-    left.cipher.ivBase64Url === right.cipher.ivBase64Url &&
-    left.cipher.tagLength === right.cipher.tagLength &&
-    left.ciphertextBase64Url === right.ciphertextBase64Url
-  );
 }
