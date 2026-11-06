@@ -7,7 +7,7 @@ import type {
   LegacyLedgerExitStorageAdapter,
 } from "./storageAdapter";
 
-export const INDEXED_DB_STORAGE_DEFAULTS = {
+const INDEXED_DB_STORAGE_DEFAULTS = {
   databaseName: "local-first-trading-ledger",
   databaseVersion: 1,
   storeName: "ledger",

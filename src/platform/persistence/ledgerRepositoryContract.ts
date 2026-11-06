@@ -18,7 +18,7 @@ export const LEDGER_REPOSITORY_ERROR_CODES = {
   INVALID_STORED_DATA: "LEDGER_REPOSITORY_INVALID_STORED_DATA",
 } as const;
 
-export type LedgerRepositoryErrorCode =
+type LedgerRepositoryErrorCode =
   (typeof LEDGER_REPOSITORY_ERROR_CODES)[keyof typeof LEDGER_REPOSITORY_ERROR_CODES];
 
 export class LedgerRepositoryError extends Error {

@@ -42,7 +42,7 @@ export class IdentityFileHandle implements LedgerFileHandle {
   }
 }
 
-export type ActiveRuntimeLease = {
+type ActiveRuntimeLease = {
   handle: LedgerFileHandle;
   lease: FakeRuntimeLease;
 };
@@ -129,7 +129,7 @@ export class FakeCoordinationRuntime implements LedgerFileCoordinationRuntime {
   }
 }
 
-export class FakeRuntimeLease implements LedgerFileCoordinationRuntimeLease {
+class FakeRuntimeLease implements LedgerFileCoordinationRuntimeLease {
   private writeTail: Promise<void> = Promise.resolve();
   private released = false;
   failNextRelease = false;
@@ -174,7 +174,7 @@ export class FakeRuntimeLease implements LedgerFileCoordinationRuntimeLease {
   }
 }
 
-export type TestBrowserLockRequest = {
+type TestBrowserLockRequest = {
   name: string;
   callback(): Promise<unknown>;
   resolve(value: unknown): void;
@@ -184,7 +184,7 @@ export type TestBrowserLockRequest = {
   onAbort(): void;
 };
 
-export class TestBrowserLockManager {
+class TestBrowserLockManager {
   failQuery = false;
   private readonly held = new Map<string, TestBrowserLockRequest>();
   private readonly pending: TestBrowserLockRequest[] = [];
@@ -304,12 +304,12 @@ export class TestBrowserLockManager {
   }
 }
 
-export type TestChannel = {
+type TestChannel = {
   listeners: Set<(message: unknown) => void>;
   closed: boolean;
 };
 
-export class TestCoordinationChannelHub {
+class TestCoordinationChannelHub {
   failNextPost = false;
   private readonly channels = new Set<TestChannel>();
 

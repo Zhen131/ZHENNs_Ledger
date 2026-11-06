@@ -23,7 +23,7 @@ export type BinanceMarketDataClient = {
   ): Promise<BinanceTickerBatchResult>;
 };
 
-export type BinanceMarketDataClientOptions = {
+type BinanceMarketDataClientOptions = {
   fetch?: typeof globalThis.fetch;
   baseUrl?: string;
   timeoutMs?: number;

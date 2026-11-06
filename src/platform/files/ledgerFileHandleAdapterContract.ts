@@ -77,7 +77,7 @@ export interface LedgerFilePickerProvider {
   }): Promise<LedgerFileHandle[]>;
 }
 
-export type LedgerFileAdapterErrorStage =
+type LedgerFileAdapterErrorStage =
   | "picker"
   | "extension"
   | "target"

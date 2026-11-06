@@ -639,7 +639,7 @@ export function readChunkedBodySlots(
   return result;
 }
 
-export function parsePayload(serialized: string): DecryptedLedgerPayloadV4 {
+function parsePayload(serialized: string): DecryptedLedgerPayloadV4 {
   const result = validateDecryptedLedgerPayloadV4(JSON.parse(serialized));
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error("invalid test payload");

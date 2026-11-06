@@ -106,7 +106,7 @@ const readyImportAuthorizationRuntimes = new WeakMap<
   ReadyImportAuthorizationRuntime
 >();
 
-export type LedgerFileOpenResult =
+type LedgerFileOpenResult =
   | { status: "opened"; repository: LedgerFileRepository }
   | {
       status: "recovery-required";

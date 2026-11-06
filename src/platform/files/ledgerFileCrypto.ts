@@ -482,7 +482,7 @@ export class LedgerFileCrypto {
   }
 }
 
-export function sameLedgerFileCryptoMetadata(
+function sameLedgerFileCryptoMetadata(
   left: LedgerFileCryptoV2,
   right: LedgerFileCryptoV2,
 ): boolean {

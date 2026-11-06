@@ -1,9 +1,9 @@
-export const PASSPHRASE_POLICY = {
+const PASSPHRASE_POLICY = {
   minimumCodePoints: 8,
   maximumCodePoints: 128,
 } as const;
 
-export type PassphraseValidationResult =
+type PassphraseValidationResult =
   | { ok: true }
   | {
       ok: false;

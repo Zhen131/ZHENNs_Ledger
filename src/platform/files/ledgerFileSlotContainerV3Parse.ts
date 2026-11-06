@@ -80,7 +80,7 @@ export function parseLedgerFileV3S2(
   return { ok: true, value: selected.file };
 }
 
-export function parseLedgerFileV3S2Candidates(
+function parseLedgerFileV3S2Candidates(
   bytes: Uint8Array,
 ): LedgerFileV3S2CandidatesResult {
   const outer = validateOuterLayout(bytes);

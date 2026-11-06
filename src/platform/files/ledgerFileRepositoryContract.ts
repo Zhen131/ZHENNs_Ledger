@@ -21,7 +21,7 @@ export const LEDGER_FILE_REPOSITORY_ERROR_CODES = {
     "LEDGER_FILE_IMPORT_RECOVERY_BLOCKED",
 } as const;
 
-export type LedgerFileRepositoryErrorCode =
+type LedgerFileRepositoryErrorCode =
   (typeof LEDGER_FILE_REPOSITORY_ERROR_CODES)[keyof typeof LEDGER_FILE_REPOSITORY_ERROR_CODES];
 
 export class LedgerFileRepositoryError extends Error {

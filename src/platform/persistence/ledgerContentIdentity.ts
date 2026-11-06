@@ -1,7 +1,7 @@
 import type { LedgerData } from "@/core/models";
 import { validateLedgerData } from "@/core/validation";
 
-export async function createSerializedContentIdentity(
+async function createSerializedContentIdentity(
   serialized: string,
 ): Promise<string> {
   const bytes = new TextEncoder().encode(serialized);

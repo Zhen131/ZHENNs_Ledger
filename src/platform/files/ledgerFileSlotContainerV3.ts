@@ -10,7 +10,7 @@ import { PREFIX_BYTES } from "./ledgerFileSlotContainerV3Constants";
 export const LEDGER_FILE_HEADER_SLOT_BYTES = 256 * 1024;
 export const LEDGER_FILE_BODY_SLOT_COUNT = 3 as const;
 export const LEDGER_FILE_BODY_SLOT_MIN_BYTES = 64 * 1024;
-export const LEDGER_FILE_BODY_SLOT_ALIGNMENT_BYTES = 64 * 1024;
+const LEDGER_FILE_BODY_SLOT_ALIGNMENT_BYTES = 64 * 1024;
 
 export const LEDGER_FILE_OUTER_V3_S2_CONSTANTS = {
   fileFormatVersion: 3,
