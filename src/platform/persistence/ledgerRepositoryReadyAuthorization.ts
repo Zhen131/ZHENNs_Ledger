@@ -1,3 +1,10 @@
+/**
+ * 这个文件管清空和导入这两件大事的授权。
+ * 怎么做授权，怎么认它是真的。
+ * 它不管真正清空和导入，那在 ledgerRepositoryReadyRuntime.ts 和 files 区。
+ * 不显然的决定：执行凭证只能用一次，用过再用就不认。这是猜的，日志里没写，要核。
+ */
+
 import { READY_LEDGER_CLEAR_CONFIRMATION_TEXT } from "./ledgerRepository";
 import {
   readyLedgerClearAuthorizationBrand,
@@ -23,6 +30,11 @@ import {
   isValidReadyImportEvidence,
 } from "./ledgerRepositoryReadyRuntime";
 
+/**
+ * 这个函数给清空做一张授权，写上当时看到的文件和版本。
+ * 举例：文件 "f1"、版本 "r7" → 答一张写着 f1、r7 的授权。
+ * 不会出错。
+ */
 export function createReadyLedgerClearAuthorizationForDriver(
   context: ReadyLedgerClearAuthorizationContext,
   evidence: Readonly<{
@@ -40,6 +52,12 @@ export function createReadyLedgerClearAuthorizationForDriver(
   });
 }
 
+/**
+ * 这个函数给导入做一张授权。
+ * 写上当时看到的文件、版本和导入内容的指纹。
+ * 举例：文件 "f1"、版本 "r7" → 答一张写着 f1、r7 的授权。
+ * 不会出错。
+ */
 export function createReadyLedgerImportAuthorizationForDriver(
   context: ReadyLedgerImportAuthorizationContext,
   evidence: Readonly<{
@@ -62,6 +80,11 @@ export function createReadyLedgerImportAuthorizationForDriver(
   });
 }
 
+/**
+ * 这个函数回答。
+ * 这份清空申请是不是这一层亲手发出、而且还有效的？
+ * 举例：确认句打错了 → 答不是；账本已经开始停止接新活 → 答不是。
+ */
 export function isReadyLedgerClearAuthorizationContextForDriver(
   context: ReadyLedgerClearAuthorizationContext,
   driver: LedgerReadyClearDriver,
@@ -80,6 +103,10 @@ export function isReadyLedgerClearAuthorizationContextForDriver(
   );
 }
 
+/**
+ * 这个函数认领一张清空执行凭证；认领成功答 true，以后再认领就答 false。
+ * 举例：同一张凭证认领两次 → 第一次答 true，第二次答 false。
+ */
 export function claimReadyLedgerClearExecutionContextForDriver(
   executionContext: ReadyLedgerClearExecutionContext,
   authorization: ReadyLedgerClearAuthorization,
@@ -113,6 +140,11 @@ export function claimReadyLedgerClearExecutionContextForDriver(
   return true;
 }
 
+/**
+ * 这个函数回答。
+ * 这份导入申请是不是这一层亲手发出、而且还有效的？
+ * 举例：备份里有可疑分组、用户还没确认 → 答不是。
+ */
 export function isReadyLedgerImportAuthorizationContextForDriver(
   context: ReadyLedgerImportAuthorizationContext,
   driver: LedgerReadyImportDriver,
@@ -142,6 +174,10 @@ export function isReadyLedgerImportAuthorizationContextForDriver(
   );
 }
 
+/**
+ * 这个函数认领一张导入执行凭证；认领成功答 true，以后再认领就答 false。
+ * 举例：取消信号已经触发 → 答 false。
+ */
 export function claimReadyLedgerImportExecutionContextForDriver(
   executionContext: ReadyLedgerImportExecutionContext,
   authorization: ReadyLedgerImportAuthorization,

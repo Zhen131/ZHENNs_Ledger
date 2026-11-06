@@ -1,3 +1,11 @@
+/**
+ * 这个文件管一次打开账本的整个过程。
+ * 包括开始、存取、停止接新活、锁上或放开。
+ * 它不管文件格式和加密，那在 files 区；也不管界面，那在 app 区。
+ * 不显然的决定：一说停止接新活，对外的入口当场不再收活。
+ * 这是猜的，日志里没写，要核。
+ */
+
 import { type LedgerBackupImportEvidence } from "@/features/backup";
 import type { LedgerData } from "@/core/models";
 import {
@@ -33,6 +41,10 @@ import {
 } from "./ledgerRepositoryReadyRuntime";
 import type { SessionRuntime } from "./ledgerRepositorySessionRuntime";
 
+/**
+ * 清空当前账本前，用户必须一字不差打出来的那句话。
+ * 为什么要打字确认：清空不能撤回。这是猜的，日志里没写，要核。
+ */
 export const READY_LEDGER_CLEAR_CONFIRMATION_TEXT =
   "清空当前账本";
 
@@ -65,6 +77,14 @@ const quiesceTokenRuntimes = new WeakMap<
 >();
 let fallbackSessionSequence = 0;
 
+/**
+ * 这个函数新开一次账本。
+ * 给出存取入口和锁上、放开的办法。
+ * 锁上或放开之前。
+ * 必须先停止接新活、等活做完、拿到凭证。
+ * 举例：确认句打错一个字 → 答没有清空授权。
+ * 步骤顺序不对时抛 `LedgerSessionLifecycleError`。
+ */
 export function createLedgerSession(
   options: CreateLedgerSessionOptions,
 ): LedgerSession {
@@ -224,6 +244,12 @@ export function createLedgerSession(
   return session;
 }
 
+/**
+ * 这个函数把只给存盘 hook 用的入口交出去。
+ * 同一次打开只能有一个主人。
+ * 举例：同一个主人再要一次 → 答同一个入口；换个主人来要 → 抛错。
+ * 已经开始停止接新活时再来要，也抛 `LedgerSessionLifecycleError`。
+ */
 export function claimLedgerSessionPersistencePort(
   session: LedgerSession,
   owner: object,
@@ -274,6 +300,11 @@ export function claimLedgerSessionPersistencePort(
   return port;
 }
 
+/**
+ * 这个函数确认一张停止接新活的请求是这次的、最新的。
+ * 举例：上一次打开留下的旧请求 → 抛 `LedgerSessionLifecycleError`。
+ * 对得上就什么都不做。
+ */
 export function assertSessionQuiesceRequest(
   session: LedgerSession,
   request: SessionQuiesceRequest,

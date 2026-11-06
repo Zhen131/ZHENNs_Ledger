@@ -1,3 +1,11 @@
+/**
+ * 这个文件管清空和导入执行时。
+ * 内部记的账和真正去做的那几步。
+ * 它不管授权怎么做，那在 ledgerRepositoryReadyAuthorization.ts。
+ * 不显然的决定。
+ * 开始停止接新活时，正在进行的导入会被取消。这是猜的，日志里没写，要核。
+ */
+
 import {
   inspectLedgerBackupImportEvidence,
   type LedgerBackupImportEvidence,
@@ -21,6 +29,7 @@ import type {
 import { LedgerSessionLifecycleError } from "./ledgerRepositoryContract";
 import type { SessionRuntime } from "./ledgerRepositorySessionRuntime";
 
+/** 内部记的账：每张清空授权属于哪次打开、哪个执行方。 */
 export const readyClearAuthorizationRuntimes = new WeakMap<
   ReadyLedgerClearAuthorization,
   {
@@ -29,6 +38,7 @@ export const readyClearAuthorizationRuntimes = new WeakMap<
     readonly driver: LedgerReadyClearDriver;
   }
 >();
+/** 内部记的账：每份清空申请属于哪次打开、哪个执行方。 */
 export const readyClearAuthorizationContextRuntimes = new WeakMap<
   ReadyLedgerClearAuthorizationContext,
   {
@@ -37,6 +47,7 @@ export const readyClearAuthorizationContextRuntimes = new WeakMap<
     readonly driver: LedgerReadyClearDriver;
   }
 >();
+/** 内部记的账：每张清空执行凭证属于谁、用没用过。 */
 export const readyClearExecutionContextRuntimes = new WeakMap<
   ReadyLedgerClearExecutionContext,
   {
@@ -47,6 +58,7 @@ export const readyClearExecutionContextRuntimes = new WeakMap<
     claimed: boolean;
   }
 >();
+/** 内部记的账：每张导入授权属于哪次打开、哪个执行方。 */
 export const readyImportAuthorizationRuntimes = new WeakMap<
   ReadyLedgerImportAuthorization,
   {
@@ -56,6 +68,7 @@ export const readyImportAuthorizationRuntimes = new WeakMap<
     readonly evidence: LedgerBackupImportEvidence;
   }
 >();
+/** 内部记的账：每份导入申请属于哪次打开、哪个执行方。 */
 export const readyImportAuthorizationContextRuntimes = new WeakMap<
   ReadyLedgerImportAuthorizationContext,
   {
@@ -65,6 +78,7 @@ export const readyImportAuthorizationContextRuntimes = new WeakMap<
     readonly evidence: LedgerBackupImportEvidence;
   }
 >();
+/** 内部记的账：每张导入执行凭证属于谁、用没用过。 */
 export const readyImportExecutionContextRuntimes = new WeakMap<
   ReadyLedgerImportExecutionContext,
   {
@@ -76,6 +90,10 @@ export const readyImportExecutionContextRuntimes = new WeakMap<
   }
 >();
 
+/**
+ * 这个函数拿出这次打开的清空执行方。
+ * 账本不在使用中或没有清空执行方时，抛 `LedgerSessionLifecycleError`。
+ */
 export function requireActiveReadyClearDriver(
   runtime: SessionRuntime,
 ): LedgerReadyClearDriver {
@@ -87,6 +105,10 @@ export function requireActiveReadyClearDriver(
   return runtime.readyClearDriver;
 }
 
+/**
+ * 这个函数拿出这次打开的导入执行方。
+ * 账本不在使用中或没有导入执行方时，抛 `LedgerSessionLifecycleError`。
+ */
 export function requireActiveReadyImportDriver(
   runtime: SessionRuntime,
 ): LedgerReadyImportDriver {
@@ -98,6 +120,11 @@ export function requireActiveReadyImportDriver(
   return runtime.readyImportDriver;
 }
 
+/**
+ * 这个函数按授权清空当前账本。
+ * 授权不是这次打开的、或已经过期时，抛 `LedgerSessionLifecycleError`。
+ * 举例：拿上一次打开的授权来清空 → 抛错，账本不动。
+ */
 export function clearReadyLedgerForSession(
   session: LedgerSession,
   runtime: SessionRuntime,
@@ -156,6 +183,12 @@ export function clearReadyLedgerForSession(
   });
 }
 
+/**
+ * 这个函数按授权用备份内容替换当前账本。
+ * 返回替换后的账本。
+ * 举例：授权过期，或取消信号已经触发 → 抛错，账本不动。
+ * 中途开始停止接新活时，导入会被取消。
+ */
 export function importReadyLedgerForSession(
   session: LedgerSession,
   runtime: SessionRuntime,
@@ -237,6 +270,11 @@ export function importReadyLedgerForSession(
     });
 }
 
+/**
+ * 这个函数回答：备份的检查结果能不能拿来申请导入？
+ * 举例：硬错误 0 个、可疑分组 2 个且都已确认 → 答能。
+ * 举例：有 1 个硬错误 → 答不能。
+ */
 export function isValidReadyImportEvidence(
   evidence: LedgerBackupImportEvidence,
   hookGeneration: number,
