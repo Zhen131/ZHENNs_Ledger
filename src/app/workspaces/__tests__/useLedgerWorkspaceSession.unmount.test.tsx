@@ -3,7 +3,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useLedgerWorkspaceSession } from "./useLedgerWorkspaceSession";
+import { useLedgerWorkspaceSession } from "../useLedgerWorkspaceSession";
 
 describe("useLedgerWorkspaceSession unmounted workspace state", () => {
   it("keeps record state across navigation and clears it only for a new ledger epoch", () => {

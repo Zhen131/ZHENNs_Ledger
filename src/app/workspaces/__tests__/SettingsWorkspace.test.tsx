@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT,
   SettingsWorkspace,
-} from "./SettingsWorkspace";
+} from "../SettingsWorkspace";
 
 afterEach(cleanup);
 

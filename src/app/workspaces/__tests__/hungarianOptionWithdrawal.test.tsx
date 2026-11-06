@@ -13,7 +13,7 @@ import {
   writeLanguagePreference,
 } from "@/ui";
 
-import { SettingsWorkspace } from "./SettingsWorkspace";
+import { SettingsWorkspace } from "../SettingsWorkspace";
 
 /**
  * Hungarian is withdrawn from the picker but not from the product: its code,

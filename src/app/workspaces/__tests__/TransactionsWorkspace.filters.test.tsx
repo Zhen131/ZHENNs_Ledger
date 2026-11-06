@@ -13,7 +13,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { TransactionsWorkspace } from "./TransactionsWorkspace";
+import { TransactionsWorkspace } from "../TransactionsWorkspace";
 import { createLedger, renderWorkspace } from "./TransactionsWorkspace.testHelpers";
 
 describe("TransactionsWorkspace filters and intent", () => {

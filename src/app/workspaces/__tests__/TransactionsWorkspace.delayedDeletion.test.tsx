@@ -13,7 +13,7 @@ import {
 } from "vitest";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade } from "@/test-support";
-import { TransactionsWorkspace } from "./TransactionsWorkspace";
+import { TransactionsWorkspace } from "../TransactionsWorkspace";
 import {
   createNegativeDeletionLedger,
   deleteButton,

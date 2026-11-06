@@ -18,7 +18,7 @@ import type {
   TradeHeatmapDay,
 } from "@/features/charts";
 import { createUsdtSimpleTrade } from "@/test-support";
-import { HomeWorkspace } from "./HomeWorkspace";
+import { HomeWorkspace } from "../HomeWorkspace";
 
 afterEach(cleanup);
 

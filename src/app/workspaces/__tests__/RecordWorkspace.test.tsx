@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as calculations from "@/core/calculations";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
-import { RecordWorkspace } from "./RecordWorkspace";
+import { RecordWorkspace } from "../RecordWorkspace";
 
 const clock: LedgerClock = {
   now: () => new Date("2026-08-18T08:00:00.000Z"),

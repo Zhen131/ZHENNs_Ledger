@@ -27,8 +27,8 @@ import {
   translate,
   useLanguage,
 } from "@/ui";
-import { HomeWorkspace } from "./HomeWorkspace";
-import { SettingsWorkspace } from "./SettingsWorkspace";
+import { HomeWorkspace } from "../HomeWorkspace";
+import { SettingsWorkspace } from "../SettingsWorkspace";
 
 vi.mock("echarts/core", () => ({
   init: vi.fn(() => ({

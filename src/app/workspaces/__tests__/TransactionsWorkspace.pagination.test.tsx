@@ -12,7 +12,7 @@ import {
   getActivityPageItems,
 } from "@/features/activity";
 import { createUsdtSimpleTrade } from "@/test-support";
-import { TransactionsWorkspace } from "./TransactionsWorkspace";
+import { TransactionsWorkspace } from "../TransactionsWorkspace";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 

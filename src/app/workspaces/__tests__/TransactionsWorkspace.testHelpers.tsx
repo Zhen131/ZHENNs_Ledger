@@ -11,7 +11,7 @@ import {
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade } from "@/test-support";
-import { TransactionsWorkspace } from "./TransactionsWorkspace";
+import { TransactionsWorkspace } from "../TransactionsWorkspace";
 
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,

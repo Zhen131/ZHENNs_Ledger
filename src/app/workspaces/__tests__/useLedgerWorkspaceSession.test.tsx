@@ -3,7 +3,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useLedgerWorkspaceSession } from "./useLedgerWorkspaceSession";
+import { useLedgerWorkspaceSession } from "../useLedgerWorkspaceSession";
 
 describe("useLedgerWorkspaceSession", () => {
   it("keeps view choices while navigating the same ledger epoch", () => {
