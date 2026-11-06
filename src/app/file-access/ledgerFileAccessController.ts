@@ -1,3 +1,10 @@
+/**
+ * 这个文件管进账本前怎么拿到一个账本文件。
+ * 重连上次的，新建，选已有的，解锁，恢复，都在这里。
+ * 文件格式和加解密在 `platform/files`，同一文件只许一处打开在 `platform/coordination`。
+ * 不显然的决定：一个文件只给一处打开，抢到独占凭证才解锁。
+ * 2026-07-31 提交 40c7fa4 起这样做。
+ */
 import { type LedgerFileHandleAdapter } from "@/platform/files";
 import {
   type LedgerFileConnectionAdapter,
@@ -62,6 +69,13 @@ import { createInitialLedgerData } from "@/core/state";
 
 
 
+/**
+ * 这个类是打开账本文件那一套的正式做法。
+ * 进账本前那道检查用它。
+ * 它记着选好的文件、等确认的恢复、当前开着的会话。
+ * 用户换操作时，旧操作的结果一律作废，算取消。
+ * 各个动作都不抛错，结果和错误码放在返回值里。
+ */
 export class DefaultLedgerFileAccessController
   implements LedgerFileAccessController
 {
@@ -592,12 +606,14 @@ export class DefaultLedgerFileAccessController
     const recovery = this.pendingRecovery;
     if (recovery) {
       void this.startRecoveryCancellation(recovery).catch(() => {
-        // Keep the candidate so an explicit cleanup retry remains possible.
+        // 为什么吞掉：留着这份恢复，以后明确清理时还能再试。
+        // 2026-07-31 提交 40c7fa4 写下这个理由。
       });
     }
     for (const cleanup of this.retainedLeaseCleanups.values()) {
       void this.startRetainedLeaseCleanup(cleanup).catch(() => {
-        // Keep every failed cleanup owner so a later retry remains possible.
+        // 为什么吞掉：每个清理失败的凭证都留着，以后还能再试。
+        // 2026-07-31 提交 40c7fa4 写下这个理由。
       });
     }
   }
@@ -814,7 +830,8 @@ export class DefaultLedgerFileAccessController
     lease: LedgerFileSessionLease,
   ): Promise<void> {
     return this.retainAndReleaseLease(lease).catch(() => {
-      // Ownership remains retained; cancelPendingSelection retries cleanup.
+      // 为什么吞掉：凭证还留着，`cancelPendingSelection` 会再试着放。
+      // 2026-07-31 提交 40c7fa4 写下这个理由。
     });
   }
 
