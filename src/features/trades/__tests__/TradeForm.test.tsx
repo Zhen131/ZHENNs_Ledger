@@ -10,8 +10,8 @@ import type { LedgerData } from "@/core/models";
 import type { LedgerClock } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade } from "@/test-support";
-import { TradeForm } from "./TradeForm";
-import type { TradeWorkspaceDraft } from "./tradeWorkspaceDraft";
+import { TradeForm } from "../TradeForm";
+import type { TradeWorkspaceDraft } from "../tradeWorkspaceDraft";
 
 afterEach(cleanup);
 

@@ -6,7 +6,7 @@ import { sampleTrades } from "@/test-support";
 import {
   TRADE_REMOVAL_ERROR_CODES,
   validateTradeRemoval,
-} from "./tradeRemovalService";
+} from "../tradeRemovalService";
 
 function createSampleLedger() {
   return {

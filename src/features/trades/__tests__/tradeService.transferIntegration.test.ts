@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialLedgerData } from "@/core/state";
 import { TRADE_VALIDATION_ERROR_CODES } from "@/core/validation";
-import { createValidatedTrade } from "./tradeService";
+import { createValidatedTrade } from "../tradeService";
 import {
   validBuy,
   btcSell,

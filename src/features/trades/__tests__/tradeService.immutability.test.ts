@@ -6,7 +6,7 @@ import { getPositionsFromLedger } from "@/features/portfolio";
 import {
   createValidatedTrade,
   type TradeServiceDependencies,
-} from "./tradeService";
+} from "../tradeService";
 import {
   TIMESTAMP,
   validBuy,

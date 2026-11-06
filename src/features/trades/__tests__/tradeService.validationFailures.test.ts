@@ -6,7 +6,7 @@ import {
   TRADE_VALIDATION_ERROR_CODES,
   validateTradeDraft,
 } from "@/core/validation";
-import { createValidatedTrade } from "./tradeService";
+import { createValidatedTrade } from "../tradeService";
 import {
   validBuy,
   createLedgerData,

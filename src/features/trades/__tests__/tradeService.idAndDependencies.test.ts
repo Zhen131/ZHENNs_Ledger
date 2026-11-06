@@ -4,7 +4,7 @@ import {
   TRADE_SERVICE_ERROR_CODES,
   createValidatedTrade,
   type TradeServiceDependencies,
-} from "./tradeService";
+} from "../tradeService";
 import {
   TIMESTAMP,
   validBuy,

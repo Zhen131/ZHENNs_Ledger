@@ -9,7 +9,7 @@ import type {
 } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";
-import { type TradeServiceDependencies } from "./tradeService";
+import { type TradeServiceDependencies } from "../tradeService";
 
 export const TIMESTAMP = "2026-07-14T12:00:00.000Z";
 

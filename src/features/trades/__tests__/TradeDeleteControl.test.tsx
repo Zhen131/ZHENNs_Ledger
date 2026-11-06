@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   TradeDeleteControl,
   type TradeDeletePhase,
-} from "./TradeDeleteControl";
+} from "../TradeDeleteControl";
 
 afterEach(cleanup);
 
