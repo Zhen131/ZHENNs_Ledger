@@ -1,3 +1,9 @@
+/**
+ * 这个文件管记账页的现金面板。
+ * 入金、出金、外部支出、余额校准都在这里记。
+ * 按钮按下后的处理在 `cashEventPanelActions.ts`，表单和列表在两个子组件里。
+ * 不显然的决定：现金单独一个 USDT 池，不当成一种币；2026-08-19 定（W14 01A 第二节）。
+ */
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -33,6 +39,13 @@ import {
 import { CashEventPanelEventList } from "./CashEventPanelEventList";
 import { CashEventPanelForm } from "./CashEventPanelForm";
 
+/**
+ * 这个组件画记账页的现金面板。
+ * 上面是表单，下面是分页的现金记录，最后加的在前。
+ * 保存或删除后余额会变负时，弹出确认框。
+ * 账本不能写时，按钮不起作用。
+ * `cashBalance` 不传时，自己从账本算出今天的余额。
+ */
 export function CashEventPanel({
   clock = systemLedgerClock,
   cashBalance,

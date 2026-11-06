@@ -1,3 +1,8 @@
+/**
+ * 这个文件管现金面板上每个按钮按下后做什么。
+ * 画面不在这里，在 `CashEventPanel.tsx` 和它的两个子组件。
+ * 不显然的决定：确认框记着账本版本，版本变了就作废；2026-08-19 定（W14 01B 第 6.2 节）。
+ */
 import type {
   LedgerClock,
   LedgerTimeSnapshot,
@@ -47,6 +52,13 @@ type CashFormEpochResetEffectDeps = {
   setType: Dispatch<SetStateAction<CashEventType>>;
 };
 
+/**
+ * 这个函数把现金表单清回初始样子。
+ * 换了一本账本时调用。
+ * 类型回到入金，日期回到今天，地点回到设备时区。
+ * 没做完的确认和删除也一起清掉，页码回到第 1 页。
+ * 不会出错。
+ */
 export function runCashFormEpochResetEffect(
   deps: CashFormEpochResetEffectDeps,
 ) {
@@ -97,6 +109,13 @@ type CashPersistenceEffectDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数看存盘结果，决定提示什么。
+ * 存盘失败：显示「没存上」。
+ * 存到了这次改动的版本：清空表单，显示「已保存」。
+ * 删除的显示「已删除」。
+ * 不会出错。
+ */
 export function runCashPersistenceEffect(
   deps: CashPersistenceEffectDeps,
 ) {
@@ -149,6 +168,10 @@ type ApplyDeleteDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数真正删掉一条现金记录，然后等存盘。
+ * 账本不让写、或那条已经不在了，就显示错误，不等存盘。
+ */
 export function doApplyDelete(
   deps: ApplyDeleteDeps,
   cashEventId: string,
@@ -200,6 +223,14 @@ type HandleSubmitDeps = {
   type: CashEventType;
 };
 
+/**
+ * 这个函数处理现金表单的「保存」。
+ * 先把日期、时间、地点拼成一个时刻，再交给 `createValidatedCashEvent` 检查。
+ * 举例：余额 100，填出金 300。
+ * → 不直接保存，先弹「余额会变成 -200」的确认。
+ * 余额不会变负就直接加进账本。
+ * 填的时刻不存在或有歧义（夏令时那一小时），显示错误。
+ */
 export function doHandleSubmit(
   deps: HandleSubmitDeps,
   event: FormEvent<HTMLFormElement>,
@@ -291,6 +322,13 @@ type RequestDeleteDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理现金记录旁的「删除」按钮。
+ * 删后余额会变负：直接弹确认框。
+ * 不会变负：第一次点只是「准备删除」，第二次点才删。
+ * 举例：余额 100，删一笔 300 的入金 → 弹「余额会变成 -200」的确认。
+ * 两次点之间账本有改动，就作废并提示重来。
+ */
 export function doRequestDelete(
   deps: RequestDeleteDeps,
   cashEvent: CashEvent,
@@ -373,6 +411,12 @@ type ConfirmNegativeBalanceDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理确认框里的「确认」。
+ * 确认前再算一次余额，结果和弹框时不一样就作废。
+ * 举例：弹框时说改完 -200，此后又入金 500 → 不再是负数，确认作废。
+ * 为什么要再算：弹框后账本可能已变；2026-08-19 定（W14 01B 第 6.2 节）。
+ */
 export function doConfirmNegativeBalance(
   deps: ConfirmNegativeBalanceDeps,
 ) {

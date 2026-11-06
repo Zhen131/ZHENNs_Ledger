@@ -1,3 +1,8 @@
+/**
+ * 这个文件管现金面板上的那张表单。
+ * 表单里的值和按下保存后做什么，都在上层 `CashEventPanel.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type { CashEventType } from "@/core/models";
@@ -15,6 +20,13 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画填现金记录的表单。
+ * 有类型、金额或目标余额、日期、时间、地点、备注。
+ * 选「余额校准」时，金额一栏变成目标余额。
+ * 目标余额填了数后，下面显示现在的余额。
+ * 点「保存」会交给上层的提交处理。
+ */
 export function CashEventPanelForm({
   amountOrTarget,
   clock,

@@ -1,3 +1,8 @@
+/**
+ * 这个文件管现金面板下方的现金记录列表。
+ * 列表里的数据和删除怎么处理，都在上层 `CashEventPanel.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { LedgerNumber, PaginationBar } from "@/ui";
@@ -13,6 +18,12 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画现金记录列表，最后加的在前，分页显示。
+ * 每条显示类型、日期、金额和备注。
+ * 校准显示校准前余额、目标余额和差额。
+ * 点「删除」第一次变成「确认删除」，再点才真删。
+ */
 export function CashEventPanelEventList({
   armedDelete,
   currentPage,

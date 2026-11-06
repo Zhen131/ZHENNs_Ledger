@@ -1,3 +1,8 @@
+/**
+ * 这个文件管一件事：检查表单填的现金记录，合格就造出一条。
+ * 它不管弹确认框和存盘，那在 `cashEventPanelActions.ts` 和上层的存盘流程。
+ * 不显然的决定：校准存下旧余额和差额，不改旧记录；2026-08-19 定（W14 01B 第 3.2 节）。
+ */
 import type {
   CashEvent,
   CashEventType,
@@ -23,9 +28,17 @@ import {
   type CashMutationProjection,
 } from "./cashProjection";
 
+/**
+ * 为什么最多试 3 次：2026-08-19 定（W14 01B 第 3.5 节）。
+ * 撞号 3 次几乎不可能，再撞就当出错。
+ */
 const MAX_ID_ATTEMPTS = 3;
 const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
+/**
+ * 新建现金记录可能失败的原因，一种一个代码。
+ * 界面按代码分支，不去读说明文字。
+ */
 export const CASH_EVENT_SERVICE_ERROR_CODES = {
   INVALID_INPUT: "CASH_EVENT_INVALID_INPUT",
   INVALID_TYPE: "CASH_EVENT_INVALID_TYPE",
@@ -44,6 +57,10 @@ type CashEventServiceError = Readonly<{
   message: string;
 }>;
 
+/**
+ * 新建时要用的三样外部东西：生成编号、读时刻、读今天。
+ * 测试时可以换成固定的。
+ */
 export type CashEventServiceDependencies = Readonly<{
   generateId: () => string;
   now: () => ISODateTimeString;
@@ -58,6 +75,16 @@ type CreateCashEventResult =
     }
   | { ok: false; error: CashEventServiceError };
 
+/**
+ * 这个函数回答：表单填的这条现金记录合不合规矩？合规就造出一条。
+ * 四种类型：入金、出金、外部支出、余额校准。
+ * 前三种的金额必须大于 0；校准填的是目标余额，可以是 0 或负数。
+ * 举例：现在余额 100，校准到 80 → 造出一条差额 -20 的校准。
+ * 同时算好改完后的余额，供界面判断要不要再确认。
+ * 什么时候出错：不返回抛错，返回 `ok:false` 和错误代码。
+ * 比如日期在今天以后、金额写法不对、备注太长。
+ * 界面拿到后把说明文字显示在对应的输入框旁。
+ */
 export function createValidatedCashEvent(
   input: unknown,
   ledgerData: LedgerData,

@@ -1,3 +1,8 @@
+/**
+ * 这个文件管「余额会变负」的确认框。
+ * 要不要弹、确认后做什么，都由用它的面板决定。
+ * 不显然的决定：账本允许负现金，但保存前必须让人看清缺口；2026-08-19 定（W14 01A 第二节）。
+ */
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
@@ -5,6 +10,13 @@ import { useEffect, useRef, type RefObject } from "react";
 import type { CashMutationProjection } from "./cashProjection";
 import { LedgerNumber, useLanguage } from "@/ui";
 
+/**
+ * 这个组件画「余额会变负」的确认框。
+ * 显示现在余额、变化、改完余额和缺口。
+ * 打开时焦点落在「确认」上，Tab 只在两个按钮间转。
+ * 按 Esc 或点「取消」叫 `onCancel`；点「确认」叫 `onConfirm`。
+ * 关掉后焦点回到当初点的那个按钮。
+ */
 export function NegativeCashConfirmationDialog({
   title,
   projection,
