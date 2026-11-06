@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareLedgerFactOrder,
   getLedgerFactSortInstant,
-} from "./ledgerFactOrder";
+} from "../ledgerFactOrder";
 
 const at = (value: string) => Date.parse(value);
 

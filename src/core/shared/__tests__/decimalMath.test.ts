@@ -9,7 +9,7 @@ import {
   multiply,
   subtract,
   toDecimalString,
-} from "./decimalMath";
+} from "../decimalMath";
 
 test("normalizes decimal strings for storage without losing precision", () => {
   expect(toDecimalString("001.2300")).toBe("1.23");

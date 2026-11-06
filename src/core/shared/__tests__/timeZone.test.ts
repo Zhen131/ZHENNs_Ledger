@@ -5,7 +5,7 @@ import {
   getTimeZoneOffsetAt,
   isSupportedTimeZone,
   resolveWallTimeInTimeZone,
-} from "./timeZone";
+} from "../timeZone";
 
 describe("timeZone", () => {
   it("uses the offset that applied in Budapest on the supplied winter and summer instants", () => {

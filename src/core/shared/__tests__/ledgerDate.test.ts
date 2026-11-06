@@ -5,7 +5,7 @@ import {
   createSystemLedgerClock,
   getLedgerDateKey,
   millisecondsUntilNextLocalMidnight,
-} from "./ledgerDate";
+} from "../ledgerDate";
 
 describe("ledgerDate", () => {
   it("keeps the source YYYY-MM-DD key across offsets", () => {
