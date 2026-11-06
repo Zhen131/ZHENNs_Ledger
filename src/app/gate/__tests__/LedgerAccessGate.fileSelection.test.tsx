@@ -30,7 +30,7 @@ import {
   SUPPORTED_LEDGER_SCHEMA_VERSION,
 } from "@/platform/files";
 import { createInitialLedgerData } from "@/core/state";
-import { LedgerAccessGate } from "./LedgerAccessGate";
+import { LedgerAccessGate } from "../LedgerAccessGate";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,

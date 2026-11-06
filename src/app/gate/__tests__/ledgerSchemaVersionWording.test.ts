@@ -19,7 +19,7 @@ import {
 } from "@/ui";
 
 import { LEDGER_FILE_ACCESS_ERROR_CODES } from "@/app/file-access";
-import { getFileAccessErrorMessage } from "./LedgerAccessGateHelpers";
+import { getFileAccessErrorMessage } from "../LedgerAccessGateHelpers";
 
 /**
  * Interface wording that names the ledger schema version went stale once

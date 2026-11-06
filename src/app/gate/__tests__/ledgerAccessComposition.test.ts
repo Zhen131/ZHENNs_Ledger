@@ -9,7 +9,7 @@ import {
   createApplicationLedgerFileAccessController,
   getDefaultLedgerAccessController,
   getDefaultLedgerFileAccessController,
-} from "./ledgerAccessComposition";
+} from "../ledgerAccessComposition";
 
 const TEST_PASSPHRASE = "correct horse battery staple";
 

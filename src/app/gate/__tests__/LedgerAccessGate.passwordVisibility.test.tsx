@@ -14,7 +14,7 @@ import {
 } from "vitest";
 import { LEDGER_FILE_ACCESS_ERROR_CODES } from "@/app/file-access";
 import { type SessionQuiesceToken } from "@/platform/persistence";
-import { LedgerAccessGate } from "./LedgerAccessGate";
+import { LedgerAccessGate } from "../LedgerAccessGate";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,

@@ -13,7 +13,7 @@ import {
   vi,
 } from "vitest";
 import { type SessionQuiesceToken } from "@/platform/persistence";
-import { LedgerAccessGate } from "./LedgerAccessGate";
+import { LedgerAccessGate } from "../LedgerAccessGate";
 import type {
   LedgerSessionFatalSignal,
   PersistentLedgerState,
