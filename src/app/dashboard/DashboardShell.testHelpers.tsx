@@ -4,7 +4,9 @@ import {
   vi,
 } from "vitest";
 import {
+  act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -16,12 +18,15 @@ import {
   serializeBackupEnvelope,
 } from "@/features/backup";
 import type { LedgerData } from "@/core/models";
-import type {
-  LedgerRepository,
-  LedgerSession,
-  LedgerSessionCapabilities,
-  LedgerStorageKind,
-  SessionQuiesceReason,
+import {
+  createLedgerSession,
+  INDEXED_DB_LEDGER_CAPABILITIES,
+  type LedgerReadyClearDriver,
+  type LedgerRepository,
+  type LedgerSession,
+  type LedgerSessionCapabilities,
+  type LedgerStorageKind,
+  type SessionQuiesceReason,
 } from "@/platform/persistence";
 import type { PersistentLedgerState } from "@/app/persistence";
 import { createInitialLedgerData } from "@/core/state";
@@ -262,6 +267,113 @@ export async function renderDashboard(
   });
 
   return view;
+}
+
+/**
+ * Renders the shell the way the real entry does: always with a session.
+ * The storage semantics default to what the shell itself defaults to when no
+ * storage is named ("indexeddb" with its capabilities), so a migrated case
+ * keeps the semantics it ran under before (08B section 3 item 2).
+ */
+export async function renderSessionDashboard(
+  repository: LedgerRepository = createMemoryRepository(),
+  {
+    storageKind = "indexeddb",
+    capabilities = INDEXED_DB_LEDGER_CAPABILITIES,
+    readyClearDriver,
+  }: {
+    storageKind?: LedgerStorageKind;
+    capabilities?: LedgerSessionCapabilities;
+    readyClearDriver?: LedgerReadyClearDriver;
+  } = {},
+) {
+  const session = createLedgerSession({
+    storageKind,
+    repository,
+    capabilities,
+    readyClearDriver,
+  });
+  const view = render(<DashboardShell session={session} />);
+
+  await waitFor(() => {
+    expect(
+      screen.queryByText("正在读取本地账本，完成前不会写入任何数据。"),
+    ).toBeNull();
+  });
+
+  return { ...view, session };
+}
+
+export type DashboardPageName =
+  | "首页"
+  | "记账"
+  | "交易"
+  | "导入与导出"
+  | "设置";
+
+export async function goToPage(page: DashboardPageName) {
+  await userEvent.setup().click(screen.getByRole("button", { name: page }));
+  await screen.findByRole("heading", { level: 1, name: page });
+}
+
+/** Opens the trade form on the record page for the given asset. */
+export async function goToTradeForm(assetSymbol = "BTC") {
+  await goToPage("记账");
+  await userEvent.setup().selectOptions(
+    screen.getByLabelText("记账对象", { selector: "select" }),
+    `trade:${assetSymbol}`,
+  );
+}
+
+/** The complete holdings table behind the home page's view-all action. */
+export async function openHoldingsDetails(): Promise<HTMLElement> {
+  await goToPage("首页");
+  await userEvent.setup().click(
+    screen.getByRole("button", { name: "查看全部持仓" }),
+  );
+  return screen.getByRole("table", { name: "完整持仓与现金明细" });
+}
+
+export async function closeHoldingsDetails() {
+  await userEvent.setup().click(
+    screen.getByRole("button", { name: "关闭完整持仓详情" }),
+  );
+}
+
+/** The unified activity table on the transactions page. */
+export async function openActivityTable(): Promise<HTMLElement> {
+  await goToPage("交易");
+  return screen.getByRole("table");
+}
+
+/**
+ * The transactions page deletes a trade only after a second activation and
+ * a five-second review window; the window is run on fake timers so the case
+ * does not wait in real time.
+ */
+export function deleteTradeAfterReview(buttonName: string) {
+  vi.useFakeTimers();
+  try {
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+    act(() => {
+      vi.advanceTimersByTime(5_000);
+    });
+    // A removal that leaves cash negative asks once more, the same way a
+    // trade that leaves cash negative does on the record page.
+    const negativeCashDialog = screen.queryByRole("dialog", {
+      name: "确认删除交易后的负现金",
+    });
+    if (negativeCashDialog) {
+      fireEvent.click(
+        within(negativeCashDialog).getByRole("button", {
+          name: "确认并删除",
+        }),
+      );
+    }
+  } finally {
+    vi.useRealTimers();
+  }
 }
 
 export async function fillBuyTrade() {

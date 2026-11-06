@@ -19,8 +19,10 @@ import {
   createMemoryRepository,
   createPriceSnapshot,
   createSimpleTrade,
-  getSection,
-  renderDashboard,
+  closeHoldingsDetails,
+  goToPage,
+  openHoldingsDetails,
+  renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 
 vi.mock("echarts/core", () => ({
@@ -51,11 +53,12 @@ vi.mock("echarts/core", () => ({
 describe("DashboardShell future fact correction", () => {
   it("deletes only the named future trade, price, or asset transfer after two activations and persists across remount", async () => {
     const repository = createMemoryRepository(createFutureCorrectionLedger());
-    const view = await renderDashboard(repository);
+    const view = await renderSessionDashboard(repository);
     const user = userEvent.setup();
 
     expect(screen.getByText("未来事实纠正模式")).not.toBeNull();
-    expect(within(getSection("资产汇总")).queryByText("ETH")).toBeNull();
+    expect(within(await openHoldingsDetails()).queryByText("ETH")).toBeNull();
+    await closeHoldingsDetails();
     const tradeDelete = screen.getByRole("button", {
       name: "删除未来交易 ETH 2026-07-26 future-eth-a",
     });
@@ -113,7 +116,7 @@ describe("DashboardShell future fact correction", () => {
     ]);
 
     view.unmount();
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     expect(
       screen.queryByRole("button", {
         name: "删除未来交易 ETH 2026-07-26 future-eth-a",
@@ -138,7 +141,7 @@ describe("DashboardShell future fact correction", () => {
 
   it("keeps delete-all two-stage and restores ordinary writes after the final future fact", async () => {
     const repository = createMemoryRepository(createFutureCorrectionLedger());
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
     const deleteAll = screen.getByRole("button", {
       name: "删除全部无效未来事实",
@@ -154,6 +157,7 @@ describe("DashboardShell future fact correction", () => {
       expect(repository.save).toHaveBeenCalledOnce();
       expect(screen.getByText("已保存到本地")).not.toBeNull();
     });
+    await goToPage("记账");
     expect(
       (screen.getByLabelText("当前价格").closest("fieldset") as HTMLFieldSetElement)
         .disabled,
@@ -176,7 +180,7 @@ describe("DashboardShell future fact correction", () => {
       createSimpleTrade("future-sell", "sell", "BTC", "1", "2026-07-27"),
     ];
     const repository = createMemoryRepository(ledgerData);
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
 
     const buyDelete = screen.getByRole("button", {
@@ -259,7 +263,7 @@ describe("DashboardShell future fact correction", () => {
         });
       }
       const repository = createMemoryRepository(ledgerData);
-      await renderDashboard(repository);
+      await renderSessionDashboard(repository);
       const user = userEvent.setup();
 
       const supportingTransferDelete = screen.getByRole("button", {
@@ -309,7 +313,7 @@ describe("DashboardShell future fact correction", () => {
       }),
       clear: vi.fn(async () => undefined),
     };
-    const view = await renderDashboard(repository);
+    const view = await renderSessionDashboard(repository);
     const user = userEvent.setup();
     const remove = screen.getByRole("button", {
       name: "删除未来价格 BTC 2026-07-26 future-final-price",
@@ -331,7 +335,7 @@ describe("DashboardShell future fact correction", () => {
     expect(storedLedger.priceSnapshots).toEqual([]);
 
     view.unmount();
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     expect(screen.queryByText("未来事实纠正模式")).toBeNull();
   });
 });

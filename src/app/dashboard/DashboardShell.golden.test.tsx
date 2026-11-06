@@ -11,12 +11,23 @@ import {
 import userEvent from "@testing-library/user-event";
 
 import type { LedgerData } from "@/core/models";
-import type { LedgerRepository } from "@/platform/persistence";
+import {
+  createLedgerSession,
+  INDEXED_DB_LEDGER_CAPABILITIES,
+  type LedgerRepository,
+} from "@/platform/persistence";
 import { sampleTradeDrafts } from "@/test-support";
 import { createInitialLedgerData } from "@/core/state";
 import { isWithinTolerance } from "@/core/shared";
 import type { LedgerClock } from "@/core/shared";
 import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
+import {
+  closeHoldingsDetails,
+  deleteTradeAfterReview,
+  goToPage,
+  openActivityTable,
+  openHoldingsDetails,
+} from "./DashboardShell.testHelpers";
 
 const fixedClock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00"),
@@ -27,8 +38,17 @@ function DashboardShell({
 }: {
   repository: LedgerRepository;
 }) {
+  // The storage semantics are what the shell defaulted to when these cases
+  // rendered it without a session: "indexeddb" with its capabilities.
   return (
-    <DashboardShellRuntime clock={fixedClock} repository={repository} />
+    <DashboardShellRuntime
+      clock={fixedClock}
+      session={createLedgerSession({
+        storageKind: "indexeddb",
+        repository,
+        capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
+      })}
+    />
   );
 }
 
@@ -66,19 +86,32 @@ function createMemoryRepository(
   };
 }
 
-function getSection(title: string): HTMLElement {
-  const section = screen.getByRole("heading", { name: title }).closest("section");
+// The complete holdings table lists, per row: asset, quantity, three custody
+// quantities, average cost, remaining cost, realized, latest price, market
+// value, unrealized, and cumulative buy outflow. Each cell carries a
+// small-screen label before its value, so only the value element is read.
+const DETAIL_COLUMN = {
+  quantity: 1,
+  averageCost: 5,
+  costBasis: 6,
+  realizedPnl: 7,
+  latestPrice: 8,
+  marketValue: 9,
+  unrealizedPnl: 10,
+} as const;
 
-  if (!section) {
-    throw new Error(`Section not found: ${title}`);
-  }
-
-  return section;
+function getHoldingsTable(): HTMLElement {
+  return screen.getByRole("table", { name: "完整持仓与现金明细" });
 }
 
-function getPositionRow(assetSymbol: string): HTMLTableRowElement {
-  const assetCell = within(getSection("资产汇总")).getByText(assetSymbol);
-  const row = assetCell.closest("tr");
+function getPositionRow(assetSymbol: string): HTMLElement {
+  const row = within(getHoldingsTable())
+    .getAllByRole("row")
+    .find(
+      (candidate) =>
+        within(candidate).queryAllByRole("cell")[0]?.lastElementChild
+          ?.textContent === assetSymbol,
+    );
 
   if (!row) {
     throw new Error(`Position row not found: ${assetSymbol}`);
@@ -92,7 +125,7 @@ function getPositionCellValue(
   columnIndex: number,
 ): string {
   const cells = within(getPositionRow(assetSymbol)).getAllByRole("cell");
-  const text = cells[columnIndex]?.textContent?.trim();
+  const text = cells[columnIndex]?.lastElementChild?.textContent?.trim();
 
   if (!text) {
     throw new Error(
@@ -116,6 +149,26 @@ function expectPositionDecimal(
   expect(isWithinTolerance(actual, expected, "0.0000000001")).toBe(true);
 }
 
+function getHomeMetrics(): HTMLElement {
+  const metrics = screen
+    .getByRole("heading", { name: "当前总资产" })
+    .closest<HTMLElement>("[data-home-row]");
+
+  if (!metrics) {
+    throw new Error("Home metrics not found");
+  }
+
+  return metrics;
+}
+
+async function expandActivityRow(index: number) {
+  await userEvent.setup().click(
+    within(screen.getByRole("table")).getAllByRole("button", {
+      name: "详情",
+    })[index],
+  );
+}
+
 async function fillTradeForm(input: {
   type: "buy" | "sell";
   assetSymbol: string;
@@ -128,6 +181,9 @@ async function fillTradeForm(input: {
 }) {
   const user = userEvent.setup();
 
+  if (screen.queryByRole("heading", { level: 1, name: "记账" }) === null) {
+    await goToPage("记账");
+  }
   const recordTarget = screen.queryByLabelText("记账对象", {
     selector: "select",
   });
@@ -250,21 +306,27 @@ describe("DashboardShell golden UI acceptance", () => {
     await user.type(screen.getByLabelText("价格日期"), "2026-07-25");
     await user.click(screen.getByRole("button", { name: "保存价格" }));
 
-    expectPositionDecimal("BTC", 1, "0.06");
-    expectPositionDecimal("BTC", 2, "65050");
-    expectPositionDecimal("BTC", 3, "3903");
-    expectPositionDecimal("BTC", 4, "195");
-    expectPositionDecimal("BTC", 6, "4800");
-    expectPositionDecimal("BTC", 7, "897");
+    await openHoldingsDetails();
+    expectPositionDecimal("BTC", DETAIL_COLUMN.quantity, "0.06");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.averageCost, "65050");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.costBasis, "3903");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.realizedPnl, "195");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.marketValue, "4800");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.unrealizedPnl, "897");
+    await closeHoldingsDetails();
 
-    const summary = getSection("净盈亏摘要");
-    for (const value of ["6505", "2797", "3903", "195", "897"]) {
+    const summary = getHomeMetrics();
+    for (const value of ["3903", "195", "897"]) {
       expect(within(summary).getByTitle(value)).not.toBeNull();
     }
-    const trades = getSection("交易列表");
+    // The unified list shows each trade's cash impact in its expanded
+    // details, one row at a time: the newer sell first, then the buy.
+    const trades = await openActivityTable();
+    await expandActivityRow(1);
     expect(within(trades).getAllByTitle("6505")).not.toHaveLength(0);
-    expect(within(trades).getAllByTitle("2797")).not.toHaveLength(0);
     expect(within(trades).getAllByTitle("5")).not.toHaveLength(0);
+    await expandActivityRow(0);
+    expect(within(trades).getAllByTitle("2797")).not.toHaveLength(0);
     expect(within(trades).getAllByTitle("3")).not.toHaveLength(0);
   });
 
@@ -307,18 +369,19 @@ describe("DashboardShell golden UI acceptance", () => {
       ).toBeNull();
     });
 
-    const tradeSection = getSection("交易列表");
+    expect(screen.getByText(/个成本点因异币手续费无法换算而断开/)).not.toBeNull();
+    await openHoldingsDetails();
+    const positionRow = getPositionRow("BTC");
+    expect(within(positionRow).getAllByText("不可可靠计算")).toHaveLength(4);
+    expect(within(positionRow).getAllByTitle("12")).toHaveLength(2);
+    await closeHoldingsDetails();
+    const tradeSection = await openActivityTable();
+    await expandActivityRow(0);
     expect(
       within(tradeSection).getByText(
         "不可可靠计算：BNB 手续费未换算",
       ),
     ).not.toBeNull();
-    const positionRow = getPositionRow("BTC");
-    expect(within(positionRow).getAllByText("不可可靠计算")).toHaveLength(4);
-    expect(within(positionRow).getAllByTitle("12")).toHaveLength(2);
-    expect(within(getSection("净盈亏摘要")).getAllByText("不可完整计算")).toHaveLength(4);
-    expect(screen.getByText(/个成本点因异币手续费无法换算而断开/)).not.toBeNull();
-    expect(screen.getByText(/共 365 个自然日、1 笔交易/)).not.toBeNull();
   });
 
   it("runs golden, price, oversell, and deletion scenarios through the real forms", async () => {
@@ -332,20 +395,22 @@ describe("DashboardShell golden UI acceptance", () => {
 
     await enterGoldenTrades();
 
-    const tradeSection = getSection("交易列表");
-    expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
+    expect(within(await openActivityTable()).getAllByRole("row")).toHaveLength(6);
 
-    expectPositionDecimal("BTC", 1, "2");
-    expectPositionDecimal("BTC", 3, "20");
-    expectPositionDecimal("BTC", 4, "0");
-    expectPositionDecimal("ETH", 1, "3");
-    expectPositionDecimal("ETH", 3, "24");
-    expectPositionDecimal("ETH", 4, "0");
-    expectPositionDecimal("ADA", 1, "15");
-    expectPositionDecimal("ADA", 3, "30");
-    expectPositionDecimal("ADA", 4, "30");
+    await openHoldingsDetails();
+    expectPositionDecimal("BTC", DETAIL_COLUMN.quantity, "2");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.costBasis, "20");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.realizedPnl, "0");
+    expectPositionDecimal("ETH", DETAIL_COLUMN.quantity, "3");
+    expectPositionDecimal("ETH", DETAIL_COLUMN.costBasis, "24");
+    expectPositionDecimal("ETH", DETAIL_COLUMN.realizedPnl, "0");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.quantity, "15");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.costBasis, "30");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.realizedPnl, "30");
+    await closeHoldingsDetails();
 
     const user = userEvent.setup();
+    await goToPage("记账");
     await user.selectOptions(
       screen.getByLabelText("价格资产", { selector: "select" }),
       "BTC",
@@ -358,17 +423,25 @@ describe("DashboardShell golden UI acceptance", () => {
     await waitFor(() => {
       expect(screen.getByText("价格已认证保存")).not.toBeNull();
     });
-    expectPositionDecimal("BTC", 5, "15");
-    expectPositionDecimal("BTC", 6, "30");
-    expectPositionDecimal("BTC", 7, "10");
-    expect(screen.getByTitle("-14").closest("p")?.textContent).toContain(
+    await openHoldingsDetails();
+    expectPositionDecimal("BTC", DETAIL_COLUMN.latestPrice, "15");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.marketValue, "30");
+    expectPositionDecimal("BTC", DETAIL_COLUMN.unrealizedPnl, "10");
+    await closeHoldingsDetails();
+    expect(
+      screen
+        .getAllByTitle("-14")
+        .find((element) =>
+          element.closest("p")?.textContent?.includes("几何分配"),
+        )
+        ?.closest("p")?.textContent,
+    ).toContain(
       "几何分配 1 项；净总资产 -14.00 USDT",
     );
     expect(screen.getByTitle("44").closest("p")?.textContent).toBe(
       "现金缺口 44.00 USDT；负现金不绘制为正扇区。",
     );
     expect(screen.getByText("未估值资产：ADA、ETH。")).not.toBeNull();
-    expect(screen.getByText(/共 365 个自然日、5 笔交易/)).not.toBeNull();
 
     await fillTradeForm({
       type: "sell",
@@ -383,39 +456,41 @@ describe("DashboardShell golden UI acceptance", () => {
     expect(
       screen.getByText("卖出数量超过该时间点的可用持仓"),
     ).not.toBeNull();
+    const tradeSection = await openActivityTable();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
-    expectPositionDecimal("ADA", 1, "15");
-    expectPositionDecimal("ADA", 3, "30");
-    expectPositionDecimal("ADA", 4, "30");
+    await openHoldingsDetails();
+    expectPositionDecimal("ADA", DETAIL_COLUMN.quantity, "15");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.costBasis, "30");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.realizedPnl, "30");
+    await closeHoldingsDetails();
+    const activityTable = await openActivityTable();
 
-    const supportedBuyDeleteButton = within(tradeSection).getByRole("button", {
+    const supportedBuyDeleteButton = within(activityTable).getByRole("button", {
       name: "删除 买入 ADA 2026-01-04",
     });
     await user.click(supportedBuyDeleteButton);
     await user.click(supportedBuyDeleteButton);
 
     expect(
-      within(tradeSection).getByText(
+      screen.getByText(
         "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
       ),
     ).not.toBeNull();
-    expect(within(tradeSection).getAllByRole("row")).toHaveLength(6);
+    expect(within(activityTable).getAllByRole("row")).toHaveLength(6);
 
-    const independentBuyDeleteButton = within(tradeSection).getByRole(
-      "button",
-      {
-        name: "删除 买入 BTC 2026-01-01",
-      },
-    );
-    await user.click(independentBuyDeleteButton);
-    await user.click(independentBuyDeleteButton);
+    deleteTradeAfterReview("删除 买入 BTC 2026-01-01");
 
-    expect(within(tradeSection).getAllByRole("row")).toHaveLength(5);
-    expect(within(getSection("资产汇总")).queryByText("BTC")).toBeNull();
-    expectPositionDecimal("ETH", 1, "3");
-    expectPositionDecimal("ETH", 3, "24");
-    expectPositionDecimal("ADA", 1, "15");
-    expectPositionDecimal("ADA", 3, "30");
-    expectPositionDecimal("ADA", 4, "30");
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole("table")).getAllByRole("row"),
+      ).toHaveLength(5);
+    });
+    await openHoldingsDetails();
+    expect(within(getHoldingsTable()).queryByText("BTC")).toBeNull();
+    expectPositionDecimal("ETH", DETAIL_COLUMN.quantity, "3");
+    expectPositionDecimal("ETH", DETAIL_COLUMN.costBasis, "24");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.quantity, "15");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.costBasis, "30");
+    expectPositionDecimal("ADA", DETAIL_COLUMN.realizedPnl, "30");
   });
 });

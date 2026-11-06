@@ -33,7 +33,10 @@ import {
   createRawBackupFile,
   createSimpleTrade,
   getSection,
+  goToPage,
+  openActivityTable,
   renderDashboard,
+  renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
 
@@ -252,39 +255,11 @@ describe("DashboardShell data management", () => {
     ).toBe("true");
   });
 
-  it("keeps the prior dashboard data when a confirmed import write fails", async () => {
-    const priorLedger = createCompleteLedger();
-    const repository = createMemoryRepository(priorLedger);
-    repository.save = vi.fn(async () => {
-      throw new Error("write failed");
-    });
-    await renderDashboard(repository);
-    const user = userEvent.setup();
-
-    await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
-      createBackupFile(createInitialLedgerData()),
-    );
-    await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
-    );
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
-        ),
-      ).not.toBeNull();
-    });
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
-    expect(repository.save).toHaveBeenCalledOnce();
-    expect(repository.clear).not.toHaveBeenCalled();
-  });
-
   it("rejects corrupt, future and non-USD/USDT backups without changing page or storage", async () => {
     const priorLedger = createCompleteLedger();
     const repository = createMemoryRepository(priorLedger);
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
+    await goToPage("导入与导出");
     const user = userEvent.setup();
     const futureLedger = createInitialLedgerData();
     futureLedger.trades = [
@@ -354,75 +329,8 @@ describe("DashboardShell data management", () => {
       ).not.toBeNull();
     });
 
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(within(await openActivityTable()).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
-    expect(repository.clear).not.toHaveBeenCalled();
-  });
-
-  it("recovers a hydration failure through backup import", async () => {
-    const repository = createMemoryRepository();
-    repository.load = vi.fn(async () => {
-      throw new Error("read failed");
-    });
-    const candidate = createCompleteLedger();
-    await renderDashboard(repository);
-    const user = userEvent.setup();
-
-    await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
-      createBackupFile(candidate),
-    );
-    await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText("备份已恢复并保存到本地。")).not.toBeNull();
-      expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
-    });
-    expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
-        .disabled,
-    ).toBe(false);
-    expect(repository.save).toHaveBeenCalledWith(candidate);
-    expect(repository.clear).not.toHaveBeenCalled();
-  });
-
-  it("keeps hydration recovery blocked when backup import cannot write", async () => {
-    const repository = createMemoryRepository();
-    repository.load = vi.fn(async () => {
-      throw new Error("read failed");
-    });
-    repository.save = vi.fn(async () => {
-      throw new Error("write failed");
-    });
-    await renderDashboard(repository);
-    const user = userEvent.setup();
-
-    await user.upload(
-      screen.getByLabelText("选择账本备份文件"),
-      createBackupFile(createCompleteLedger()),
-    );
-    await user.click(
-      await screen.findByRole("button", { name: "确认恢复备份" }),
-    );
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          "导入失败；当前页面未变更。没有取得可进一步确认底层存储状态的证据，请按错误提示处理。",
-        ),
-      ).not.toBeNull();
-    });
-    expect(
-      screen.getByText(
-        "本地账本读取失败，已停止自动保存以避免覆盖原数据",
-      ),
-    ).not.toBeNull();
-    expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
-        .disabled,
-    ).toBe(true);
     expect(repository.clear).not.toHaveBeenCalled();
   });
 

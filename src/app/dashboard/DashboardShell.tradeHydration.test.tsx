@@ -22,7 +22,9 @@ import {
   createSimpleTrade,
   fillBuyTrade,
   getSection,
+  openActivityTable,
   renderDashboard,
+  renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 
 vi.mock("echarts/core", () => ({
@@ -66,9 +68,9 @@ describe("DashboardShell trade interactions", () => {
     };
     const repository = createMemoryRepository(savedLedger);
 
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = await openActivityTable();
     expect(within(tradeSection).getByText("ETH")).not.toBeNull();
     expect(within(tradeSection).getByText("2")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();

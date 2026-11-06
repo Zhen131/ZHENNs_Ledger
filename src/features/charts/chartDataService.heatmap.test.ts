@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
-import { createSimpleTrade } from "@/test-support";
+import { createSimpleTrade, sampleUsdtTrades } from "@/test-support";
 import { buildTradeHeatmap } from "./chartDataServiceHeatmap";
 import { TODAY } from "./chartDataService.testHelpers";
 
@@ -109,5 +109,49 @@ describe("trade heatmap", () => {
     const heatmap = buildTradeHeatmap(createInitialLedgerData(), TODAY);
     expect(heatmap).toHaveLength(365);
     expect(heatmap.every((day) => day.level === 0)).toBe(true);
+  });
+});
+
+// The dashboard's golden UI cases used to read these two counts off the
+// overview heatmap ("共 365 个自然日、N 笔交易"). That heatmap is gone; the
+// same inputs and the same "today" are asserted here, one layer down
+// (08B section 3 item 10 ②).
+describe("trade heatmap counts from the golden UI cases", () => {
+  function countDaysAndTrades(ledgerData: LedgerData) {
+    const heatmap = buildTradeHeatmap(ledgerData, TODAY);
+    return {
+      days: heatmap.length,
+      trades: heatmap.reduce((total, day) => total + day.total, 0),
+    };
+  }
+
+  it("counts 365 days and one trade for the old foreign-fee fact", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = [
+      {
+        id: "foreign-fee-buy",
+        occurredAt: "2026-07-20",
+        timePrecision: "day",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "1",
+        price: "10",
+        totalValue: "10",
+        currency: "USDT",
+        fee: "1",
+        feeCurrency: "BNB",
+        createdAt: "2026-07-20T00:00:00Z",
+        updatedAt: "2026-07-20T00:00:00Z",
+      },
+    ];
+
+    expect(countDaysAndTrades(ledgerData)).toEqual({ days: 365, trades: 1 });
+  });
+
+  it("counts 365 days and five trades for the golden trades", () => {
+    const ledgerData = createInitialLedgerData();
+    ledgerData.trades = structuredClone(sampleUsdtTrades);
+
+    expect(countDaysAndTrades(ledgerData)).toEqual({ days: 365, trades: 5 });
   });
 });

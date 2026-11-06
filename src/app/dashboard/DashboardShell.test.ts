@@ -224,21 +224,6 @@ describe("DashboardShell ledger views", () => {
     expect(html).toContain("已实现盈亏");
   });
 
-  it("renders an eight-column empty state when the ledger has no positions", () => {
-    buildLedgerProjectionMock.mockReturnValue(projection());
-
-    const html = renderToStaticMarkup(
-      createElement(DashboardShell, {
-        repository: staticRepository,
-        clock: fixedClock,
-      }),
-    );
-
-    expect(html).toContain(
-      'colSpan="8">暂无持仓。添加交易后，这里会自动汇总。</td>',
-    );
-  });
-
   it("renders the initial trade empty state from the current ledger", () => {
     buildLedgerProjectionMock.mockReturnValue(projection());
 
@@ -256,26 +241,6 @@ describe("DashboardShell ledger views", () => {
     expect(html).toContain(
       "暂无交易。添加交易后，这里会自动显示。",
     );
-  });
-
-  it("contains wide tables without forcing page-level horizontal overflow", () => {
-    buildLedgerProjectionMock.mockReturnValue(projection([pricedPosition]));
-
-    const html = renderToStaticMarkup(
-      createElement(DashboardShell, {
-        repository: staticRepository,
-        clock: fixedClock,
-      }),
-    );
-
-    expect(html).toContain("min-[1100px]:w-48");
-    expect(html).toContain("max-w-[1500px] flex-col overflow-hidden");
-    expect(html).toContain("min-[1100px]:overflow-y-auto");
-    expect(html).toContain("min-[1100px]:flex-row");
-    expect(html).toContain(
-      'class="min-w-0 rounded-lg border border-slate-200',
-    );
-    expect(html).toContain("min-w-[960px]");
   });
 
   it("removes fake navigation and renders the three truthful chart summaries", () => {

@@ -23,7 +23,12 @@ import {
   createTrade,
   fillBuyTrade,
   getSection,
+  goToPage,
+  goToTradeForm,
+  openActivityTable,
+  openHoldingsDetails,
   renderDashboard,
+  renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
 
@@ -52,12 +57,28 @@ vi.mock("echarts/core", () => ({
   use: vi.fn(),
 }));
 
+async function openFeeRules(): Promise<HTMLElement> {
+  await goToPage("设置");
+  await userEvent.setup().click(
+    await screen.findByRole("tab", { name: "手续费规则" }),
+  );
+  return screen.getByRole("tabpanel");
+}
+
+function getTradeForm(): HTMLElement {
+  const form = screen.getByLabelText("数量").closest("form");
+  if (!form) {
+    throw new Error("Trade form not found");
+  }
+  return form;
+}
+
 describe("DashboardShell trade interactions", () => {
   it("separates an accepted trade from pending and completed local persistence", async () => {
     const saveDeferred = createDeferred<void>();
     const repository = createMemoryRepository();
     repository.save = vi.fn(() => saveDeferred.promise);
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -105,7 +126,7 @@ describe("DashboardShell trade interactions", () => {
       .fn<LedgerRepository["save"]>()
       .mockRejectedValueOnce(new Error("write failed"))
       .mockResolvedValueOnce();
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -178,7 +199,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("creates a validated buy and updates both the trade list and positions", async () => {
-    await renderDashboard();
+    await renderSessionDashboard();
     const user = await fillBuyTrade();
 
     await user.click(screen.getByRole("button", { name: "保存交易" }));
@@ -188,22 +209,22 @@ describe("DashboardShell trade interactions", () => {
       expect(screen.getByText("交易已认证保存")).not.toBeNull();
     });
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = await openActivityTable();
     expect(within(tradeSection).getByText("BTC")).not.toBeNull();
     expect(within(tradeSection).getByText("买入")).not.toBeNull();
     expect(within(tradeSection).getAllByTitle("70")).not.toHaveLength(0);
 
-    const positionSection = getSection("资产汇总");
+    const positionSection = await openHoldingsDetails();
     expect(within(positionSection).getByText("BTC")).not.toBeNull();
-    expect(within(positionSection).getByText("0.001")).not.toBeNull();
+    expect(within(positionSection).getAllByText("0.001")).not.toHaveLength(0);
     expect(within(positionSection).getByTitle("70000")).not.toBeNull();
   });
 
   it("creates, versions, and deactivates fee rules only after authenticated persistence", async () => {
     const repository = createMemoryRepository();
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
-    const section = getSection("手续费规则");
+    const section = await openFeeRules();
 
     await user.type(within(section).getByLabelText("规则名"), "OKX BTC fee");
     await user.type(
@@ -275,9 +296,10 @@ describe("DashboardShell trade interactions", () => {
       },
     ];
     const repository = createMemoryRepository(ledger);
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
-    const tradeSection = getSection("新增交易");
+    await goToTradeForm();
+    const tradeSection = getTradeForm();
 
     await user.clear(within(tradeSection).getByLabelText("数量"));
     await user.type(within(tradeSection).getByLabelText("数量"), "1");
@@ -328,7 +350,7 @@ describe("DashboardShell trade interactions", () => {
       feeRuleId: "fee-binance-btc",
     });
 
-    const ruleSection = getSection("手续费规则");
+    const ruleSection = await openFeeRules();
     await user.click(
       within(ruleSection).getByRole("button", { name: "停用规则" }),
     );
@@ -360,9 +382,9 @@ describe("DashboardShell trade interactions", () => {
       { ...common, id: "fee-okx-a", amount: "5" },
       { ...common, id: "fee-okx-b", amount: "7" },
     ];
-    await renderDashboard(createMemoryRepository(ledger));
+    await renderSessionDashboard(createMemoryRepository(ledger));
     const user = await fillBuyTrade();
-    const tradeSection = getSection("新增交易");
+    const tradeSection = getTradeForm();
     await user.type(
       within(tradeSection).getByLabelText("平台（可选，精确匹配）"),
       "OKX",
@@ -408,7 +430,8 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("blocks deletion when removing a buy would invalidate a later sell", async () => {
-    await renderDashboard();
+    await renderSessionDashboard();
+    await goToTradeForm();
 
     await createTrade({
       type: "buy",
@@ -425,7 +448,7 @@ describe("DashboardShell trade interactions", () => {
       occurredAt: "2026-07-15",
     });
 
-    const tradeSection = getSection("交易列表");
+    const tradeSection = await openActivityTable();
     const rowsBefore = within(tradeSection).getAllByRole("row");
     expect(rowsBefore).toHaveLength(3);
 
@@ -436,12 +459,14 @@ describe("DashboardShell trade interactions", () => {
     await user.click(unsafeDelete);
 
     expect(
-      within(tradeSection).getByText(
+      screen.getByText(
         "无法删除：这笔交易支撑了后续卖出，请先删除依赖它的后续卖出",
       ),
     ).not.toBeNull();
     expect(within(tradeSection).getAllByRole("row")).toHaveLength(3);
-    expect(within(getSection("资产汇总")).getByText("5")).not.toBeNull();
+    expect(
+      within(await openHoldingsDetails()).getAllByText("5"),
+    ).not.toHaveLength(0);
   });
 
   it("deletes a safe trade and updates both empty states", async () => {
@@ -470,7 +495,7 @@ describe("DashboardShell trade interactions", () => {
   });
 
   it("saves a manual price and updates market value and unrealized PnL", async () => {
-    await renderDashboard();
+    await renderSessionDashboard();
     const user = await fillBuyTrade();
     await user.click(screen.getByRole("button", { name: "保存交易" }));
     await confirmNegativeCashIfNeeded(user);
@@ -483,7 +508,7 @@ describe("DashboardShell trade interactions", () => {
 
     expect(await screen.findByText("价格已认证保存")).not.toBeNull();
 
-    const positionSection = getSection("资产汇总");
+    const positionSection = await openHoldingsDetails();
     expect(within(positionSection).getByTitle("80000")).not.toBeNull();
     expect(within(positionSection).getByTitle("80")).not.toBeNull();
     expect(within(positionSection).getByTitle("10")).not.toBeNull();

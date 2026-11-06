@@ -18,7 +18,10 @@ import {
   createMemoryRepository,
   createSimpleTrade,
   getSection,
+  goToPage,
+  openActivityTable,
   renderDashboard,
+  renderSessionDashboard,
 } from "./DashboardShell.testHelpers";
 import { createDeferred } from "@/test-support";
 
@@ -46,6 +49,20 @@ vi.mock("echarts/core", () => ({
   }),
   use: vi.fn(),
 }));
+
+async function openSettingsDanger() {
+  await goToPage("设置");
+  await userEvent.setup().click(
+    await screen.findByRole("tab", { name: "危险操作" }),
+  );
+}
+
+async function openSettingsClear() {
+  await openSettingsDanger();
+  await userEvent.setup().click(
+    screen.getByRole("button", { name: "打开清空账本操作" }),
+  );
+}
 
 describe("DashboardShell data management", () => {
   it("does not clear when confirmation is cancelled or the fixed text is wrong", async () => {
@@ -204,18 +221,16 @@ describe("DashboardShell data management", () => {
     repository.clear = vi.fn(async () => {
       throw new Error("clear failed");
     });
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
     const user = userEvent.setup();
 
-    await user.click(
-      screen.getByRole("button", { name: "清空本地账本" }),
-    );
+    await openSettingsClear();
     await user.type(
       screen.getByLabelText("输入清空确认文本"),
-      "清空本地账本",
+      "清空账本",
     );
     await user.click(
-      screen.getByRole("button", { name: "确认永久清空" }),
+      screen.getByRole("button", { name: "确认清空账本内容" }),
     );
 
     await waitFor(() => {
@@ -223,11 +238,11 @@ describe("DashboardShell data management", () => {
         screen.getByText("清空本地账本失败，原页面与本地数据均未更改"),
       ).not.toBeNull();
     });
-    expect(screen.queryByText("账本已清空")).toBeNull();
+    expect(screen.queryByText("当前浏览器账本已清空")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "重试保存" }),
     ).toBeNull();
-    expect(within(getSection("交易列表")).getByText("BTC")).not.toBeNull();
+    expect(within(await openActivityTable()).getByText("BTC")).not.toBeNull();
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -247,18 +262,22 @@ describe("DashboardShell data management", () => {
       ],
     };
     const repository = createMemoryRepository(oversizedLedger);
-    await renderDashboard(repository);
+    await renderSessionDashboard(repository);
 
     expect(
       screen.getByText(/当前账本超过资源上限，已只读加载/),
     ).not.toBeNull();
+    // Read-only locks the record-target picker on the cash form, so the
+    // write path is located through that form's amount field, which the cash
+    // form disables directly instead of through a fieldset.
+    await goToPage("记账");
     expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
-        .disabled,
+      (screen.getByLabelText("金额") as HTMLInputElement).disabled,
     ).toBe(true);
+    await openSettingsDanger();
     expect(
       (screen.getByRole("button", {
-        name: "清空本地账本",
+        name: "打开清空账本操作",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(repository.save).not.toHaveBeenCalled();
