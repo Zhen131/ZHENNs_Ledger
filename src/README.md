@@ -69,11 +69,21 @@ The active IndexedDB boundary stores only `connectionFormatVersion`, the browser
 
 ### `checks`
 
-`checks` holds only a `__tests__/` folder: the tests that verify the whole repository's code follows its rules (source layout, translation-key usage, English interface coverage, ledger-number display), the cross-area scenario regressions that check several areas against one data set, and the scenario data only they use. It has no `index.ts` and is not an entry point: no other file may import anything from `src/checks/`, and the source-layout test fails if one does. Files inside it may import any stable entry, including `@/test-support`.
+`checks` holds only a `__tests__/` folder: the tests that verify the whole repository's code follows its rules (source layout, translation-key usage, English interface coverage, ledger-number display, source file length in code lines, comment coverage, and this README's directory lists), the cross-area scenario regressions that check several areas against one data set, and the scenario data only they use. It has no `index.ts` and is not an entry point: no other file may import anything from `src/checks/`, and the source-layout test fails if one does. Files inside it may import any stable entry, including `@/test-support`.
 
 ### Tests
 
 Every test (`*.test.ts(x)`) and test helper (`*.testHelpers.ts(x)`) sits in a folder named `__tests__` directly under the directory whose code it verifies, together with sample data used only there. A `__tests__` folder has no subdirectories and never sits directly under `src/`, `src/app/`, `src/core/`, `src/features/`, or `src/platform/`. The source-layout test enforces this.
+
+## File conventions
+
+### File suffixes
+
+A `.tsx` file contains JSX. A `.ts` file contains no JSX: logic, hooks, types, and constants. `index.ts` and `ui.ts` are entry files that only re-export. Test files (`*.test.*`) and test helpers (`*.testHelpers.*`) live only in `__tests__/` folders.
+
+### Entry re-exports
+
+An entry file holds only `import` and `export … from` statements; it never holds logic. Write a new re-export as a named list, `export { a, b } from "./file"`, and do not add new `export * from` lines. Some existing entries still use `export * from`; they stay as they are for now, because changing them belongs with the work that splits the files behind them.
 
 ## Import contract
 

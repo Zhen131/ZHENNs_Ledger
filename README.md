@@ -74,9 +74,12 @@ the rest of the code imports through:
 | `src/app` | The Next.js app router entry files plus five areas that compose features: `gate`, `dashboard`, `workspaces`, `persistence`, `file-access` |
 | `src/ui` | Shared presentation pieces, number formatting, and the message tables for both languages |
 | `src/test-support` | Test doubles and deterministic sample data shared by tests |
-| `src/checks` | The guards that hold the layout, the translations, and number display in place, plus cross-area scenario regressions; nothing imports it |
+| `src/checks` | The guards that hold the layout, the translations, number display, file length, and comments in place, plus cross-area scenario regressions; nothing imports it |
 
 `benchmarks/` holds the synthetic-ledger generator and the performance probes.
+`scripts/` holds repository maintenance scripts; `npm run check:comments-only -- <base>`
+compares the non-test source files of `<base>` and `HEAD` with every comment stripped
+and fails if any code differs (add `--worktree` to compare the files on disk instead).
 `test-fixtures/golden/` holds frozen sample files that must never be edited; they are
 the only evidence of what older formats looked like.
 
@@ -105,6 +108,7 @@ npm run dev
 | `npm run test:watch` | The test suite in watch mode |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint, warnings treated as failures |
+| `npm run check:comments-only -- <base>` | Fails if non-test source code differs from `<base>` once comments are stripped |
 
 Benchmarks are separate from the product and from `npm test`. Their scripts are
 `bench:test:generator`, `bench:test:node`, `bench:node`, `bench:test:browser`,
