@@ -1,3 +1,8 @@
+/**
+ * 这个文件管价格表单里的各个输入栏和「保存」按钮。
+ * 表单的值和保存的处理，都在上层 `PriceForm.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import {
@@ -14,6 +19,12 @@ import type { PriceWorkspaceDraft } from "./priceWorkspaceDraft";
 import type { LedgerData } from "@/core/models";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画价格表单的各栏和「保存」按钮。
+ * 各栏是币、价格、日期、时间、地点、备注。
+ * 价格旁边显示计价币种，地点下拉框第一项是设备时区。
+ * 每栏的错误显示在那一栏下面。
+ */
 export function PriceFormFields({
   clock,
   currency,

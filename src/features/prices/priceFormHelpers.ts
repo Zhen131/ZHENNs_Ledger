@@ -1,3 +1,8 @@
+/**
+ * 这个文件放价格表单用的两个类型和两个小函数。
+ * 按钮按下后做什么在 `priceFormActions.ts`。
+ * 没有特别的决定。
+ */
 import { type PriceWorkspaceDraft } from "./priceWorkspaceDraft";
 import type { PriceSnapshotDraft } from "@/core/models";
 import type {
@@ -7,11 +12,19 @@ import type {
 import type { Translate } from "@/ui";
 
 
+/** 价格表单的值，和记账页的价格草稿是同一个形状。 */
 export type PriceFormState = PriceWorkspaceDraft;
 
+/** 错误提示能挂在哪一栏：表单的某一栏，或整个表单。 */
 export type PriceFormField = keyof PriceFormState | "form";
 
 
+/**
+ * 这个函数回答：一条检查错误该显示在价格表单哪一栏旁边？
+ * 表单上没有那一栏的，都显示在整个表单的顶上。
+ * 举例：`currency` 出错 → 答 `form`。
+ * 不会出错。
+ */
 export function toPriceFormField(
   field: PriceSnapshotValidationField,
 ): PriceFormField {
@@ -30,6 +43,12 @@ export function toPriceFormField(
   }
 }
 
+/**
+ * 这个函数回答：一条价格检查错误在界面上怎么说？
+ * 按错误代码挑一句话，必要时在前面加上那一栏的名字。
+ * 举例：价格填 0 → 答「价格必须大于 0」（按当前语言）。
+ * 不会出错。
+ */
 export function formatValidationError(
   error: PriceSnapshotValidationError,
   t: Translate,

@@ -1,3 +1,8 @@
+/**
+ * 这个文件管价格表单按下「保存」后做什么。
+ * 画面在 `PriceForm.tsx` 和 `PriceFormFields.tsx`。
+ * 没有特别的决定。
+ */
 import type {
   LedgerClock,
   LedgerTimeSnapshot,
@@ -52,6 +57,14 @@ type HandleSubmitDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理价格表单的「保存」。
+ * 先把日期、时间、地点拼成一个时刻，再交给 `createValidatedPriceSnapshot` 检查。
+ * 检查过了就加进账本，来源记成手动。
+ * 举例：ETH 填 3500，日期今天 → 账本多一条手动价格，等存盘。
+ * 没传存盘版本时，加进去就算成功，马上清空表单。
+ * 时刻不存在或有歧义、检查不过、账本不让写：都显示错误。
+ */
 export function doHandleSubmit(
   deps: HandleSubmitDeps,
   event: FormEvent<HTMLFormElement>,

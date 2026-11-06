@@ -1,3 +1,8 @@
+/**
+ * 这个文件管记账页上的手动价格表单。
+ * 保存的处理在 `priceFormActions.ts`，各栏的画面在 `PriceFormFields.tsx`。
+ * 不显然的决定：没有币安对的币也能手填价格；2026-08-19 定（W14 01A 第三节）。
+ */
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type Ref } from "react";
@@ -46,6 +51,13 @@ type PriceFormProps = Readonly<{
   focusTargetRef?: Ref<HTMLSelectElement>;
 }>;
 
+/**
+ * 这个组件画记账页的手动价格表单。
+ * 填币、价格、日期、时间、地点和备注。
+ * 点「保存」记一条手动价格。
+ * 传了 `draft` 和 `onDraftChange` 时，表单值由记账页保管。
+ * 存好后显示「已保存」，过一会儿自动消失。
+ */
 export function PriceForm({
   clock = systemLedgerClock,
   ledgerData,
@@ -98,7 +110,11 @@ export function PriceForm({
         ledgerData,
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 只在币的清单变了时修一次表单。
+    // 不把两个函数列进依赖，否则每次重画都会跑一遍。
+    // 照交易表单同样的写法，日志里没写理由。
+    // 这是猜的，要核。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在币的清单变时才修表单，理由是猜的，见上方
   }, [ledgerData.assets]);
 
   useEffect(() => {
@@ -113,7 +129,10 @@ export function PriceForm({
         setSuccessMessage,
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 只有换了一本账本，才清空表单的状态。
+    // 照交易表单同样的写法，日志里没写理由。
+    // 这是猜的，要核。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换账本时清空，理由是猜的，见上方
   }, [ledgerEpoch]);
 
   useEffect(() => {
