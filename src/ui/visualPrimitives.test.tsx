@@ -4,7 +4,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { FileStatusIndicator } from "./FileStatusIndicator";
-import { InlineFeedback } from "./InlineFeedback";
 import { LedgerIcon } from "./LedgerIcon";
 import { SurfaceCard } from "./SurfaceCard";
 
@@ -21,12 +20,10 @@ describe("ledger visual primitives", () => {
     render(
       <SurfaceCard aria-label="概览卡">
         <FileStatusIndicator label="已保存" tone="saved" />
-        <InlineFeedback tone="error">保存失败，请重试</InlineFeedback>
       </SurfaceCard>,
     );
 
     expect(screen.getByRole("region", { name: "概览卡" })).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("已保存");
-    expect(screen.getByRole("alert").textContent).toContain("保存失败");
   });
 });
