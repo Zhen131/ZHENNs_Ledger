@@ -43,9 +43,7 @@ const LEGACY_TOP_LEVEL_AREAS = [
   "validators",
 ] as const;
 const FEATURES = directoryNames(join(SRC_ROOT, "features"));
-const APP_AREAS = directoryNames(join(SRC_ROOT, "app")).filter(
-  (name) => name !== "fonts",
-);
+const APP_AREAS = directoryNames(join(SRC_ROOT, "app"));
 const NEXT_RESERVED_FILE_NAMES = new Set([
   "default",
   "error",

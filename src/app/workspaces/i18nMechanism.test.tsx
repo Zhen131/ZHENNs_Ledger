@@ -7,6 +7,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { getLedgerDateKey } from "@/core/shared";
 import { createInitialLedgerData } from "@/core/state";
 import {
   buildHoldingAllocation,
@@ -21,7 +22,6 @@ import {
   DEFAULT_LEDGER_LANGUAGE,
   LANGUAGE_PREFERENCE_STORAGE_KEY,
   LanguageProvider,
-  formatLedgerDate,
   formatMoney,
   readLanguagePreference,
   translate,
@@ -258,7 +258,7 @@ function InvariantProbe() {
   return (
     <div>
       <p>number: {formatMoney("1234567.891")}</p>
-      <p>date: {formatLedgerDate("2026-09-01T23:59:59Z")}</p>
+      <p>date: {getLedgerDateKey("2026-09-01T23:59:59Z")}</p>
       <button onClick={() => setLanguage("en")} type="button">
         set English
       </button>

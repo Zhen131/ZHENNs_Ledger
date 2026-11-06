@@ -18,7 +18,7 @@ src/
 
 `app` coordinates features and platform capabilities but does not duplicate their calculations, validation, or persistence contracts. It has two levels.
 
-The root holds only the Next.js entry files and the type entry for code outside `app`: `layout.tsx`, `page.tsx`, `index.ts`, `globals.css`, `favicon.ico`, and `fonts/`. `app/index.ts` re-exports only types, taken from `@/app/persistence`.
+The root holds only the Next.js entry files and the type entry for code outside `app`: `layout.tsx`, `page.tsx`, `index.ts`, `globals.css`, and `favicon.ico`. `app/index.ts` re-exports only types, taken from `@/app/persistence`.
 
 Everything else lives in one of five flat areas:
 

@@ -18,7 +18,7 @@ function directoryNames(relativeDirectory) {
 }
 
 const featureNames = directoryNames("src/features");
-const appAreas = directoryNames("src/app").filter((name) => name !== "fonts");
+const appAreas = directoryNames("src/app");
 const appAreaPattern =
   appAreas.length > 0 ? `(?:${appAreas.map(escapeRegex).join("|")})` : "(?!)";
 

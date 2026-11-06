@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { getLedgerDateKey } from "@/core/shared";
 import { englishMessages } from "./i18nMessages.en";
 import { hungarianMessages } from "./i18nMessages.hu";
 import {
@@ -69,10 +68,6 @@ export function translate(
 
 export function translateDefault(key: TranslationKey): string {
   return translate(DEFAULT_LEDGER_LANGUAGE, key);
-}
-
-export function formatLedgerDate(value: string): string {
-  return getLedgerDateKey(value);
 }
 
 export function readLanguagePreference(
