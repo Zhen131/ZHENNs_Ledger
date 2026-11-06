@@ -116,6 +116,7 @@ type SelectFileToOpenDeps = {
 
 /**
  * 这个函数处理打开已有账本：弹出选文件，选好就去输密码。
+ * 举例：选了一个 .lftl 文件 → 停到输密码面板；选了 .txt → 显示扩展名不对。
  * 用户取消不提示；别的错显示原因。不抛错。
  */
 export async function doSelectFileToOpen(
@@ -220,6 +221,7 @@ type ReselectRememberedConnectionDeps = {
 
 /**
  * 这个函数处理重选上次那个文件：让用户自己再选一次。
+ * 举例：选回同一个文件 → 去输密码；选了别的文件 → 显示选错了文件。
  * 选对了就去输密码；取消不提示；选错文件或出错就显示重连错误。
  * 不抛错。
  */
