@@ -1,3 +1,10 @@
+/**
+ * 这个文件管一件事：算出资产走势图上每一天的点。
+ * 它一天一天往前走，边走边过买卖、现金和价格。
+ * 不会每天从头算。
+ * 不显然的决定：每天只用那天能拿到的价格和现金。
+ * 不拿今天的数回填；2026-08-19 定（W14 01B 第 6.4 节）。
+ */
 import type {
   DecimalString,
   LedgerData,
@@ -41,6 +48,16 @@ import {
 import type { ChartRange, HoldingHistoryPoint } from "./chartDataService";
 import { getDefaultValuationCurrency } from "./chartDataServiceShared";
 
+/**
+ * 这个函数回答：选定范围里，每天的总资产和剩余成本是多少？
+ * 从第一天到今天，逐天往前走。
+ * 每天把那天及以前的买卖、转账、现金、价格过一遍。
+ * 举例：范围 7 天、今天 8 月 22 日 → 答 8 月 16 日到 22 日 7 个点。
+ * 「全部」从最早一笔记录那天开始。
+ * 「1 天」只给今天，画成一头一尾两个点。
+ * 缺价格那天不给总资产，成本算不准那天不给剩余成本。
+ * 不会出错。
+ */
 export function buildHoldingHistory(
   ledgerData: LedgerData,
   options: {
@@ -148,6 +165,12 @@ export function buildHoldingHistory(
   ];
 }
 
+/**
+ * 这个函数回答：今天的账变了，能不能只换掉最后一个点？
+ * 能就返回新的一串点。
+ * 上一串最后一点不是今天，就返回 `null`，让调用的一方从头算。
+ * 不会出错。
+ */
 export function updateHoldingHistoryForCurrentDay(
   previous: readonly HoldingHistoryPoint[],
   ledgerData: LedgerData,

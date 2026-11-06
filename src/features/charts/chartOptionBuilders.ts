@@ -1,3 +1,9 @@
+/**
+ * 这个文件管一件事：把图的数据变成 ECharts 能画的设置。
+ * 数据在 `chartDataService*.ts` 算好，画布在 `EChart.tsx`。
+ * 不显然的决定：金额只在画图时才变成普通数字。
+ * 变出来的数不拿回去算钱；2026-08-09 定（W12 01A 第 5.3 节）。
+ */
 import type { EChartsCoreOption } from "echarts/core";
 
 import {
@@ -35,6 +41,10 @@ type TooltipParams = {
 const defaultTranslate: Translate = (key) =>
   translate(DEFAULT_LEDGER_LANGUAGE, key);
 
+/**
+ * 热力图 0～4 级的五种颜色，从浅到深。
+ * 颜色是界面样式，没有特别的理由。
+ */
 export const TRADE_HEATMAP_LEVEL_COLORS = [
   "#eee9e2",
   "#f6d9b5",
@@ -43,6 +53,7 @@ export const TRADE_HEATMAP_LEVEL_COLORS = [
   "#9c4f1a",
 ] as const;
 
+/** 分配图各块轮流用的十种颜色。 */
 export const ALLOCATION_CHART_COLORS = [
   "#d9822b",
   "#4e79a7",
@@ -56,8 +67,14 @@ export const ALLOCATION_CHART_COLORS = [
   "#6b8e9f",
 ] as const;
 
+/** 分配图「其他」那一块的颜色，灰褐色。 */
 export const GROUPED_ALLOCATION_COLOR = "#8b8176";
 
+/**
+ * 这个函数把一个金额文字变成普通数字，只给画图用。
+ * 举例：「4200.5」→ 答 4200.5。
+ * 什么时候出错：变不成有限的数（比如「abc」）就抛错。
+ */
 export function toFiniteChartNumber(value: string): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -66,6 +83,12 @@ export function toFiniteChartNumber(value: string): number {
   return parsed;
 }
 
+/**
+ * 这个函数回答：分配图在 ECharts 里怎么设置？
+ * 画成一个圆环。
+ * 每块的提示里有市值、占比、价格来源和日期。
+ * 「其他」那块的提示里列出并进去的每种币。
+ */
 export function buildAllocationChartOption(
   slices: readonly HoldingAllocationSlice[],
   valuationLabel: string,
@@ -137,6 +160,11 @@ export function buildAllocationChartOption(
   };
 }
 
+/**
+ * 这个函数回答：走势图在 ECharts 里怎么设置？
+ * 画两条台阶线：总资产和剩余成本。
+ * 缺的点留空，不连起来。
+ */
 export function buildHoldingHistoryChartOption(
   points: readonly HoldingHistoryPoint[],
   t: Translate = defaultTranslate,

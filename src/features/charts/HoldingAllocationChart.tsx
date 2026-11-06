@@ -1,3 +1,8 @@
+/**
+ * 这个文件管首页的持仓分配图。
+ * 每一块多大在 `chartDataServiceAllocation.ts` 算好。
+ * 不显然的决定：现金为负时只写缺口，不画负的一块；2026-08-19 定（W14 01B 第 6.4 节）。
+ */
 "use client";
 
 import { useMemo } from "react";
@@ -8,6 +13,13 @@ import type { HoldingAllocation } from "./chartDataService";
 import { buildAllocationChartOption } from "./chartOptionBuilders";
 import { EChart } from "./EChart";
 
+/**
+ * 这个组件画持仓分配圆环图。
+ * 图下面写出有几块、计价单位。
+ * 缺价格的币、不用 USDT 计价的币、现金缺口，各用一句话列出。
+ * 没有可画的块时，显示空的说明。
+ * 混着 USD 和 USDT 时，显示「1 USDT ≈ 1 USD」的说明。
+ */
 export function HoldingAllocationChart({
   allocation,
   compact = false,

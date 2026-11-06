@@ -1,3 +1,8 @@
+/**
+ * 这个文件管首页的资产走势图。
+ * 每天的点在 `chartDataServiceHistory.ts` 算好。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { useMemo } from "react";
@@ -7,6 +12,10 @@ import type { ChartRange, HoldingHistoryPoint } from "./chartDataService";
 import { buildHoldingHistoryChartOption } from "./chartOptionBuilders";
 import { EChart } from "./EChart";
 
+/**
+ * 这个组件画资产走势图，上面有五个时间范围按钮。
+ * 点按钮会叫 `onRangeChange`，由上层重新算点。
+ */
 export function HoldingTrendChart({
   history,
   range,

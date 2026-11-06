@@ -1,3 +1,8 @@
+/**
+ * 这个文件管首页的交易热力图：最近 365 天，一天一个小格子。
+ * 每天的笔数和颜色在 `chartDataServiceHeatmap.ts` 算好。
+ * 不显然的决定：没交易的那天点了只提示，不跳转；为什么，这是猜的，要核。
+ */
 "use client";
 
 import {
@@ -28,9 +33,25 @@ type TooltipPosition = Readonly<{
   top: number;
 }>;
 
+/**
+ * 热力图横着排 53 列，一列是一个星期。
+ * 为什么是 53：365 天最多跨 53 个星期。
+ */
 const HOME_HEATMAP_COLUMN_COUNT = 53;
+/**
+ * 提示框离卡片边缘至少留 8 像素。
+ * 为什么是 8：日志里没写，这是猜的，要核。
+ */
 const TOOLTIP_EDGE_GAP = 8;
 
+/**
+ * 这个组件画首页的交易热力图。
+ * 鼠标移上或键盘选中有交易的那天，弹出提示。
+ * 提示里有当天笔数和每种币的买卖。
+ * 点有交易的那天叫 `onLocateDate`，去交易页看那天。
+ * 点没交易的那天，只提示那天没有交易。
+ * 点「查看全部」叫 `onViewAll`。
+ */
 export function TradeHeatmapChart(props: HomeTradeHeatmapProps) {
   return <HomeTradeHeatmap {...props} />;
 }

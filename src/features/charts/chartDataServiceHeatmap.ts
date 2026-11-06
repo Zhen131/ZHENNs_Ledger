@@ -1,3 +1,8 @@
+/**
+ * 这个文件管一件事：算出热力图最近 365 天每天的笔数和颜色。
+ * 它只数买卖，不看现金记录；格子怎么画在 `TradeHeatmapChart.tsx`。
+ * 不显然的决定：只按笔数上色，手续费不影响；2026-08-09 定（W12 01A 第 7.5 节）。
+ */
 import type { LedgerData } from "@/core/models";
 import { partitionLedgerFactsForToday } from "@/core/policies";
 import {
@@ -10,6 +15,13 @@ import type {
   TradeHeatmapActivityGroup,
 } from "./chartDataService";
 
+/**
+ * 这个函数回答：最近 365 天（含今天）每天买卖了几笔，颜色多深？
+ * 颜色按当天笔数和最多那天比，分 0～4 五级。
+ * 举例：最多那天 8 笔，某天 2 笔 → 答 1 级；某天 8 笔 → 答 4 级。
+ * 今天以后的交易不算。
+ * 不会出错。
+ */
 export function buildTradeHeatmap(
   ledgerData: LedgerData,
   todayKey: string,
@@ -77,6 +89,13 @@ export function buildTradeHeatmap(
   });
 }
 
+/**
+ * 这个函数回答：只加了一笔交易，热力图怎么跟着变？
+ * 那天笔数加一，然后全部重新分级。
+ * 举例：某天原来 2 笔，再加一笔买入 → 那天变成 3 笔、买入多 1。
+ * 日期不在最近 365 天里，原样返回。
+ * 不会出错。
+ */
 export function updateTradeHeatmapForAppendedTrade(
   previous: readonly TradeHeatmapDay[],
   trade: LedgerData["trades"][number],

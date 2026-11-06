@@ -1,3 +1,8 @@
+/**
+ * 这个文件管一件事：把一份 ECharts 设置画到页面上。
+ * 三张图的设置在 `chartOptionBuilders.ts` 里算好再传进来。
+ * 没有特别的决定。
+ */
 "use client";
 
 import {
@@ -49,6 +54,13 @@ type EChartProps = {
   events?: EChartEventHandlers;
 };
 
+/**
+ * 这个组件画一块 ECharts 画布。
+ * 能画的只有饼图、折线、热力图三种。
+ * 容器大小变了就跟着重画；`option` 变了就换上新设置。
+ * `events` 里的点击等事件会挂到图上，换掉时先摘下旧的。
+ * 离开页面时把图收掉。
+ */
 export function EChart({
   option,
   ariaLabel,
