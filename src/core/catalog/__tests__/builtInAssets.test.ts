@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { createBuiltInAssets } from "./builtInAssets";
+import { createBuiltInAssets } from "../builtInAssets";
 
 const EXPECTED_ASSETS = [
   {
