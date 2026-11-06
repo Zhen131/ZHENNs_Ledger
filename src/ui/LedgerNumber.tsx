@@ -1,7 +1,8 @@
 /**
  * 这个文件管界面上显示一个数字的那个小组件。
  * 数字怎么写（几位小数、千位空格）在同目录 `formatLedgerNumber.ts`。
- * 不显然的决定：鼠标悬停和读屏给的是没截短的原数。
+ * 鼠标悬停和读屏给的是没截短的原数。
+ * 没有特别的决定。
  */
 import type { DecimalString } from "@/core/models";
 import {
