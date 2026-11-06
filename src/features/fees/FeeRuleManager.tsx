@@ -1,3 +1,8 @@
+/**
+ * 这个文件管设置页里的手续费规则管理。
+ * 新建表单和规则列表在两个子组件里，按钮的处理在 `feeRuleManagerActions.ts`。
+ * 不显然的决定：同平台同币多条在用时只标冲突，不自动修；2026-08-10 定（W12 02A 第 6.1 节）。
+ */
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
@@ -38,6 +43,13 @@ type FeeRuleManagerProps = Readonly<{
   onAction: (action: LedgerAction) => ApplyLedgerActionResult;
 }>;
 
+/**
+ * 这个组件画手续费规则管理区。
+ * 上面是新增表单，下面是全部规则，停用的也在。
+ * 同平台同币有两条以上在用规则时，顶上显示冲突提示。
+ * 可以新增、改成新版本、停用；没有删除。
+ * 换了一本账本时，清掉没显示完的提示。
+ */
 export function FeeRuleManager({
   clock = systemLedgerClock,
   isWritable,

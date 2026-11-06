@@ -1,3 +1,8 @@
+/**
+ * 这个文件管手续费规则管理里每个按钮按下后做什么。
+ * 画面在 `FeeRuleManager.tsx` 和它的两个子组件。
+ * 不显然的决定：改规则不改原规则，而是新建一版、停用旧版；2026-08-10 定（W12 02A 第 5.2 节）。
+ */
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
@@ -33,6 +38,12 @@ type FeeRulePersistenceEffectDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数看存盘结果，决定提示什么。
+ * 存到了这次改动的版本：显示「已保存」。
+ * 存盘失败：显示「没存上」。
+ * 不会出错。
+ */
 export function runFeeRulePersistenceEffect(
   deps: FeeRulePersistenceEffectDeps,
 ) {
@@ -71,6 +82,10 @@ type ApplyDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数把一个改动交给账本，然后等存盘。
+ * 账本不让写、或改动没起作用，就显示错误，不等存盘。
+ */
 export function doApply(
   deps: ApplyDeps,
   action: LedgerAction,
@@ -108,6 +123,13 @@ type SubmitNewRuleDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理「新增规则」表单的提交。
+ * 先检查表单，再造编号，再交给账本加一条在用的规则。
+ * 举例：名字「币安现货」、平台 Binance、币 BTC、比例 0.001。
+ * → 账本里多一条在用的比例规则。
+ * 表单不对或编号造不出来，显示错误，不改账本。
+ */
 export function doSubmitNewRule(
   deps: SubmitNewRuleDeps,
   event: FormEvent<HTMLFormElement>,
@@ -158,6 +180,13 @@ type ReplaceRuleDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理某条规则旁的「改成新版本」。
+ * 新建一条同名同平台的新规则，指回旧规则，同时停用旧规则。
+ * 举例：旧规则比例 0.001，填 0.00075 → 新规则 0.00075 在用，旧规则停用。
+ * 为什么不原地改：旧交易要能查到当时用的哪版；2026-08-10 定（W12 02A 第 5.2 节）。
+ * 新值不是不小于 0 的数，或编号造不出来，显示错误，不改账本。
+ */
 export function doReplaceRule(
   deps: ReplaceRuleDeps,
   rule: FeeRule,

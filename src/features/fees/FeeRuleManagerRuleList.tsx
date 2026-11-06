@@ -1,3 +1,8 @@
+/**
+ * 这个文件管手续费规则列表。
+ * 列表数据和按钮的处理，都在上层 `FeeRuleManager.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { LedgerNumber } from "@/ui";
@@ -11,6 +16,12 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画全部手续费规则，每条一行。
+ * 每行有金额或比例、创建时间、替换了哪条、停用时间。
+ * 在用的规则旁有一个输入框和两个按钮。
+ * 按钮是「改成新版本」和「停用」。
+ */
 export function FeeRuleManagerRuleList({
   deactivateRule,
   isWritable,

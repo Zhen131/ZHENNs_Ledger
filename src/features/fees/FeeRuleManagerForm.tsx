@@ -1,3 +1,8 @@
+/**
+ * 这个文件管新增手续费规则的那张表单。
+ * 表单里的值和提交后做什么，都在上层 `FeeRuleManager.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type { FormState } from "./feeRuleManagerHelpers";
@@ -9,6 +14,12 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画新增手续费规则的表单。
+ * 有名字、平台、币、类型、金额或比例。
+ * 类型选「固定」填 USDT 金额，选「比例」填小数比例。
+ * 点「新增」交给上层的提交处理。
+ */
 export function FeeRuleManagerForm({
   form,
   isWritable,
