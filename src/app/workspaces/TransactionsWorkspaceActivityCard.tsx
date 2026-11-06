@@ -1,3 +1,8 @@
+/**
+ * 这个文件管交易页下面那张流水列表卡片。
+ * 筛选和删除的逻辑在 `TransactionsWorkspace.tsx` 和 `transactionsWorkspaceDeletion.ts`。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { ActivityTable } from "@/features/activity/ui";
@@ -10,6 +15,11 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画当前这一页的流水，和下面的翻页条。
+ * 每一条能展开看细节，能点两下删除。
+ * 倒数中的那一条显示剩几秒和撤回按钮。
+ */
 export function TransactionsWorkspaceActivityCard({
   armDelete,
   armedItemId,

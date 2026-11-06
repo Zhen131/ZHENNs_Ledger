@@ -1,3 +1,8 @@
+/**
+ * 这个文件管别的页面跳到交易页时带的请求怎么落地。
+ * 请求从哪里发出来，在 `useLedgerWorkspaceSession.ts` 和首页。
+ * 没有特别的决定。
+ */
 import type {
   Dispatch,
   RefObject,
@@ -21,6 +26,12 @@ type IntentEffectDeps = {
   setLocationRequest: Dispatch<SetStateAction<ActivityLocationRequest | null>>;
 };
 
+/**
+ * 这个函数在交易页拿到一个请求时，先把页面清干净再照做。
+ * 请求可以是：按某天筛选，展开某笔，滚到某天，清掉筛选。
+ * 举例：首页点了 2026-11-05 那天 → 交易页只显示那天的流水。
+ * 做完告诉外面这个请求已经用掉。不会出错。
+ */
 export function runIntentEffect(
   deps: IntentEffectDeps,
 ) {

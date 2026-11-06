@@ -1,3 +1,9 @@
+/**
+ * 这个文件管交易页：流水的筛选，分页，展开，定位，删除。
+ * 流水怎么排、怎么分页在 `features/activity`；删除的每一步在 `transactionsWorkspaceDeletion.ts`。
+ * 不显然的决定：删了会让现金变负的，要再确认一次。
+ * 2026-08-19 定（W14 01A 第二节）。
+ */
 "use client";
 
 import {
@@ -51,6 +57,13 @@ import { runIntentEffect } from "./transactionsWorkspaceIntent";
 import { TransactionsWorkspaceActivityCard } from "./TransactionsWorkspaceActivityCard";
 import { TransactionsWorkspaceFilterCard } from "./TransactionsWorkspaceFilterCard";
 
+/**
+ * 这个组件画交易页：上面是筛选，下面是一页最多 100 条的流水。
+ * 能按时间、类型、币种、某一天筛；能展开一笔看细节。
+ * 删一条要点两下，再等 5 秒倒数，期间能撤回。
+ * 删了会让 USDT 现金变负的，还要再确认一次。
+ * 从别的页带着请求跳来时，先照请求筛好或滚到那一天。
+ */
 export function TransactionsWorkspace({
   active,
   intent,

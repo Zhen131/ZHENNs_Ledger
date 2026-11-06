@@ -1,3 +1,8 @@
+/**
+ * 这个文件管记账页中间那张卡片，按「记什么」换表单。
+ * 三张表单本身在 `features/cash`、`features/asset-transfers`、`features/trades`。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { AssetTransferPanel } from "@/features/asset-transfers/ui";
@@ -23,6 +28,12 @@ import type { RecordTarget } from "./workspaceDrafts";
 import type { Translate } from "@/ui";
 import type { RefObject } from "react";
 
+/**
+ * 这个组件画记账页的记录卡片。
+ * 记现金显示现金表单，记转移显示转移表单。
+ * 记某个币就显示那个币的交易表单。
+ * 用户在表单里填好保存，就记进账本。
+ */
 export function RecordWorkspaceFactCard({
   cashBalance,
   clock,

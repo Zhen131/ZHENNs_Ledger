@@ -1,3 +1,8 @@
+/**
+ * 这个文件管设置页「危险操作」分页里清空账本那一块。
+ * 能不能清、口令对不对，由 `SettingsWorkspace.tsx` 和 `settingsWorkspaceActions.ts` 判断。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { SurfaceCard } from "@/ui";
@@ -9,6 +14,12 @@ import type {
 import type { PersistenceOperation } from "@/app/persistence";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画清空账本的面板：一个展开按钮，展开后是确认区。
+ * 确认区提醒先做备份，要求敲口令，再给确认和取消两个按钮。
+ * 不能清时，按钮点不了，旁边写原因。
+ * 正在清时提示别关页面。
+ */
 export function SettingsWorkspaceDangerPanel({
   cancelClearRef,
   clearConfirmationPhrase,

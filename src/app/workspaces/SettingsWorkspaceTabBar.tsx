@@ -1,3 +1,8 @@
+/**
+ * 这个文件管设置页顶上那排分页按钮。
+ * 每个分页里放什么，由 `SettingsWorkspace.tsx` 定。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type {
@@ -8,6 +13,10 @@ import type { Translate } from "@/ui";
 
 
 
+/**
+ * 这个组件画设置页的三个分页按钮：行情，手续费，危险操作。
+ * 点一个就切过去；离开危险操作时，顺手收起清空确认区。
+ */
 export function SettingsWorkspaceTabBar({
   closeDanger,
   setTab,

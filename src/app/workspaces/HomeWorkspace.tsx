@@ -1,3 +1,9 @@
+/**
+ * 这个文件管首页。
+ * 首页有四个总数，持仓走势，资产分布，持仓列表，交易热力图。
+ * 这些数都在 `app/dashboard` 和 `features` 里算好，这里只负责摆出来。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -19,6 +25,14 @@ import {
 import { HoldingsDetails, HoldingsOverview } from "@/features/portfolio/ui";
 import { LedgerIcon, LedgerNumber, SurfaceCard, useLanguage } from "@/ui";
 
+/**
+ * 这个组件画首页。
+ * 最上面四张卡：总资产，剩余持仓成本，未实现盈亏，已实现盈亏。
+ * 下面是走势图、资产分布、持仓列表和交易热力图。
+ * 用户能换走势的时间范围，能选估值用自动价还是手动价。
+ * 还没有交易时，顶上多一张卡，点了去记第一笔。
+ * 缺价格的币会单独列出，点了去记价格。
+ */
 export function HomeWorkspace({
   active,
   ledgerData,

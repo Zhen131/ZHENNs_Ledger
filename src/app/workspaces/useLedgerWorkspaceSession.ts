@@ -1,3 +1,10 @@
+/**
+ * 这个文件管几个工作区页面之间共用的界面状态。
+ * 比如当前在哪页，跳页带的请求，估值方式，图表范围，记账草稿。
+ * 账本内容本身不在这里，在 `app/persistence`。
+ * 不显然的决定：只有换了一本账本，记账草稿才清空。
+ * 2026-08-29 提交 96ec640 起这样做。
+ */
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,6 +22,7 @@ import {
 } from "@/features/trades";
 import type { RecordTarget } from "./workspaceDrafts";
 
+/** 五个工作区页面：首页、记账、交易、转账、设置。 */
 export type LedgerWorkspacePage =
   | "home"
   | "record"
@@ -22,6 +30,10 @@ export type LedgerWorkspacePage =
   | "transfer"
   | "settings";
 
+/**
+ * 跳到某一页时顺便带的请求。
+ * 比如去记账页并聚焦价格表单，去交易页并按某天筛选。
+ */
 export type LedgerWorkspaceIntent =
   | { page: "record"; focus: "trade" | "price" }
   | {
@@ -34,6 +46,13 @@ export type LedgerWorkspaceIntent =
   | { page: "transactions"; clearFilters: true }
   | { page: "home" | "transfer" | "settings" };
 
+/**
+ * 这个 hook 管工作区页面之间共用的界面状态。
+ * 它返回当前页，跳页函数，估值方式，图表范围，记账草稿等。
+ * 换了一本账本（`ledgerEpoch` 变了），记账页的草稿回到空白。
+ * 关掉账本时可调 `resetSessionUi` 把这些全部恢复默认。
+ * 不会出错。
+ */
 export function useLedgerWorkspaceSession({
   ledgerEpoch,
   defaultAssetSymbol = "",

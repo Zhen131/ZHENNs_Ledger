@@ -1,8 +1,18 @@
+/**
+ * 这个文件管「转移」页：导出和导入备份的那一页。
+ * 备份面板本身在 `features/backup`，由外层传进来。
+ * 不显然的决定：页面不在前台时不画备份面板。
+ */
 import type { ReactNode } from "react";
 
 import type { LedgerStorageKind } from "@/platform/persistence";
 import { SurfaceCard, useLanguage } from "@/ui";
 
+/**
+ * 这个组件画转移页：标题，隐私提醒，导出导入说明，备份面板。
+ * 用户在备份面板里导出 B 文件，或从 B 文件导入。
+ * 不在前台时整页隐藏，备份面板也不画。
+ */
 export function TransferWorkspace({
   active,
   backupPanel,
@@ -10,8 +20,8 @@ export function TransferWorkspace({
   active: boolean;
   backupPanel: ReactNode;
   /**
-   * Accepted for existing callers; the ledger file is the only storage kind,
-   * so nothing here branches on it any more.
+   * 这个参数不起作用：账本文件已是唯一的存法，不再按它分支。
+   * 正式代码没有传它，只有几份测试还传；备忘录 B0-32 等拆。
    */
   storageKind?: LedgerStorageKind;
 }>) {

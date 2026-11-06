@@ -1,3 +1,8 @@
+/**
+ * 这个文件管交易页上面那张筛选卡片。
+ * 筛选的值保存在 `TransactionsWorkspace.tsx`，这里只画控件。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type { LedgerActivityTypeFilter } from "@/features/activity";
@@ -10,6 +15,10 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画交易页的筛选：时间，类型，币种，具体某天。
+ * 有筛选时，列出用了哪些条件，再给一个「清除筛选」按钮。
+ */
 export function TransactionsWorkspaceFilterCard({
   assetFilter,
   assetOptions,

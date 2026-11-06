@@ -1,3 +1,9 @@
+/**
+ * 这个文件管记账页：选记什么，填表单，记价格。
+ * 各张表单在 `features` 里；页面之间共用的草稿在 `useLedgerWorkspaceSession.ts`。
+ * 不显然的决定：只有换了一本账本，才把草稿清回空白。
+ * 2026-08-29 提交 96ec640 起这样做。
+ */
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -37,6 +43,12 @@ import { RecordWorkspacePriceSection } from "./RecordWorkspacePriceSection";
 import { RecordWorkspaceFactCard } from "./RecordWorkspaceFactCard";
 import { RecordWorkspaceTargetCard } from "./RecordWorkspaceTargetCard";
 
+/**
+ * 这个组件画记账页：上面选记什么，中间是表单，下面记价格。
+ * 用户填好保存，就记进账本；存好后表单清回空白。
+ * 从首页跳过来时，会把光标放到交易或价格表单上。
+ * 账本不能写时表单点不了。
+ */
 export function RecordWorkspace({
   active,
   focusIntent,
@@ -204,8 +216,9 @@ export function RecordWorkspace({
     setTradeDraft(createTradeWorkspaceDraft(defaultAssetSymbol, todayKey, clock));
     setPriceDraft(createPriceWorkspaceDraft(defaultAssetSymbol, todayKey, clock));
     onDraftStatusChange(false);
-    // A ledger epoch is the only event that clears session-local drafts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 为什么依赖只写 `ledgerEpoch`：只有换了一本账本，才清草稿。
+    // 2026-08-29 提交 96ec640 写下这个理由。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换了一本账本时清草稿，别的值变了不清
   }, [ledgerEpoch]);
 
   useEffect(() => {

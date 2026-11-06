@@ -1,3 +1,8 @@
+/**
+ * 这个文件管记账页最上面「记什么」那张卡片。
+ * 选好之后下面显示哪张表单，由 `RecordWorkspaceFactCard.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { SurfaceCard } from "@/ui";
@@ -6,6 +11,12 @@ import type { LedgerData } from "@/core/models";
 import type { RecordTarget } from "./workspaceDrafts";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画记账页的「记什么」选择。
+ * 可选 USDT 现金，资产转移，或某个币的买卖。
+ * 选了某个币，交易表单的币种跟着换。
+ * 账本不能写时选项点不了。
+ */
 export function RecordWorkspaceTargetCard({
   commitTradeDraft,
   isWritable,

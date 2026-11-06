@@ -1,3 +1,11 @@
+/**
+ * 这个文件管交易页删一条流水的全过程。
+ * 先点两下，再倒数可撤回，最后存盘。
+ * 删一笔买卖会不会弄坏后面的账，由 `features/trades` 判断；现金怎么变由 `features/cash` 算。
+ * 不显然的决定：删了会让现金变负的，要再确认一次。
+ * 确认时账本变过，这次确认就作废。
+ * 2026-08-19 定（W14 01A 第二节；W14 01B 第 6.2 节）。
+ */
 import type {
   Dispatch,
   RefObject,
@@ -25,6 +33,10 @@ type FindCurrentItemDeps = {
   latestLedgerDataRef: RefObject<LedgerData>;
 };
 
+/**
+ * 这个函数回答：这条流水现在还在不在账本里？
+ * 在就交回最新的那条；已经没了答 null。不会出错。
+ */
 export function doFindCurrentItem(
   deps: FindCurrentItemDeps,
   itemId: string,
@@ -59,6 +71,13 @@ type ReviewRemovalDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数回答：这条流水现在能不能删？能删答 null，不能删答一句提示。
+ * 买卖要看删了会不会让后面的卖出没东西可卖。
+ * 举例：买 0.1 BTC 后卖 0.04 BTC，删那笔买入 → 答不能删。
+ * 提示是「这笔交易支撑了后续卖出」那句。
+ * 现金记录只看它还在不在。不会出错。
+ */
 export function doReviewRemoval(
   deps: ReviewRemovalDeps,
   item: LedgerActivityItem,
@@ -88,6 +107,11 @@ type ProjectRemovalDeps = {
   todayKeyRef: RefObject<string>;
 };
 
+/**
+ * 这个函数回答：删掉这条之后，USDT 现金会变成多少？
+ * 举例：现金 1000 USDT，删一笔 2000 USDT 的入金 → 答变成 -1000，要额外确认。
+ * 不会出错。
+ */
 export function doProjectRemoval(
   deps: ProjectRemovalDeps,
   item: LedgerActivityItem,
@@ -131,6 +155,11 @@ type ApplyReviewedDeleteDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数真正发出删除，然后进入「等存盘」那一步。
+ * 账本拒绝或没变化时，取消这次删除并说明原因。
+ * 不会出错。
+ */
 export function doApplyReviewedDelete(
   deps: ApplyReviewedDeleteDeps,
   item: LedgerActivityItem,
@@ -185,6 +214,11 @@ type ArmDeleteDeps = {
   setFeedback: Dispatch<SetStateAction<string>>;
 };
 
+/**
+ * 这个函数处理第一次点删除：标成「再点一次就删」。
+ * 账本不能写，或别的删除还没完，就什么都不做。
+ * 不会出错。
+ */
 export function doArmDelete(
   deps: ArmDeleteDeps,
   item: LedgerActivityItem,
@@ -228,6 +262,12 @@ type ConfirmDeleteDeps = {
   timeoutRef: RefObject<ReturnType<typeof setTimeout> | null>;
 };
 
+/**
+ * 这个函数处理第二次点删除：先查能不能删，再开始倒数。
+ * 倒数时长是 `DELETE_DELAY_MS`（5 秒），期间可以撤回。
+ * 倒数结束才真的删。不能删时显示原因，不开始倒数。
+ * 不会出错。
+ */
 export function doConfirmDelete(
   deps: ConfirmDeleteDeps,
   item: LedgerActivityItem,
@@ -297,6 +337,13 @@ type ConfirmNegativeDeleteDeps = {
   todayKeyRef: RefObject<string>;
 };
 
+/**
+ * 这个函数处理用户确认「删了现金会变负也要删」。
+ * 确认前再对一遍：账本、存盘进度、日期都没变。
+ * 当时算的现金变化也要没变。
+ * 举例：确认框开着时又记了一笔 → 作废这次确认，提示重新来。
+ * 都对上才真的删。不会出错。
+ */
 export function doConfirmNegativeDelete(
   deps: ConfirmNegativeDeleteDeps,
 ) {
@@ -359,6 +406,11 @@ type HiddenCancelEffectDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数在页面切到后台时，取消正在进行的删除。
+ * 用户看不见倒数，就不该让它悄悄删掉。
+ * 返回一个收拾的函数。不会出错。
+ */
 export function runHiddenCancelEffect(
   deps: HiddenCancelEffectDeps,
 ) {
@@ -392,6 +444,11 @@ type DeletionPersistenceEffectDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数在删除进入「等存盘」后，盯着存盘结果。
+ * 存好了显示「已删除」，存失败显示「没存进去」。
+ * 不会出错。
+ */
 export function runDeletionPersistenceEffect(
   deps: DeletionPersistenceEffectDeps,
 ) {
