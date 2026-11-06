@@ -16,8 +16,6 @@ const ESLINT_REASON = " -- ";
 const TYPED_TAG = /@(?:param|returns|type) \{/u;
 
 const NOT_YET_DOCUMENTED: readonly string[] = [
-  "app/layout.tsx",
-  "app/page.tsx",
 ];
 
 describe("comment coverage", () => {
