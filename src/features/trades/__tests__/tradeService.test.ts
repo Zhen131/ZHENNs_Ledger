@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
-import { TRADE_VALIDATION_ERROR_CODES } from "@/core/validation";
+import {
+  TRADE_VALIDATION_ERROR_CODES,
+  validateTradeDraft,
+} from "@/core/validation";
 import { createValidatedTrade } from "../tradeService";
 import {
   TIMESTAMP,
@@ -150,4 +154,54 @@ describe("createValidatedTrade success", () => {
       expect(result.trade.updatedAt).toBe(result.trade.createdAt);
     }
   });
+});
+
+describe("createValidatedTrade validation failures", () => {
+  const validationCases: Array<{
+    name: string;
+    input: unknown;
+    ledgerData: LedgerData;
+    code: string;
+    field: string;
+  }> = [
+    {
+      name: "asset quote currency mismatch",
+      input: { ...validBuy, currency: "CNY" },
+      ledgerData: createInitialLedgerData(),
+      code: TRADE_VALIDATION_ERROR_CODES.CURRENCY_MISMATCH,
+      field: "currency",
+    },
+  ];
+
+  it.each(validationCases)(
+    "returns the original validator error for $name",
+    ({ input, ledgerData, code, field }) => {
+      const dependencies = createDependencies(["unused-id"]);
+      const expectedValidation = validateTradeDraft(input, {
+        assets: ledgerData.assets,
+        priorTrades: ledgerData.trades,
+        todayKey: "2026-07-25",
+        requireSupportedValuationCurrency: true,
+        requiredCurrency: "USDT",
+        requireFeeCurrencyMatch: true,
+      });
+
+      const result = createValidatedTrade(input, ledgerData, dependencies);
+
+      expect(expectedValidation.ok).toBe(false);
+      expect(result.ok).toBe(false);
+      if (!result.ok && result.kind === "validation") {
+        expect(result.errors).toEqual(
+          expectedValidation.ok ? [] : expectedValidation.errors,
+        );
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ code, field }),
+          ]),
+        );
+      }
+      expect(dependencies.generateId).not.toHaveBeenCalled();
+      expect(dependencies.now).not.toHaveBeenCalled();
+    },
+  );
 });
