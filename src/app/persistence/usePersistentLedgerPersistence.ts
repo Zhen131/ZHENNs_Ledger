@@ -1,8 +1,9 @@
 /**
  * 这个文件管账本自动存盘：排队，重试，存完后更新状态。
  * 改账入口在 `usePersistentLedgerActions.ts`，清空和导入在别的文件。
- * 不显然的决定：存在账本文件里时，不在这边比文字省掉存盘。
+ * 存在账本文件里时，不在这边比文字省掉存盘。
  * 是否真的没变，交给文件仓库自己核。
+ * 没有特别的决定。
  */
 import type { LedgerData } from "@/core/models";
 import {

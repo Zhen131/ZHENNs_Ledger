@@ -3,6 +3,7 @@
  * 先查能不能改，再改，再排进存盘队。
  * 存盘队本身在同目录 `usePersistentLedgerPersistence.ts`。
  * 不显然的决定：账本里有未来记录时，只许删未来记录。
+ * 因为新记录不许晚于今天，2026-08-19 定（W14 01B 第 3.5 节）。
  */
 import type { LedgerData } from "@/core/models";
 import { ledgerReducer, type LedgerAction } from "@/core/state";

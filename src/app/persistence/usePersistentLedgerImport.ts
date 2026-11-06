@@ -1,8 +1,9 @@
 /**
  * 这个文件管「用一份备份整本换掉当前账本」这一步。
  * 备份文件的预检、报告在 `features/backup`，这里只做最后的换账。
- * 不显然的决定：换完后把写进去的账和备份逐字比一遍。
+ * 换完后把写进去的账和备份逐字比一遍。
  * 对不上就锁住这本账。
+ * 没有特别的决定。
  */
 import type { LedgerData } from "@/core/models";
 import { validateLedgerImportPolicy } from "@/core/policies";
