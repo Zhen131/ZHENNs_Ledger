@@ -1,3 +1,8 @@
+/**
+ * 这个文件管设置页里「本地币」那一块：新加和删除币。
+ * 能不能加、能不能删，在 `assetService.ts` 里判断。
+ * 不显然的决定：加币全程不联网；2026-08-19 定（W14 01A 第三节）。
+ */
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
@@ -36,6 +41,13 @@ type PendingAssetMutation = Readonly<{
 }>;
 
 
+/**
+ * 这个组件画本地币的管理区。
+ * 上面填代码新加一种币，下面列出每种币。
+ * 每种币显示币安对和现在用的价格来自哪里。
+ * 删不掉时，在那种币下面写明被哪些记录用着。
+ * 加或删后等存盘，存好了显示「已保存」或「已删除」。
+ */
 export function LocalAssetManager({
   clock = systemLedgerClock,
   ledgerData,
