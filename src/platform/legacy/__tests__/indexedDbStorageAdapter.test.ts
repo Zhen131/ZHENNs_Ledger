@@ -2,7 +2,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { seedRetiredBrowserLedgerRecord } from "@/test-support";
-import { IndexedDbStorageAdapter } from "./indexedDbStorageAdapter";
+import { IndexedDbStorageAdapter } from "../indexedDbStorageAdapter";
 
 const adapters: IndexedDbStorageAdapter[] = [];
 
