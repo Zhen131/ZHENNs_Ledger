@@ -78,7 +78,6 @@ const NOT_YET_DOCUMENTED: readonly string[] = [
   "app/workspaces/transactionsWorkspaceTypes.ts",
   "app/workspaces/useLedgerWorkspaceSession.ts",
   "app/workspaces/workspaceDrafts.ts",
-  "core/catalog/builtInAssets.ts",
   "features/activity/ActivityTable.tsx",
   "features/activity/ActivityTableParts.tsx",
   "features/activity/ActivityTableRow.tsx",
