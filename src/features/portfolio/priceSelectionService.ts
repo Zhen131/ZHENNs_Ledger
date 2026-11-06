@@ -47,6 +47,8 @@ export type PriceSelectionAccumulator = {
 
 /**
  * 这个函数开一张空的挑价草稿，记住是哪种币、用哪种挑法。
+ * 举例：BTC，「自动」模式。
+ * → 答一张记着 BTC 和「自动」、0 条价格的草稿。
  * 不会出错。
  */
 export function createPriceSelectionAccumulator(

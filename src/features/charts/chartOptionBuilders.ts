@@ -88,6 +88,8 @@ export function toFiniteChartNumber(value: string): number {
  * 画成一个圆环。
  * 每块的提示里有市值、占比、价格来源和日期。
  * 「其他」那块的提示里列出并进去的每种币。
+ * 举例：BTC 4200、ETH 3000、现金 800 三块。
+ * → 答一个三块的圆环，三块的值是 4200、3000、800。
  */
 export function buildAllocationChartOption(
   slices: readonly HoldingAllocationSlice[],
@@ -164,6 +166,8 @@ export function buildAllocationChartOption(
  * 这个函数回答：走势图在 ECharts 里怎么设置？
  * 画两条台阶线：总资产和剩余成本。
  * 缺的点留空，不连起来。
+ * 举例：8 月 20 日总资产 4000，8 月 21 日缺价格。
+ * → 答 20 日画在 4000，21 日那点空着，线在那里断开。
  */
 export function buildHoldingHistoryChartOption(
   points: readonly HoldingHistoryPoint[],

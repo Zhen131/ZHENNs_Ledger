@@ -1,7 +1,8 @@
 /**
  * 这个文件放规则管理共用的表单形状、初始值和检查。
  * 按钮按下后做什么在 `feeRuleManagerActions.ts`。
- * 不显然的决定：名字和平台前后不许有空格；2026-08-10 定（W12 02A 第 5.1 节）。
+ * 不显然的决定：平台前后不许有空格；2026-08-10 定（W12 02A 第 5.1 节）。
+ * 名字前后也不许有空格，哪天定的查不到（这是猜的，日志里没写，要核。）
  */
 import type { LedgerData } from "@/core/models";
 import { isNegative, toDecimal } from "@/core/shared";

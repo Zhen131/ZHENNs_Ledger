@@ -135,6 +135,8 @@ export function createBackupEnvelope(
 
 /**
  * 这个函数把 B 文件外壳变成文字，缩进两格，末尾带一个换行。
+ * 举例：外壳版本 3、程序版本 0.1.0 的 B。
+ * → 答一段 JSON 文字，每层缩进两格，最后一个字是换行。
  * 不会出错。
  */
 export function serializeBackupEnvelope(envelope: BackupEnvelopeV3): string {
