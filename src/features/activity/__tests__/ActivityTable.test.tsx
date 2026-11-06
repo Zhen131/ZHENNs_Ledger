@@ -12,8 +12,8 @@ import {
   formatOccurredAtForView,
   formatRecordedOccurredAt,
   type ActivityDeleteState,
-} from "./ActivityTable";
-import type { LedgerActivityItem } from "./activityService";
+} from "../ActivityTable";
+import type { LedgerActivityItem } from "../activityService";
 
 afterEach(cleanup);
 

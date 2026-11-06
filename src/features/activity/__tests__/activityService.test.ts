@@ -6,7 +6,7 @@ import { createUsdtSimpleTrade } from "@/test-support";
 import {
   buildLedgerActivityItems,
   filterLedgerActivityItems,
-} from "./activityService";
+} from "../activityService";
 
 describe("ledger activity projection", () => {
   it("sorts stably by occurredAt, createdAt, trade before cash, then id", () => {
