@@ -1,4 +1,1 @@
-export {
-  createLedgerDataContentIdentity,
-  createSerializedContentIdentity,
-} from "./ledgerContentIdentity";
+export { createLedgerDataContentIdentity } from "./ledgerContentIdentity";

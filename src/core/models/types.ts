@@ -7,7 +7,6 @@ export type ISODateTimeString = string;
 export type TimePrecision = "day" | "minute" | "second";
 export type TradeType = "buy" | "sell";
 export type PriceSource = "manual" | "api";
-export type FeeRuleType = "fixed" | "percentage";
 export type FeeRuleStatus = "active" | "inactive";
 export type ValuationPriceMode = "auto" | "manual";
 

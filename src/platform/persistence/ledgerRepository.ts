@@ -19,10 +19,7 @@ import type {
   LedgerSessionPersistencePort,
   CreateLedgerSessionOptions,
 } from "./ledgerRepositoryContract";
-import {
-  LedgerSessionLifecycleError,
-  INDEXED_DB_LEDGER_CAPABILITIES,
-} from "./ledgerRepositoryContract";
+import { LedgerSessionLifecycleError } from "./ledgerRepositoryContract";
 import {
   readyClearAuthorizationRuntimes,
   readyClearAuthorizationContextRuntimes,
@@ -275,16 +272,6 @@ export function claimLedgerSessionPersistencePort(
   runtime.persistencePortOwner = owner;
   runtime.persistencePort = port;
   return port;
-}
-
-export function createIndexedDbLedgerSession(
-  repository: LedgerRepository,
-): LedgerSession {
-  return createLedgerSession({
-    storageKind: "indexeddb",
-    repository,
-    capabilities: INDEXED_DB_LEDGER_CAPABILITIES,
-  });
 }
 
 export function assertSessionQuiesceRequest(

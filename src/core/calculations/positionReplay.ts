@@ -94,13 +94,6 @@ export function sortPositionFactsForReplay(
   ].sort((left, right) => compareLedgerFactOrder(left, right));
 }
 
-/** @deprecated Prefer sortPositionFactsForReplay for position accounting. */
-export function sortTradesForReplay(trades: readonly Trade[]): Trade[] {
-  return sortPositionFactsForReplay(trades, []).map(
-    (candidate) => candidate.fact as Trade,
-  );
-}
-
 export function applyTradeToReplay(
   state: PositionReplayState,
   trade: Trade,

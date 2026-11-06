@@ -3,7 +3,6 @@ import type {
   CashEventType,
   ISODateTimeString,
   LedgerData,
-  TimePrecision,
 } from "@/core/models";
 import {
   captureLedgerTime,
@@ -25,15 +24,6 @@ import {
 
 const MAX_ID_ATTEMPTS = 3;
 const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
-
-export type CashEventDraft = Readonly<{
-  type: CashEventType;
-  occurredAt: string;
-  occurredTimeZone?: string;
-  timePrecision?: TimePrecision;
-  amountOrTarget: string;
-  note?: string;
-}>;
 
 export const CASH_EVENT_SERVICE_ERROR_CODES = {
   INVALID_INPUT: "CASH_EVENT_INVALID_INPUT",

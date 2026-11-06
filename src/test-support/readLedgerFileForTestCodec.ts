@@ -3,14 +3,6 @@ import { isLedgerFileV3Bytes } from "@/platform/files";
 const TEST_BINARY_STRING_CACHE_LIMIT = 8;
 const testBinaryStringBytes = new Map<string, Uint8Array>();
 
-export function ledgerFileWritableDataToBytes(
-  data: string | Uint8Array,
-): Uint8Array {
-  return typeof data === "string"
-    ? new TextEncoder().encode(data)
-    : Uint8Array.from(data);
-}
-
 export function ledgerFileBytesToTestString(bytes: Uint8Array): string {
   if (!isLedgerFileV3Bytes(bytes)) {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);

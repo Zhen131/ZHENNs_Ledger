@@ -7,7 +7,6 @@ export {
   confirmBackupImportSuspiciousGroups,
   createLedgerBackupImportEvidence,
   inspectLedgerBackupImportEvidence,
-  isBackupImportSuspicionConfirmationValid,
   revokeBackupImportPreflightReceipt,
 } from "./backupImportPreflightReceipts";
 export * from "./backupImportPreflightTypes";

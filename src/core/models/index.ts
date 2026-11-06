@@ -17,7 +17,6 @@ export type {
   FeeRule,
   FeeRuleBase,
   FeeRuleStatus,
-  FeeRuleType,
   FixedFeeRule,
   ISODateString,
   ISODateTimeString,

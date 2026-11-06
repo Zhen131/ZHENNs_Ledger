@@ -1,9 +1,7 @@
 import type {
   AssetTransferCategory,
   AssetTransferReason,
-  CustodyLocation,
   ISODateTimeString,
-  TimePrecision,
 } from "@/core/models";
 
 export const ASSET_TRANSFER_REASONS_BY_CATEGORY = {
@@ -14,21 +12,6 @@ export const ASSET_TRANSFER_REASONS_BY_CATEGORY = {
 } as const satisfies Readonly<
   Record<AssetTransferCategory, readonly AssetTransferReason[]>
 >;
-
-export type AssetTransferDraft = Readonly<{
-  category: AssetTransferCategory;
-  assetSymbol: string;
-  reason: AssetTransferReason;
-  quantity: string;
-  occurredAt: string;
-  occurredTimeZone?: string;
-  timePrecision?: TimePrecision;
-  unitPrice?: string;
-  networkFee?: string;
-  fromLocation?: CustodyLocation;
-  toLocation?: CustodyLocation;
-  note?: string;
-}>;
 
 export const ASSET_TRANSFER_SERVICE_ERROR_CODES = {
   INVALID_INPUT: "ASSET_TRANSFER_INVALID_INPUT",

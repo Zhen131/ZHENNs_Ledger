@@ -63,22 +63,6 @@ export function prepareLedgerFileUpdateV3S2(
   );
 }
 
-export function prepareLedgerFileRecoveryV3S2(
-  baseFile: LedgerFileV3S2,
-  baseSerializedFile: Uint8Array,
-  current: EncryptedLedgerGenerationV3S2,
-): PreparedLedgerFileV3S2Write {
-  if (!baseFile.previous) {
-    throw new Error("V3 S-2 recovery requires a previous generation");
-  }
-  return prepareLedgerFileWriteV3S2(
-    baseFile,
-    baseSerializedFile,
-    current,
-    baseFile.previous,
-  );
-}
-
 function prepareLedgerFileWriteV3S2(
   baseFile: LedgerFileV3S2,
   baseSerializedFile: Uint8Array,
