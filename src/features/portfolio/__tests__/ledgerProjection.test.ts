@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createInitialLedgerData } from "@/core/state";
 import { createPriceSnapshot, createUsdtSimpleTrade } from "@/test-support";
 import { buildTradeHeatmap } from "@/features/charts";
-import { buildLedgerPnlSummary } from "./pnlSummaryService";
-import { buildLedgerProjection } from "./ledgerProjection";
+import { buildLedgerPnlSummary } from "../pnlSummaryService";
+import { buildLedgerProjection } from "../ledgerProjection";
 
 const TODAY = "2026-08-19";
 

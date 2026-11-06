@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LedgerData, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
-import { buildLedgerPnlSummary } from "./pnlSummaryService";
+import { buildLedgerPnlSummary } from "../pnlSummaryService";
 
 const TODAY = "2026-08-09";
 const TIMESTAMP = "2026-08-09T00:00:00Z";

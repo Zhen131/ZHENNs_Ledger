@@ -6,7 +6,7 @@ import {
   createPriceSnapshot,
   sampleTrades,
 } from "@/test-support";
-import { getPositionsFromLedger } from "./positionService";
+import { getPositionsFromLedger } from "../positionService";
 
 function createLedgerData(
   overrides: Partial<LedgerData> = {},

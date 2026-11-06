@@ -12,14 +12,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AssetTransfer, LedgerData, Position, Trade } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
-import { HoldingsDetails } from "./HoldingsDetails";
+import { HoldingsDetails } from "../HoldingsDetails";
 import {
   calculatePriceChangeRatio,
   getTopMarketValuePositions,
   HoldingsOverview,
-} from "./HoldingsOverview";
-import { buildLedgerPnlSummary } from "./pnlSummaryService";
-import { getPositionsFromLedger } from "./positionService";
+} from "../HoldingsOverview";
+import { buildLedgerPnlSummary } from "../pnlSummaryService";
+import { getPositionsFromLedger } from "../positionService";
 
 afterEach(cleanup);
 
