@@ -19,7 +19,7 @@ import {
 } from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
-import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
+import { usePersistentLedger as usePersistentLedgerRuntime } from "../usePersistentLedger";
 import {
   ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
   addTrade,

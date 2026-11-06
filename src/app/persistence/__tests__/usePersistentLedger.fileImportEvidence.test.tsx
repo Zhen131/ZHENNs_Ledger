@@ -12,7 +12,7 @@ import {
 } from "vitest";
 import { preflightBackupJson } from "@/features/backup";
 import { createInitialLedgerData } from "@/core/state";
-import { usePersistentLedger } from "./usePersistentLedger";
+import { usePersistentLedger } from "../usePersistentLedger";
 import {
   FIXED_CLOCK,
   createHarness,

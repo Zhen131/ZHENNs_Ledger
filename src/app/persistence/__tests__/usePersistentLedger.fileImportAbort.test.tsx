@@ -18,7 +18,7 @@ import {
 } from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
 import { ledgerFileTestStringToBytes } from "@/test-support";
-import { usePersistentLedger } from "./usePersistentLedger";
+import { usePersistentLedger } from "../usePersistentLedger";
 import {
   FIXED_CLOCK,
   ImportLedgerHandle,

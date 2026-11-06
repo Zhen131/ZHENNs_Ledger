@@ -18,7 +18,7 @@ import {
   createUsdtSimpleTrade as createSimpleTrade,
   ledgerFileBytesToTestString,
 } from "@/test-support";
-import { usePersistentLedger } from "./usePersistentLedger";
+import { usePersistentLedger } from "../usePersistentLedger";
 import {
   ControlledLedgerHandle,
   GatedHookSessionLease,

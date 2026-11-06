@@ -19,7 +19,7 @@ import {
   sampleUsdtTrades as sampleTrades,
 } from "@/test-support";
 import type { LedgerClock } from "@/core/shared";
-import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
+import { usePersistentLedger as usePersistentLedgerRuntime } from "../usePersistentLedger";
 
 /** Every capability on; the one shared test constant, defined in test-support. */
 export { ALL_ENABLED_TEST_LEDGER_CAPABILITIES } from "@/test-support";

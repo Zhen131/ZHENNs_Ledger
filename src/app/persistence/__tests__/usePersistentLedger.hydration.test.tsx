@@ -22,7 +22,7 @@ import {
   createUsdtSimpleTrade as createSimpleTrade,
 } from "@/test-support";
 import type { LedgerClock } from "@/core/shared";
-import { usePersistentLedger as usePersistentLedgerRuntime } from "./usePersistentLedger";
+import { usePersistentLedger as usePersistentLedgerRuntime } from "../usePersistentLedger";
 import {
   addTrade,
   createRepository,

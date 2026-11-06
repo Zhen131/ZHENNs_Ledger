@@ -23,7 +23,7 @@ import {
   createUsdtSimpleTrade as createSimpleTrade,
   readLedgerFileForTest,
 } from "@/test-support";
-import { usePersistentLedger } from "./usePersistentLedger";
+import { usePersistentLedger } from "../usePersistentLedger";
 import {
   ControlledLedgerHandle,
   GatedHookSessionLease,
