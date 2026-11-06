@@ -39,7 +39,10 @@ export function staleOperationResult(): {
   };
 }
 
-/** 这个函数给一个「这次选文件已经过时、算取消」的结果。 */
+/**
+ * 这个函数给一个「这次选文件已经过时、算取消」的结果。
+ * 举例：选文件时用户又点了别的 → 答 `ok: false`，错误码 `CANCELLED`。
+ */
 export function staleSelectionResult(): {
   ok: false;
   code: typeof LEDGER_FILE_ACCESS_ERROR_CODES.CANCELLED;
@@ -187,6 +190,7 @@ function hasLedgerFileContractError(
 /**
  * 这个函数把解锁时的错误翻成错误码。
  * 文件被别的程序改过答 `EXTERNAL_CHANGE`；别的一律答 `UNLOCK_FAILED`。
+ * 举例：密码输错 → 答 `UNLOCK_FAILED`。
  */
 export function mapUnlockError(error: unknown): LedgerFileAccessErrorCode {
   if (error instanceof LedgerFileConnectionCommitError) {
@@ -204,6 +208,7 @@ export function mapUnlockError(error: unknown): LedgerFileAccessErrorCode {
 /**
  * 这个函数把重连上次文件时的错误翻成错误码。
  * 记住的连接信息坏了答 `CONNECTION_INVALID`；别的都答 `RECONNECT_FAILED`。
+ * 举例：浏览器问权限时出错 → 答 `RECONNECT_FAILED`。
  */
 export function mapReconnectError(error: unknown): LedgerFileAccessErrorCode {
   if (error instanceof LedgerFileConnectionRecordError) {
