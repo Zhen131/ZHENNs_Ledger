@@ -16,82 +16,116 @@ import type {
 } from "@/core/models";
 import { createInitialLedgerData } from "./initialLedgerData";
 
+type AddTradeAction = { type: "trade/add"; trade: Trade };
+
+type DeleteTradeAction = { type: "trade/delete"; tradeId: string };
+
+type AddCashEventAction = { type: "cashEvent/add"; cashEvent: CashEvent };
+
+type DeleteCashEventAction = { type: "cashEvent/delete"; cashEventId: string };
+
+type AddAssetTransferAction = {
+  type: "assetTransfer/add";
+  assetTransfer: AssetTransfer;
+};
+
+type DeleteAssetTransferAction = {
+  type: "assetTransfer/delete";
+  assetTransferId: string;
+};
+
+type AddAssetAction = { type: "asset/add"; asset: Asset };
+
+type UpdateAssetAction = { type: "asset/update"; asset: Asset };
+
+type RemoveAssetAction = { type: "asset/remove"; assetSymbol: string };
+
+type AddPriceSnapshotAction = {
+  type: "priceSnapshot/add";
+  priceSnapshot: PriceSnapshot;
+};
+
+type DeletePriceSnapshotAction = {
+  type: "priceSnapshot/delete";
+  priceSnapshotId: string;
+};
+
+type AddFeeRuleAction = { type: "feeRule/add"; feeRule: FeeRule };
+
+type DeactivateFeeRuleAction = {
+  type: "feeRule/deactivate";
+  feeRuleId: string;
+  deactivatedAt: string;
+};
+
+type ReplaceFeeRuleAction = {
+  type: "feeRule/replace";
+  feeRuleId: string;
+  replacement: FeeRule;
+  deactivatedAt: string;
+};
+
+type DeleteAllFutureFactsAction = {
+  type: "futureFacts/deleteAll";
+  todayKey: string;
+};
+
+type ReplaceLedgerAction = { type: "ledger/replace"; ledgerData: LedgerData };
+
+type ResetLedgerAction = { type: "ledger/reset" };
+
 /**
  * 改账本的一张单子。
  * 有加、删、改记录，停用和替换手续费规则。
  * 还有删掉未来的记录、整本替换、清空。
  */
 export type LedgerAction =
-  | {
-      type: "trade/add";
-      trade: Trade;
-    }
-  | {
-      type: "trade/delete";
-      tradeId: string;
-    }
-  | {
-      type: "cashEvent/add";
-      cashEvent: CashEvent;
-    }
-  | {
-      type: "cashEvent/delete";
-      cashEventId: string;
-    }
-  | {
-      type: "assetTransfer/add";
-      assetTransfer: AssetTransfer;
-    }
-  | {
-      type: "assetTransfer/delete";
-      assetTransferId: string;
-    }
-  | {
-      type: "asset/add";
-      asset: Asset;
-    }
-  | {
-      type: "asset/update";
-      asset: Asset;
-    }
-  | {
-      type: "asset/remove";
-      assetSymbol: string;
-    }
-  | {
-      type: "priceSnapshot/add";
-      priceSnapshot: PriceSnapshot;
-    }
-  | {
-      type: "priceSnapshot/delete";
-      priceSnapshotId: string;
-    }
-  | {
-      type: "feeRule/add";
-      feeRule: FeeRule;
-    }
-  | {
-      type: "feeRule/deactivate";
-      feeRuleId: string;
-      deactivatedAt: string;
-    }
-  | {
-      type: "feeRule/replace";
-      feeRuleId: string;
-      replacement: FeeRule;
-      deactivatedAt: string;
-    }
-  | {
-      type: "futureFacts/deleteAll";
-      todayKey: string;
-    }
-  | {
-      type: "ledger/replace";
-      ledgerData: LedgerData;
-    }
-  | {
-      type: "ledger/reset";
-    };
+  | AddTradeAction
+  | DeleteTradeAction
+  | AddCashEventAction
+  | DeleteCashEventAction
+  | AddAssetTransferAction
+  | DeleteAssetTransferAction
+  | AddAssetAction
+  | UpdateAssetAction
+  | RemoveAssetAction
+  | AddPriceSnapshotAction
+  | DeletePriceSnapshotAction
+  | AddFeeRuleAction
+  | DeactivateFeeRuleAction
+  | ReplaceFeeRuleAction
+  | DeleteAllFutureFactsAction
+  | ReplaceLedgerAction
+  | ResetLedgerAction;
+
+type RemovableListKey =
+  | "trades"
+  | "cashEvents"
+  | "assetTransfers"
+  | "assets"
+  | "priceSnapshots";
+
+function removeMatching<Key extends RemovableListKey>(
+  state: LedgerData,
+  key: Key,
+  shouldRemove: (item: LedgerData[Key][number]) => boolean,
+): LedgerData {
+  const list: readonly LedgerData[Key][number][] = state[key];
+  const kept = list.filter((item) => !shouldRemove(item));
+  if (kept.length === list.length) {
+    return state;
+  }
+  return { ...state, [key]: kept };
+}
+
+function deactivateRule(rule: FeeRule, deactivatedAt: string): FeeRule {
+  return {
+    ...rule,
+    status: "inactive",
+    updatedAt: deactivatedAt,
+    deactivatedAt,
+  };
+}
 
 /**
  * 这个函数回答：旧账本按这张单子改完，变成什么样？
@@ -113,53 +147,44 @@ export function ledgerReducer(
         ...state,
         trades: [...state.trades, action.trade],
       };
-    case "trade/delete": {
-      const nextTrades = state.trades.filter(
-        (trade) => trade.id !== action.tradeId,
+    case "trade/delete":
+      return removeMatching(
+        state,
+        "trades",
+        (trade) => trade.id === action.tradeId,
       );
-
-      if (nextTrades.length === state.trades.length) {
-        return state;
-      }
-
-      return {
-        ...state,
-        trades: nextTrades,
-      };
-    }
     case "cashEvent/add":
       return {
         ...state,
         cashEvents: [...state.cashEvents, action.cashEvent],
       };
-    case "cashEvent/delete": {
-      const nextCashEvents = state.cashEvents.filter(
-        (cashEvent) => cashEvent.id !== action.cashEventId,
+    case "cashEvent/delete":
+      return removeMatching(
+        state,
+        "cashEvents",
+        (cashEvent) => cashEvent.id === action.cashEventId,
       );
-      return nextCashEvents.length === state.cashEvents.length
-        ? state
-        : { ...state, cashEvents: nextCashEvents };
-    }
     case "assetTransfer/add":
       return {
         ...state,
         assetTransfers: [...state.assetTransfers, action.assetTransfer],
       };
-    case "assetTransfer/delete": {
-      const nextAssetTransfers = state.assetTransfers.filter(
-        (assetTransfer) => assetTransfer.id !== action.assetTransferId,
+    case "assetTransfer/delete":
+      return removeMatching(
+        state,
+        "assetTransfers",
+        (assetTransfer) => assetTransfer.id === action.assetTransferId,
       );
-      return nextAssetTransfers.length === state.assetTransfers.length
-        ? state
-        : { ...state, assetTransfers: nextAssetTransfers };
-    }
-    case "asset/add":
-      return state.assets.some(
+    case "asset/add": {
+      const alreadyThere = state.assets.some(
         ({ id, symbol }) =>
           id === action.asset.id || symbol === action.asset.symbol,
-      )
-        ? state
-        : { ...state, assets: [...state.assets, action.asset] };
+      );
+      if (alreadyThere) {
+        return state;
+      }
+      return { ...state, assets: [...state.assets, action.asset] };
+    }
     case "asset/update": {
       const index = state.assets.findIndex(
         ({ id }) => id === action.asset.id,
@@ -171,32 +196,32 @@ export function ledgerReducer(
       nextAssets[index] = action.asset;
       return { ...state, assets: nextAssets };
     }
-    case "asset/remove": {
-      const nextAssets = state.assets.filter(
-        ({ symbol }) => symbol !== action.assetSymbol,
+    case "asset/remove":
+      return removeMatching(
+        state,
+        "assets",
+        ({ symbol }) => symbol === action.assetSymbol,
       );
-      return nextAssets.length === state.assets.length
-        ? state
-        : { ...state, assets: nextAssets };
-    }
     case "priceSnapshot/add":
       return {
         ...state,
         priceSnapshots: [...state.priceSnapshots, action.priceSnapshot],
       };
-    case "priceSnapshot/delete": {
-      const nextPriceSnapshots = state.priceSnapshots.filter(
-        (snapshot) => snapshot.id !== action.priceSnapshotId,
+    case "priceSnapshot/delete":
+      return removeMatching(
+        state,
+        "priceSnapshots",
+        (snapshot) => snapshot.id === action.priceSnapshotId,
       );
-
-      return nextPriceSnapshots.length === state.priceSnapshots.length
-        ? state
-        : { ...state, priceSnapshots: nextPriceSnapshots };
+    case "feeRule/add": {
+      const alreadyThere = state.feeRules.some(
+        ({ id }) => id === action.feeRule.id,
+      );
+      if (alreadyThere) {
+        return state;
+      }
+      return { ...state, feeRules: [...state.feeRules, action.feeRule] };
     }
-    case "feeRule/add":
-      return state.feeRules.some(({ id }) => id === action.feeRule.id)
-        ? state
-        : { ...state, feeRules: [...state.feeRules, action.feeRule] };
     case "feeRule/deactivate": {
       const index = state.feeRules.findIndex(
         ({ id }) => id === action.feeRuleId,
@@ -206,12 +231,7 @@ export function ledgerReducer(
         return state;
       }
       const nextRules = state.feeRules.slice();
-      nextRules[index] = {
-        ...rule,
-        status: "inactive",
-        updatedAt: action.deactivatedAt,
-        deactivatedAt: action.deactivatedAt,
-      };
+      nextRules[index] = deactivateRule(rule, action.deactivatedAt);
       return { ...state, feeRules: nextRules };
     }
     case "feeRule/replace": {
@@ -231,12 +251,7 @@ export function ledgerReducer(
         return state;
       }
       const nextRules = state.feeRules.slice();
-      nextRules[index] = {
-        ...previous,
-        status: "inactive",
-        updatedAt: action.deactivatedAt,
-        deactivatedAt: action.deactivatedAt,
-      };
+      nextRules[index] = deactivateRule(previous, action.deactivatedAt);
       nextRules.push(action.replacement);
       return { ...state, feeRules: nextRules };
     }
