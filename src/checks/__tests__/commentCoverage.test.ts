@@ -79,8 +79,6 @@ const NOT_YET_DOCUMENTED: readonly string[] = [
   "app/workspaces/useLedgerWorkspaceSession.ts",
   "app/workspaces/workspaceDrafts.ts",
   "core/catalog/builtInAssets.ts",
-  "core/policies/ledgerFactPolicy.ts",
-  "core/policies/ledgerImportPolicy.ts",
   "core/state/initialLedgerData.ts",
   "core/state/ledgerReducer.ts",
   "features/activity/ActivityTable.tsx",
