@@ -1,3 +1,8 @@
+/**
+ * 这个文件管转账面板上每个按钮按下后做什么。
+ * 画面在 `AssetTransferPanel.tsx` 和它的子组件。
+ * 不显然的决定：删除要点两次，两次之间账本变了就作废；为什么，这是猜的，要核。
+ */
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
@@ -48,6 +53,14 @@ type TransferPersistenceEffectDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数看存盘结果，决定提示什么。
+ * 存到了这次改动的版本：显示「已保存」。
+ * 同时清空数量、单价、网络费和备注。
+ * 删除的显示「已删除」。
+ * 存盘失败：显示「没存上」。
+ * 不会出错。
+ */
 export function runTransferPersistenceEffect(
   deps: TransferPersistenceEffectDeps,
 ) {
@@ -121,6 +134,13 @@ type HandleSubmitDeps = {
   unitPrice: string;
 };
 
+/**
+ * 这个函数处理转账表单的「保存」。
+ * 先把日期、时间、地点拼成一个时刻。
+ * 再按分类只取用得上的栏，交给 `createValidatedAssetTransfer` 检查。
+ * 检查过了就加进账本，等存盘。
+ * 时刻不存在、检查不过、账本不让写：显示错误，不加。
+ */
 export function doHandleSubmit(
   deps: HandleSubmitDeps,
   event: FormEvent<HTMLFormElement>,
@@ -237,6 +257,13 @@ type RequestDeleteDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数处理转账旁边的「删除」按钮。
+ * 第一次点只是「准备删除」，第二次点才删。
+ * 两次点之间账本有改动，就作废并提示重来。
+ * 删之前先问 `validateAssetTransferRemoval` 能不能删。
+ * 举例：删掉一笔转入后，后面的卖出会卖空 → 不删，显示原因。
+ */
 export function doRequestDelete(
   deps: RequestDeleteDeps,
   assetTransferId: string,

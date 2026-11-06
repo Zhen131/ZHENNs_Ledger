@@ -1,3 +1,9 @@
+/**
+ * 这个文件放转账表单用的两个小组件。
+ * 一个是一栏的外框，一个是存放位置下拉框。
+ * 表单本身在 `AssetTransferPanelForm.tsx`。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { type ReactNode } from "react";
@@ -6,6 +12,10 @@ import { type AssetTransferServiceError } from "./assetTransferServiceContract";
 import { controlClassName } from "./assetTransferPanelHelpers";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画表单的一栏：上面是名字，下面是输入框。
+ * 错误正好挂在这一栏时，在下面用红字显示。
+ */
 export function Field({
   label,
   error,
@@ -32,6 +42,10 @@ export function Field({
   );
 }
 
+/**
+ * 这个组件画存放位置的下拉框。
+ * 三个选项：交易所、冷钱包、冷钱包理财。
+ */
 export function LocationSelect({
   describedBy: ariaDescribedBy,
   disabled,

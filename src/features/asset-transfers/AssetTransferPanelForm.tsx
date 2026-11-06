@@ -1,3 +1,8 @@
+/**
+ * 这个文件管转账面板上的那张表单。
+ * 表单里的值和保存后做什么，都在上层 `AssetTransferPanel.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type {
@@ -29,6 +34,12 @@ import type {
 import type { Translate } from "@/ui";
 import type { AssetTransferServiceError } from "./assetTransferServiceContract";
 
+/**
+ * 这个组件画填转账的表单。
+ * 有分类、币、原因、数量、日期、时间、地点、备注。
+ * 按分类显示不同的栏：从哪、到哪、单价、网络费。
+ * 点「保存」交给上层的提交处理。
+ */
 export function AssetTransferPanelForm({
   assetSymbol,
   category,

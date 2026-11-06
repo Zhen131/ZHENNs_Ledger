@@ -1,3 +1,8 @@
+/**
+ * 这个文件管记账页的币转账面板。
+ * 按钮的处理在 `assetTransferPanelActions.ts`，表单和列表在两个子组件里。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
@@ -41,6 +46,12 @@ import {
 import { AssetTransferPanelEventList } from "./AssetTransferPanelEventList";
 import { AssetTransferPanelForm } from "./AssetTransferPanelForm";
 
+/**
+ * 这个组件画记账页的币转账面板。
+ * 上面是填转账的表单，下面是分页的转账记录，最后加的在前。
+ * 换了一本账本或币的清单变了，表单回到默认样子。
+ * 账本不能写时，按钮不起作用。
+ */
 export function AssetTransferPanel({
   clock = systemLedgerClock,
   ledgerData,

@@ -1,3 +1,8 @@
+/**
+ * 这个文件管转账面板下方的转账记录列表。
+ * 列表数据和删除的处理，都在上层 `AssetTransferPanel.tsx` 管。
+ * 没有特别的决定。
+ */
 "use client";
 
 import { LedgerNumber, PaginationBar } from "@/ui";
@@ -15,6 +20,12 @@ import type {
 } from "react";
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画转账记录列表，分页显示。
+ * 每条显示分类、数量、从哪到哪。
+ * 有网络费或单价的，也一起显示。
+ * 点「删除」第一次变成「确认删除」，再点才真删。
+ */
 export function AssetTransferPanelEventList({
   armedDelete,
   currentPage,

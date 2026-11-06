@@ -1,3 +1,8 @@
+/**
+ * 这个文件管一件事：检查一笔币的转账能不能记、能不能删。
+ * 转账怎么改持仓在 core 的 `positionReplay`，表单画面在 `AssetTransferPanel.tsx`。
+ * 不显然的决定：转入和白得的必须填单价，用来算成本；为什么，这是猜的，要核。
+ */
 import { replayPositions } from "@/core/calculations";
 import type {
   AssetTransfer,
@@ -30,6 +35,7 @@ import {
   ASSET_TRANSFER_SERVICE_ERROR_CODES,
 } from "./assetTransferServiceContract";
 
+/** 为什么最多试 3 次：2026-08-19 定（W14 01B 第 3.5 节）。 */
 const MAX_ID_ATTEMPTS = 3;
 const DECIMAL_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
@@ -42,6 +48,16 @@ type AssetTransferFailure = {
   error: AssetTransferServiceError;
 };
 
+/**
+ * 这个函数回答：表单填的这笔转账合不合规矩？合规就造出一笔。
+ * 四种分类各有规矩。
+ * 内部挪动：要填从哪到哪，两处不能一样，不许填单价。
+ * 外部转入和白得：只填到哪，必须填单价，不许填网络费。
+ * 外部转出：只填从哪，不许填单价。
+ * 举例：交易所转 0.05 BTC 到冷钱包，网络费 0.0001 → 答合规。
+ * 举例：手里 0.01 BTC，转出 0.05 → 答不合规，说持仓不够。
+ * 什么时候出错：不抛错，返回 `ok:false` 和错误代码，挂在对应的栏上。
+ */
 export function createValidatedAssetTransfer(
   input: unknown,
   ledgerData: LedgerData,
@@ -261,6 +277,13 @@ export function createValidatedAssetTransfer(
   return { ok: true, assetTransfer };
 }
 
+/**
+ * 这个函数回答：这笔转账能不能删？
+ * 把它拿掉后，从第一笔到最后一笔按顺序过一遍买卖和转账。
+ * 举例：先转入 0.1 BTC，后来卖了 0.1 BTC。
+ * 想删那笔转入 → 答不能删，后面的卖出就卖空了。
+ * 什么时候出错：不抛错，返回 `ok:false` 和原因。
+ */
 export function validateAssetTransferRemoval(
   assetTransferId: string,
   ledgerData: LedgerData,
