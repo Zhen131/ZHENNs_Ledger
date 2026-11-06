@@ -7,6 +7,7 @@ import {
   type MouseEvent,
 } from "react";
 import { useLanguage } from "@/ui";
+import { DELETE_DELAY_MS } from "./tradeDeleteDelay";
 
 export type TradeDeletePhase =
   | "idle"
@@ -20,7 +21,7 @@ export function TradeDeleteControl({
   disabled = false,
   phase,
   remainingMs = 0,
-  delayMs = 5_000,
+  delayMs = DELETE_DELAY_MS,
   onActivate,
   onCancel,
   onUndo,

@@ -14,13 +14,12 @@ import type {
 } from "./transactionsWorkspaceTypes";
 import type { LedgerActivityItem } from "@/features/activity";
 import type { Translate } from "@/ui";
-import { validateTradeRemoval } from "@/features/trades";
+import { DELETE_DELAY_MS, validateTradeRemoval } from "@/features/trades";
 import { projectLedgerCashMutation } from "@/features/cash";
 import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
 } from "@/app/persistence";
-import { DELETE_DELAY_MS } from "./transactionsWorkspaceHelpers";
 
 type FindCurrentItemDeps = {
   latestLedgerDataRef: RefObject<LedgerData>;

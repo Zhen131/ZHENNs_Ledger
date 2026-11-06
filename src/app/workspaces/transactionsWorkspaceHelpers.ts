@@ -1,8 +1,6 @@
 import { type LedgerActivityTypeFilter } from "@/features/activity";
 import type { Translate } from "@/ui";
 
-export const DELETE_DELAY_MS = 5_000;
-
 export function activityFilterLabel(
   type: LedgerActivityTypeFilter,
   t: Translate,
