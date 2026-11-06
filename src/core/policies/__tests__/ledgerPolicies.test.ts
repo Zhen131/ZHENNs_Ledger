@@ -12,8 +12,8 @@ import {
   collectLedgerCompatibilityWarnings,
   partitionLedgerFactsForToday,
   resolveAssetBinanceMappingForRuntime,
-} from "./ledgerFactPolicy";
-import { validateLedgerImportPolicy } from "./ledgerImportPolicy";
+} from "../ledgerFactPolicy";
+import { validateLedgerImportPolicy } from "../ledgerImportPolicy";
 
 const TODAY = "2026-07-25";
 const TIMESTAMP = "2026-07-25T10:00:00+08:00";
