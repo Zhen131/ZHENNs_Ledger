@@ -8,8 +8,8 @@ import type {
 } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
 import { createSimpleTrade } from "@/test-support";
-import { replayUsdtCash } from "./cashReplay";
-import { calculateTradeUsdtCashDelta } from "./tradeCashImpact";
+import { replayUsdtCash } from "../cashReplay";
+import { calculateTradeUsdtCashDelta } from "../tradeCashImpact";
 
 const CREATED_AT = "2026-08-18T08:00:00.000Z";
 

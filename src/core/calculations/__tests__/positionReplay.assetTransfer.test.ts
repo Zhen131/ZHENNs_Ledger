@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { replayPositions } from "./positionReplay";
+import { replayPositions } from "../positionReplay";
 import { trade, baseBuy, transfer } from "./positionReplay.testHelpers";
 
 describe("V4 trade and asset-transfer replay contract", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { replayPositions } from "./positionReplay";
+import { replayPositions } from "../positionReplay";
 import { trade } from "./positionReplay.testHelpers";
 
 describe("fee-aware position replay", () => {

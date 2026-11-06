@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateTradeCashImpact } from "./tradeCashImpact";
+import { calculateTradeCashImpact } from "../tradeCashImpact";
 
 describe("trade cash impact", () => {
   it("keeps cash unchanged when the fee uses the traded asset", () => {

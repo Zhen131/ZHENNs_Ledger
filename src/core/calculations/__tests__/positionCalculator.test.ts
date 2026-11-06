@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 import type { Position } from "@/core/models";
 import { createPriceSnapshot, sampleTrades } from "@/test-support";
 import { isWithinTolerance } from "@/core/shared";
-import { calculatePositions } from "./positionCalculator";
+import { calculatePositions } from "../positionCalculator";
 
 function positionFor(positions: Position[], assetSymbol: string): Position {
   const position = positions.find((item) => item.assetSymbol === assetSymbol);
