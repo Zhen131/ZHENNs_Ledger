@@ -1,3 +1,9 @@
+/**
+ * 这个文件管查整本账本时，一条手续费规则对不对。
+ * 它不管规则之间的替换关系，那在 ledgerDataValidatorIntegrity.ts。
+ * 不显然的决定：规则的币种只认 USDT，比例不含手续费本身。2026-08-10 定（W12 02A 第 5.1 节）。
+ */
+
 import type { Asset, FeeRule } from "@/core/models";
 import {
   readEntityRecord,
@@ -21,6 +27,14 @@ import {
   PERCENTAGE_FEE_RULE_KEYS,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数读出第几条手续费规则，读不对就记错并答没有。
+ * 规则分固定金额和按比例两种，金额或比例都不能是负数。
+ * 在用的规则不许有停用时间，停用的必须有。
+ * 举例：按比例、比例 0.001、在用、没有停用时间 → 答通过。
+ * 举例：状态是停用、却没有停用时间 → 答没有，记一条错。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function readFeeRule(
   value: unknown,
   index: number,

@@ -1,3 +1,9 @@
+/**
+ * 这个文件管查整本账本时，一笔买卖对不对。
+ * 它把能共用的检查交给 validateTradeDraft，这里只补整本账本才有的字段。
+ * 不显然的决定：手续费是 0 时，手续费币种必须写 USDT。2026-08-19 定（W14 01B 第 3.1 节）。
+ */
+
 import type { Asset, Trade } from "@/core/models";
 import { isZero } from "@/core/shared";
 import { validateTradeDraft } from "./tradeValidator";
@@ -21,6 +27,16 @@ import {
   TRADE_KEYS,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数读出第几笔买卖，读不对就记错并答没有。
+ * 它查编号、时间、时差和地点。
+ * 数量、单价、金额要大于 0，手续费不小于 0。
+ * 非零手续费的币种必须是 USDT 或已有的资产。
+ * 举例：买 0.1 BTC、成交 6500、手续费 5 USDT → 答通过。
+ * 举例：手续费 0、币种填 BNB → 答没有，记一条错。
+ * 持仓够不够这里不查，留给整本最后一起查。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function readTrade(
   value: unknown,
   index: number,

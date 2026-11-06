@@ -1,3 +1,9 @@
+/**
+ * 这个文件管一件事：一整本账本收下之前从头到尾查一遍。
+ * 每种记录怎么查交给同目录的 ledgerDataValidator 开头的几个文件。
+ * 不显然的决定：出现不认识的字段就拒绝，不悄悄丢掉。2026-08-19 定（W14 01B 第 3.5 节）。
+ */
+
 import { calculatePositions } from "@/core/calculations";
 import type {
   Asset,
@@ -38,9 +44,11 @@ type IndexedValidatedLedgerTrade = Readonly<{
 }>;
 
 /**
- * Persistence exports accept the live application object but serialize only
- * the seven canonical V4 fact fields. Import validation remains exact and must
- * call validateLedgerData directly.
+ * 这个函数从程序里的账本对象中，只挑出要存的七样。
+ * 七样是结构版本号和六种记录列表，多余的东西不带。
+ * 举例：对象多了一个界面用的字段 → 答的结果里没有它。
+ * 不是对象时原样返回，留给 validateLedgerData 去报错。
+ * 从文件或备份导入时不用它，直接交给 validateLedgerData 严格查。
  */
 export function selectLedgerDataFacts(input: unknown): unknown {
   if (!isRecord(input)) {
@@ -58,6 +66,19 @@ export function selectLedgerDataFacts(input: unknown): unknown {
   };
 }
 
+/**
+ * 这个函数回答：这一整本账本能不能收？不能的话错在哪几处？
+ * 它查结构版本、每条记录、编号重复、引用对不对。
+ * 最后查买卖顺序。
+ * 举例：结构版本是 4 → 答不能收，`LEDGER_DATA_UNSUPPORTED_SCHEMA_VERSION`。
+ * 举例：某笔卖出比手里多 → 答不能收，`LEDGER_DATA_INVALID_TRADE_TIMELINE`。
+ *
+ * 为什么低版本直接拒绝：Alpha 阶段不做迁移。
+ * 2026-08-27 定（W15 版本分层与迁移策略决策记录第三节）。
+ *
+ * 出错时不抛错，返回 ok:false 和全部错误。
+ * 调用方拿到后不打开、不改文件，把错误告诉人。
+ */
 export function validateLedgerData(input: unknown): LedgerDataValidationResult {
   if (!isRecord(input)) {
     return {
@@ -176,6 +197,12 @@ export function validateLedgerData(input: unknown): LedgerDataValidationResult {
   };
 }
 
+/**
+ * 这个函数从一本不一定合法的账本里，挑出读得懂的买卖。
+ * 每笔都带着它在原列表里的位置。
+ * 举例：第 0 笔合法、第 1 笔缺数量 → 答只有第 0 笔。
+ * 不抛错；整本读不懂时答空列表。
+ */
 export function collectValidLedgerTradeProjections(
   input: unknown,
 ): readonly IndexedValidatedLedgerTrade[] {

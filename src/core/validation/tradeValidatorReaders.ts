@@ -1,3 +1,10 @@
+/**
+ * 这个文件管从一笔买卖的输入里逐个读出字段。
+ * 读不对就记一条错。
+ * 它不管字段之间对不对得上，那在 tradeValidatorConsistency.ts。
+ * 没有特别的决定。
+ */
+
 import type {
   Asset,
   DecimalString,
@@ -14,6 +21,10 @@ import {
   createError,
 } from "./tradeValidatorErrors";
 
+/**
+ * 这个函数读出这笔记在哪个地点；没填就算不知道。
+ * 举例："Asia/Shanghai" → 答它；"Mars/Base" → 答没有，并记一条错。
+ */
 export function readOptionalOccurredTimeZone(
   input: Record<string, unknown>,
   errors: TradeValidationError[],
@@ -31,6 +42,10 @@ export function readOptionalOccurredTimeZone(
   return undefined;
 }
 
+/**
+ * 这个函数读出一个必填的文字（目前只有币种），不能是空的。
+ * 举例："USDT" → 答它；"" → 答没有，并记一条错。
+ */
 export function readRequiredString(
   input: Record<string, unknown>,
   field: "currency",
@@ -52,6 +67,10 @@ export function readRequiredString(
   return undefined;
 }
 
+/**
+ * 这个函数读出这笔发生在哪天（或哪一刻），写法必须合法。
+ * 举例："2026-08-20" → 答它；"2026-02-30" → 答没有，并记一条错。
+ */
 export function readOccurredAt(
   value: unknown,
   errors: TradeValidationError[],
@@ -70,6 +89,10 @@ export function readOccurredAt(
   return undefined;
 }
 
+/**
+ * 这个函数读出这笔记到多细：只到天、到分钟、到秒。
+ * 举例："minute" → 答它；"hour" → 答没有，并记一条错。
+ */
 export function readTimePrecision(
   value: unknown,
   errors: TradeValidationError[],
@@ -88,6 +111,10 @@ export function readTimePrecision(
   return undefined;
 }
 
+/**
+ * 这个函数读出买还是卖。
+ * 举例："buy" → 答它；"swap" → 答没有，并记 `INVALID_TRADE_TYPE`。
+ */
 export function readTradeType(
   value: unknown,
   errors: TradeValidationError[],
@@ -106,6 +133,10 @@ export function readTradeType(
   return undefined;
 }
 
+/**
+ * 这个函数读出资产代码，账本里必须已经有这个资产。
+ * 举例："BTC" → 答它；账本里没有 "SOL" 时答没有，记 `ASSET_NOT_FOUND`。
+ */
 export function readAssetSymbol(
   value: unknown,
   assets: readonly Asset[],
@@ -128,6 +159,10 @@ export function readAssetSymbol(
   return undefined;
 }
 
+/**
+ * 这个函数读出数量、单价或成交金额，必须是大于 0 的数字。
+ * 举例："0.1" → 答它；"0" → 答没有，记 `VALUE_MUST_BE_POSITIVE`。
+ */
 export function readPositiveDecimal(
   value: unknown,
   field: "quantity" | "price" | "totalValue",
@@ -157,6 +192,10 @@ export function readPositiveDecimal(
   return value;
 }
 
+/**
+ * 这个函数读出手续费，可以是 0，不能是负数；没填就当 "0"。
+ * 举例：没填 → 答 "0"；"-1" → 答没有，记 `FEE_MUST_BE_NON_NEGATIVE`。
+ */
 export function readNonNegativeFee(
   value: unknown,
   errors: TradeValidationError[],
@@ -189,6 +228,10 @@ export function readNonNegativeFee(
   return value;
 }
 
+/**
+ * 这个函数读出可以不填的文字：手续费币种、备注、原文。
+ * 举例：没填 → 答没有，也不记错；填了数字 5 → 答没有，记一条错。
+ */
 export function readOptionalString(
   input: Record<string, unknown>,
   field: "feeCurrency" | "note" | "rawText",
@@ -214,6 +257,12 @@ export function readOptionalString(
   return undefined;
 }
 
+/**
+ * 这个函数读出平台或手续费规则编号。
+ * 可以不填，但填了就要存进账本。
+ * 填了就不能是空的，前后也不能有空格。
+ * 举例：" Binance" → 答没有，记一条错；"Binance" → 答它。
+ */
 export function readOptionalPersistedString(
   input: Record<string, unknown>,
   field: "platform" | "feeRuleId",

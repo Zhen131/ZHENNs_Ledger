@@ -1,5 +1,15 @@
+/**
+ * 这个文件管检查价格时用到的错误代码和错误的样子。
+ * 它不管怎么检查，那在 priceSnapshotValidator.ts 和 priceSnapshotValidatorReaders.ts。
+ * 没有特别的决定。
+ */
+
 import type { PriceSnapshotDraft } from "@/core/models";
 
+/**
+ * 检查一条价格时可能报的错误代码，名字固定不变。
+ * 代码都以 `PRICE_SNAPSHOT` 开头。
+ */
 export const PRICE_SNAPSHOT_VALIDATION_ERROR_CODES = {
   INVALID_INPUT: "PRICE_SNAPSHOT_INVALID_INPUT",
   ASSET_NOT_FOUND: "PRICE_SNAPSHOT_ASSET_NOT_FOUND",
@@ -16,10 +26,12 @@ export const PRICE_SNAPSHOT_VALIDATION_ERROR_CODES = {
   NEW_FACT_REQUIRES_USDT: "PRICE_SNAPSHOT_NEW_FACT_REQUIRES_USDT",
 } as const;
 
+/** 出错的是哪个格子：整个输入，或一条价格的某个字段。 */
 export type PriceSnapshotValidationField =
   | "input"
   | keyof PriceSnapshotDraft;
 
+/** 一条价格检查错误：错误代码、哪个格子、给人看的说明。 */
 export type PriceSnapshotValidationError = {
   code:
     | "PRICE_SNAPSHOT_INVALID_INPUT"

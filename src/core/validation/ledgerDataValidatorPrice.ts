@@ -1,3 +1,9 @@
+/**
+ * 这个文件管查整本账本时，一条记下来的价格对不对。
+ * 它把能共用的检查交给 validatePriceSnapshotDraft，这里只补整本账本才有的字段。
+ * 不显然的决定：价格币种只认 USDT。2026-08-19 定（W14 01B 第 3.1 节）。
+ */
+
 import type {
   Asset,
   BinancePriceProvenance,
@@ -26,6 +32,13 @@ import {
   BINANCE_PROVENANCE_KEYS,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数读出第几条记下来的价格，读不对就记错并答没有。
+ * 它查编号、时间、时差和地点。
+ * 还查价格大于 0、币种是 USDT、行情来历。
+ * 举例：BTC、70000、USDT、2026-08-20 → 答通过；价格 0 → 答没有，记一条错。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function readPriceSnapshot(
   value: unknown,
   index: number,

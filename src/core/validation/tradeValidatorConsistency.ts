@@ -1,3 +1,10 @@
+/**
+ * 这个文件管一笔买卖前后对不对得上。
+ * 查三项：金额、币种、持仓够不够。
+ * 它不管单个字段读得对不对，那在 tradeValidatorReaders.ts。
+ * 不显然的决定：持仓够不够直接拿 replayPositions 算，不另写一套。这是猜的，日志里没写，要核。
+ */
+
 import type { Asset, AssetTransfer, DecimalString, Trade } from "@/core/models";
 import { replayPositions } from "@/core/calculations";
 import { isWithinTolerance, multiply } from "@/core/shared";
@@ -7,6 +14,13 @@ import {
   createError,
 } from "./tradeValidatorErrors";
 
+/**
+ * 这个函数回答：数量乘单价，和填的成交金额差得多不多？
+ * 差得超过允许差多少，就记一条 `TOTAL_VALUE_MISMATCH`。
+ * 举例：0.015 × 61258.60 = 918.879，填 918.88，允许差 0.01 → 答没问题。
+ * 允许差多少不是合法数字时，记一条 `INVALID_DECIMAL`。
+ * 不抛错，错误都放进传进来的错误列表。
+ */
 export function validateTotalValueConsistency(
   quantity: DecimalString,
   price: DecimalString,
@@ -37,6 +51,11 @@ export function validateTotalValueConsistency(
   }
 }
 
+/**
+ * 这个函数回答：这笔的币种和资产、以前的买卖对得上吗？
+ * 举例：BTC 的报价币种是 USDT，这笔填 USD → 答对不上，记 `CURRENCY_MISMATCH`。
+ * 不抛错，错误放进传进来的错误列表。
+ */
 export function validateCurrencyConsistency(
   assetSymbol: string,
   currency: string,
@@ -62,10 +81,14 @@ export function validateCurrencyConsistency(
 }
 
 /**
- * Reuse the canonical merged position replay so a transfer-supported sell is
- * accepted and exchange-location shortages are rejected. The synthetic
- * technical timestamp places the draft after existing same-occurrence facts;
- * tradeService replays once more with the final persisted ID and timestamp.
+ * 这个函数回答：把这笔放进全部买卖和转移里，持仓够不够？
+ * 举例：交易所里只有 0.06 BTC，这笔卖 0.1 → 答不够，记 `INSUFFICIENT_HOLDINGS`。
+ * 从冷钱包转回交易所后再卖，就算得进去。
+ *
+ * 为什么录入时间填成 9999 年：好让它排在同时刻的旧记录后面。
+ * 真正保存时，tradeService 会用最终编号和时间再算一遍。
+ * （这是猜的，日志里没写，要核。）
+ * 不抛错，算不过时把原因放进错误列表。
  */
 export function validateHoldingsTimeline(
   candidate: Trade,

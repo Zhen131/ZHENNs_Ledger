@@ -1,3 +1,9 @@
+/**
+ * 这个文件管查整本账本时，一条现金记录对不对。
+ * 它不管现金余额算出来是多少，那在 cashReplay.ts。
+ * 不显然的决定：校准的三个数必须正好对上加法。2026-08-19 定（W14 01B 第 3.2 节）。
+ */
+
 import type { CashEvent } from "@/core/models";
 import { add, isEqual } from "@/core/shared";
 import {
@@ -23,6 +29,16 @@ import {
   CASH_ADJUSTMENT_KEYS,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数读出第几条现金记录，读不对就记错并答没有。
+ * 入金、出金、外部支出的金额必须大于 0。
+ * 余额校准要满足：校准前余额 + 差额 = 目标余额。
+ * 举例：校准前 100、差额 -20、目标 80 → 答通过；目标填 90 → 答没有，记一条错。
+ *
+ * 为什么只查加法：删掉早期记录后，校准前余额本来就会变。
+ * 2026-08-19 定（W14 01B 第 3.2 节）。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function readCashEvent(
   value: unknown,
   index: number,

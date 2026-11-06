@@ -1,3 +1,12 @@
+/**
+ * 这个文件管查整本账本时共用的小读取函数。
+ * 读不对就记一条错。
+ * 它不管某种记录有哪些字段。
+ * 那在 ledgerDataValidatorAsset.ts 这类按记录分的文件里。
+ * 不显然的决定：数字最多 40 位有效数字、18 位小数。
+ * 超了就拒绝，不截断。2026-08-19 定（W14 01B 第 3.5 节）。
+ */
+
 import {
   isNegative,
   isPositive,
@@ -12,6 +21,10 @@ import {
   ASSET_SYMBOL_PATTERN,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数读出一条记录，必须是一个对象。
+ * 举例：传 "abc" → 答没有，记一条 `LEDGER_DATA_INVALID_ENTITY`。
+ */
 export function readEntityRecord(
   value: unknown,
   path: string,
@@ -28,6 +41,10 @@ export function readEntityRecord(
   return undefined;
 }
 
+/**
+ * 这个函数读出一个必填的文字，不能是空的。
+ * 举例："BTC" → 答它；"" → 答没有，记一条错。
+ */
 export function readRequiredString(
   value: unknown,
   path: string,
@@ -44,6 +61,10 @@ export function readRequiredString(
   return undefined;
 }
 
+/**
+ * 这个函数读出一个有长度上限的文字，前后也不能有空格。
+ * 举例：上限 128，传 " id-1" → 答没有，记一条错。
+ */
 export function readBoundedString(
   value: unknown,
   path: string,
@@ -65,6 +86,11 @@ export function readBoundedString(
   return text;
 }
 
+/**
+ * 这个函数读出一个编号，最多 128 个字，前后不能有空格。
+ * 举例："trade-1" → 答它；129 个字 → 答没有，记一条错。
+ * 为什么是 128：2026-08-19 定（W14 01B 第 3.5 节）。
+ */
 export function readTechnicalId(
   value: unknown,
   path: string,
@@ -73,6 +99,10 @@ export function readTechnicalId(
   return readBoundedString(value, path, 128, errors);
 }
 
+/**
+ * 这个函数读出一个可以不填的编号，填了就按编号的规矩查。
+ * 举例：没填 → 答没有，也不记错。
+ */
 export function readOptionalTechnicalId(
   value: unknown,
   path: string,
@@ -81,6 +111,11 @@ export function readOptionalTechnicalId(
   return value === undefined ? undefined : readTechnicalId(value, path, errors);
 }
 
+/**
+ * 这个函数读出一个要存进账本的文字。
+ * 不能空，前后不能有空格。
+ * 举例："Binance" → 答它；"Binance " → 答没有，记一条错。
+ */
 export function readPersistedString(
   value: unknown,
   path: string,
@@ -99,6 +134,10 @@ export function readPersistedString(
   return undefined;
 }
 
+/**
+ * 这个函数读出一个可以不填的文字。
+ * 举例：没填 → 答没有，也不记错；填了数字 5 → 答没有，记一条错。
+ */
 export function readOptionalString(
   value: unknown,
   path: string,
@@ -116,6 +155,10 @@ export function readOptionalString(
   return undefined;
 }
 
+/**
+ * 这个函数读出一条记录的地点，必须是浏览器认识的地点名。
+ * 举例："Asia/Shanghai" → 答它；"+08:00" → 答没有，记一条错。
+ */
 export function readOptionalOccurredTimeZone(
   value: unknown,
   path: string,
@@ -138,9 +181,12 @@ export function readOptionalOccurredTimeZone(
 }
 
 /**
- * Rejects a fact whose recorded offset disagrees with the location it claims.
- * Date-only facts carry no offset and stay unconstrained; `Z` and `+00:00`
- * name the same offset and must not be told apart.
+ * 这个函数回答：记录写的时差，和地点在那一刻的时差一样吗？
+ * 只记到天的记录没有时差，不查；`Z` 和 `+00:00` 算同一个时差。
+ * 举例：2026-01-10T09:00:00+02:00、Europe/Budapest → 答对不上，冬天应该是 +01:00。
+ *
+ * 为什么要查：时差和地点必须对得上。2026-09-07 定（W16 02A 修订 A 第九节 D-6）。
+ * 对不上时不抛错，记一条错。
  */
 export function validateOccurredTimeZoneOffset(
   timestamp: string | undefined,
@@ -160,6 +206,12 @@ export function validateOccurredTimeZoneOffset(
   }
 }
 
+/**
+ * 这个函数读出资产代码：大写字母和数字，不能是 USDT。
+ * 举例："BTC" → 答它；"btc" 或 "USDT" → 答没有，记一条错。
+ *
+ * 为什么不能是 USDT：USDT 是现金，不当成普通资产。2026-08-19 定（W14 01B 第 4.1 节）。
+ */
 export function readAssetSymbol(
   value: unknown,
   path: string,
@@ -182,6 +234,10 @@ export function readAssetSymbol(
   return undefined;
 }
 
+/**
+ * 这个函数读出币种，只认 USDT。
+ * 举例："USDT" → 答它；"USD" → 答没有，记一条错。
+ */
 export function readUsdt(
   value: unknown,
   path: string,
@@ -198,6 +254,11 @@ export function readUsdt(
   return undefined;
 }
 
+/**
+ * 这个函数读出一笔记录发生在哪天或哪一刻。
+ * 写法必须严格合法。
+ * 举例："2026-08-20" → 答它；"2026-8-20" → 答没有，记一条错。
+ */
 export function readFactTimestamp(
   value: unknown,
   path: string,
@@ -214,6 +275,10 @@ export function readFactTimestamp(
   return undefined;
 }
 
+/**
+ * 这个函数读出录入或修改时间：必须带时刻，也必须带时差。
+ * 举例："2026-08-20T05:40:32Z" → 答它；"2026-08-20" → 答没有，记一条错。
+ */
 export function readTechnicalTimestamp(
   value: unknown,
   path: string,
@@ -236,6 +301,11 @@ export function readTechnicalTimestamp(
   return undefined;
 }
 
+/**
+ * 这个函数读出可以不填的录入类时间。
+ * 填了就按上面的规矩查。
+ * 举例：没填 → 答没有，也不记错。
+ */
 export function readOptionalTechnicalTimestamp(
   value: unknown,
   path: string,
@@ -246,6 +316,11 @@ export function readOptionalTechnicalTimestamp(
     : readTechnicalTimestamp(value, path, errors);
 }
 
+/**
+ * 这个函数回答：修改时间是不是不早于录入时间？
+ * 举例：录入 8 月 20 日、修改 8 月 19 日 → 答不对，记一条错。
+ * 为什么：2026-08-19 定（W14 01B 第 3.5 节）。
+ */
 export function validateTimestampOrder(
   createdAt: string | undefined,
   updatedAt: string | undefined,
@@ -267,6 +342,10 @@ export function validateTimestampOrder(
   }
 }
 
+/**
+ * 这个函数读出这条记录记到多细：只到天、到分钟、到秒。
+ * 举例："second" → 答它；"hour" → 答没有，记一条错。
+ */
 export function readTimePrecision(
   value: unknown,
   path: string,
@@ -285,6 +364,11 @@ export function readTimePrecision(
   return undefined;
 }
 
+/**
+ * 这个函数读出资产的小数位数，可以不填。
+ * 填了必须是不小于 0 的整数。
+ * 举例：8 → 答 8；-1 或 2.5 → 答没有，记一条错。
+ */
 export function readOptionalDecimals(
   value: unknown,
   path: string,
@@ -304,6 +388,11 @@ export function readOptionalDecimals(
   return undefined;
 }
 
+/**
+ * 这个函数读出可以不填的数字文字。
+ * 填了就按数字的规矩查。
+ * 举例：没填 → 答没有，也不记错。
+ */
 export function readOptionalCanonicalDecimal(
   value: unknown,
   path: string,
@@ -314,6 +403,15 @@ export function readOptionalCanonicalDecimal(
     : readCanonicalDecimal(value, path, errors);
 }
 
+/**
+ * 这个函数读出一个数字文字，按唯一写法查。
+ * 还能要求它大于 0 或不小于 0。
+ * 举例："6500" → 答它；"06500"、"-0"、"1e3" → 答没有，记一条错。
+ * 举例：19 位小数 → 答没有，超了 18 位。
+ *
+ * 为什么最多 40 位有效数字、18 位小数：超了就拒绝，不截断。
+ * 2026-08-19 定（W14 01B 第 3.5 节）。
+ */
 export function readCanonicalDecimal(
   value: unknown,
   path: string,
@@ -372,6 +470,10 @@ export function readCanonicalDecimal(
   return value;
 }
 
+/**
+ * 这个函数查一个对象的字段：不许多，也不许少。
+ * 举例：映射少了 quoteAsset → 记「缺字段」；多了 note → 记「不认识的字段」。
+ */
 export function checkExactKeys(
   value: Record<string, unknown>,
   expectedKeys: readonly string[],
@@ -392,6 +494,12 @@ export function checkExactKeys(
   }
 }
 
+/**
+ * 这个函数查一个对象有没有不认识的字段；少了不管。
+ * 举例：交易多了 color 字段 → 记一条「不认识的字段」。
+ *
+ * 为什么不认识就拒绝：不能悄悄丢掉。2026-08-19 定（W14 01B 第 3.5 节）。
+ */
 export function checkAllowedKeys(
   value: Record<string, unknown>,
   allowedKeys: readonly string[],
@@ -412,10 +520,18 @@ export function checkAllowedKeys(
   }
 }
 
+/**
+ * 这个函数回答：这个值是不是一个普通对象？数组和空值都不算。
+ * 举例：{} → 答是；[] → 答不是。
+ */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * 这个函数把错误代码、位置、说明拼成一条账本检查错误。
+ * 举例：传 `LEDGER_DATA_INVALID_ENTITY`、"trades[0].fee"、说明 → 答一条错误。
+ */
 export function createError(
   code: LedgerDataValidationError["code"],
   path: string,

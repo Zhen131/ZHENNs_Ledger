@@ -1,3 +1,10 @@
+/**
+ * 这个文件管查整本账本时，记录之间的关系对不对。
+ * 查三样：编号不重复、引用存在、替换不成环。
+ * 它不管单条记录的字段，那在 ledgerDataValidatorAsset.ts 这类按记录分的文件里。
+ * 不显然的决定：各种记录共用一套编号，跨种类也不许重复。2026-08-19 定（W14 01B 第 3.5 节）。
+ */
+
 import type {
   Asset,
   AssetTransfer,
@@ -13,6 +20,11 @@ import {
   LEDGER_DATA_VALIDATION_ERROR_CODES,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数回答：全本账本里有没有两条记录用了同一个编号？
+ * 举例：一笔买卖和一条价格都叫 "id-1" → 答有，第二个记一条错。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function validateGlobalIdentifiers(
   collections: Pick<
     LedgerData,
@@ -45,6 +57,11 @@ export function validateGlobalIdentifiers(
   }
 }
 
+/**
+ * 这个函数回答：有没有两个资产用了同一个代码？
+ * 举例：两个资产都叫 BTC → 答有，第二个记一条错。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function validateUniqueAssetSymbols(
   assets: readonly Asset[],
   errors: LedgerDataValidationError[],
@@ -66,6 +83,18 @@ export function validateUniqueAssetSymbols(
   });
 }
 
+/**
+ * 这个函数回答：每条记录提到的资产和规则，账本里都有吗？
+ * 买卖、转移、价格、规则都要指向已有的资产。
+ * 非零手续费用的不是 USDT 时，那个币也必须是已有的资产。
+ * 买卖用了某条规则，规则的平台和资产要和这笔一样。
+ * 替换的旧规则必须已停用、同平台同资产。
+ * 替换链不许绕成圈。
+ * 举例：规则 A 替换 B、B 又替换 A → 答成圈，记一条错。
+ *
+ * 为什么规则要这样查：2026-08-10 定（W12 02A 第 5.1 节）。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function validateReferences(
   trades: readonly Trade[],
   assetTransfers: readonly AssetTransfer[],

@@ -1,3 +1,10 @@
+/**
+ * 这个文件管查整本账本时，一笔资产转移对不对。
+ * 它不管转移后数量够不够，那在 positionReplay.ts。
+ * 不显然的决定：每种原因只对应一种大类。
+ * 例如空投只能是白得的收益。这是猜的，日志里没写，要核。
+ */
+
 import type {
   AssetTransfer,
   AssetTransferCategory,
@@ -25,6 +32,14 @@ import {
   ASSET_TRANSFER_KEYS,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数读出第几笔资产转移，读不对就记错并答没有。
+ * 四种大类各有必填和不许填的字段。
+ * 内部挪动要两头地点，且两头不同；转进要目的地和单价。
+ * 转出要来源地点；白得的收益要目的地和单价。
+ * 举例：空投填成内部挪动 → 答没有，记一条错。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function readAssetTransfer(
   value: unknown,
   index: number,

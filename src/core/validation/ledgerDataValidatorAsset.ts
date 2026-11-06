@@ -1,3 +1,9 @@
+/**
+ * 这个文件管查整本账本时，资产和它的交易对映射对不对。
+ * 它不管资产代码在全本里重不重复，那在 ledgerDataValidatorIntegrity.ts。
+ * 不显然的决定：资产和行情映射分开，映射可以没有。2026-08-19 定（W14 01A 第三节）。
+ */
+
 import type { Asset, BinanceMarketMapping } from "@/core/models";
 import {
   readEntityRecord,
@@ -21,6 +27,13 @@ import {
   BINANCE_MAPPING_KEYS,
 } from "./ledgerDataValidatorSchema";
 
+/**
+ * 这个函数读出第几个资产，读不对就记错并答没有。
+ * 它查编号、代码、名字、币种（只认 USDT）、时间和映射。
+ * 映射的币种必须是 USDT，基础币必须和资产代码一样。
+ * 举例：BTC 配上 ETHUSDT 那个映射 → 答没有，记一条错。
+ * 不抛错，错误放进传进来的列表。
+ */
 export function readAsset(
   value: unknown,
   index: number,

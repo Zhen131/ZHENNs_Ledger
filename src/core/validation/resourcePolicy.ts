@@ -1,6 +1,20 @@
+/**
+ * 这个文件管账本的大小上限。
+ * 它量文件多大、每种记录多少条、每个文字多长。
+ * 它不管内容对不对，那在 ledgerDataValidator.ts。
+ * 不显然的决定：超了上限也不改写旧账本。
+ * 由调用方决定只读还是拒绝新写入。这是猜的，日志里没写，要核。
+ */
+
 import type { LedgerData, Trade } from "@/core/models";
 import { translateDefault } from "@/ui";
 
+/**
+ * 账本的默认上限。文件 128 MiB，买卖、现金、转移各 25 万条。
+ * 价格 5 万条，资产和手续费规则各 500 条。
+ * 文字长度：编号 128、代码和币种 32、备注 4096、原文 16384。
+ * 为什么是这些数：这是猜的，日志里没写，要核。
+ */
 export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   fileBytes: 128 * 1024 * 1024,
   assets: 500,
@@ -23,12 +37,17 @@ type LedgerResourceLimits = {
   [Key in keyof typeof DEFAULT_LEDGER_RESOURCE_LIMITS]: number;
 };
 
+/** 超上限时的三种错误代码：文件太大、条数太多、文字太长。 */
 export const LEDGER_RESOURCE_POLICY_ERROR_CODES = {
   FILE_TOO_LARGE: "LEDGER_RESOURCE_FILE_TOO_LARGE",
   COLLECTION_LIMIT_EXCEEDED: "LEDGER_RESOURCE_COLLECTION_LIMIT_EXCEEDED",
   STRING_LIMIT_EXCEEDED: "LEDGER_RESOURCE_STRING_LIMIT_EXCEEDED",
 } as const;
 
+/**
+ * 一条超上限错误。
+ * 记的是哪里超了、上限多少、实际多少、给人看的说明。
+ */
 export type LedgerResourcePolicyError = {
   code:
     | (typeof LEDGER_RESOURCE_POLICY_ERROR_CODES)[keyof typeof LEDGER_RESOURCE_POLICY_ERROR_CODES];
@@ -43,9 +62,13 @@ type LedgerResourcePolicyResult =
   | { ok: false; errors: LedgerResourcePolicyError[] };
 
 /**
- * 独立于结构/业务 Validator 的资源保护层。
+ * 这个函数回答：这本账本有没有哪样超过上限？
+ * 它查每种记录的条数和每个文字的长度。
+ * 举例：买卖 250001 笔 → 答超了，`LEDGER_RESOURCE_COLLECTION_LIMIT_EXCEEDED`。
  *
- * 它不重写或拒绝既有可读取账本；调用方决定超限数据是只读恢复还是拒绝新写入。
+ * 为什么单独一层：它只量大小，不管内容对不对，也不改旧账本。
+ * 调用方决定超了是只读打开还是拒绝新写入。（这是猜的，日志里没写，要核。）
+ * 不抛错，返回 ok:false 和全部超限项。
  */
 export function evaluateLedgerResourcePolicy(
   ledgerData: LedgerData,
@@ -273,6 +296,12 @@ export function evaluateLedgerResourcePolicy(
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
 
+/**
+ * 这个函数回答：刚接上一笔买卖后，有没有哪样超过上限？
+ * 只查各种条数和新这一笔的文字，不重查旧记录。
+ * 举例：备注 5000 个字 → 答超了，上限 4096。
+ * 不抛错，返回 ok:false 和全部超限项。
+ */
 export function evaluateLedgerResourcePolicyAfterTradeAppend(
   ledgerData: LedgerData,
   trade: Trade,
@@ -338,7 +367,10 @@ export function evaluateLedgerResourcePolicyAfterTradeAppend(
 }
 
 /**
- * 给未来 JSON 导入入口使用：必须在 JSON.parse 之前调用。
+ * 这个函数回答：一段账本文字按字节算，有没有超过文件上限？
+ * 要在把文字读成对象之前调用，免得先吃掉大量内存。
+ * 举例：130 MiB 的文字 → 答超了，上限 128 MiB。
+ * 不抛错，返回 ok:false。
  */
 export function evaluateLedgerJsonResourcePolicy(
   serializedLedger: string,
@@ -351,7 +383,10 @@ export function evaluateLedgerJsonResourcePolicy(
 }
 
 /**
- * 供文件选择入口在读取 File.text() 前复用的字节上限检查。
+ * 这个函数回答：一个文件的字节数有没有超过上限？
+ * 选文件时先问它，再去读文件内容。
+ * 举例：上限 128 MiB，文件 129 MiB → 答超了，`LEDGER_RESOURCE_FILE_TOO_LARGE`。
+ * 不抛错，返回 ok:false。
  */
 export function evaluateLedgerByteLengthResourcePolicy(
   byteLength: number,

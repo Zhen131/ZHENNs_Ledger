@@ -1,3 +1,10 @@
+/**
+ * 这个文件管从一条价格的输入里逐个读出字段。
+ * 读不对就记一条错。
+ * 它不管整条能不能收，那在 priceSnapshotValidator.ts。
+ * 没有特别的决定。
+ */
+
 import type { Asset, BinancePriceProvenance, PriceSource } from "@/core/models";
 import { isPositive, isSupportedTimeZone } from "@/core/shared";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
@@ -9,6 +16,10 @@ import {
   PRICE_SNAPSHOT_VALIDATION_ERROR_CODES,
 } from "./priceSnapshotValidatorErrors";
 
+/**
+ * 这个函数读出这条价格记在哪个地点；没填就算不知道。
+ * 举例："Europe/Budapest" → 答它；"Mars/Base" → 答没有，并记一条错。
+ */
 export function readOptionalOccurredTimeZone(
   value: unknown,
   errors: PriceSnapshotValidationError[],
@@ -25,6 +36,12 @@ export function readOptionalOccurredTimeZone(
   return undefined;
 }
 
+/**
+ * 这个函数读出行情价格的来历：哪个交易对、什么时候取的。
+ * 只有来源是行情接口的价格才能带来历。
+ * 举例：手动价格带了来历 → 答没有，记 `PRICE_SNAPSHOT_INVALID_BINANCE_PROVENANCE`。
+ * 来历缺交易对、报价币不是 USDT、取价时间不带时刻，都记错。
+ */
 export function readBinanceProvenance(
   value: unknown,
   source: PriceSource | undefined,
@@ -72,10 +89,19 @@ export function readBinanceProvenance(
   };
 }
 
+/**
+ * 这个函数回答：这个值是不是一个普通对象？
+ * 数组和空值都不算。
+ * 举例：{} → 答是；[] → 答不是。
+ */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * 这个函数读出资产代码，账本里必须已经有这个资产。
+ * 举例："BTC" → 答它；账本里没有 "SOL" 时答没有，记 `ASSET_NOT_FOUND` 那条。
+ */
 export function readAssetSymbol(
   value: unknown,
   assets: readonly Asset[],
@@ -98,6 +124,10 @@ export function readAssetSymbol(
   return undefined;
 }
 
+/**
+ * 这个函数读出价格，必须是大于 0 的数字。
+ * 举例："70000" → 答它；"0" → 答没有，记 `VALUE_MUST_BE_POSITIVE` 那条。
+ */
 export function readPositivePrice(
   value: unknown,
   errors: PriceSnapshotValidationError[],
@@ -138,6 +168,10 @@ export function readPositivePrice(
   return value;
 }
 
+/**
+ * 这个函数读出一个必填的文字（目前只有币种），不能是空的。
+ * 举例："USDT" → 答它；"" → 答没有，并记一条错。
+ */
 export function readRequiredString(
   value: unknown,
   field: "currency",
@@ -157,6 +191,10 @@ export function readRequiredString(
   return undefined;
 }
 
+/**
+ * 这个函数读出价格记在哪天（或哪一刻），写法必须合法。
+ * 举例："2026-08-20" → 答它；"20/08/2026" → 答没有，并记一条错。
+ */
 export function readRecordedAt(
   value: unknown,
   errors: PriceSnapshotValidationError[],
@@ -175,6 +213,10 @@ export function readRecordedAt(
   return undefined;
 }
 
+/**
+ * 这个函数读出价格的来源：手动填的，或行情接口取的。
+ * 举例："manual" → 答它；"okx" → 答没有，记 `INVALID_SOURCE` 那条。
+ */
 export function readSource(
   value: unknown,
   errors: PriceSnapshotValidationError[],
@@ -193,6 +235,10 @@ export function readSource(
   return undefined;
 }
 
+/**
+ * 这个函数读出备注，可以不填。
+ * 举例：没填 → 答没有，也不记错；填了数字 5 → 答没有，记一条错。
+ */
 export function readOptionalNote(
   value: unknown,
   errors: PriceSnapshotValidationError[],
@@ -215,6 +261,10 @@ export function readOptionalNote(
   return undefined;
 }
 
+/**
+ * 这个函数把错误代码、格子、说明拼成一条价格检查错误。
+ * 举例：传 `FUTURE_FACT` 那条代码、recordedAt、说明 → 答一条错误。
+ */
 export function createError(
   code: PriceSnapshotValidationError["code"],
   field: PriceSnapshotValidationField,

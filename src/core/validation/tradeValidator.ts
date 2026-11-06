@@ -1,3 +1,9 @@
+/**
+ * 这个文件管一件事：给来的一笔买卖能不能收进账本。
+ * 它不管单个字段怎么读，那在 tradeValidatorReaders.ts；前后对不对得上，那在 tradeValidatorConsistency.ts。
+ * 不显然的决定：新的买卖只收 USDT。2026-08-19 定（W14 01B 第 3.1 节）。
+ */
+
 import type {
   Asset,
   AssetTransfer,
@@ -32,25 +38,29 @@ import {
 } from "./tradeValidatorReaders";
 
 /**
- * USD 第一版允许 quantity * price 与 totalValue 相差 1 美分。
+ * 填一笔交易时，数量乘单价和成交金额允许差多少钱。默认 0.01 USDT。
  *
- * 调用方可以通过 TradeValidationContext 覆盖该值；Validator 不负责货币换算。
+ * 为什么要允许差一点：0.015 BTC × 61258.60 算出来是 918.879。
+ * 交易所页面可能显示 918.88，一分钱以内的出入不该拦住你。
+ * （这个理由是猜的，日志里没写。）
+ *
+ * 为什么是 0.01：2026-06-24 提交 b41af9b 定下的，当时按一美分理解。
+ * 日志里没有决策记录，这是猜的，要核。
+ *
+ * 想换别的数，调用方传 TradeValidationContext.totalValueTolerance。
  */
 const DEFAULT_TOTAL_VALUE_TOLERANCE: DecimalString = "0.01";
 
-/**
- * 校验成功后 fee 一定存在；表单或导入数据未提供 fee 时标准化为 "0"。
- */
+/** 检查通过的一笔买卖。手续费一定有值，没填的已经补成 "0"；币种一定是 USDT。 */
 export type ValidatedTradeDraft = Omit<TradeDraft, "fee" | "currency"> & {
   fee: DecimalString;
   currency: "USDT";
 };
 
 /**
- * priorTrades 包含当前账本已经接受的全部交易。
- *
- * Validator 会把候选交易插入完整时间线后检查持仓和币种，
- * 但不会修改该数组。
+ * 检查一笔买卖时一起传进来的那些条件。
+ * priorTrades 是账本里已经收下的全部买卖，这里只读不改。
+ * 另外几样开关决定查不查持仓、未来日期、手续费币种。
  */
 type TradeValidationContext = {
   assets: readonly Asset[];
@@ -64,6 +74,10 @@ type TradeValidationContext = {
   requireFeeCurrencyMatch?: boolean;
 };
 
+/**
+ * 检查结果：通过就给出整理好的一笔。
+ * 不通过就给出全部错误。
+ */
 export type TradeValidationResult =
   | {
       ok: true;
@@ -75,11 +89,9 @@ export type TradeValidationResult =
     };
 
 /**
- * tradeValidator 的公开函数契约。
- *
- * 输入使用 unknown，因为表单和 JSON 导入在运行时都不可信。
- * validateTradeDraft 满足该签名并返回结构化结果，普通校验失败不通过
- * throw 表达。
+ * 检查一笔买卖的函数长什么样。
+ * 输入是任意值，因为表单和 JSON 导入在运行时都不可信。
+ * 普通的检查失败不抛错，放进结果里返回。
  */
 type TradeDraftValidator = (
   input: unknown,
@@ -87,9 +99,17 @@ type TradeDraftValidator = (
 ) => TradeValidationResult;
 
 /**
- * 校验来自表单或导入流程的不可信交易草稿。
+ * 这个函数回答：这笔买卖能不能收进账本？不能的话错在哪几处？
+ * 它查字段、成交金额、手续费、币种、未来日期。
+ * 最后查持仓够不够。
+ * 举例：买 0.1 BTC、单价 65000、成交 6500、手续费 5 → 答通过。
+ * 举例：交易所只有 0.06 BTC，卖 0.1 → 答不通过，`INSUFFICIENT_HOLDINGS`。
  *
- * 当前覆盖基础字段、成交金额容差和卖出持仓规则。
+ * 为什么新的只收 USDT：账本只有一个 USDT 现金池，币种从 V3 起收紧。
+ * 2026-08-19 定（W14 01A 第二节、01B 第 3.1 节）。
+ *
+ * 出错时不抛错，返回 ok:false 和全部错误。
+ * 表单把错误显示在对应格子旁边。
  */
 export const validateTradeDraft: TradeDraftValidator = (input, context) => {
   if (!isRecord(input)) {
