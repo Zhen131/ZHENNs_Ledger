@@ -1,6 +1,6 @@
 "use client";
 
-import { LedgerNumber, type useLanguage } from "@/ui";
+import { LedgerNumber, type Translate } from "@/ui";
 import { Section } from "./Section";
 import type { DashboardDerivations } from "./dashboardDerivations";
 
@@ -9,7 +9,7 @@ export function DashboardShellAssetsSection({
   t,
 }: Readonly<{
   positions: DashboardDerivations["projection"]["positions"];
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
               <Section title={t("dashboard.section.assets")}>

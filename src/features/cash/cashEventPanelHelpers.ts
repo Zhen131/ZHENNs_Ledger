@@ -1,7 +1,7 @@
 import type { CashEvent, CashEventType } from "@/core/models";
 import { type LedgerTimeSnapshot } from "@/core/shared";
 import { type CashMutationProjection } from "./cashProjection";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export type PendingRisk = Readonly<{
   operation: "add" | "delete";
@@ -20,7 +20,6 @@ export type ArmedDelete = Readonly<{
   persistedVersion: number;
 }>;
 
-type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function cashTypeLabel(type: CashEventType, t: Translate): string {
   return {

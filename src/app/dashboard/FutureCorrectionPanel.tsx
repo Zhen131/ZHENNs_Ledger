@@ -2,8 +2,8 @@ import type { AssetTransfer, PriceSnapshot, Trade } from "@/core/models";
 import {
   ConfirmDeleteButton,
   LedgerNumber,
-  useLanguage,
   type ConfirmDeleteOutcome,
+  type Translate,
 } from "@/ui";
 import { shortLedgerId } from "./DashboardShellHelpers";
 
@@ -28,7 +28,7 @@ export function FutureCorrectionPanel({
   handleDeleteFutureAssetTransfer: (assetTransferId: string) => ConfirmDeleteOutcome;
   handleDeleteFuturePrice: (priceSnapshotId: string) => ConfirmDeleteOutcome;
   handleDeleteFutureTrade: (tradeId: string) => ConfirmDeleteOutcome;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
             <div className="mb-5 grid gap-3 rounded-md border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-950">

@@ -2,7 +2,7 @@
 
 import { LedgerNumber } from "@/ui";
 import { Detail } from "./TradeTableDetail";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { Trade } from "@/core/models";
 import type { calculateTradeCashImpact } from "@/core/calculations";
 
@@ -12,7 +12,7 @@ export function WorkspaceTradeDetailRow({
   trade,
 }: Readonly<{
   cashImpact: ReturnType<typeof calculateTradeCashImpact>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   trade: Trade;
 }>) {
   return (

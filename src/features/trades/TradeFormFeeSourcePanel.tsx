@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  formatMoney,
-  LedgerNumber,
-} from "@/ui";
+import { formatMoney, LedgerNumber } from "@/ui";
 import type {
   FeeRuleCandidate,
   matchFeeRules,
@@ -17,7 +14,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function TradeFormFeeSourcePanel({
   adoptCandidate,
@@ -40,7 +37,7 @@ export function TradeFormFeeSourcePanel({
   selectedFeeRuleId: string;
   setSelectedFeeRuleId: Dispatch<SetStateAction<string>>;
   sourceChangedMessage: string;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
       <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm md:col-span-2">

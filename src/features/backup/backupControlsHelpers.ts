@@ -5,10 +5,10 @@ import {
 } from "./backupImportPreflightResult";
 import { type BinanceAutoPairFailure } from "@/features/market-data";
 import type {
-  Translate,
   PostImportPairingFailure,
   PostImportPairingState,
 } from "./backupControlsTypes";
+import type { Translate } from "@/ui";
 
 export function normalizePairingFailure(
   failure: BinanceAutoPairFailure,

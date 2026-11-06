@@ -6,7 +6,7 @@ import type {
   TradeValidationField,
 } from "@/core/validation";
 import { absolute, add, isNegative, multiply } from "@/core/shared";
-import type { TranslationKey, useLanguage } from "@/ui";
+import type { TranslationKey, Translate } from "@/ui";
 import type { TradeFormState, TradeFormField } from "./tradeFormTypes";
 
 
@@ -30,7 +30,7 @@ const fieldLabelKeys: Record<keyof TradeDraft, TranslationKey> = {
 
 export function formatValidationError(
   error: TradeValidationError,
-  t: ReturnType<typeof useLanguage>["t"],
+  t: Translate,
 ): string {
   const label =
     error.field === "input" || error.field === "totalValueTolerance"

@@ -20,7 +20,7 @@ import type {
   PersistenceStatus,
 } from "@/app/persistence";
 import type { RecordTarget } from "./workspaceDrafts";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { RefObject } from "react";
 
 export function RecordWorkspaceFactCard({
@@ -61,7 +61,7 @@ export function RecordWorkspaceFactCard({
   persistenceStatus: PersistenceStatus;
   recordTarget: RecordTarget;
   resetTradeDraft: (preserve: Pick<TradeWorkspaceDraft, "assetSymbol" | "platform">) => void;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   tradeDraft: TradeWorkspaceDraft;
   tradeFocusRef: RefObject<HTMLSelectElement | null>;
   updateRecordTarget: (recordTarget: RecordTarget) => void;

@@ -8,7 +8,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function TransactionsWorkspaceActivityCard({
   armDelete,
@@ -51,7 +51,7 @@ export function TransactionsWorkspaceActivityCard({
   setCurrentPage: Dispatch<SetStateAction<number>>;
   setExpandedItemId: Dispatch<SetStateAction<string | null>>;
   setFeedback: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   todayKey: string;
   totalPages: number;
 }>) {

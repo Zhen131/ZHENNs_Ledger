@@ -8,7 +8,7 @@ import type {
   SetStateAction,
 } from "react";
 import type { AssetTransferServiceError } from "./assetTransferServiceContract";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type {
   AssetTransfer,
   AssetTransferCategory,
@@ -45,7 +45,7 @@ type TransferPersistenceEffectDeps = {
   setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
   setQuantity: Dispatch<SetStateAction<string>>;
   setUnitPrice: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runTransferPersistenceEffect(
@@ -116,7 +116,7 @@ type HandleSubmitDeps = {
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
   setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   toLocation: CustodyLocation;
   unitPrice: string;
 };
@@ -234,7 +234,7 @@ type RequestDeleteDeps = {
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
   setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doRequestDelete(

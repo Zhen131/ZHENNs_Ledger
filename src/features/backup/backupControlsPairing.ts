@@ -16,7 +16,7 @@ import type {
 } from "@/core/shared";
 import { captureLedgerTime } from "@/core/shared";
 import type { BinanceMarketDataClient } from "@/platform/integrations";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import {
   autoPairMissingBinanceMappings,
   getBinanceMappingSignature,
@@ -73,7 +73,7 @@ type StartPostImportPairingDeps = {
   pairingOperationRef: RefObject<PostImportPairingOperation | null>;
   postImportPairing: PostImportPairingState | null;
   setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doStartPostImportPairing(
@@ -235,7 +235,7 @@ type FetchPostImportPricesDeps = {
   pairingLatestRef: RefObject<PairingLatest>;
   pairingOperationIsCurrent: (operation: PostImportPairingOperation) => boolean;
   setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doFetchPostImportPrices(
@@ -388,7 +388,7 @@ export async function doFetchPostImportPrices(
 type CompletePostImportPairingDeps = {
   finishPostImportPairing: (operation: PostImportPairingOperation, status: "success" | "partial" | "error", message: string) => void;
   pairingOperationIsCurrent: (operation: PostImportPairingOperation) => boolean;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doCompletePostImportPairing(
@@ -457,7 +457,7 @@ type PairingInvalidationEffectDeps = {
   pairingOperationIsCurrent: (operation: PostImportPairingOperation) => boolean;
   pairingOperationRef: RefObject<PostImportPairingOperation | null>;
   setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runPairingInvalidationEffect(
@@ -499,7 +499,7 @@ type PairingPersistenceEffectDeps = {
   persistedVersion: number;
   persistenceStatus: "error" | "idle" | "saving" | "saved";
   setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runPairingPersistenceEffect(

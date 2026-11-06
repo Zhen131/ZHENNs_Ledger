@@ -1,4 +1,4 @@
-import { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { PersistenceOperation } from "@/app/persistence";
 
 export function PersistenceErrorNotice({
@@ -12,7 +12,7 @@ export function PersistenceErrorNotice({
   persistenceError: string;
   persistenceOperation: PersistenceOperation;
   retryPersistence: () => Promise<boolean>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
             <div

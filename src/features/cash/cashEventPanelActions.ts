@@ -26,7 +26,7 @@ import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
 } from "@/app";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import { createValidatedCashEvent } from "./cashEventService";
 import { projectLedgerCashMutation } from "./cashProjection";
 
@@ -94,7 +94,7 @@ type CashPersistenceEffectDeps = {
   setNote: Dispatch<SetStateAction<string>>;
   setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
   setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runCashPersistenceEffect(
@@ -146,7 +146,7 @@ type ApplyDeleteDeps = {
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
   setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doApplyDelete(
@@ -196,7 +196,7 @@ type HandleSubmitDeps = {
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingRisk: Dispatch<SetStateAction<PendingRisk | null>>;
   submitButtonRef: RefObject<HTMLButtonElement | null>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   type: CashEventType;
 };
 
@@ -288,7 +288,7 @@ type RequestDeleteDeps = {
   setError: Dispatch<SetStateAction<string>>;
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingRisk: Dispatch<SetStateAction<PendingRisk | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doRequestDelete(
@@ -370,7 +370,7 @@ type ConfirmNegativeBalanceDeps = {
   persistedVersion: number;
   setError: Dispatch<SetStateAction<string>>;
   setPendingRisk: Dispatch<SetStateAction<PendingRisk | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doConfirmNegativeBalance(

@@ -5,7 +5,7 @@ import type {
   ApplyLedgerMutation,
   PostImportPairingState,
 } from "./backupControlsTypes";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function BackupControlsPairingPanel({
   applyLedgerMutation,
@@ -20,7 +20,7 @@ export function BackupControlsPairingPanel({
   isWritable: boolean;
   postImportPairing: PostImportPairingState;
   startPostImportPairing: () => Promise<void>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
         <section

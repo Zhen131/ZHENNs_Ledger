@@ -26,7 +26,7 @@ import type {
   FormEvent,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { AssetTransferServiceError } from "./assetTransferServiceContract";
 
 export function AssetTransferPanelForm({
@@ -94,7 +94,7 @@ export function AssetTransferPanelForm({
   setReason: Dispatch<SetStateAction<AssetTransferReason>>;
   setToLocation: Dispatch<SetStateAction<CustodyLocation>>;
   setUnitPrice: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   toLocation: CustodyLocation;
   unitPrice: string;
 }>) {

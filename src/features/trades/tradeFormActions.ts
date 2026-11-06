@@ -10,7 +10,7 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import {
   calculateAutomaticTotal,
   formatValidationError,
@@ -44,7 +44,7 @@ type UpdateFieldDeps = {
   setSelectedFeeRuleId: Dispatch<SetStateAction<string>>;
   setSourceChangedMessage: Dispatch<SetStateAction<string>>;
   setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doUpdateField<Field extends keyof TradeFormState>(
@@ -101,7 +101,7 @@ type ApplyTradeDeps = {
   setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
   setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
   setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doApplyTrade(
@@ -156,7 +156,7 @@ type HandleSubmitDeps = {
   setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
   setPendingRisk: Dispatch<SetStateAction<PendingTradeRisk | null>>;
   setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doHandleSubmit(
@@ -275,7 +275,7 @@ type ConfirmNegativeBalanceDeps = {
   persistedVersion: number;
   setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
   setPendingRisk: Dispatch<SetStateAction<PendingTradeRisk | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doConfirmNegativeBalance(

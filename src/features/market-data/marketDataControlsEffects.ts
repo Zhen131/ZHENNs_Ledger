@@ -14,7 +14,7 @@ import type {
   GlobalOperation,
   GlobalRefreshState,
 } from "./marketDataControlsTypes";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { PersistenceStatus } from "@/app";
 
 type MappingDraftSyncEffectDeps = {
@@ -52,7 +52,7 @@ type OperationInvalidationEffectDeps = {
   globalOperationRef: RefObject<GlobalOperation | null>;
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
   setRefreshState: Dispatch<SetStateAction<GlobalRefreshState>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runOperationInvalidationEffect(
@@ -99,7 +99,7 @@ type PersistenceProgressEffectDeps = {
   persistenceStatus: PersistenceStatus;
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
   setRefreshState: Dispatch<SetStateAction<GlobalRefreshState>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runPersistenceProgressEffect(

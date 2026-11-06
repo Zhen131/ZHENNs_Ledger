@@ -9,7 +9,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function FeeRuleManagerRuleList({
   deactivateRule,
@@ -28,7 +28,7 @@ export function FeeRuleManagerRuleList({
   replaceRule: (rule: FeeRule) => void;
   revisionValues: Record<string, string>;
   setRevisionValues: Dispatch<SetStateAction<Record<string, string>>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
       <div

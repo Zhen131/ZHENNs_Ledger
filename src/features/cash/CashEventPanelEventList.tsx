@@ -11,7 +11,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function CashEventPanelEventList({
   armedDelete,
@@ -35,7 +35,7 @@ export function CashEventPanelEventList({
   pendingMutationVersion: number | null;
   requestDelete: (cashEvent: CashEvent, trigger: HTMLButtonElement) => void;
   setCurrentPage: Dispatch<SetStateAction<number>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   totalPages: number;
 }>) {
   return (

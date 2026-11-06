@@ -7,7 +7,7 @@ import type {
   FormEvent,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { LedgerAction } from "@/core/state";
 import type { LedgerClock } from "@/core/shared";
 import type { FormState } from "./feeRuleManagerHelpers";
@@ -30,7 +30,7 @@ type FeeRulePersistenceEffectDeps = {
   setError: Dispatch<SetStateAction<string>>;
   setMessage: Dispatch<SetStateAction<string>>;
   setPendingVersion: Dispatch<SetStateAction<number | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runFeeRulePersistenceEffect(
@@ -68,7 +68,7 @@ type ApplyDeps = {
   setError: Dispatch<SetStateAction<string>>;
   setMessage: Dispatch<SetStateAction<string>>;
   setPendingVersion: Dispatch<SetStateAction<number | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doApply(
@@ -105,7 +105,7 @@ type SubmitNewRuleDeps = {
   form: FormState;
   ledgerData: LedgerData;
   setError: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doSubmitNewRule(
@@ -155,7 +155,7 @@ type ReplaceRuleDeps = {
   ledgerData: LedgerData;
   revisionValues: Record<string, string>;
   setError: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doReplaceRule(

@@ -16,7 +16,7 @@ import { formatOccurredAtForView } from "./activityTimeFormat";
 import type { RefObject } from "react";
 import type { LedgerActivityItem } from "./activityService";
 import type { TradeDeletePhase } from "@/features/trades/ui";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { ActivityTimeZoneView } from "./activityTimeFormat";
 
 export function ActivityTableRow({
@@ -60,7 +60,7 @@ export function ActivityTableRow({
   rowDeleteDisabled: boolean;
   rowRefs: RefObject<Map<string, HTMLTableRowElement>>;
   sequence: number | "—";
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   timeZoneView: ActivityTimeZoneView;
   todayKey: string;
 }>) {

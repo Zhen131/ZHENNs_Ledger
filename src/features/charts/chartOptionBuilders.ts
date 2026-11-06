@@ -5,7 +5,7 @@ import {
   formatMoney,
   formatPercent,
   translate,
-  type TranslationKey,
+  type Translate,
 } from "@/ui";
 import type {
   HoldingAllocationSlice,
@@ -32,7 +32,6 @@ type TooltipParams = {
   data?: unknown;
 };
 
-type Translate = (key: TranslationKey) => string;
 
 const defaultTranslate: Translate = (key) =>
   translate(DEFAULT_LEDGER_LANGUAGE, key);

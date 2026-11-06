@@ -14,7 +14,7 @@ import {
   TRADE_HEATMAP_LEVEL_COLORS,
 } from "./chartOptionBuilders";
 import { EChart } from "./EChart";
-import { useLanguage } from "@/ui";
+import { useLanguage, type Translate } from "@/ui";
 
 type OverviewTradeHeatmapProps = Readonly<{
   heatmap: readonly TradeHeatmapDay[];
@@ -316,7 +316,7 @@ function ActivityTooltipContent({ day }: Readonly<{ day: TradeHeatmapDay }>) {
 
 function getHomeDayAriaLabel(
   day: TradeHeatmapDay,
-  t: (key: Parameters<ReturnType<typeof useLanguage>["t"]>[0]) => string,
+  t: Translate,
 ): string {
   return day.total === 0
     ? `${day.date}${t("charts.heatmap.home.ariaSeparator")}${t("charts.heatmap.home.emptyDay")}`

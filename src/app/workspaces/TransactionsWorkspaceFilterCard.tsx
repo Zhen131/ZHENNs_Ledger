@@ -8,7 +8,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function TransactionsWorkspaceFilterCard({
   assetFilter,
@@ -37,7 +37,7 @@ export function TransactionsWorkspaceFilterCard({
   setExactDate: Dispatch<SetStateAction<string>>;
   setTimeFilter: Dispatch<SetStateAction<TimeFilter>>;
   setTypeFilter: Dispatch<SetStateAction<LedgerActivityTypeFilter>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   timeFilter: TimeFilter;
   timeLabel: string;
   typeFilter: LedgerActivityTypeFilter;

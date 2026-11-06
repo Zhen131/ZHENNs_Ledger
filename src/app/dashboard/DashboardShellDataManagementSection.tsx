@@ -2,7 +2,7 @@
 
 import { BackupControls } from "@/features/backup/ui";
 import { Section } from "./Section";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type {
   Dispatch,
   SetStateAction,
@@ -70,7 +70,7 @@ export function DashboardShellDataManagementSection({
   setClearConfirmationError: Dispatch<SetStateAction<string>>;
   setClearConfirmationValue: Dispatch<SetStateAction<string>>;
   storageKind: LedgerStorageKind;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
             <Section title={t("dashboard.section.dataManagement")}>

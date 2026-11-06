@@ -21,7 +21,7 @@ import type {
   PriceFormField,
   PriceFormState,
 } from "./priceFormHelpers";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import {
   captureLedgerTime,
   resolveFactMoment,
@@ -49,7 +49,7 @@ type HandleSubmitDeps = {
   setLocalForm: Dispatch<SetStateAction<PriceFormState>>;
   setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
   setSuccessMessage: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doHandleSubmit(

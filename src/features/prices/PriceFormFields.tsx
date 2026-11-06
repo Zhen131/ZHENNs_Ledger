@@ -12,7 +12,7 @@ import type {
 import type { Ref } from "react";
 import type { PriceWorkspaceDraft } from "./priceWorkspaceDraft";
 import type { LedgerData } from "@/core/models";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function PriceFormFields({
   clock,
@@ -36,7 +36,7 @@ export function PriceFormFields({
   pendingMutationVersion: number | null;
   savingMessage: string;
   successMessage: string;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   updateField: <Field extends keyof PriceFormState>(field: Field, value: PriceFormState[Field]) => void;
 }>) {
   return (

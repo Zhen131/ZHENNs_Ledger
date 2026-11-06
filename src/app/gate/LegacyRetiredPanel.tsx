@@ -1,10 +1,10 @@
-import { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import { AccessPanel } from "./AccessPanel";
 
 export function LegacyRetiredPanel({
   t,
 }: Readonly<{
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
       <AccessPanel

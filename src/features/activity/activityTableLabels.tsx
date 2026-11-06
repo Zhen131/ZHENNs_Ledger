@@ -3,10 +3,10 @@
 import { type ReactNode } from "react";
 import type { CashEvent } from "@/core/models";
 import { subtract } from "@/core/shared";
-import { LedgerNumber, useLanguage } from "@/ui";
+import { LedgerNumber, type Translate } from "@/ui";
 import type { LedgerActivityItem } from "./activityService";
 
-export function activityTypeLabel(item: LedgerActivityItem, t: ReturnType<typeof useLanguage>["t"]): string {
+export function activityTypeLabel(item: LedgerActivityItem, t: Translate): string {
   return item.kind === "trade"
     ? item.trade.type === "buy"
       ? t("trades.type.buy")
@@ -14,13 +14,13 @@ export function activityTypeLabel(item: LedgerActivityItem, t: ReturnType<typeof
     : cashEventTypeLabel(item.cashEvent, t);
 }
 
-export function cashEventTypeLabel(event: CashEvent, t: ReturnType<typeof useLanguage>["t"]): string {
+export function cashEventTypeLabel(event: CashEvent, t: Translate): string {
   return {
     deposit: t("cash.type.deposit"), withdrawal: t("cash.type.withdrawal"), "external-expense": t("cash.type.externalExpense"), "balance-adjustment": t("cash.type.balanceAdjustment"),
   }[event.type];
 }
 
-export function activityAssetLabel(item: LedgerActivityItem, t: ReturnType<typeof useLanguage>["t"]): string {
+export function activityAssetLabel(item: LedgerActivityItem, t: Translate): string {
   return item.kind === "trade" ? item.trade.assetSymbol : t("activity.table.cashUsdt");
 }
 
@@ -43,7 +43,7 @@ export function activityAmountLabel(item: LedgerActivityItem): ReactNode {
   return <><LedgerNumber kind="money" value={delta} /> USDT</>;
 }
 
-export function activityDeleteLabel(item: LedgerActivityItem, t: ReturnType<typeof useLanguage>["t"]): string {
+export function activityDeleteLabel(item: LedgerActivityItem, t: Translate): string {
   return `${t("activity.table.deletePrefix")} ${activityTypeLabel(item, t)} ${activityAssetLabel(item, t)} ${item.occurredAt}`;
 }
 

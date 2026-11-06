@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { PersistenceOperation } from "@/app/persistence";
 
 export function LockConfirmationPanel({
@@ -18,7 +18,7 @@ export function LockConfirmationPanel({
   persistenceOperation: PersistenceOperation;
   retrySaveBeforeLock: () => Promise<void>;
   setShowLockConfirmation: Dispatch<SetStateAction<boolean>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
             <section

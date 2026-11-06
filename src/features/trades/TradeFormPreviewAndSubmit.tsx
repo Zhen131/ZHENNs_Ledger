@@ -4,7 +4,7 @@ import { LedgerNumber } from "@/ui";
 import type { TradeFormField } from "./tradeFormTypes";
 import type { TradeWorkspaceDraft } from "./tradeWorkspaceDraft";
 import type { RefObject } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type {
   DecimalString,
   FeeRule,
@@ -31,7 +31,7 @@ export function TradeFormPreviewAndSubmit({
   selectedCandidate: Readonly<{ rule: FeeRule; fee: DecimalString; currency: "USDT"; formula: string; }> | undefined;
   submitButtonRef: RefObject<HTMLButtonElement | null>;
   successState: "" | "certified" | "saving";
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
       <div className="md:col-span-2">

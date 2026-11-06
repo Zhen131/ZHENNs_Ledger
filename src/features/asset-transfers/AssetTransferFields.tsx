@@ -3,8 +3,8 @@
 import { type ReactNode } from "react";
 import type { CustodyLocation } from "@/core/models";
 import { type AssetTransferServiceError } from "./assetTransferServiceContract";
-import type { Translate } from "./assetTransferPanelHelpers";
 import { controlClassName } from "./assetTransferPanelHelpers";
+import type { Translate } from "@/ui";
 
 export function Field({
   label,

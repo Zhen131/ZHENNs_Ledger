@@ -5,7 +5,7 @@ import type {
   RefObject,
 } from "react";
 import type { PersistenceOperation } from "@/app";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 
 
@@ -30,7 +30,7 @@ export function BackupControlsActionRow({
   presentation: "legacy" | "transfer";
   showExport: boolean;
   showPreflight: boolean;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
       <div

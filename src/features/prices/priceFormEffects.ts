@@ -13,7 +13,7 @@ import type {
 import { createPriceWorkspaceDraft } from "./priceWorkspaceDraft";
 import { captureLedgerTime } from "@/core/shared";
 import type { PersistenceStatus } from "@/app";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 type PriceAssetRepairEffectDeps = {
   commitForm: (next: PriceFormState) => void;
@@ -91,7 +91,7 @@ type PendingPriceSaveEffectDeps = {
   setLocalForm: Dispatch<SetStateAction<PriceFormState>>;
   setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
   setSuccessMessage: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runPendingPriceSaveEffect(

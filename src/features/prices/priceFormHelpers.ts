@@ -4,14 +4,13 @@ import type {
   PriceSnapshotValidationError,
   PriceSnapshotValidationField,
 } from "@/core/validation";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 
 export type PriceFormState = PriceWorkspaceDraft;
 
 export type PriceFormField = keyof PriceFormState | "form";
 
-type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function toPriceFormField(
   field: PriceSnapshotValidationField,

@@ -1,6 +1,6 @@
 import type { LedgerData } from "@/core/models";
 import { isNegative, toDecimal } from "@/core/shared";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export type FormState = {
   name: string;
@@ -18,7 +18,6 @@ export const initialForm: FormState = {
   value: "",
 };
 
-type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function createUniqueFeeRuleId(ledgerData: LedgerData): string | undefined {
   const existingIds = new Set(

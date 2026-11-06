@@ -1,4 +1,4 @@
-import { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import { AccessPanel } from "./AccessPanel";
 import type { AccessState } from "./LedgerAccessGateTypes";
 
@@ -7,7 +7,7 @@ export function SessionLockingPanel({
   t,
 }: Readonly<{
   accessState: Extract<AccessState, { status: "locking" }>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
       <AccessPanel

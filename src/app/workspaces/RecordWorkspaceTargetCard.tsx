@@ -4,7 +4,7 @@ import { SurfaceCard } from "@/ui";
 import type { TradeWorkspaceDraft } from "@/features/trades";
 import type { LedgerData } from "@/core/models";
 import type { RecordTarget } from "./workspaceDrafts";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function RecordWorkspaceTargetCard({
   commitTradeDraft,
@@ -19,7 +19,7 @@ export function RecordWorkspaceTargetCard({
   isWritable: boolean;
   ledgerData: LedgerData;
   recordTarget: RecordTarget;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   tradeDraft: TradeWorkspaceDraft;
   updateRecordTarget: (recordTarget: RecordTarget) => void;
 }>) {

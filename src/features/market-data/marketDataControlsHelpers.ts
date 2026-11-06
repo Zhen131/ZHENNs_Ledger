@@ -3,10 +3,10 @@ import { resolveAssetBinanceMappingForRuntime } from "@/core/policies";
 import { type BinanceMarketDataFailure } from "@/platform/integrations";
 import type {
   AssetOperation,
-  Translate,
   GlobalRefreshState,
   GlobalOperation,
 } from "./marketDataControlsTypes";
+import type { Translate } from "@/ui";
 
 export function createInitialRefreshState(t: Translate): GlobalRefreshState {
   return {

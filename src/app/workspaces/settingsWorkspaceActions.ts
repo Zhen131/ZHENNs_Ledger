@@ -2,7 +2,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 type ConfirmClearDeps = {
   clearConfirmationPhrase: string;
@@ -15,7 +15,7 @@ type ConfirmClearDeps = {
   setError: Dispatch<SetStateAction<string>>;
   setSuccess: Dispatch<SetStateAction<string>>;
   storageKind: "indexeddb" | "ledger-file";
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doConfirmClear(

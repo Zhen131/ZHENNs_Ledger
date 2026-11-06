@@ -13,7 +13,7 @@ import type {
   PendingNegativeDelete,
 } from "./transactionsWorkspaceTypes";
 import type { LedgerActivityItem } from "@/features/activity";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import { validateTradeRemoval } from "@/features/trades";
 import { projectLedgerCashMutation } from "@/features/cash";
 import type {
@@ -57,7 +57,7 @@ export function doFindCurrentItem(
 type ReviewRemovalDeps = {
   findCurrentItem: (itemId: string, itemKind: ActivityKind) => LedgerActivityItem | null;
   latestLedgerDataRef: RefObject<LedgerData>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doReviewRemoval(
@@ -129,7 +129,7 @@ type ApplyReviewedDeleteDeps = {
   setPendingDelete: Dispatch<SetStateAction<PendingDelete | null>>;
   setPendingNegativeDelete: Dispatch<SetStateAction<PendingNegativeDelete | null>>;
   setRemainingMs: Dispatch<SetStateAction<number>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doApplyReviewedDelete(
@@ -225,7 +225,7 @@ type ConfirmDeleteDeps = {
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingDelete: Dispatch<SetStateAction<PendingDelete | null>>;
   setRemainingMs: Dispatch<SetStateAction<number>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   timeoutRef: RefObject<ReturnType<typeof setTimeout> | null>;
 };
 
@@ -294,7 +294,7 @@ type ConfirmNegativeDeleteDeps = {
   reviewRemoval: (item: LedgerActivityItem) => string | null;
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingNegativeDelete: Dispatch<SetStateAction<PendingNegativeDelete | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   todayKeyRef: RefObject<string>;
 };
 
@@ -357,7 +357,7 @@ type HiddenCancelEffectDeps = {
   setArmedItemId: Dispatch<SetStateAction<string | null>>;
   setFeedback: Dispatch<SetStateAction<string>>;
   setPendingNegativeDelete: Dispatch<SetStateAction<PendingNegativeDelete | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runHiddenCancelEffect(
@@ -390,7 +390,7 @@ type DeletionPersistenceEffectDeps = {
   persistedVersion: number;
   persistenceStatus: PersistenceStatus;
   setFeedback: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runDeletionPersistenceEffect(

@@ -16,7 +16,7 @@ import type {
 } from "./marketDataControlsTypes";
 import type { BinanceMarketDataClient } from "@/platform/integrations";
 import type { LedgerClock } from "@/core/shared";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import {
   mergeBinancePriceRefresh,
   refreshBinancePrices,
@@ -37,7 +37,7 @@ type RefreshNonZeroHoldingsDeps = {
   latestRef: RefObject<{ ledgerData: LedgerData; ledgerEpoch: number; sessionGeneration: number; mutationVersion: number; persistedVersion: number; persistenceStatus: PersistenceStatus; isWritable: boolean; mappingSignature: string; }>;
   operationSequenceRef: RefObject<number>;
   setRefreshState: Dispatch<SetStateAction<GlobalRefreshState>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doRefreshNonZeroHoldings(
@@ -142,7 +142,7 @@ type FinishGlobalOperationDeps = {
   globalOperationRef: RefObject<GlobalOperation | null>;
   mountedRef: RefObject<boolean>;
   setRefreshState: Dispatch<SetStateAction<GlobalRefreshState>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doFinishGlobalOperation(

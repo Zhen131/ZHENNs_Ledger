@@ -1,6 +1,5 @@
-import type { FileStatusTone, TranslationKey } from "@/ui";
+import type { FileStatusTone, Translate } from "@/ui";
 
-type Translate = (key: TranslationKey) => string;
 
 export function shortLedgerId(id: string): string {
   return id.length <= 12 ? id : `${id.slice(0, 6)}…${id.slice(-4)}`;

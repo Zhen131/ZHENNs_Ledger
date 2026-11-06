@@ -99,10 +99,13 @@ export function writeLanguagePreference(
   }
 }
 
+/** The translation function returned by `useLanguage().t`. */
+export type Translate = (key: TranslationKey) => string;
+
 type LanguageContextValue = Readonly<{
   language: LedgerLanguage;
   setLanguage: (language: LedgerLanguage) => void;
-  t: (key: TranslationKey) => string;
+  t: Translate;
 }>;
 
 const defaultLanguageContext: LanguageContextValue = {

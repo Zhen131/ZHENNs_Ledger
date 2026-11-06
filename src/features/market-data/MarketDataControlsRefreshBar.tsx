@@ -2,7 +2,7 @@
 
 import type { ValuationPriceMode } from "@/core/models";
 import type { GlobalRefreshState } from "./marketDataControlsTypes";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 
 
@@ -25,7 +25,7 @@ export function MarketDataControlsRefreshBar({
   onModeChange: (mode: ValuationPriceMode) => void;
   refreshNonZeroHoldings: () => Promise<void>;
   refreshState: GlobalRefreshState;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
         <>

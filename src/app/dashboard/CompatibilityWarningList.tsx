@@ -1,12 +1,12 @@
 import type { LedgerCompatibilityWarning } from "@/core/policies";
-import { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function CompatibilityWarningList({
   compatibilityWarnings,
   t,
 }: Readonly<{
   compatibilityWarnings: LedgerCompatibilityWarning[];
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
             <div

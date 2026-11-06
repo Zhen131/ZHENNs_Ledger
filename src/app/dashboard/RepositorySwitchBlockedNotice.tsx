@@ -1,11 +1,11 @@
-import { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function RepositorySwitchBlockedNotice({
   discardDirtyChangesAndSwitchRepository,
   t,
 }: Readonly<{
   discardDirtyChangesAndSwitchRepository: () => boolean;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
             <div

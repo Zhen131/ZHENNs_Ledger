@@ -7,7 +7,7 @@ import type {
   SetStateAction,
 } from "react";
 import type { PersistenceOperation } from "@/app/persistence";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function SettingsWorkspaceDangerPanel({
   cancelClearRef,
@@ -52,7 +52,7 @@ export function SettingsWorkspaceDangerPanel({
   setError: Dispatch<SetStateAction<string>>;
   setSuccess: Dispatch<SetStateAction<string>>;
   storageKind: "indexeddb" | "ledger-file";
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
         <SurfaceCard

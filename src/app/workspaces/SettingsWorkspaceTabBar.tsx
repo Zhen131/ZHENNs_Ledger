@@ -4,7 +4,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 
 
@@ -16,7 +16,7 @@ export function SettingsWorkspaceTabBar({
 }: Readonly<{
   closeDanger: ({ restoreFocus }?: { restoreFocus?: boolean; }) => void;
   setTab: Dispatch<SetStateAction<"market" | "fees" | "danger">>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   tab: "market" | "fees" | "danger";
 }>) {
   return (

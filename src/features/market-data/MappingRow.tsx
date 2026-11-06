@@ -2,8 +2,12 @@
 
 import type { Asset } from "@/core/models";
 import { resolveAssetBinanceMappingForRuntime } from "@/core/policies";
-import { ConfirmDeleteButton, type ConfirmDeleteOutcome } from "@/ui";
-import type { AssetFeedback, Translate } from "./marketDataControlsTypes";
+import {
+  ConfirmDeleteButton,
+  type ConfirmDeleteOutcome,
+  type Translate,
+} from "@/ui";
+import type { AssetFeedback } from "./marketDataControlsTypes";
 
 export function MappingRow({
   asset,

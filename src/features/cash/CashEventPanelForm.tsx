@@ -13,7 +13,7 @@ import type {
   RefObject,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function CashEventPanelForm({
   amountOrTarget,
@@ -61,7 +61,7 @@ export function CashEventPanelForm({
   setOccurredTimeZone: Dispatch<SetStateAction<string>>;
   setType: Dispatch<SetStateAction<CashEventType>>;
   submitButtonRef: RefObject<HTMLButtonElement | null>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   type: CashEventType;
 }>) {
   return (

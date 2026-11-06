@@ -1,5 +1,4 @@
 import type { BinanceMarketMapping } from "@/core/models";
-import type { useLanguage } from "@/ui";
 import { type BinanceAssetRefreshFailure } from "./binancePriceRefreshService";
 
 export type AssetOperationKind = "save-mapping" | "refresh-price";
@@ -35,7 +34,6 @@ export type AssetFeedback = {
   status: AssetOperationStatus;
   message: string;
 };
-export type Translate = ReturnType<typeof useLanguage>["t"];
 
 export type GlobalRefreshState = {
   status: "idle" | "loading" | "saving" | "success" | "partial" | "error";

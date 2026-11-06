@@ -8,7 +8,7 @@ import {
   type LedgerFileAccessController,
   type LedgerFileAccessErrorCode,
 } from "@/app/file-access";
-import { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { PendingSessionCompletion } from "./LedgerAccessGateTypes";
 
 export const pendingSessionCompletions = new WeakMap<
@@ -17,7 +17,7 @@ export const pendingSessionCompletions = new WeakMap<
 >();
 export function getAccessErrorMessage(
   code: LedgerAccessErrorCode,
-  t: ReturnType<typeof useLanguage>["t"],
+  t: Translate,
 ): string {
   switch (code) {
     case LEDGER_ACCESS_ERROR_CODES.READ_FAILED:
@@ -33,7 +33,7 @@ export function getAccessErrorMessage(
 
 export function getFileAccessErrorMessage(
   code: LedgerFileAccessErrorCode,
-  t: ReturnType<typeof useLanguage>["t"],
+  t: Translate,
 ): string {
   switch (code) {
     case LEDGER_FILE_ACCESS_ERROR_CODES.PICKER_UNAVAILABLE:

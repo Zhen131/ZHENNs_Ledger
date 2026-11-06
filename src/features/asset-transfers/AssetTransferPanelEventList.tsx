@@ -13,7 +13,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function AssetTransferPanelEventList({
   armedDelete,
@@ -35,7 +35,7 @@ export function AssetTransferPanelEventList({
   orderedAssetTransfers: AssetTransfer[];
   requestDelete: (assetTransferId: string) => void;
   setCurrentPage: Dispatch<SetStateAction<number>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   totalPages: number;
 }>) {
   return (

@@ -4,7 +4,7 @@ import type {
   AssetTransferReason,
   CustodyLocation,
 } from "@/core/models";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import {
   ASSET_TRANSFER_REASONS_BY_CATEGORY,
   type AssetTransferServiceError,
@@ -13,7 +13,6 @@ import {
 export const DEFAULT_CATEGORY: AssetTransferCategory = "internal";
 export const DEFAULT_FROM_LOCATION: CustodyLocation = "exchange";
 export const DEFAULT_TO_LOCATION: CustodyLocation = "cold-wallet";
-export type Translate = ReturnType<typeof useLanguage>["t"];
 
 export type ArmedDelete = Readonly<{
   assetTransferId: string;

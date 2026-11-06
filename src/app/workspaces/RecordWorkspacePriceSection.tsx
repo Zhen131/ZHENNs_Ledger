@@ -19,7 +19,7 @@ import type {
   ApplyLedgerActionResult,
   PersistenceStatus,
 } from "@/app/persistence";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function RecordWorkspacePriceSection({
   clock,
@@ -50,7 +50,7 @@ export function RecordWorkspacePriceSection({
   priceDraft: PriceWorkspaceDraft;
   priceFocusRef: RefObject<HTMLSelectElement | null>;
   resetPriceDraft: (preserve: Pick<PriceWorkspaceDraft, "assetSymbol" | "recordedAt">) => void;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
         <div className="grid min-w-0 content-start gap-4">

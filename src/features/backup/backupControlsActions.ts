@@ -28,7 +28,7 @@ import type {
   LedgerTimeSnapshot,
 } from "@/core/shared";
 import type { LedgerData } from "@/core/models";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import { captureLedgerTime } from "@/core/shared";
 import {
   createBackupEnvelope,
@@ -134,7 +134,7 @@ type HandleExportDeps = {
   ledgerData: LedgerData;
   persistenceStatus: "idle" | "saving" | "saved" | "error";
   setMessage: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doHandleExport(
@@ -218,7 +218,7 @@ type HandleFileChangeDeps = {
   setMessage: Dispatch<SetStateAction<string>>;
   setPreflightResult: Dispatch<SetStateAction<BackupImportPreflightResult | null>>;
   suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doHandleFileChange(
@@ -355,7 +355,7 @@ type ConfirmSuspiciousGroupsDeps = {
   setImportState: Dispatch<SetStateAction<ImportState>>;
   setMessage: Dispatch<SetStateAction<string>>;
   suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doConfirmSuspiciousGroups(
@@ -455,7 +455,7 @@ type ConfirmImportDeps = {
   setMessage: Dispatch<SetStateAction<string>>;
   setPostImportPairing: Dispatch<SetStateAction<PostImportPairingState | null>>;
   suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doConfirmImport(

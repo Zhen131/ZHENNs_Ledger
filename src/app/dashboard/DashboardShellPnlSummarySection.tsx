@@ -3,7 +3,7 @@
 import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
 import { Section } from "./Section";
 import { SummaryMetricCard } from "./SummaryMetricCard";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { DashboardDerivations } from "./dashboardDerivations";
 
 export function DashboardShellPnlSummarySection({
@@ -11,7 +11,7 @@ export function DashboardShellPnlSummarySection({
   t,
 }: Readonly<{
   pnlSummary: DashboardDerivations["pnlSummary"];
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
             <Section title={t("dashboard.section.pnlSummary")}>

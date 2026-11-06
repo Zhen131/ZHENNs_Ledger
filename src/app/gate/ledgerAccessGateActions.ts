@@ -10,7 +10,7 @@ import type {
   SetStateAction,
 } from "react";
 import type { AccessPath } from "./LedgerAccessGateTypes";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import { validatePassphrase } from "@/platform/encryption";
 import { LEDGER_FILE_ACCESS_ERROR_CODES } from "@/app/file-access";
 import { getFileAccessErrorMessage } from "./LedgerAccessGateHelpers";
@@ -29,7 +29,7 @@ type SubmitFileCreateDeps = {
   setFormError: Dispatch<SetStateAction<string>>;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
   setPassphrase: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doSubmitFileCreate(
@@ -96,7 +96,7 @@ type SelectFileToOpenDeps = {
   setAccessPath: Dispatch<SetStateAction<AccessPath>>;
   setFormError: Dispatch<SetStateAction<string>>;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doSelectFileToOpen(
@@ -244,7 +244,7 @@ type ForgetRememberedConnectionDeps = {
   setPassphrase: Dispatch<SetStateAction<string>>;
   setReconnectError: Dispatch<SetStateAction<LedgerFileAccessErrorCode | null>>;
   setRecoveryId: Dispatch<SetStateAction<string | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doForgetRememberedConnection(
@@ -303,7 +303,7 @@ type SubmitFileUnlockDeps = {
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
   setPassphrase: Dispatch<SetStateAction<string>>;
   setRecoveryId: Dispatch<SetStateAction<string | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doSubmitFileUnlock(
@@ -361,7 +361,7 @@ type ConfirmFileRecoveryDeps = {
   setFormError: Dispatch<SetStateAction<string>>;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
   setRecoveryId: Dispatch<SetStateAction<string | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doConfirmFileRecovery(
@@ -423,7 +423,7 @@ type CancelFileRecoveryDeps = {
   setFormError: Dispatch<SetStateAction<string>>;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
   setRecoveryId: Dispatch<SetStateAction<string | null>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doCancelFileRecovery(

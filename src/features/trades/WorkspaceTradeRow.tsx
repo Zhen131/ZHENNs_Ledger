@@ -8,7 +8,7 @@ import { LedgerNumber } from "@/ui";
 import { TradeDeleteControl } from "./TradeDeleteControl";
 import type { RefObject } from "react";
 import type { TradeDeletePhase } from "./TradeDeleteControl";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 import type { Trade } from "@/core/models";
 
 export function WorkspaceTradeRow({
@@ -46,7 +46,7 @@ export function WorkspaceTradeRow({
   phase: TradeDeletePhase;
   rowDeleteDisabled: boolean;
   rowRefs: RefObject<Map<string, HTMLTableRowElement>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   todayKey: string | undefined;
   trade: Trade;
 }>) {

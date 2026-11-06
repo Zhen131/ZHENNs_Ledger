@@ -13,7 +13,7 @@ import { validateTradeRemoval } from "@/features/trades";
 import {
   SUCCESS_FEEDBACK_MS,
   type ConfirmDeleteOutcome,
-  type useLanguage,
+  type Translate,
 } from "@/ui";
 import { validateAssetTransferRemoval } from "@/features/asset-transfers";
 import type { ClearConfirmationMode } from "./DashboardShellTypes";
@@ -28,7 +28,7 @@ import type { useLedgerWorkspaceSession } from "@/app/workspaces";
 type RemoveValidatedTradeDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
   ledgerData: LedgerData;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doRemoveValidatedTrade(
@@ -66,7 +66,7 @@ type HandleDeleteFuturePriceDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
   canCorrectFutureFacts: boolean;
   setFutureCorrectionError: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doHandleDeleteFuturePrice(
@@ -97,7 +97,7 @@ type HandleDeleteFutureAssetTransferDeps = {
   canCorrectFutureFacts: boolean;
   ledgerData: PersistentLedgerState["ledgerData"];
   setFutureCorrectionError: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doHandleDeleteFutureAssetTransfer(
@@ -135,7 +135,7 @@ type HandleDeleteAllFutureFactsDeps = {
   applyLedgerAction: PersistentLedgerState["applyLedgerAction"];
   canCorrectFutureFacts: boolean;
   setFutureCorrectionError: Dispatch<SetStateAction<string>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   todayKey: PersistentLedgerState["todayKey"];
 };
 
@@ -218,7 +218,7 @@ type HandleClearLedgerDeps = {
   setSelectedTradeDate: Dispatch<SetStateAction<string | null>>;
   setTradeRemovalError: Dispatch<SetStateAction<string>>;
   storageKind: LedgerStorageKind;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doHandleClearLedger(

@@ -26,10 +26,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type {
-  ConfirmDeleteOutcome,
-  useLanguage,
-} from "@/ui";
+import type { ConfirmDeleteOutcome, Translate } from "@/ui";
 
 export function DashboardShellLegacyLayout({
   allocation,
@@ -117,7 +114,7 @@ export function DashboardShellLegacyLayout({
   setSelectedTradeDate: Dispatch<SetStateAction<string | null>>;
   setValuationPriceMode: ReturnType<typeof useLedgerWorkspaceSession>["setValuationPriceMode"];
   storageKind: LedgerStorageKind;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   todayKey: PersistentLedgerState["todayKey"];
   tradeRemovalError: string;
   valuationPriceMode: ReturnType<typeof useLedgerWorkspaceSession>["valuationPriceMode"];

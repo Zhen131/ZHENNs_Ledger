@@ -19,6 +19,7 @@ import {
   LedgerNumber,
   SUCCESS_FEEDBACK_MS,
   useLanguage,
+  type Translate,
 } from "@/ui";
 import {
   ASSET_ERROR_CODES,
@@ -34,7 +35,6 @@ type PendingAssetMutation = Readonly<{
   symbol: string;
 }>;
 
-type Translate = ReturnType<typeof useLanguage>["t"];
 
 export function LocalAssetManager({
   clock = systemLedgerClock,

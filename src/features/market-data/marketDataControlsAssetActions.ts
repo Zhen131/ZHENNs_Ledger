@@ -20,10 +20,7 @@ import type {
 } from "@/app";
 import type { BinanceMarketDataClient } from "@/platform/integrations";
 import type { LedgerClock } from "@/core/shared";
-import type {
-  ConfirmDeleteOutcome,
-  useLanguage,
-} from "@/ui";
+import type { ConfirmDeleteOutcome, Translate } from "@/ui";
 import { formatBinanceFailure } from "./marketDataControlsHelpers";
 import type { BinanceRefreshSuccess } from "./binancePriceRefreshService";
 import {
@@ -105,7 +102,7 @@ type FetchAndPersistAssetPriceDeps = {
   generateId: () => string;
   latestRef: RefObject<{ ledgerData: LedgerData; ledgerEpoch: number; sessionGeneration: number; mutationVersion: number; persistedVersion: number; persistenceStatus: PersistenceStatus; isWritable: boolean; mappingSignature: string; }>;
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doFetchAndPersistAssetPrice(
@@ -212,7 +209,7 @@ type CreateAssetOperationDeps = {
   latestRef: RefObject<{ ledgerData: LedgerData; ledgerEpoch: number; sessionGeneration: number; mutationVersion: number; persistedVersion: number; persistenceStatus: PersistenceStatus; isWritable: boolean; mappingSignature: string; }>;
   operationSequenceRef: RefObject<number>;
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doCreateAssetOperation(
@@ -273,7 +270,7 @@ type SaveMappingDeps = {
   latestRef: RefObject<{ ledgerData: LedgerData; ledgerEpoch: number; sessionGeneration: number; mutationVersion: number; persistedVersion: number; persistenceStatus: PersistenceStatus; isWritable: boolean; mappingSignature: string; }>;
   mappingDrafts: Record<string, string>;
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doSaveMapping(
@@ -386,7 +383,7 @@ type RefreshAssetDeps = {
   fetchAndPersistAssetPrice: (operation: AssetOperation) => Promise<void>;
   finishAssetOperation: (operation: AssetOperation, status: "saved" | "error", message: string) => void;
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export async function doRefreshAsset(
@@ -440,7 +437,7 @@ type RemoveMappingDeps = {
   setAssetFeedback: Dispatch<SetStateAction<Record<string, AssetFeedback>>>;
   setEditingAssetSymbol: Dispatch<SetStateAction<string | null>>;
   setMappingDrafts: Dispatch<SetStateAction<Record<string, string>>>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function doRemoveMapping(

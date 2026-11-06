@@ -14,7 +14,7 @@ import type {
 import { createTradeWorkspaceDraft } from "./tradeWorkspaceDraft";
 import { captureLedgerTime } from "@/core/shared";
 import type { PersistenceStatus } from "@/app";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 type AssetRepairEffectDeps = {
   commitForm: (next: TradeFormState) => void;
@@ -102,7 +102,7 @@ type PendingSaveEffectDeps = {
   setSelectedFeeRuleId: Dispatch<SetStateAction<string>>;
   setSourceChangedMessage: Dispatch<SetStateAction<string>>;
   setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 };
 
 export function runPendingSaveEffect(

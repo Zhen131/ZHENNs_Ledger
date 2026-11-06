@@ -7,7 +7,7 @@ import type {
   FormEvent,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function FeeRuleManagerForm({
   form,
@@ -24,7 +24,7 @@ export function FeeRuleManagerForm({
   presentation: "legacy" | "settings";
   setForm: Dispatch<SetStateAction<FormState>>;
   submitNewRule: (event: FormEvent<HTMLFormElement>) => void;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
 }>) {
   return (
       <form

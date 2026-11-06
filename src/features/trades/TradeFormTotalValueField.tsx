@@ -10,7 +10,7 @@ import type {
   Dispatch,
   SetStateAction,
 } from "react";
-import type { useLanguage } from "@/ui";
+import type { Translate } from "@/ui";
 
 export function TradeFormTotalValueField({
   commitForm,
@@ -26,7 +26,7 @@ export function TradeFormTotalValueField({
   form: TradeWorkspaceDraft;
   setErrors: Dispatch<SetStateAction<Partial<Record<TradeFormField, string>>>>;
   setSuccessState: Dispatch<SetStateAction<"" | "certified" | "saving">>;
-  t: ReturnType<typeof useLanguage>["t"];
+  t: Translate;
   updateField: <Field extends keyof TradeFormState>(field: Field, value: TradeFormState[Field]) => void;
 }>) {
   return (
