@@ -1,3 +1,15 @@
+/**
+ * 这个文件管一件事。
+ * 只读地看一眼浏览器里退役的旧账本记录还在不在。
+ * 它不管判断以后怎么办。
+ * 那在 app 区的进账本前检查和退役页。
+ * 不显然的决定：这里没有写、清、删的功能，故意只读。2026-11-06 定（W24 06 第二节第 2、4 条）。
+ */
+
+/**
+ * 旧账本在浏览器里的位置：库名、版本、表名、记录名。
+ * 为什么不能改：要和 2026-07～08 存下的旧记录对得上。这是猜的，日志里没写，要核。
+ */
 export const INDEXED_DB_STORAGE_DEFAULTS = {
   databaseName: "local-first-trading-ledger",
   databaseVersion: 1,
@@ -5,6 +17,10 @@ export const INDEXED_DB_STORAGE_DEFAULTS = {
   recordKey: "ledger:v1",
 } as const;
 
+/**
+ * 打开旧记录时可以换掉的几样。
+ * 包括库名、版本、表名、记录名、浏览器的库工厂。测试里用。
+ */
 export type IndexedDbStorageAdapterOptions = {
   databaseName?: string;
   databaseVersion?: number;
@@ -14,12 +30,16 @@ export type IndexedDbStorageAdapterOptions = {
 };
 
 /**
- * Read-only view of where the retired browser whole-ledger used to live.
+ * 这个类只读地看浏览器里退役的旧账本记录。
+ * 程序只用 read()，再把结果简化成「有没有旧账本」。
+ * 这里什么都不写、不清、不删。
+ * 唯一的副作用来自打开库本身。
+ * 库和表还不存在时，会建出空的。
  *
- * The production composition calls only `read()` and reduces the result to
- * legacy presence. Nothing here writes, clears, or deletes that record; the
- * only side effect is the one `open()` itself has, which creates the empty
- * database and store when they do not exist yet.
+ * 为什么只读：旧存储已经退役，不许碰用户的旧数据。
+ * 2026-11-06 定（W24 06 第二节第 2、4 条；W24 09B 第一节）。
+ *
+ * 读不出来或浏览器不支持时，Promise 失败。
  */
 export class IndexedDbStorageAdapter {
   private readonly databaseName: string;
@@ -40,6 +60,11 @@ export class IndexedDbStorageAdapter {
     this.indexedDBFactory = options.indexedDBFactory ?? globalThis.indexedDB;
   }
 
+  /**
+   * 这个函数读出那条旧记录；没有就答 null。
+   * 举例：从没用过旧版的浏览器 → 答 null。
+   * 读失败时 Promise 失败。
+   */
   async read(): Promise<unknown | null> {
     const database = await this.openDatabase();
 
@@ -73,6 +98,7 @@ export class IndexedDbStorageAdapter {
     });
   }
 
+  /** 这个函数关掉打开过的库；没打开过就什么都不做。 */
   async close(): Promise<void> {
     if (!this.databasePromise) {
       return;

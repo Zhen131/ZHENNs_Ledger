@@ -222,8 +222,6 @@ const NOT_YET_DOCUMENTED: readonly string[] = [
   "platform/files/ledgerFileSlotContainerV3Shared.ts",
   "platform/integrations/binanceMarketDataClient.ts",
   "platform/integrations/binanceMarketDataTypes.ts",
-  "platform/legacy/indexedDbStorageAdapter.ts",
-  "platform/legacy/ledgerAccessController.ts",
   "platform/persistence/identity.ts",
   "platform/persistence/ledgerContentIdentity.ts",
   "platform/persistence/ledgerRepository.ts",
