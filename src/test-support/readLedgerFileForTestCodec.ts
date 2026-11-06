@@ -1,8 +1,9 @@
 /**
  * 这个文件管测试里账本文件的字节和文字来回转。
  * 它不解析文件内容，解析在同目录 `readLedgerFileForTest.ts`。
- * 不显然的决定：二进制转成文字时，原字节记进小缓存。
+ * 二进制转成文字时，原字节记进小缓存。
  * 转回来时先查缓存，原样取回。
+ * 没有特别的决定。
  */
 import { isLedgerFileV3Bytes } from "@/platform/files";
 

@@ -1,7 +1,8 @@
 /**
  * 这个文件放测试用的账本权限，全部打开。
  * 正式程序的权限默认怎么开，在 `platform/persistence` 里定。
- * 不显然的决定：正式程序不会这样全开，只有测试这样用。
+ * 正式程序不会这样全开，只有测试这样用。
+ * 没有特别的决定。
  */
 import type { LedgerSessionCapabilities } from "@/platform/persistence";
 

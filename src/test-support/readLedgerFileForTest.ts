@@ -4,6 +4,7 @@
  * 产品读写文件的代码在 `platform/files`，这里只借用，不参与产品读文件。
  * 不显然的决定：老测试按 S-2 固定槽写断言。
  * 这里给它们拼出固定槽的样子。
+ * S-2 的定义 2026-09-01 定（W15 06B 修订 E 第 E.1 节）。
  */
 import {
   createLedgerFileManifestAadV3S3,

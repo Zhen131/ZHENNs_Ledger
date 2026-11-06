@@ -1,7 +1,8 @@
 /**
  * 这个文件给测试一个放在内存里的假仓库，照样检查账本。
  * 真仓库要加密、写文件，在 `platform/files` 和 `platform/persistence` 里。
- * 不显然的决定：它和真仓库一样，存前查一遍，读回来再查一遍。
+ * 它和真仓库一样，存前查一遍，读回来再查一遍。
+ * 没有特别的决定。
  */
 import { vi } from "vitest";
 import type { LedgerData } from "@/core/models";
