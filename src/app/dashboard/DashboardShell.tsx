@@ -1,3 +1,10 @@
+/**
+ * 这个文件是打开一本账本之后的整个外框。
+ * 导航，五个页面，各种提示和确认框，都在这里配好。
+ * 账本存取在 `app/persistence`，进账本前的检查在 `app/gate`。
+ * 不显然的决定：口令对上后，交给仓库的永远是它原来认的值。
+ * 2026-09-08 定（W16 04A 修订 C 第二节 D-16b）。
+ */
 "use client";
 
 import {
@@ -60,6 +67,13 @@ import { PersistenceErrorNotice } from "./PersistenceErrorNotice";
 import { DashboardShellHomePage } from "./DashboardShellHomePage";
 import { DashboardShellSettingsPage } from "./DashboardShellSettingsPage";
 
+/**
+ * 这个组件画打开账本之后的整个界面。
+ * 导航下面是五个页面之一：首页，记账，交易，转移，设置。
+ * 上面按情况出现提示：存盘出错，换账本被挡住，兼容提醒。
+ * 账本里有未来日期的记录时，先出现修正面板，只许删它们。
+ * 点上锁时，有没存的东西就先确认；导入后没法恢复时，换成出错页面。
+ */
 export function DashboardShell({
   clock = systemLedgerClock,
   session,
@@ -85,9 +99,9 @@ export function DashboardShell({
   const { t } = useLanguage();
   const repository = session.repository;
   const capabilities = session.capabilities;
-  // What the repository is handed once the typed phrase matches: the one
-  // canonical value it has always accepted. Widening what the repository
-  // accepts is out of bounds (04A D-16b).
+  // 为什么传规范值：敲对之后，交给仓库的是它一直认的值。
+  // 不许为了多语言去放宽仓库接受的东西。
+  // 2026-09-08 定（W16 04A 修订 C 第二节 D-16b）。
   const clearConfirmationNonce = READY_LEDGER_CLEAR_CONFIRMATION_TEXT;
   const {
     ledgerData,

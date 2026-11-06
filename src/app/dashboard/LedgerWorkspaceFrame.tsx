@@ -1,3 +1,8 @@
+/**
+ * 这个文件管打开账本后的那个框：导航，文件状态，上锁按钮。
+ * 框里放哪个页面由 `DashboardShell.tsx` 定。
+ * 没有特别的决定。
+ */
 "use client";
 
 import type { ReactNode } from "react";
@@ -11,6 +16,11 @@ import {
 } from "@/ui";
 import type { LedgerWorkspacePage } from "@/app/workspaces";
 
+/**
+ * 这个组件画账本外面那个框。
+ * 导航有五项：首页，记账，交易，转移，设置。点了就切页。
+ * 顶上显示文件状态，旁边有上锁按钮（传了 `onLock` 才有）。
+ */
 export function LedgerWorkspaceFrame({
   currentPage,
   onNavigate,

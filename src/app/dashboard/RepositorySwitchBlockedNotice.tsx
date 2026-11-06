@@ -1,5 +1,14 @@
+/**
+ * 这个文件管「要换账本，但还有没存好的改动」时的提示。
+ * 放弃改动并换过去的动作在 `app/persistence`。
+ * 没有特别的决定。
+ */
 import type { Translate } from "@/ui";
 
+/**
+ * 这个组件画一条醒目的提示：有改动没存好，暂时换不了账本。
+ * 用户点按钮，就放弃这些改动、换到新账本。
+ */
 export function RepositorySwitchBlockedNotice({
   discardDirtyChangesAndSwitchRepository,
   t,

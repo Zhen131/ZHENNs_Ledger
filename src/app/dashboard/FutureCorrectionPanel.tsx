@@ -1,3 +1,9 @@
+/**
+ * 这个文件管账本里有未来日期记录时出现的修正面板。
+ * 删除动作本身在 `dashboardShellActions.ts`。
+ * 不显然的决定：新记录不许晚于今天，有未来记录时只许删。
+ * 2026-08-19 定（W14 01B 第 3.5 节）。
+ */
 import type { AssetTransfer, PriceSnapshot, Trade } from "@/core/models";
 import {
   ConfirmDeleteButton,
@@ -7,6 +13,11 @@ import {
 } from "@/ui";
 import { shortLedgerId } from "./DashboardShellHelpers";
 
+/**
+ * 这个组件画未来记录的修正面板，出现在首页上面。
+ * 它列出未来日期的买卖，资产转移，价格，每条能单独删。
+ * 也有一个按钮一次全部删掉。删掉之前，别的页面都不能改账。
+ */
 export function FutureCorrectionPanel({
   canCorrectFutureFacts,
   futureAssetTransfers,

@@ -1,3 +1,10 @@
+/**
+ * 这个文件管首页那几样数怎么从账本算出来。
+ * 账本只多一笔时，它省着算。
+ * 每样数怎么算在 `features/portfolio` 和 `features/charts`，这里只决定什么时候重算。
+ * 不显然的决定：只多一笔时，接着上次结果往下算。
+ * 2026-08-29 提交 c6f7644 起这样做。
+ */
 import type { LedgerData, ValuationPriceMode } from "@/core/models";
 import {
   buildHoldingAllocation,
@@ -15,12 +22,14 @@ import {
   type AppendedLedgerFact,
 } from "@/features/portfolio";
 
+/** 算首页数要的条件：今天哪天，估值用哪种价，走势看多长。 */
 export type DashboardDerivationOptions = Readonly<{
   todayKey: string;
   valuationPriceMode: ValuationPriceMode;
   chartRange: ChartRange;
 }>;
 
+/** 首页要的五样数：持仓和现金，盈亏，分布，走势，热力图。 */
 export type DashboardDerivations = Readonly<{
   projection: ReturnType<typeof buildLedgerProjection>;
   pnlSummary: ReturnType<typeof buildLedgerPnlSummary>;
@@ -37,6 +46,10 @@ type DashboardDerivationUpdate = Readonly<{
   positionReplay?: "unchanged" | "affected-asset" | "full-fallback";
 }>;
 
+/**
+ * 上一次算好的首页数，按条件分开存着。
+ * 记着是哪一本账本、哪一版账本数据；换了账本就整个作废。
+ */
 export type DashboardDerivationCache = Readonly<{
   ledgerEpoch: number;
   ledgerData: LedgerData;
@@ -55,6 +68,12 @@ type DashboardDerivationCacheResolution = Readonly<{
     | "session-reset";
 }>;
 
+/**
+ * 这个函数从头把首页五样数全部算一遍。
+ * 举例：买 0.1 BTC 成交 6500、手续费 5，再卖 0.04 BTC 成交 2800、手续费 3。
+ * → 答剩余持仓成本 3903 USDT，已实现盈亏 195 USDT，手里 0.06 BTC。
+ * 账本合格时不会出错。
+ */
 export function buildDashboardDerivations(
   ledgerData: LedgerData,
   options: DashboardDerivationOptions,
@@ -83,6 +102,14 @@ export function buildDashboardDerivations(
   };
 }
 
+/**
+ * 这个函数回答：这次首页的数，能不能用上一次的结果？
+ * 换了账本就从头算；账本没变、条件算过，直接拿旧的。
+ * 账本只多了一笔，就接着旧结果往下算；别的变化从头算。
+ * 举例：同一本账，走势从 30 天换成 7 天 → 答新条件从头算。
+ * 30 天那份结果留着，换回来时直接用。
+ * 返回新的存档、这次的数，和用了哪种方式。账本合格时不会出错。
+ */
 export function resolveDashboardDerivations(
   previousCache: DashboardDerivationCache | null,
   ledgerData: LedgerData,
@@ -148,6 +175,14 @@ export function resolveDashboardDerivations(
   };
 }
 
+/**
+ * 这个函数在账本只多一笔时，接着上次结果往下算首页的数。
+ * 多的是今天的一笔买卖，走势只更新今天那一格。
+ * 看不出只多一笔，或持仓没法接着算，就退回从头算。
+ * 举例：已有 0.1 BTC，再记卖 0.04 BTC → 答手里 0.06 BTC。
+ * 和从头算的结果一样。
+ * 账本合格时不会出错。
+ */
 export function updateDashboardDerivationsForAppend(
   previousValues: DashboardDerivations,
   previousLedger: LedgerData,

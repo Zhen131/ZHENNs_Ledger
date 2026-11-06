@@ -1,3 +1,8 @@
+/**
+ * 这个文件把首页需要的数和开关，从外框接到首页组件上。
+ * 首页长什么样在 `app/workspaces/HomeWorkspace.tsx`。
+ * 没有特别的决定。
+ */
 "use client";
 
 import {
@@ -7,6 +12,11 @@ import {
 import type { PersistentLedgerState } from "@/app/persistence";
 import type { DashboardDerivations } from "./dashboardDerivations";
 
+/**
+ * 这个组件画外框里的首页。
+ * 它把算好的五样数、估值方式、走势范围交给首页组件。
+ * 首页上的跳转按钮会切到记账页或交易页。
+ */
 export function DashboardShellHomePage({
   allocation,
   chartRange,

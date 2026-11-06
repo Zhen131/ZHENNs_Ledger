@@ -16,20 +16,6 @@ const ESLINT_REASON = " -- ";
 const TYPED_TAG = /@(?:param|returns|type) \{/u;
 
 const NOT_YET_DOCUMENTED: readonly string[] = [
-  "app/dashboard/CompatibilityWarningList.tsx",
-  "app/dashboard/DashboardShell.tsx",
-  "app/dashboard/DashboardShellHelpers.ts",
-  "app/dashboard/DashboardShellHomePage.tsx",
-  "app/dashboard/DashboardShellSettingsPage.tsx",
-  "app/dashboard/FutureCorrectionPanel.tsx",
-  "app/dashboard/LedgerWorkspaceFrame.tsx",
-  "app/dashboard/LockConfirmationPanel.tsx",
-  "app/dashboard/PersistenceErrorNotice.tsx",
-  "app/dashboard/RepositorySwitchBlockedNotice.tsx",
-  "app/dashboard/SessionFatalPanel.tsx",
-  "app/dashboard/SessionQuiescingPanel.tsx",
-  "app/dashboard/dashboardDerivations.ts",
-  "app/dashboard/dashboardShellActions.ts",
   "app/gate/AccessCheckingPanel.tsx",
   "app/gate/AccessPanel.tsx",
   "app/gate/FormError.tsx",

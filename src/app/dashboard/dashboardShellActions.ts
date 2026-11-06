@@ -1,3 +1,9 @@
+/**
+ * 这个文件放账本外框里几个按钮背后的动作。
+ * 删一笔，删未来记录，清空，上锁，都在这里。
+ * 外框本身在 `DashboardShell.tsx`；改账、存盘在 `app/persistence`。
+ * 没有特别的决定。
+ */
 import type {
   Dispatch,
   RefObject,
@@ -29,6 +35,12 @@ type RemoveValidatedTradeDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数回答：这笔买卖能不能删，删成没有？
+ * 先查删了会不会让后面的卖出没东西可卖，会就拒绝并说明。
+ * 举例：买 0.1 BTC 后卖 0.04 BTC，删那笔买入 → 答 `rejected`。
+ * 能删就交给账本去删，答 `applied` 或别的结果。不抛错。
+ */
 export function doRemoveValidatedTrade(
   deps: RemoveValidatedTradeDeps,
   tradeId: string,
@@ -67,6 +79,11 @@ type HandleDeleteFuturePriceDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数删一条未来日期的价格，只在修正未来记录时可用。
+ * 举例：今天 2026-11-06，删 2026-11-08 那条 BTC 价格 → 答 `applied`。
+ * 不在修正状态时答 `rejected`。不抛错。
+ */
 export function doHandleDeleteFuturePrice(
   deps: HandleDeleteFuturePriceDeps,
   priceSnapshotId: string,
@@ -98,6 +115,12 @@ type HandleDeleteFutureAssetTransferDeps = {
   t: Translate;
 };
 
+/**
+ * 这个函数删一笔未来日期的资产转移，只在修正时可用。
+ * 删前先查会不会弄坏后面的记录，会就拒绝并说原因。
+ * 举例：今天 2026-11-06，删一笔 11-07 的转出、后面没依赖 → 答 `applied`。
+ * 不抛错。
+ */
 export function doHandleDeleteFutureAssetTransfer(
   deps: HandleDeleteFutureAssetTransferDeps,
   assetTransferId: string,
@@ -137,6 +160,11 @@ type HandleDeleteAllFutureFactsDeps = {
   todayKey: PersistentLedgerState["todayKey"];
 };
 
+/**
+ * 这个函数一次删掉全部未来日期的记录，只在修正时可用。
+ * 举例：今天 2026-11-06，账里有 3 条 11-07 以后的记录 → 答 `applied`，3 条都删。
+ * 不在修正状态时答 `rejected`。不抛错。
+ */
 export function doHandleDeleteAllFutureFacts(
   deps: HandleDeleteAllFutureFactsDeps,
 ): ConfirmDeleteOutcome {
@@ -169,6 +197,13 @@ type HandleSettingsClearDeps = {
   repository: LedgerRepository | undefined;
 };
 
+/**
+ * 这个函数回答：设置页点了清空，清成没有？
+ * 普通清空要账本读好；读坏后的清空要账本读失败。
+ * 清完时如果已经换了账本或页面关了，也算没清成。
+ * 举例：账本读好、口令对、清空成功 → 答 true。
+ * 不抛错，失败答 false。
+ */
 export async function doHandleSettingsClear(
   deps: HandleSettingsClearDeps,
   mode: "normal" | "recovery",
@@ -212,6 +247,12 @@ type RequestImmediateLockDeps = {
   workspaceDraftsPresentRef: RefObject<boolean>;
 };
 
+/**
+ * 这个函数处理「马上上锁」按钮。
+ * 有没存的改动或草稿，正在存或存失败，就先弹确认框。
+ * 都没有就清掉界面状态，交给外层去锁。
+ * 账本不在用或没有上锁的入口时什么都不做。不抛错。
+ */
 export function doRequestImmediateLock(
   deps: RequestImmediateLockDeps,
 ) {
@@ -253,6 +294,11 @@ type SavedFeedbackEffectDeps = {
   setShowSavedFeedback: Dispatch<SetStateAction<boolean>>;
 };
 
+/**
+ * 这个函数在存盘变成「存好了」时，显示一会儿提示。
+ * 显示多久是 `SUCCESS_FEEDBACK_MS`（4 秒）。
+ * 返回一个收拾的函数。不会出错。
+ */
 export function runSavedFeedbackEffect(
   deps: SavedFeedbackEffectDeps,
 ) {
@@ -281,6 +327,11 @@ type SessionFatalDeliveryEffectDeps = {
   sessionFatalSignal: PersistentLedgerState["sessionFatalSignal"];
 };
 
+/**
+ * 这个函数把「导入后没法恢复」的信号交给外层，只交一次。
+ * 信号不是这个会话的、或已经交过，就不交。
+ * 外层拿到后让会话停工。不抛错。
+ */
 export function runSessionFatalDeliveryEffect(
   deps: SessionFatalDeliveryEffectDeps,
 ) {

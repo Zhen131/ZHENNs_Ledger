@@ -1,3 +1,8 @@
+/**
+ * 这个文件把设置页需要的东西，从外框接到设置页组件上。
+ * 设置页长什么样在 `app/workspaces/SettingsWorkspace.tsx`。
+ * 没有特别的决定。
+ */
 "use client";
 
 import {
@@ -15,6 +20,10 @@ import type {
 } from "@/platform/persistence";
 import type { LedgerClock } from "@/core/shared";
 
+/**
+ * 这个组件画外框里的设置页。
+ * 它配上行情面板和手续费规则面板，再交进清空账本的动作。
+ */
 export function DashboardShellSettingsPage({
   applyLedgerAction,
   applyLedgerMutation,
