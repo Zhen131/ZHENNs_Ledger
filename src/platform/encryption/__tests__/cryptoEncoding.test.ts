@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { base64UrlToBytes, bytesToBase64Url } from "./cryptoEncoding";
+import { base64UrlToBytes, bytesToBase64Url } from "../cryptoEncoding";
 
 describe("Base64URL encoding", () => {
   it(

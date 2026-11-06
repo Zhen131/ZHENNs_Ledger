@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validatePassphrase } from "./passphrasePolicy";
+import { validatePassphrase } from "../passphrasePolicy";
 
 describe("passphrase policy", () => {
   it("accepts 8 through 128 Unicode code points", () => {

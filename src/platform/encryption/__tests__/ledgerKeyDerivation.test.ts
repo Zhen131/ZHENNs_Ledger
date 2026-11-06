@@ -4,7 +4,7 @@ import {
   deriveLedgerKeyWithParameters,
   type CryptoProvider,
   type LedgerKeyDerivationParameters,
-} from "./ledgerKeyDerivation";
+} from "../ledgerKeyDerivation";
 
 const PASSPHRASE = "correct horse battery staple";
 
