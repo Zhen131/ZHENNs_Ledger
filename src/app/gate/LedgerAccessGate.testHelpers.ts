@@ -26,7 +26,7 @@ import {
 import { applyLedgerFileWritableDataForTest } from "@/test-support";
 
 export const PASSPHRASE = "correct horse battery staple";
-export const mockPersistencePorts = new WeakMap<
+const mockPersistencePorts = new WeakMap<
   LedgerSession,
   LedgerSessionPersistencePort
 >();

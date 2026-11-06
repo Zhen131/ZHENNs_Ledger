@@ -79,7 +79,7 @@ type EncryptedLedgerGenerationV3ForTest =
 
 export type LedgerFileForTest = LedgerFileV2 | LedgerFileV3ForTest;
 
-export type LedgerFileForTestValidationResult =
+type LedgerFileForTestValidationResult =
   | { ok: true; value: LedgerFileForTest }
   | { ok: false; errors: LedgerFileContractError[] };
 

@@ -13,7 +13,7 @@ import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade } from "@/test-support";
 import { TransactionsWorkspace } from "./TransactionsWorkspace";
 
-export const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
   "scrollIntoView",
 );

@@ -11,7 +11,7 @@ import { useLanguage } from "./i18n";
 
 export type ConfirmDeleteOutcome = "applied" | "rejected" | "noop";
 
-export type ConfirmDeleteButtonProps = Readonly<{
+type ConfirmDeleteButtonProps = Readonly<{
   label: string;
   confirmLabel?: string;
   ariaLabel: string;

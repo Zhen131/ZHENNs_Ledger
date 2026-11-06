@@ -3,19 +3,19 @@ import Decimal from "decimal.js";
 import type { DecimalString } from "@/core/models";
 import { formatDecimal, toDecimal } from "@/core/shared";
 
-export type LedgerNumberFormat = {
+type LedgerNumberFormat = {
   significantDigits: number;
   fixedDecimalsWhenAtLeastOne: number | null;
   maxDecimals: number;
 };
 
-export const MONEY_FORMAT = {
+const MONEY_FORMAT = {
   significantDigits: 6,
   fixedDecimalsWhenAtLeastOne: 2,
   maxDecimals: 12,
 } as const satisfies LedgerNumberFormat;
 
-export const QUANTITY_FORMAT = {
+const QUANTITY_FORMAT = {
   significantDigits: 8,
   fixedDecimalsWhenAtLeastOne: null,
   maxDecimals: 12,

@@ -31,7 +31,7 @@ export type LedgerLanguage = (typeof LEDGER_LANGUAGES)[number];
  * select at all (04A D-3). Putting it back is one entry in this list.
  */
 export const SELECTABLE_LEDGER_LANGUAGES = ["zh-CN", "en"] as const;
-export type SelectableLedgerLanguage =
+type SelectableLedgerLanguage =
   (typeof SELECTABLE_LEDGER_LANGUAGES)[number];
 
 export const DEFAULT_LEDGER_LANGUAGE: LedgerLanguage = "zh-CN";

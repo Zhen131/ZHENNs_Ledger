@@ -32,7 +32,7 @@ import {
 } from "@/test-support";
 import { createDeferred, type Deferred } from "@/test-support";
 
-export const PASSPHRASE = "correct horse battery staple";
+const PASSPHRASE = "correct horse battery staple";
 export const FIXED_CLOCK: LedgerClock = {
   now: () => new Date("2026-07-31T12:00:00.000Z"),
 };
@@ -169,7 +169,7 @@ export class ImportLedgerHandle implements LedgerFileHandle {
   }
 }
 
-export function createLease(sessionId: string): LedgerFileSessionLease {
+function createLease(sessionId: string): LedgerFileSessionLease {
   return {
     sessionId,
     runExclusiveWrite: (operation) => operation(),
@@ -177,7 +177,7 @@ export function createLease(sessionId: string): LedgerFileSessionLease {
   };
 }
 
-export function createIdGenerator(ids: string[]) {
+function createIdGenerator(ids: string[]) {
   return vi.fn(() => {
     const id = ids.shift();
     if (!id) {

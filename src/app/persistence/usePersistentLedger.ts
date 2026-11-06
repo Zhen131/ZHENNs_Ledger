@@ -87,8 +87,6 @@ import {
 
 export type {
   ApplyLedgerActionResult,
-  ClearLedgerResult,
-  ImportLedgerResult,
   LedgerSessionFatalSignal,
   PersistenceOperation,
   PersistenceStatus,

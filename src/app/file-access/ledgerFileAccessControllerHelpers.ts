@@ -139,7 +139,7 @@ export function mapSelectionError(error: unknown): LedgerFileAccessErrorCode {
   return LEDGER_FILE_ACCESS_ERROR_CODES.INVALID_FILE;
 }
 
-export function hasLedgerFileContractError(
+function hasLedgerFileContractError(
   cause: unknown,
   code: string,
 ): boolean {

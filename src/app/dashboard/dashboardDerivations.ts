@@ -29,7 +29,7 @@ export type DashboardDerivations = Readonly<{
   heatmap: ReturnType<typeof buildTradeHeatmap>;
 }>;
 
-export type DashboardDerivationUpdate = Readonly<{
+type DashboardDerivationUpdate = Readonly<{
   values: DashboardDerivations;
   mode: "incremental" | "full-fallback";
   appended?: AppendedLedgerFact;
@@ -44,7 +44,7 @@ export type DashboardDerivationCache = Readonly<{
   generation: number;
 }>;
 
-export type DashboardDerivationCacheResolution = Readonly<{
+type DashboardDerivationCacheResolution = Readonly<{
   cache: DashboardDerivationCache;
   values: DashboardDerivations;
   mode:

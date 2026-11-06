@@ -33,11 +33,11 @@ import {
 import type { LedgerClock } from "@/core/shared";
 import { DashboardShell as DashboardShellRuntime } from "./DashboardShell";
 
-export const fixedClock: LedgerClock = {
+const fixedClock: LedgerClock = {
   now: () => new Date("2026-07-25T12:00:00"),
 };
 
-export function createAsset(
+function createAsset(
   ...args: Parameters<typeof createUsdAssetFixture>
 ): ReturnType<typeof createUsdAssetFixture> {
   return { ...createUsdAssetFixture(...args), quoteCurrency: "USDT" };

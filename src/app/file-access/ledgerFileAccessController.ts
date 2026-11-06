@@ -53,9 +53,6 @@ import {
 export type {
   LedgerFileAccessController,
   LedgerFileAccessErrorCode,
-  LedgerFileAccessSessionResult,
-  LedgerFileReconnectResult,
-  LedgerFileSelectionResult,
 } from "./ledgerFileAccessControllerTypes";
 export {
   LEDGER_FILE_ACCESS_ERROR_CODES,
