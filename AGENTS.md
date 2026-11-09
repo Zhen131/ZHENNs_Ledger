@@ -16,6 +16,13 @@
 - Keep historical commit messages unchanged. Do not rewrite Git history for translation.
 - The outer planning and log repository remains Chinese-first and follows its own rules.
 
+## Comments
+
+- Source comments are written in plain Chinese with English terms, following the owner's rule "大白话的注释" (kept in the outer log repository, `9999_tool/00-大白话的注释.md`). Every non-test source file starts with a file header; every exported declaration carries a JSDoc block; test files carry none.
+- A comment states what a function answers and why a rule was chosen, with the decision date. Where the reason is unknown the comment says so in Chinese ("这是猜的，要核"); never invent a reason.
+- Guards in `src/checks/__tests__/` enforce coverage (`commentCoverage`), code-line limits that ignore comments (`sourceFileLength`), and README-to-directory agreement (`sourceReadme`). `npm run check:comments-only -- <base-commit>` proves that a change touched comments only.
+- Comments must never change behavior: keep them on their own lines, add no `{/* */}` inside JSX, and add no directive comments such as `@ts-ignore` or file-wide `eslint-disable`.
+
 ## Repository boundary
 
 - Treat this directory as an independent source-code Git repository.
