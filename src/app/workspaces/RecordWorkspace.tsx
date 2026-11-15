@@ -218,6 +218,8 @@ export function RecordWorkspace({
     onDraftStatusChange(false);
     // 为什么依赖只写 `ledgerEpoch`：只有换了一本账本，才清草稿。
     // 2026-08-29 提交 96ec640 写下这个理由。
+    // 照 lint 补上 todayKey 等依赖，换了一天草稿也会被清掉。
+    // 所以保留下面这条抑制。
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换了一本账本时清草稿，别的值变了不清
   }, [ledgerEpoch]);
 

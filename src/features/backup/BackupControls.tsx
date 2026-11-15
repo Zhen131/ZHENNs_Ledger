@@ -175,6 +175,9 @@ export function BackupControls({
     // 正在进行的那次配对记在 ref 里，不需要列进依赖。
     // 为什么只看存盘：映射真存上后才去取价格；2026-08-19 定（W14 01B 第 5.3 节）。
     // 函数不列进依赖这一点，日志里没写，这是猜的，要核。
+    // 照 lint 补上 t 和三个函数，这段每次重画都会重跑。
+    // 重跑会不会多推一次配对，没查清，这是猜的，要核。
+    // 所以先保留下面这条抑制。
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在存盘结果变化时推动配对，理由部分是猜的，见上方
   }, [mutationVersion, persistedVersion, persistenceStatus]);
 

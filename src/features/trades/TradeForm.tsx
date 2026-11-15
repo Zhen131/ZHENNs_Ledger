@@ -172,6 +172,8 @@ export function TradeForm({
     // 只有换了一本账本，才清空表单的状态。
     // 原句 2026-08-13 提交 aa0e022 写的，日志里没写理由。
     // 这是猜的，要核。
+    // 照 lint 补上 ledgerData 等依赖，每存一笔都会清掉「已保存」提示。
+    // 所以保留下面这条抑制。
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换账本时清空，理由是猜的，见上方
   }, [ledgerEpoch]);
 

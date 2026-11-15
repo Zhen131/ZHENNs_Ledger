@@ -380,6 +380,8 @@ export function usePersistentLedger(
       acceptingOperationsRef.current = false;
       // 为什么读 `.current` 而不是挂载时那个：要停掉的是此刻正在跑的导入。
       // 2026-09-02 提交 41630e6 写下这个理由。
+      // 照 lint 在挂载时把它抄进变量，卸载时停的就是挂载时那个。
+      // 那个通常是空的，此刻在跑的导入反而停不掉，所以保留抑制。
       // eslint-disable-next-line react-hooks/exhaustive-deps -- 卸载时要取消此刻那次导入，不是挂载时的
       importAbortControllerRef.current?.abort();
       generationRef.current += 1;
