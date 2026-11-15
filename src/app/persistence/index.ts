@@ -5,5 +5,5 @@ export type {
   PersistenceOperation,
   PersistenceStatus,
   PersistentLedgerState,
-} from "./usePersistentLedger";
+} from "./usePersistentLedgerTypes";
 export { usePersistentLedger } from "./usePersistentLedger";

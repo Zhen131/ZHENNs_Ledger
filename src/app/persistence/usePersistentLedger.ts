@@ -31,6 +31,7 @@ import {
   type SessionQuiesceToken,
 } from "@/platform/persistence";
 import { createInitialLedgerData } from "@/core/state";
+import { useLanguage, type TranslationKey } from "@/ui";
 import type { HydrationStatus } from "./hydrationState";
 import {
   ledgerReducer,
@@ -92,20 +93,13 @@ import {
   runLeaveWarningEffect,
 } from "./usePersistentLedgerBrowserEffects";
 
-export type {
-  ApplyLedgerActionResult,
-  LedgerSessionFatalSignal,
-  PersistenceOperation,
-  PersistenceStatus,
-  PersistentLedgerState,
-} from "./usePersistentLedgerTypes";
-
 /**
  * 这个 hook 管一本账从打开到关掉的全部存取。
  * 它先把账本从仓库读进来，读好之前页面不能改账。
  * 读好后，每次改账都排进存盘队。
  * 它返回一整包：当前账本，改账入口，存盘状态，清空和导入。
  * 读失败、存失败都不抛错，放在返回的状态和提示文字里。
+ * 提示文字和兼容提醒按当前界面语言给。
  * 传了会话时，存盘走会话给的通道；通道没接上就去存，会抛错。
  */
 export function usePersistentLedger(
@@ -122,7 +116,11 @@ export function usePersistentLedger(
   );
   const [hydrationStatus, setHydrationStatus] =
     useState<HydrationStatus>("loading");
-  const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  // 为什么提示存翻译键、返回时才翻：用户换语言后，已经显示的提示也跟着换。
+  // `t` 只进兼容提醒、导入回调和返回值，不进任何 effect，免得换语言就重读账本。
+  // 2026-11-15 定（W26 04B 第三节第 1 条第 1 点、复审后修订第 5 条）。
+  const { t } = useLanguage();
+  const [persistenceErrorKey, setPersistenceError] = useState<TranslationKey | null>(null);
   const [resourcePolicyError, setResourcePolicyError] =
     useState<LedgerResourcePolicyError | null>(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -293,8 +291,8 @@ export function usePersistentLedger(
     renderTimeSnapshot.now,
   );
   const compatibilityWarnings = useMemo(
-    () => collectLedgerCompatibilityWarnings(ledgerData, todayKey),
-    [ledgerData, todayKey],
+    () => collectLedgerCompatibilityWarnings(ledgerData, todayKey, t),
+    [ledgerData, todayKey, t],
   );
   const factPartition = useMemo(
     () => partitionLedgerFactsForToday(ledgerData, todayKey),
@@ -668,7 +666,7 @@ export function usePersistentLedger(
   );
 
   const stopForImportRecoveryFatal = useCallback(
-    (message: string): void =>
+    (message: TranslationKey): void =>
       doStopForImportRecoveryFatal(
         {
           acceptingOperationsRef,
@@ -741,6 +739,7 @@ export function usePersistentLedger(
           setPersistenceOperation,
           setResourcePolicyError,
           stopForImportRecoveryFatal,
+          t,
           trackSessionAcceptedWork,
           writeQueueRef,
         },
@@ -757,6 +756,7 @@ export function usePersistentLedger(
       hydrationStatus,
       publishPersistenceVersionState,
       stopForImportRecoveryFatal,
+      t,
       trackSessionAcceptedWork,
     ],
   );
@@ -791,7 +791,7 @@ export function usePersistentLedger(
     applyLedgerAction,
     applyLedgerMutation,
     hydrationStatus,
-    persistenceError,
+    persistenceError: persistenceErrorKey === null ? null : t(persistenceErrorKey),
     resourcePolicyError,
     isReadOnly,
     retryPersistence,

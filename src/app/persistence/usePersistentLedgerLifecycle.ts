@@ -14,7 +14,7 @@ import {
   type SessionQuiesceRequest,
   type SessionQuiesceToken,
 } from "@/platform/persistence";
-import { translateDefault } from "@/ui";
+import type { TranslationKey } from "@/ui";
 import type { HydrationStatus } from "./hydrationState";
 import type {
   ClearLedgerResult,
@@ -56,7 +56,7 @@ type StopForImportRecoveryFatalDeps = {
   sessionFatalSignalRef: { current: LedgerSessionFatalSignal | null };
   setIsReadOnly: (nextValue: boolean) => void;
   setLifecycleStatus: (nextValue: "quiescing") => void;
-  setPersistenceError: (nextValue: string) => void;
+  setPersistenceError: (nextValue: TranslationKey) => void;
   setSessionFatalSignal: (nextValue: LedgerSessionFatalSignal) => void;
 };
 
@@ -64,11 +64,12 @@ type StopForImportRecoveryFatalDeps = {
  * 这个函数在导入后没法恢复时锁住这本账。
  * 它停止接新活，改成只读，取消正在跑的导入，并发出致命信号。
  * 页面看到信号就换成出错面板，再交给外层去锁账本。
+ * `message` 是提示的翻译键，显示时再按当前语言翻。
  * 只对账本文件会话起作用；同一个会话只发一次。不抛错。
  */
 export function doStopForImportRecoveryFatal(
   deps: StopForImportRecoveryFatalDeps,
-  message: string,
+  message: TranslationKey,
 ): void {
   const {
     acceptingOperationsRef,
@@ -385,7 +386,7 @@ type RunHydrationEffectDeps = {
   setHydrationStatus: (nextValue: HydrationStatus) => void;
   setIsReadOnly: (nextValue: boolean) => void;
   setLifecycleStatus: (nextValue: "active") => void;
-  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceError: (nextValue: TranslationKey | null) => void;
   setPersistenceOperation: (nextValue: PersistenceOperation) => void;
   setResourcePolicyError: (
     nextValue: LedgerResourcePolicyError | null,
@@ -526,9 +527,7 @@ export function runHydrationEffect(
         pendingHydrationRef.current = null;
         hydratedRepositoryRef.current = null;
         hydrationErrorRepositoryRef.current = activeRepository;
-        setPersistenceError(
-          translateDefault("persistence.readFailed"),
-        );
+        setPersistenceError("persistence.readFailed");
         setHydrationStatus("error");
       }
     }
@@ -590,7 +589,7 @@ type ClearLedgerDeps = {
   setHydrationStatus: (nextValue: HydrationStatus) => void;
   setIsReadOnly: (nextValue: boolean) => void;
   setLedgerEpoch: (nextValue: (current: number) => number) => void;
-  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceError: (nextValue: TranslationKey | null) => void;
   setPersistenceOperation: (nextValue: PersistenceOperation) => void;
   trackSessionAcceptedWork: (
     session: LedgerSession | undefined,
@@ -730,14 +729,12 @@ export function doClearLedger(
               ) {
                 setPersistenceError(
                   readyClearAttempted
-                    ? translateDefault("persistence.clearResultUnconfirmed")
-                    : translateDefault("persistence.clearAuthorizationFailed"),
+                    ? "persistence.clearResultUnconfirmed"
+                    : "persistence.clearAuthorizationFailed",
                 );
               }
             } else {
-              setPersistenceError(
-                translateDefault("persistence.clearFailed"),
-              );
+              setPersistenceError("persistence.clearFailed");
             }
           }
 

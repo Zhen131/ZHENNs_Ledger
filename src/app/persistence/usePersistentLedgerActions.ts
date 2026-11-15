@@ -22,6 +22,7 @@ import {
   type LedgerSession,
   type LedgerRepository,
 } from "@/platform/persistence";
+import type { TranslationKey } from "@/ui";
 import type { HydrationStatus } from "./hydrationState";
 import {
   type ApplyLedgerActionResult,
@@ -56,7 +57,7 @@ type ApplyLedgerMutationDeps = {
     scheduledSession: LedgerSession | undefined,
   ) => void;
   retryAttemptRef: { current: RetryAttempt | null };
-  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceError: (nextValue: TranslationKey | null) => void;
   setResourcePolicyError: (
     nextValue: LedgerResourcePolicyError | null,
   ) => void;
@@ -173,7 +174,7 @@ type ApplyLedgerActionDeps = {
     action?: LedgerAction,
   ) => void;
   retryAttemptRef: { current: RetryAttempt | null };
-  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceError: (nextValue: TranslationKey | null) => void;
   setResourcePolicyError: (
     nextValue: LedgerResourcePolicyError | null,
   ) => void;

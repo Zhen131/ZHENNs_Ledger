@@ -15,7 +15,7 @@ import {
   LedgerFileRepositoryError,
 } from "@/platform/files";
 import type { LedgerAction } from "@/core/state";
-import { translateDefault } from "@/ui";
+import type { TranslationKey } from "@/ui";
 import type { HydrationStatus } from "./hydrationState";
 import type {
   PersistenceAttemptResult,
@@ -118,7 +118,7 @@ type RetryPersistenceDeps = {
   publishPersistenceVersionState: (nextState: PersistenceVersionState) => void;
   readOnlyRef: { current: boolean };
   retryAttemptRef: { current: RetryAttempt | null };
-  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceError: (nextValue: TranslationKey | null) => void;
 };
 
 /**
@@ -356,7 +356,7 @@ type EnqueuePersistenceDeps = {
   mountedRef: { current: boolean };
   persistenceVersionStateRef: { current: PersistenceVersionState };
   publishPersistenceVersionState: (nextState: PersistenceVersionState) => void;
-  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceError: (nextValue: TranslationKey | null) => void;
   trackSessionAcceptedWork: (
     session: LedgerSession | undefined,
     work: PromiseLike<unknown>,
@@ -525,8 +525,8 @@ export function doEnqueuePersistence(
           ) {
             setPersistenceError(
               requiresReopen
-                ? translateDefault("persistence.externalChange")
-                : translateDefault("persistence.saveFailed"),
+                ? "persistence.externalChange"
+                : "persistence.saveFailed",
             );
           }
 

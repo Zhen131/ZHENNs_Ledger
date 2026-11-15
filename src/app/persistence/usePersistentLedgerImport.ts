@@ -27,7 +27,7 @@ import {
   LEDGER_FILE_REPOSITORY_ERROR_CODES,
   LedgerFileRepositoryError,
 } from "@/platform/files";
-import { translateDefault } from "@/ui";
+import type { Translate, TranslationKey } from "@/ui";
 import type { HydrationStatus } from "./hydrationState";
 import type {
   ImportLedgerResult,
@@ -74,10 +74,11 @@ type ReplaceLedgerFromBackupDeps = {
   setHydrationStatus: (nextValue: HydrationStatus) => void;
   setIsReadOnly: (nextValue: boolean) => void;
   setLedgerEpoch: (nextValue: (current: number) => number) => void;
-  setPersistenceError: (nextValue: string | null) => void;
+  setPersistenceError: (nextValue: TranslationKey | null) => void;
   setPersistenceOperation: (nextValue: PersistenceOperation) => void;
   setResourcePolicyError: (nextValue: LedgerResourcePolicyError | null) => void;
-  stopForImportRecoveryFatal: (message: string) => void;
+  stopForImportRecoveryFatal: (message: TranslationKey) => void;
+  t: Translate;
   trackSessionAcceptedWork: (
     session: LedgerSession | undefined,
     work: PromiseLike<unknown>,
@@ -89,6 +90,7 @@ type ReplaceLedgerFromBackupDeps = {
  * 这个函数回答：用这份备份换掉当前账本，成没成？
  * 先查：允不允许导入，账本状态干不干净，备份合不合格。
  * 合格还要过导入规矩，比如不许有未来日期的记录。
+ * 导入规矩的报错用依赖里的 `t` 写，就是导入那一刻的界面语言。
  * 账本文件要拿着预检凭证，交给会话的导入通道去写。
  * 举例：一份 5 笔交易的合格备份 → 答 `ok: true`，页面换成这本账。
  * 失败不抛错，返回 `ok: false` 和代码。
@@ -138,6 +140,7 @@ export function doReplaceLedgerFromBackup(
     setPersistenceOperation,
     setResourcePolicyError,
     stopForImportRecoveryFatal,
+    t,
     trackSessionAcceptedWork,
     writeQueueRef,
   } = deps;
@@ -225,6 +228,7 @@ export function doReplaceLedgerFromBackup(
       const importPolicy = validateLedgerImportPolicy(
         ledgerResult.value,
         timeSnapshot?.todayKey ?? captureLedgerTime(clock).todayKey,
+        t,
       );
       if (!importPolicy.ok) {
         return Promise.resolve({
@@ -343,9 +347,7 @@ export function doReplaceLedgerFromBackup(
               error.code ===
                 LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_RECOVERY_BLOCKED
             ) {
-              stopForImportRecoveryFatal(
-                translateDefault("persistence.importRecoveryBlocked"),
-              );
+              stopForImportRecoveryFatal("persistence.importRecoveryBlocked");
               return {
                 ok: false,
                 code: "LEDGER_IMPORT_RECOVERY_BLOCKED",
@@ -357,9 +359,7 @@ export function doReplaceLedgerFromBackup(
                 LEDGER_FILE_REPOSITORY_ERROR_CODES.IMPORT_FAILED_BASE_RESTORED
             ) {
               if (mountedRef.current) {
-                setPersistenceError(
-                  translateDefault("persistence.importBaseRestored"),
-                );
+                setPersistenceError("persistence.importBaseRestored");
               }
               return {
                 ok: false,
@@ -384,9 +384,7 @@ export function doReplaceLedgerFromBackup(
                 LEDGER_FILE_REPOSITORY_ERROR_CODES.EXTERNAL_CHANGE
             ) {
               if (mountedRef.current) {
-                setPersistenceError(
-                  translateDefault("persistence.importExternalChange"),
-                );
+                setPersistenceError("persistence.importExternalChange");
               }
               return {
                 ok: false,
@@ -400,9 +398,7 @@ export function doReplaceLedgerFromBackup(
               };
             }
             if (mountedRef.current) {
-              setPersistenceError(
-                translateDefault("persistence.importWriteFailed"),
-              );
+              setPersistenceError("persistence.importWriteFailed");
             }
             return {
               ok: false,
@@ -424,9 +420,7 @@ export function doReplaceLedgerFromBackup(
         if (
           JSON.stringify(verifiedLedger) !== serializedCandidate
         ) {
-          stopForImportRecoveryFatal(
-            translateDefault("persistence.importCandidateMismatch"),
-          );
+          stopForImportRecoveryFatal("persistence.importCandidateMismatch");
           return {
             ok: false,
             code: "LEDGER_IMPORT_RECOVERY_BLOCKED",
