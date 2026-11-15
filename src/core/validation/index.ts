@@ -14,6 +14,7 @@ export {
   evaluateLedgerResourcePolicy,
   evaluateLedgerResourcePolicyAfterTradeAppend,
 } from "./resourcePolicy";
+export { describeLedgerResourcePolicyError } from "./resourcePolicyMessage";
 export { isValidISODateOrDateTime } from "./isoDateValidator";
 export { isTechnicalId } from "./technicalId";
 

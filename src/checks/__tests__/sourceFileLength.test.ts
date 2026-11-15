@@ -23,7 +23,6 @@ const OVER_LIMIT_ALLOWLIST: readonly { file: string; codeLines: number }[] = [
   { file: "app/workspaces/transactionsWorkspaceDeletion.ts", codeLines: 401 },
   { file: "core/calculations/positionReplay.ts", codeLines: 435 },
   { file: "core/validation/__tests__/tradeValidator.test.ts", codeLines: 668 },
-  { file: "core/validation/resourcePolicy.ts", codeLines: 406 },
   { file: "features/asset-transfers/assetTransferService.ts", codeLines: 431 },
   { file: "features/backup/BackupControls.tsx", codeLines: 593 },
   { file: "features/backup/__tests__/BackupControls.test.tsx", codeLines: 1582 },

@@ -7,7 +7,7 @@
  */
 
 import type { LedgerData, Trade } from "@/core/models";
-import { translateDefault } from "@/ui";
+import { describeLedgerResourcePolicyError } from "./resourcePolicyMessage";
 
 /**
  * 账本的默认上限。文件 128 MiB，买卖、现金、转移各 25 万条。
@@ -464,15 +464,6 @@ function createError(
   limit: number,
   actual: number,
 ): LedgerResourcePolicyError {
-  const label =
-    code === LEDGER_RESOURCE_POLICY_ERROR_CODES.FILE_TOO_LARGE
-      ? translateDefault("policy.resource.ledgerFileLabel")
-      : path;
-  return {
-    code,
-    path,
-    limit,
-    actual,
-    message: `${label}${translateDefault("policy.resource.overLimitMiddle")}${actual} > ${limit}${translateDefault("policy.resource.overLimitSuffix")}`,
-  };
+  const message = describeLedgerResourcePolicyError({ code, path, limit, actual });
+  return { code, path, limit, actual, message };
 }

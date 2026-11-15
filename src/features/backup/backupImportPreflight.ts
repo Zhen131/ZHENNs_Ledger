@@ -10,7 +10,7 @@ import {
   evaluateLedgerJsonResourcePolicy,
   evaluateLedgerResourcePolicy,
 } from "@/core/validation";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 import {
   collectValidLedgerTradeProjections,
   validateLedgerData,
@@ -79,6 +79,8 @@ type BackupImportPreflightOptions = Readonly<{
    * 这条 2026-07-31 定（W11 03A 第 4.3 节第 5 条）。
    */
   requireHistoricalRawText?: boolean;
+  /** 查句子用的函数；不传时用中文。页面上要传当前界面语言的 `t`。 */
+  t?: Translate;
 }>;
 
 /**
@@ -88,6 +90,7 @@ type BackupImportPreflightOptions = Readonly<{
  * 前一步做不了时，后面的检查记成「没做」，不算通过。
  * 举例：BTC 一笔数量写错、ETH 两笔疑似重复。
  * → 答一条硬错误、一组疑似重复，不给可导入的账本。
+ * 说明文字用 `options.t` 查；不传时用中文。
  * 零硬错误时，结果里带一份冻住的账本。
  * 同时记下底账，供后面核对。
  * 为什么问题要一次报齐：免得改一处查一次；2026-07-31 定（W11 03A 第 4.3 节）。
@@ -97,6 +100,7 @@ export async function preflightBackupJson(
   serializedBackup: string,
   options: BackupImportPreflightOptions,
 ): Promise<BackupImportPreflightResult> {
+  const { t = translateDefault } = options;
   const encoded = new TextEncoder().encode(serializedBackup);
   const contentSha256 = await digestSha256Hex(encoded);
   const contentIdentity: BackupContentIdentity = {
@@ -109,20 +113,21 @@ export async function preflightBackupJson(
 
   if (!bytePolicy.ok) {
     skippedChecks.push(
-      skipped("json-parse", translateDefault("backup.preflight.fileTooLarge")),
-      skipped("backup-envelope", translateDefault("backup.preflight.jsonNotParsed")),
-      skipped("ledger-structure", translateDefault("backup.preflight.jsonNotParsed")),
-      skipped("resource-policy", translateDefault("backup.preflight.jsonNotParsed")),
-      skipped("import-policy", translateDefault("backup.preflight.jsonNotParsed")),
-      skipped("duplicate-grouping", translateDefault("backup.preflight.jsonNotParsed")),
+      skipped("json-parse", t("backup.preflight.fileTooLarge")),
+      skipped("backup-envelope", t("backup.preflight.jsonNotParsed")),
+      skipped("ledger-structure", t("backup.preflight.jsonNotParsed")),
+      skipped("resource-policy", t("backup.preflight.jsonNotParsed")),
+      skipped("import-policy", t("backup.preflight.jsonNotParsed")),
+      skipped("duplicate-grouping", t("backup.preflight.jsonNotParsed")),
     );
     return finalizeResult({
+      t,
       contentIdentity,
       selectionGeneration: options.selectionGeneration,
       requireHistoricalRawText:
         options.requireHistoricalRawText ?? false,
       hardErrors: bytePolicy.errors.map((error) =>
-        normalizeEnvelopeError(error, undefined),
+        normalizeEnvelopeError(error, undefined, t),
       ),
       suspiciousGroups: [],
       skippedChecks,
@@ -137,13 +142,14 @@ export async function preflightBackupJson(
   } catch (error) {
     const location = extractJsonErrorLocation(error, serializedBackup);
     skippedChecks.push(
-      skipped("backup-envelope", translateDefault("backup.preflight.jsonSyntaxError")),
-      skipped("ledger-structure", translateDefault("backup.preflight.jsonSyntaxError")),
-      skipped("resource-policy", translateDefault("backup.preflight.jsonSyntaxError")),
-      skipped("import-policy", translateDefault("backup.preflight.jsonSyntaxError")),
-      skipped("duplicate-grouping", translateDefault("backup.preflight.jsonSyntaxError")),
+      skipped("backup-envelope", t("backup.preflight.jsonSyntaxError")),
+      skipped("ledger-structure", t("backup.preflight.jsonSyntaxError")),
+      skipped("resource-policy", t("backup.preflight.jsonSyntaxError")),
+      skipped("import-policy", t("backup.preflight.jsonSyntaxError")),
+      skipped("duplicate-grouping", t("backup.preflight.jsonSyntaxError")),
     );
     return finalizeResult({
+      t,
       contentIdentity,
       selectionGeneration: options.selectionGeneration,
       requireHistoricalRawText:
@@ -156,12 +162,12 @@ export async function preflightBackupJson(
           path: "file",
           message:
             location.line === undefined
-              ? translateDefault("backup.preflight.jsonLocationUnavailable")
-              : translateDefault("backup.preflight.jsonLocationPrefix") +
+              ? t("backup.preflight.jsonLocationUnavailable")
+              : t("backup.preflight.jsonLocationPrefix") +
                 location.line +
-                translateDefault("backup.preflight.jsonLocationMiddle") +
+                t("backup.preflight.jsonLocationMiddle") +
                 location.column +
-                translateDefault("backup.preflight.jsonLocationSuffix"),
+                t("backup.preflight.jsonLocationSuffix"),
           ...location,
         },
       ],
@@ -176,29 +182,30 @@ export async function preflightBackupJson(
     isRecord(parsed) &&
     typeof parsed.backupFormatVersion === "number" &&
     parsed.backupFormatVersion < 3
-      ? translateDefault("backup.preflight.formatVersionPrefix") +
+      ? t("backup.preflight.formatVersionPrefix") +
         parsed.backupFormatVersion
       : isRecord(parsed) &&
           parsed.backupFormatVersion === 3 &&
           typeof parsed.ledgerSchemaVersion === "number" &&
           parsed.ledgerSchemaVersion < 5
-        ? translateDefault("backup.preflight.schemaVersionPrefix") +
+        ? t("backup.preflight.schemaVersionPrefix") +
           parsed.ledgerSchemaVersion
         : null;
   if (retiredBackupBoundary !== null && isRecord(parsed)) {
-    const versionResult = validateBackupEnvelope(parsed, options.todayKey);
+    const versionResult = validateBackupEnvelope(parsed, options.todayKey, t);
     const versionErrors = versionResult.ok
       ? []
       : versionResult.errors.map((error) =>
-          normalizeEnvelopeError(error, undefined),
+          normalizeEnvelopeError(error, undefined, t),
         );
     skippedChecks.push(
-      skipped("ledger-structure", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
-      skipped("resource-policy", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
-      skipped("import-policy", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
-      skipped("duplicate-grouping", retiredBackupBoundary + translateDefault("backup.preflight.versionStageStoppedSuffix")),
+      skipped("ledger-structure", retiredBackupBoundary + t("backup.preflight.versionStageStoppedSuffix")),
+      skipped("resource-policy", retiredBackupBoundary + t("backup.preflight.versionStageStoppedSuffix")),
+      skipped("import-policy", retiredBackupBoundary + t("backup.preflight.versionStageStoppedSuffix")),
+      skipped("duplicate-grouping", retiredBackupBoundary + t("backup.preflight.versionStageStoppedSuffix")),
     );
     return finalizeResult({
+      t,
       contentIdentity,
       selectionGeneration: options.selectionGeneration,
       requireHistoricalRawText: false,
@@ -210,7 +217,7 @@ export async function preflightBackupJson(
     });
   }
 
-  const envelopeResult = validateBackupEnvelope(parsed, options.todayKey);
+  const envelopeResult = validateBackupEnvelope(parsed, options.todayKey, t);
   const ledgerInput = getLedgerDataInput(parsed);
   const ledgerResult = validateLedgerData(ledgerInput);
   const summaryLedger = ledgerResult.ok ? ledgerResult.value : undefined;
@@ -219,16 +226,16 @@ export async function preflightBackupJson(
     options.sourceFileName,
     summaryLedger,
   );
-  const warnings = collectWarnings(summaryLedger);
+  const warnings = collectWarnings(summaryLedger, t);
   const hardErrors: BackupPreflightHardError[] = !envelopeResult.ok
     ? envelopeResult.errors.map((error) =>
-        normalizeEnvelopeError(error, parsed),
+        normalizeEnvelopeError(error, parsed, t),
       )
     : [];
 
   const rawTextInvalidIndexes = new Set<number>();
   if (options.requireHistoricalRawText ?? false) {
-    for (const error of collectHistoricalRawTextErrors(parsed)) {
+    for (const error of collectHistoricalRawTextErrors(parsed, t)) {
       hardErrors.push(error);
       const index = getTradeIndex(error.path);
       if (index !== undefined) {
@@ -237,18 +244,18 @@ export async function preflightBackupJson(
     }
   }
 
-  hardErrors.push(...collectDuplicateTradeIdErrors(parsed, hardErrors));
+  hardErrors.push(...collectDuplicateTradeIdErrors(parsed, hardErrors, t));
   const duplicateTradeIdIndexes = collectDuplicateTradeIdIndexes(parsed);
 
   if (!ledgerResult.ok) {
     skippedChecks.push(
       skipped(
         "resource-policy",
-        translateDefault("backup.preflight.ledgerStructureIncomplete"),
+        t("backup.preflight.ledgerStructureIncomplete"),
       ),
       skipped(
         "import-policy",
-        translateDefault("backup.preflight.importStructureIncomplete"),
+        t("backup.preflight.importStructureIncomplete"),
       ),
     );
   } else {
@@ -272,7 +279,7 @@ export async function preflightBackupJson(
     skippedChecks.push(
       skipped(
         "duplicate-grouping",
-        translateDefault("backup.preflight.tradesUnreadable"),
+        t("backup.preflight.tradesUnreadable"),
       ),
     );
   }
@@ -288,6 +295,7 @@ export async function preflightBackupJson(
       : undefined;
 
   return finalizeResult({
+    t,
     contentIdentity,
     selectionGeneration: options.selectionGeneration,
     requireHistoricalRawText:
@@ -313,11 +321,13 @@ type FinalizeInput = Readonly<{
   metadata?: BackupPreflightMetadata;
   parsed?: unknown;
   candidate?: Readonly<LedgerData>;
+  t: Translate;
 }>;
 
 async function finalizeResult(
   input: FinalizeInput,
 ): Promise<BackupImportPreflightResult> {
+  const { t } = input;
   const sortedHardErrors = [...input.hardErrors].sort(compareHardErrors);
   const suspiciousDetails = input.suspiciousGroups.map((group) => ({
     kind: "suspicious-group" as const,
@@ -326,7 +336,7 @@ async function finalizeResult(
       createTradeSummary(input.parsed, index),
     ),
     message:
-      translateDefault("backup.preflight.suspiciousNoMutation"),
+      t("backup.preflight.suspiciousNoMutation"),
   }));
   const allDetails: BackupPreflightDetail[] = [
     ...sortedHardErrors,

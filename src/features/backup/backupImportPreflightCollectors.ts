@@ -7,7 +7,8 @@
 import type { LedgerData } from "@/core/models";
 import { replayUsdtCash } from "@/core/calculations";
 import { absolute, isNegative } from "@/core/shared";
-import { translateDefault } from "@/ui";
+import { describeLedgerResourcePolicyError } from "@/core/validation";
+import { translateDefault, type Translate } from "@/ui";
 import { type BackupEnvelopeError } from "./backupEnvelope";
 import { listAssetsMissingBinanceMapping } from "@/features/market-data";
 import type {
@@ -22,11 +23,13 @@ import type {
  * 这个函数把一条检查错误变成报告里的一条硬错误。
  * 它补上检查阶段和说明；出错的是某笔交易时，再补上交易简样。
  * 举例：`trades[3].quantity` 出错 → 答第 4 阶段的一条，带第 3 笔的简样。
+ * 说明文字用 `t` 查；不传时用中文。
  * 不会出错。
  */
 export function normalizeEnvelopeError(
   error: BackupEnvelopeError,
   parsed: unknown,
+  t: Translate = translateDefault,
 ): BackupPreflightHardError {
   const summary =
     error.path.startsWith("trades[")
@@ -38,7 +41,7 @@ export function normalizeEnvelopeError(
     stage: getValidationStage(error.code),
     code: error.code,
     path: error.path,
-    message: toChineseErrorMessage(error),
+    message: toLocalizedErrorMessage(error, t),
     ...(summary === undefined ? {} : { summary }),
     ...("limit" in error ? { limit: error.limit, actual: error.actual } : {}),
   };
@@ -59,45 +62,50 @@ function getValidationStage(code: string): number {
   return 8;
 }
 
-function toChineseErrorMessage(error: BackupEnvelopeError): string {
+function toLocalizedErrorMessage(error: BackupEnvelopeError, t: Translate): string {
   if (error.code.startsWith("LEDGER_RESOURCE_")) {
-    return error.message;
+    return "limit" in error ? describeLedgerResourcePolicyError(error, t) : error.message;
   }
   if (error.code.startsWith("LEDGER_IMPORT_")) {
-    return translateDefault("backup.preflight.importPolicyPrefix") + error.message;
+    return t("backup.preflight.importPolicyPrefix") + error.message;
   }
   if (error.code.startsWith("LEDGER_DATA_")) {
-    return translateDefault("backup.preflight.ledgerStructurePrefix") + error.message;
+    return t("backup.preflight.ledgerStructurePrefix") + error.message;
   }
+  // 为什么这里的 `t` 要和造报错时同一个：英文报错以英文后缀结尾。
+  // 用别的语言比后缀会对不上，报错会被包成另一句。
+  // 2026-11-15 定（W26 04B 第三节第 1 条）。
   if (
     (error.code === "BACKUP_UNSUPPORTED_FORMAT_VERSION" ||
       error.code === "BACKUP_SCHEMA_VERSION_MISMATCH") &&
     error.message.endsWith(
-      translateDefault("backup.preflight.noMigrationSuffix"),
+      t("backup.preflight.noMigrationSuffix"),
     )
   ) {
     return error.message;
   }
 
   const labels: Partial<Record<BackupEnvelopeError["code"], string>> = {
-    BACKUP_BAD_JSON: translateDefault("backup.preflight.invalidJson"),
-    BACKUP_INVALID_ENVELOPE: translateDefault("backup.preflight.invalidEnvelope"),
-    BACKUP_UNSUPPORTED_FORMAT_VERSION: translateDefault("backup.preflight.unsupportedVersion"),
-    BACKUP_INVALID_APP_VERSION: translateDefault("backup.preflight.invalidAppVersion"),
-    BACKUP_INVALID_EXPORTED_AT: translateDefault("backup.preflight.invalidExportedAt"),
-    BACKUP_SCHEMA_VERSION_MISMATCH: translateDefault("backup.preflight.schemaVersionMismatch"),
+    BACKUP_BAD_JSON: t("backup.preflight.invalidJson"),
+    BACKUP_INVALID_ENVELOPE: t("backup.preflight.invalidEnvelope"),
+    BACKUP_UNSUPPORTED_FORMAT_VERSION: t("backup.preflight.unsupportedVersion"),
+    BACKUP_INVALID_APP_VERSION: t("backup.preflight.invalidAppVersion"),
+    BACKUP_INVALID_EXPORTED_AT: t("backup.preflight.invalidExportedAt"),
+    BACKUP_SCHEMA_VERSION_MISMATCH: t("backup.preflight.schemaVersionMismatch"),
   };
-  return labels[error.code] ?? translateDefault("backup.preflight.validationFailedPrefix") + error.message;
+  return labels[error.code] ?? t("backup.preflight.validationFailedPrefix") + error.message;
 }
 
 /**
  * 这个函数回答：哪些交易没带原句？每笔记一条硬错误。
  * 只在「历史导入」时调用。
  * 举例：第 146 笔原句是空格 → 答一条，位置 `trades[146].rawText`。
+ * 说明文字用 `t` 查；不传时用中文。
  * 不会出错。
  */
 export function collectHistoricalRawTextErrors(
   parsed: unknown,
+  t: Translate = translateDefault,
 ): BackupPreflightHardError[] {
   const ledgerData = getLedgerDataInput(parsed);
   if (!isRecord(ledgerData) || !Array.isArray(ledgerData.trades)) {
@@ -122,7 +130,7 @@ export function collectHistoricalRawTextErrors(
       code: "BACKUP_TRADE_RAW_TEXT_REQUIRED",
       path: `trades[${index}].rawText`,
       message:
-        translateDefault("backup.preflight.rawTextRequired"),
+        t("backup.preflight.rawTextRequired"),
       summary: createTradeSummary(parsed, index),
     });
   });
@@ -133,10 +141,12 @@ export function collectHistoricalRawTextErrors(
  * 这个函数回答：哪些交易的编号和前面某笔重了？每笔记一条硬错误。
  * 前面已经报过的同一位置，不重复报。
  * 举例：第 5 笔和第 2 笔编号一样 → 答一条，说和第 2 笔重复。
+ * 说明文字用 `t` 查；不传时用中文。
  */
 export function collectDuplicateTradeIdErrors(
   parsed: unknown,
   existingErrors: readonly BackupPreflightHardError[],
+  t: Translate = translateDefault,
 ): BackupPreflightHardError[] {
   const ledgerData = getLedgerDataInput(parsed);
   if (!isRecord(ledgerData) || !Array.isArray(ledgerData.trades)) {
@@ -171,9 +181,9 @@ export function collectDuplicateTradeIdErrors(
       code: "LEDGER_DATA_DUPLICATE_IDENTIFIER",
       path,
       message:
-        translateDefault("backup.preflight.duplicateTradeIdPrefix") +
+        t("backup.preflight.duplicateTradeIdPrefix") +
         firstIndex +
-        translateDefault("backup.preflight.duplicateTradeIdSuffix"),
+        t("backup.preflight.duplicateTradeIdSuffix"),
       summary: createTradeSummary(parsed, index),
     });
   });
@@ -308,9 +318,11 @@ function collectLedgerSummary(
  * 这个函数回答：这本账导入后有没有要提醒的？
  * 现在只看一样：现金会不会是负数。
  * 举例：导入后 USDT 余额 -200 → 答一条提醒。
+ * 说明文字用 `t` 查；不传时用中文。
  */
 export function collectWarnings(
   ledgerData: LedgerData | undefined,
+  t: Translate = translateDefault,
 ): BackupPreflightWarning[] {
   if (!ledgerData) return [];
   const balance = replayUsdtCash(ledgerData).balance;
@@ -319,9 +331,9 @@ export function collectWarnings(
         {
           code: "BACKUP_NEGATIVE_CASH_BALANCE",
           message:
-            translateDefault("backup.preflight.negativeCashPrefix") +
+            t("backup.preflight.negativeCashPrefix") +
             balance +
-            translateDefault("backup.preflight.negativeCashSuffix"),
+            t("backup.preflight.negativeCashSuffix"),
         },
       ]
     : [];

@@ -22,7 +22,7 @@ import {
   selectLedgerDataFacts,
   validateLedgerData,
 } from "@/core/validation";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 
 /**
  * B 文件外壳的版本号，现在是 3。
@@ -181,12 +181,14 @@ export function parseBackupJson(
  * 否则外壳、账本、上限、导入规矩全查一遍。
  * 错误一次报齐。
  * 举例：外壳版本 2 → 答不行，只报这一条，不往下查。
+ * 说明文字用 `t` 查；不传时用中文。
  * 为什么旧版本直接拒绝：现在是 Alpha，不做升级；2026-08-27 定（W15 版本分层与迁移策略决策记录第三节）。
  * 什么时候出错：不抛错，返回 `ok:false`。
  */
 export function validateBackupEnvelope(
   input: unknown,
   todayKey: string = captureLedgerTime(systemLedgerClock).todayKey,
+  t: Translate = translateDefault,
 ): BackupEnvelopeResult {
   if (!isRecord(input)) {
     return {
@@ -207,9 +209,9 @@ export function validateBackupEnvelope(
         createError(
           "BACKUP_UNSUPPORTED_FORMAT_VERSION",
           "backupFormatVersion",
-          translateDefault("backup.envelope.formatVersionPrefix") +
+          t("backup.envelope.formatVersionPrefix") +
             input.backupFormatVersion +
-            translateDefault("backup.envelope.formatVersionSuffix"),
+            t("backup.envelope.formatVersionSuffix"),
         ),
       ],
     };
@@ -226,9 +228,9 @@ export function validateBackupEnvelope(
         createError(
           "BACKUP_SCHEMA_VERSION_MISMATCH",
           "ledgerSchemaVersion",
-          translateDefault("backup.envelope.schemaVersionPrefix") +
+          t("backup.envelope.schemaVersionPrefix") +
             input.ledgerSchemaVersion +
-            translateDefault("backup.envelope.schemaVersionMiddleV5"),
+            t("backup.envelope.schemaVersionMiddleV5"),
         ),
       ],
     };
@@ -303,6 +305,7 @@ export function validateBackupEnvelope(
     const importPolicy = validateLedgerImportPolicy(
       ledgerResult.value,
       todayKey,
+      t,
     );
     if (!importPolicy.ok) {
       errors.push(...importPolicy.errors);

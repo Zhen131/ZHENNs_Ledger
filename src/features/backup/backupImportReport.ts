@@ -9,7 +9,7 @@ import type {
   BackupPreflightSuspiciousDetail,
   BackupTradeSummary,
 } from "./backupImportPreflightTypes";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 
 /**
  * 这个函数回答：这次预检的报告写成 Markdown 是什么样？
@@ -17,49 +17,51 @@ import { translateDefault } from "@/ui";
  * 然后是没做的检查和每条详情。
  * 详情最多 1000 条，超了在末尾写明截断。
  * 举例：1200 条详情 → 报告写前 1000 条，并说第 1001 条后已截断。
+ * `t` 不传时用中文；复制按钮要传当前界面语言的 `t`。
  * 不会出错。
  */
 export function formatBackupImportReportMarkdown(
   result: BackupImportPreflightResult,
+  t: Translate = translateDefault,
 ): string {
   const lines: string[] = [
-    translateDefault("backup.markdown.title"),
+    t("backup.markdown.title"),
     "",
-    translateDefault("backup.markdown.privacy"),
+    t("backup.markdown.privacy"),
     "",
-    translateDefault("backup.markdown.summary"),
+    t("backup.markdown.summary"),
     "",
-    translateDefault("backup.markdown.contentSha") + "\`" + result.contentIdentity.sha256 + "\`",
-    translateDefault("backup.markdown.byteLength") + result.contentIdentity.utf8ByteLength,
-    translateDefault("backup.markdown.selectionGeneration") + result.selectionGeneration,
-    translateDefault("backup.markdown.hardErrors") + result.hardErrorCount,
-    translateDefault("backup.markdown.warnings") + result.warningCount,
-    translateDefault("backup.markdown.suspiciousGroups") + result.suspiciousGroupCount,
-    translateDefault("backup.markdown.details") + result.totalDetailCount,
-    translateDefault("backup.markdown.retainedDetails") + result.retainedDetailCount,
-    translateDefault("backup.markdown.suspiciousIdentity") + "\`" + result.suspiciousGroupIdentity + "\`",
-    translateDefault("backup.markdown.conclusion") + formatConclusion(result),
+    t("backup.markdown.contentSha") + "\`" + result.contentIdentity.sha256 + "\`",
+    t("backup.markdown.byteLength") + result.contentIdentity.utf8ByteLength,
+    t("backup.markdown.selectionGeneration") + result.selectionGeneration,
+    t("backup.markdown.hardErrors") + result.hardErrorCount,
+    t("backup.markdown.warnings") + result.warningCount,
+    t("backup.markdown.suspiciousGroups") + result.suspiciousGroupCount,
+    t("backup.markdown.details") + result.totalDetailCount,
+    t("backup.markdown.retainedDetails") + result.retainedDetailCount,
+    t("backup.markdown.suspiciousIdentity") + "\`" + result.suspiciousGroupIdentity + "\`",
+    t("backup.markdown.conclusion") + formatConclusion(result, t),
   ];
 
   if (result.metadata) {
     lines.push(
       "",
-      translateDefault("backup.markdown.metadata"),
+      t("backup.markdown.metadata"),
       "",
-      translateDefault("backup.markdown.sourceFile") + textOrUnavailable(result.metadata.sourceFileName),
-      translateDefault("backup.markdown.formatVersion") + numberOrUnavailable(result.metadata.backupFormatVersion),
-      translateDefault("backup.markdown.appVersion") + textOrUnavailable(result.metadata.appVersion),
-      translateDefault("backup.markdown.exportedAt") + textOrUnavailable(result.metadata.exportedAt),
-      translateDefault("backup.markdown.schemaVersion") + numberOrUnavailable(result.metadata.ledgerSchemaVersion),
-      translateDefault("backup.markdown.assets") + numberOrUnavailable(result.metadata.assetCount),
-      translateDefault("backup.markdown.trades") + numberOrUnavailable(result.metadata.tradeCount),
-      translateDefault("backup.markdown.cashEvents") + numberOrUnavailable(result.metadata.cashEventCount),
-      translateDefault("backup.markdown.assetTransfers") + numberOrUnavailable(result.metadata.assetTransferCount),
-      translateDefault("backup.markdown.priceSnapshots") + numberOrUnavailable(result.metadata.priceSnapshotCount),
-      translateDefault("backup.markdown.feeRules") + numberOrUnavailable(result.metadata.feeRuleCount),
-      translateDefault("backup.markdown.cashBalance") + textOrUnavailable(result.metadata.cashBalance),
-      translateDefault("backup.markdown.cashDeficit") + textOrUnavailable(result.metadata.cashDeficit),
-      translateDefault("backup.markdown.missingMappings") + formatMissingMappings(result.metadata.missingMappingSymbols),
+      t("backup.markdown.sourceFile") + textOrUnavailable(result.metadata.sourceFileName, t),
+      t("backup.markdown.formatVersion") + numberOrUnavailable(result.metadata.backupFormatVersion, t),
+      t("backup.markdown.appVersion") + textOrUnavailable(result.metadata.appVersion, t),
+      t("backup.markdown.exportedAt") + textOrUnavailable(result.metadata.exportedAt, t),
+      t("backup.markdown.schemaVersion") + numberOrUnavailable(result.metadata.ledgerSchemaVersion, t),
+      t("backup.markdown.assets") + numberOrUnavailable(result.metadata.assetCount, t),
+      t("backup.markdown.trades") + numberOrUnavailable(result.metadata.tradeCount, t),
+      t("backup.markdown.cashEvents") + numberOrUnavailable(result.metadata.cashEventCount, t),
+      t("backup.markdown.assetTransfers") + numberOrUnavailable(result.metadata.assetTransferCount, t),
+      t("backup.markdown.priceSnapshots") + numberOrUnavailable(result.metadata.priceSnapshotCount, t),
+      t("backup.markdown.feeRules") + numberOrUnavailable(result.metadata.feeRuleCount, t),
+      t("backup.markdown.cashBalance") + textOrUnavailable(result.metadata.cashBalance, t),
+      t("backup.markdown.cashDeficit") + textOrUnavailable(result.metadata.cashDeficit, t),
+      t("backup.markdown.missingMappings") + formatMissingMappings(result.metadata.missingMappingSymbols, t),
     );
   }
 
@@ -67,27 +69,27 @@ export function formatBackupImportReportMarkdown(
     lines.push("", "## Warnings", "");
     result.warnings.forEach((warning) => {
       lines.push(
-        `- \`${inline(warning.code)}\`${translateDefault("backup.markdown.lineColonSeparator")}${singleLine(warning.message)}`,
+        `- \`${inline(warning.code)}\`${t("backup.markdown.lineColonSeparator")}${singleLine(warning.message)}`,
       );
     });
   }
 
   if (result.skippedChecks.length > 0) {
-    lines.push("", translateDefault("backup.markdown.skippedChecks"), "");
+    lines.push("", t("backup.markdown.skippedChecks"), "");
     result.skippedChecks.forEach(({ check, reason }) => {
-      lines.push(`- \`${inline(check)}\`${translateDefault("backup.markdown.lineColonSeparator")}${singleLine(reason)}`);
+      lines.push(`- \`${inline(check)}\`${t("backup.markdown.lineColonSeparator")}${singleLine(reason)}`);
     });
   }
 
-  lines.push("", translateDefault("backup.markdown.detailsHeading"), "");
+  lines.push("", t("backup.markdown.detailsHeading"), "");
   if (result.retainedDetails.length === 0) {
-    lines.push(translateDefault("backup.markdown.noDetails"));
+    lines.push(t("backup.markdown.noDetails"));
   } else {
     result.retainedDetails.forEach((detail, index) => {
       if (detail.kind === "hard-error") {
-        appendHardError(lines, detail, index + 1);
+        appendHardError(lines, detail, index + 1, t);
       } else {
-        appendSuspiciousGroup(lines, detail, index + 1);
+        appendSuspiciousGroup(lines, detail, index + 1, t);
       }
     });
   }
@@ -95,17 +97,17 @@ export function formatBackupImportReportMarkdown(
   if (result.truncated) {
     lines.push(
       "",
-      translateDefault("backup.markdown.truncationPrefix") +
+      t("backup.markdown.truncationPrefix") +
         result.totalDetailCount +
-        translateDefault("backup.markdown.truncationMiddle") +
+        t("backup.markdown.truncationMiddle") +
         result.retainedDetailCount +
-        translateDefault("backup.markdown.truncationSuffix"),
+        t("backup.markdown.truncationSuffix"),
     );
   }
 
   lines.push(
     "",
-    translateDefault("backup.markdown.noMutationNotice"),
+    t("backup.markdown.noMutationNotice"),
     "",
   );
   return lines.join("\n");
@@ -115,37 +117,38 @@ function appendHardError(
   lines: string[],
   error: BackupPreflightHardError,
   number: number,
+  t: Translate,
 ): void {
   lines.push(
-    translateDefault("backup.markdown.hardErrorPrefix") +
+    t("backup.markdown.hardErrorPrefix") +
       number +
-      translateDefault("backup.markdown.hardErrorSuffix"),
+      t("backup.markdown.hardErrorSuffix"),
     "",
-    translateDefault("backup.markdown.code") + "\`" + inline(error.code) + "\`",
-    translateDefault("backup.markdown.path") + "\`" + inline(error.path) + "\`",
-    translateDefault("backup.markdown.description") + singleLine(error.message),
+    t("backup.markdown.code") + "\`" + inline(error.code) + "\`",
+    t("backup.markdown.path") + "\`" + inline(error.path) + "\`",
+    t("backup.markdown.description") + singleLine(error.message),
   );
   if (error.line !== undefined && error.column !== undefined) {
     lines.push(
-      translateDefault("backup.markdown.jsonLocationPrefix") +
+      t("backup.markdown.jsonLocationPrefix") +
         error.line +
-        translateDefault("backup.markdown.jsonLocationMiddle") +
+        t("backup.markdown.jsonLocationMiddle") +
         error.column +
-        translateDefault("backup.markdown.jsonLocationSuffix"),
+        t("backup.markdown.jsonLocationSuffix"),
     );
   }
   if (error.limit !== undefined && error.actual !== undefined) {
     lines.push(
-      translateDefault("backup.markdown.resourceLimitPrefix") +
+      t("backup.markdown.resourceLimitPrefix") +
         error.limit +
-        translateDefault("backup.markdown.resourceLimitMiddle") +
+        t("backup.markdown.resourceLimitMiddle") +
         error.actual,
     );
   }
   if (error.summary) {
     lines.push(
-      translateDefault("backup.markdown.tradeSummary") +
-        formatTradeSummary(error.summary),
+      t("backup.markdown.tradeSummary") +
+        formatTradeSummary(error.summary, t),
     );
   }
   lines.push("");
@@ -155,106 +158,108 @@ function appendSuspiciousGroup(
   lines: string[],
   detail: BackupPreflightSuspiciousDetail,
   number: number,
+  t: Translate,
 ): void {
   lines.push(
     `### ${number}. ${
       detail.group.level === "high"
-        ? translateDefault("backup.markdown.highSuspicion")
-        : translateDefault("backup.markdown.normalSuspicion")
-    }${translateDefault("backup.markdown.duplicateGroupSuffix")}`,
+        ? t("backup.markdown.highSuspicion")
+        : t("backup.markdown.normalSuspicion")
+    }${t("backup.markdown.duplicateGroupSuffix")}`,
     "",
-    `${translateDefault("backup.markdown.sourcePaths")}${detail.group.tradeIndices
+    `${t("backup.markdown.sourcePaths")}${detail.group.tradeIndices
       .map((index) => `\`trades[${index}]\``)
-      .join(translateDefault("backup.markdown.listSeparator"))}`,
-    `${translateDefault("backup.markdown.tradeIds")}${detail.group.tradeIds
+      .join(t("backup.markdown.listSeparator"))}`,
+    `${t("backup.markdown.tradeIds")}${detail.group.tradeIds
       .map((id) => `\`${inline(id)}\``)
-      .join(translateDefault("backup.markdown.listSeparator"))}`,
-    `${translateDefault("backup.markdown.triggerRelations")}${detail.group.triggerEdges
+      .join(t("backup.markdown.listSeparator"))}`,
+    `${t("backup.markdown.triggerRelations")}${detail.group.triggerEdges
       .map(
         (edge) =>
           `\`trades[${edge.leftIndex}]\` ↔ \`trades[${edge.rightIndex}]\`（${
             edge.relation === "same-exact-time"
-              ? translateDefault("backup.markdown.exactTime")
-              : translateDefault("backup.markdown.sameDay")
+              ? t("backup.markdown.exactTime")
+              : t("backup.markdown.sameDay")
           }）`,
       )
-      .join(translateDefault("backup.markdown.summarySeparator"))}`,
+      .join(t("backup.markdown.summarySeparator"))}`,
   );
   detail.summaries.forEach((summary, index) => {
     lines.push(
-      `- trades[${detail.group.tradeIndices[index]}]${translateDefault("backup.markdown.summarySuffix")}${formatTradeSummary(
+      `- trades[${detail.group.tradeIndices[index]}]${t("backup.markdown.summarySuffix")}${formatTradeSummary(
         summary,
+        t,
       )}`,
     );
   });
   lines.push(
-    translateDefault("backup.markdown.description") + singleLine(detail.message),
+    t("backup.markdown.description") + singleLine(detail.message),
     "",
   );
 }
 
-function formatConclusion(result: BackupImportPreflightResult): string {
+function formatConclusion(result: BackupImportPreflightResult, t: Translate): string {
   if (result.hardErrorCount > 0) {
-    return translateDefault("backup.markdown.blocked");
+    return t("backup.markdown.blocked");
   }
   if (result.suspiciousGroupCount > 0) {
-    return translateDefault("backup.markdown.confirmSuspicious");
+    return t("backup.markdown.confirmSuspicious");
   }
-  return translateDefault("backup.markdown.passed");
+  return t("backup.markdown.passed");
 }
 
-function formatTradeSummary(summary: BackupTradeSummary): string {
+function formatTradeSummary(summary: BackupTradeSummary, t: Translate): string {
   const values = [
     summary.occurredAt
-      ? translateDefault("backup.markdown.datePrefix") +
+      ? t("backup.markdown.datePrefix") +
         singleLine(summary.occurredAt)
       : undefined,
     summary.assetSymbol
-      ? translateDefault("backup.markdown.assetPrefix") +
+      ? t("backup.markdown.assetPrefix") +
         singleLine(summary.assetSymbol)
       : undefined,
     summary.type
-      ? translateDefault("backup.markdown.directionPrefix") +
+      ? t("backup.markdown.directionPrefix") +
         (summary.type === "buy"
-          ? translateDefault("backup.markdown.buy")
-          : translateDefault("backup.markdown.sell"))
+          ? t("backup.markdown.buy")
+          : t("backup.markdown.sell"))
       : undefined,
     summary.quantity
-      ? translateDefault("backup.markdown.quantityPrefix") +
+      ? t("backup.markdown.quantityPrefix") +
         singleLine(summary.quantity)
       : undefined,
     summary.price
-      ? translateDefault("backup.markdown.pricePrefix") +
+      ? t("backup.markdown.pricePrefix") +
         singleLine(summary.price)
       : undefined,
     summary.totalValue
-      ? translateDefault("backup.markdown.totalPrefix") +
+      ? t("backup.markdown.totalPrefix") +
         singleLine(summary.totalValue) +
         (summary.currency ? ` ${singleLine(summary.currency)}` : "")
       : undefined,
   ].filter((value): value is string => value !== undefined);
   return values.length > 0
-    ? values.join(translateDefault("backup.markdown.summarySeparator"))
-    : translateDefault("backup.markdown.noSafeSummary");
+    ? values.join(t("backup.markdown.summarySeparator"))
+    : t("backup.markdown.noSafeSummary");
 }
 
-function textOrUnavailable(value: string | undefined): string {
+function textOrUnavailable(value: string | undefined, t: Translate): string {
   return value === undefined
-    ? translateDefault("backup.markdown.unavailable")
+    ? t("backup.markdown.unavailable")
     : singleLine(value);
 }
 
-function numberOrUnavailable(value: number | undefined): string {
+function numberOrUnavailable(value: number | undefined, t: Translate): string {
   return value === undefined
-    ? translateDefault("backup.markdown.unavailable")
+    ? t("backup.markdown.unavailable")
     : String(value);
 }
 
-function formatMissingMappings(value: readonly string[] | undefined): string {
-  if (value === undefined) return translateDefault("backup.markdown.unavailable");
+function formatMissingMappings(value: readonly string[] | undefined, t: Translate): string {
+  if (value === undefined) return t("backup.markdown.unavailable");
   return value.length === 0
-    ? translateDefault("backup.markdown.none")
-    : value.map((symbol) => `\`${inline(symbol)}\``).join(translateDefault("backup.markdown.listSeparator"));
+    ? t("backup.markdown.none")
+    : value.map((symbol) => `\`${inline(symbol)}\``).join(t("backup.markdown.listSeparator"));
 }
 
 function inline(value: string): string {

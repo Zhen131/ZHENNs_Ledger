@@ -6,7 +6,7 @@
 
 import type { LedgerData } from "@/core/models";
 import { getLedgerDateKey, isLedgerFactInFuture } from "@/core/shared";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 import { isSupportedValuationCurrency } from "./ledgerFactPolicy";
 
 /** 导入被拦下时的一条错误：哪类问题、在哪、说明。 */
@@ -29,6 +29,7 @@ type LedgerImportPolicyResult =
  * 它拦四类。未来日期、估值币种不是 USDT、行情价没来历。
  * 还有同一天同一交易对出现两条行情价。
  * 举例：今天 2026-11-06，一笔入金记在 11-08 → 答不能，`LEDGER_IMPORT_FUTURE_FACT`。
+ * 说明文字用 `t` 查；不传时用中文。
  *
  * 为什么同一天的行情价只许一条：这是猜的，日志里没写，要核。
  *
@@ -37,6 +38,7 @@ type LedgerImportPolicyResult =
 export function validateLedgerImportPolicy(
   ledgerData: LedgerData,
   todayKey: string,
+  t: Translate = translateDefault,
 ): LedgerImportPolicyResult {
   const errors: LedgerImportPolicyError[] = [];
 
@@ -45,7 +47,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: translateDefault("policy.import.unsupportedValuationCurrency"),
+        message: t("policy.import.unsupportedValuationCurrency"),
       });
     }
   });
@@ -55,14 +57,14 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `trades[${index}].occurredAt`,
-        message: `${translateDefault("policy.import.futureTradePrefix")}${getLedgerDateKey(trade.occurredAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
+        message: `${t("policy.import.futureTradePrefix")}${getLedgerDateKey(trade.occurredAt)}${t("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
     if (!isSupportedValuationCurrency(trade.currency)) {
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `trades[${index}].currency`,
-        message: translateDefault("policy.import.unsupportedValuationCurrency"),
+        message: t("policy.import.unsupportedValuationCurrency"),
       });
     }
   });
@@ -72,7 +74,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `cashEvents[${index}].occurredAt`,
-        message: `${translateDefault("policy.import.futureCashEventPrefix")}${getLedgerDateKey(cashEvent.occurredAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
+        message: `${t("policy.import.futureCashEventPrefix")}${getLedgerDateKey(cashEvent.occurredAt)}${t("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
   });
@@ -82,7 +84,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `assetTransfers[${index}].occurredAt`,
-        message: `${translateDefault("policy.import.futureAssetTransferPrefix")}${getLedgerDateKey(assetTransfer.occurredAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
+        message: `${t("policy.import.futureAssetTransferPrefix")}${getLedgerDateKey(assetTransfer.occurredAt)}${t("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
   });
@@ -93,14 +95,14 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_FUTURE_FACT",
         path: `priceSnapshots[${index}].recordedAt`,
-        message: `${translateDefault("policy.import.futurePricePrefix")}${getLedgerDateKey(snapshot.recordedAt)}${translateDefault("policy.import.futureFactMiddle")}${todayKey}`,
+        message: `${t("policy.import.futurePricePrefix")}${getLedgerDateKey(snapshot.recordedAt)}${t("policy.import.futureFactMiddle")}${todayKey}`,
       });
     }
     if (!isSupportedValuationCurrency(snapshot.currency)) {
       errors.push({
         code: "LEDGER_IMPORT_UNSUPPORTED_VALUATION_CURRENCY",
         path: `priceSnapshots[${index}].currency`,
-        message: translateDefault("policy.import.unsupportedValuationCurrency"),
+        message: t("policy.import.unsupportedValuationCurrency"),
       });
     }
 
@@ -108,7 +110,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_API_PRICE_PROVENANCE_REQUIRED",
         path: `priceSnapshots[${index}].binanceProvenance`,
-        message: translateDefault("policy.import.apiPriceProvenanceRequired"),
+        message: t("policy.import.apiPriceProvenanceRequired"),
       });
       return;
     }
@@ -127,7 +129,7 @@ export function validateLedgerImportPolicy(
       errors.push({
         code: "LEDGER_IMPORT_DUPLICATE_DAILY_BINANCE_PRICE",
         path: `priceSnapshots[${index}]`,
-        message: `${translateDefault("policy.import.duplicateDailyBinancePricePrefix")}${firstIndex}${translateDefault("policy.import.duplicateDailyBinancePriceSuffix")}`,
+        message: `${t("policy.import.duplicateDailyBinancePricePrefix")}${firstIndex}${t("policy.import.duplicateDailyBinancePriceSuffix")}`,
       });
     } else {
       firstDailyBinanceIndex.set(key, index);
