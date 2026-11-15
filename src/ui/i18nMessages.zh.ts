@@ -262,7 +262,6 @@ export const chineseMessages = {
   "assetTransfer.validation.externalOutUnitPriceForbidden": "外部转出不能填写到账单价",
   "assetTransfer.validation.positiveDecimalSuffix": "必须大于 0，且是最多 40 位有效数字、18 位小数的规范十进制",
   "portfolio.valuation.approximationLabel": "USD/USDT 近似等值",
-  "portfolio.valuation.approximationDisclosure": "1 USDT ≈ 1 USD，未接实时汇率",
   "backup.preflight.noMigrationSuffix": "且不提供迁移",
   "backup.envelope.formatVersionPrefix": "这是备份格式 V",
   "backup.envelope.formatVersionSuffix": "；当前备份格式为 V3，且不提供迁移",

@@ -378,7 +378,6 @@ export const englishMessages: TranslationTable = {
   "portfolio.details.incomplete": "Cannot be calculated completely",
   "portfolio.details.joinSeparator": "; ",
   "portfolio.valuation.approximationLabel": "USD/USDT approximate equivalent",
-  "portfolio.valuation.approximationDisclosure": "1 USDT ≈ 1 USD, with no live exchange rate connected",
   "portfolio.issue.unsupportedCurrencyMiddle": " uses the unsupported quote currency ",
   "portfolio.issue.missingCurrentPrice": " has no valid current price",
   "portfolio.issue.feeConversionMiddle": ": the ",

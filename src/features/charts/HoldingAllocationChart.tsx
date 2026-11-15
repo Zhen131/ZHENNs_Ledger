@@ -7,7 +7,6 @@
 
 import { useMemo } from "react";
 
-import { USDT_USD_APPROXIMATION_DISCLOSURE } from "@/features/portfolio";
 import { LedgerNumber, useLanguage } from "@/ui";
 import type { HoldingAllocation } from "./chartDataService";
 import { buildAllocationChartOption } from "./chartOptionBuilders";
@@ -18,7 +17,6 @@ import { EChart } from "./EChart";
  * 图下面写出有几块、计价单位。
  * 缺价格的币、不用 USDT 计价的币、现金缺口，各用一句话列出。
  * 没有可画的块时，显示空的说明。
- * 混着 USD 和 USDT 时，显示「1 USDT ≈ 1 USD」的说明。
  */
 export function HoldingAllocationChart({
   allocation,
@@ -84,11 +82,6 @@ export function HoldingAllocationChart({
         <p className="mt-2 text-sm font-medium text-amber-800">
           {t("charts.allocation.excludedPrefix")}
           {allocation.excludedCurrencyAssets.join(t("charts.allocation.joinSeparator"))}{t("charts.allocation.period")}
-        </p>
-      ) : null}
-      {allocation.valuation.usesApproximation ? (
-        <p className="mt-2 text-sm font-medium text-amber-800">
-          {USDT_USD_APPROXIMATION_DISCLOSURE}
         </p>
       ) : null}
     </article>

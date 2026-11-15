@@ -12,14 +12,6 @@ export type ValuationDisplay = {
 };
 
 /**
- * 「1 USDT ≈ 1 USD」那句说明文字，按默认语言取一次。
- * 混着 USD 和 USDT 时，饼图旁边要显示它。
- */
-export const USDT_USD_APPROXIMATION_DISCLOSURE = translateDefault(
-  "portfolio.valuation.approximationDisclosure",
-);
-
-/**
  * 这个函数回答：这一堆币种合在一起，计价单位写什么？
  * 举例：只有 USDT → 答「USDT」。
  * USD 和 USDT 都有 → 答近似等值的标签。
