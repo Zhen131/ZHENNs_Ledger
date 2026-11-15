@@ -422,7 +422,7 @@ describe("BackupControls", () => {
     ).not.toBeNull();
   });
 
-  it("does not construct a Blob when the serialized envelope exceeds 8 MiB by one byte", async () => {
+  it("does not construct a Blob when the serialized envelope exceeds 128 MiB by one byte", async () => {
     const createObjectURL = vi.fn(() => "blob:backup");
     vi.stubGlobal("URL", { createObjectURL, revokeObjectURL: vi.fn() });
     const blobConstructor = stubBlobConstructor();
@@ -445,7 +445,7 @@ describe("BackupControls", () => {
     ).not.toBeNull();
   });
 
-  it("rejects a real legal backup that exceeds 8 MiB by one byte before File.text", async () => {
+  it("rejects a real legal backup that exceeds 128 MiB by one byte before File.text", async () => {
     renderControls();
     const envelope = createBackupEnvelope(createInitialLedgerData(), {
       appVersion: "0.1.0",
@@ -470,10 +470,10 @@ describe("BackupControls", () => {
       ],
     });
     expect(file.text).not.toHaveBeenCalled();
-    expect(screen.getByText("无法导入：文件超过 8 MiB 限制。")).not.toBeNull();
+    expect(screen.getByText("无法导入：文件超过 128 MiB 限制。")).not.toBeNull();
   });
 
-  it("accepts a real legal backup whose content is exactly 8 MiB", async () => {
+  it("accepts a real legal backup whose content is exactly 128 MiB", async () => {
     renderControls();
     const envelope = createBackupEnvelope(createInitialLedgerData(), {
       appVersion: "0.1.0",
@@ -1229,7 +1229,7 @@ describe("BackupControls", () => {
         await screen.findByText("无法读取备份文件。");
       } else if (scenario === "oversized") {
         expect(
-          screen.getByText("无法导入：文件超过 8 MiB 限制。"),
+          screen.getByText("无法导入：文件超过 128 MiB 限制。"),
         ).not.toBeNull();
       } else if (scenario === "bad-json") {
         await screen.findByText(/BACKUP_BAD_JSON/);

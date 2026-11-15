@@ -253,7 +253,7 @@ describe("Ledger resource policy", () => {
     });
   });
 
-  it("accepts a legal backup at exactly 8 MiB and rejects the next byte before parsing", () => {
+  it("accepts a legal backup at exactly 128 MiB and rejects the next byte before parsing", () => {
     const envelope = createBackupEnvelope(createInitialLedgerData(), {
       appVersion: "0.1.0",
       exportedAt: "2026-07-23T12:34:56.000Z",

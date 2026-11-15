@@ -596,7 +596,7 @@ describe("preflightBackupJson", () => {
     ]);
   });
 
-  it("rejects 8 MiB + 1 by actual UTF-8 bytes before parsing", async () => {
+  it("rejects 128 MiB + 1 by actual UTF-8 bytes before parsing", async () => {
     const oversized = "x".repeat(
       DEFAULT_LEDGER_RESOURCE_LIMITS.fileBytes + 1,
     );

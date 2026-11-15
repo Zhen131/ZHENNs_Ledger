@@ -74,7 +74,7 @@ export function createCanonicalLedgerPayloadV4(
     return failure(
       "LEDGER_FILE_RESOURCE_POLICY_FAILED",
       "payload",
-      "Ledger file generation payload exceeds the 8 MiB limit",
+      "Ledger file generation payload exceeds the 128 MiB limit",
       byteResult.errors,
     );
   }

@@ -219,7 +219,7 @@ export class LedgerFileHandleAdapter {
     if (file.size > maximumBytes) {
       throw new LedgerFileAdapterError(
         "size",
-        "Ledger file exceeds the 32 MiB outer limit",
+        "Ledger file exceeds the 384 MiB outer limit",
       );
     }
 
@@ -258,7 +258,7 @@ export class LedgerFileHandleAdapter {
     if (byteLength > MAX_LEDGER_FILE_V2_BYTES) {
       throw new LedgerFileAdapterError(
         "size",
-        "Serialized ledger file exceeds the 32 MiB outer limit",
+        "Serialized ledger file exceeds the 384 MiB outer limit",
       );
     }
 
