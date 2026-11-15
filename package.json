@@ -25,7 +25,7 @@
   "dependencies": {
     "decimal.js": "^10.6.0",
     "echarts": "^6.1.0",
-    "next": "15.5.22",
+    "next": "15.5.29",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -38,7 +38,7 @@
     "@types/react-dom": "19.2.3",
     "acorn": "^8.17.0",
     "eslint": "9.39.5",
-    "eslint-config-next": "15.5.22",
+    "eslint-config-next": "15.5.29",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
     "knip": "^5.88.1",
@@ -48,5 +48,10 @@
     "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.23"
+    }
   }
 }
