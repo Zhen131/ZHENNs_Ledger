@@ -16,7 +16,7 @@ import {
   getLedgerDateKey,
   isLedgerFactInFuture,
 } from "@/core/shared";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 
 /**
  * 能用来估值的币种，目前只有 USDT。
@@ -140,11 +140,13 @@ export function resolveAssetBinanceMappingForRuntime(
  * 还有同一天同一交易对出现两条行情价。
  * 举例：同一天 BTCUSDT 有两条行情价 → 答一条重复提醒。
  * 提醒里写着第一条的位置。
+ * 提醒文字用 `t` 查；不传时用中文。
  * 只提醒，不改账本，也不抛错。
  */
 export function collectLedgerCompatibilityWarnings(
   ledgerData: LedgerData,
   todayKey: string,
+  t: Translate = translateDefault,
 ): LedgerCompatibilityWarning[] {
   const warnings: LedgerCompatibilityWarning[] = [];
 
@@ -153,7 +155,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_UNSUPPORTED_VALUATION_CURRENCY",
         path: `assets[${index}].quoteCurrency`,
-        message: `${asset.symbol}${translateDefault("policy.compat.unsupportedValuationCurrencyMiddle")}${asset.quoteCurrency}${translateDefault("policy.compat.unsupportedValuationCurrencySuffix")}`,
+        message: `${asset.symbol}${t("policy.compat.unsupportedValuationCurrencyMiddle")}${asset.quoteCurrency}${t("policy.compat.unsupportedValuationCurrencySuffix")}`,
       });
     }
   });
@@ -163,7 +165,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `trades[${index}].occurredAt`,
-        message: translateDefault("policy.compat.futureTrade"),
+        message: t("policy.compat.futureTrade"),
       });
     }
   });
@@ -173,7 +175,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `cashEvents[${index}].occurredAt`,
-        message: translateDefault("policy.compat.futureCashEvent"),
+        message: t("policy.compat.futureCashEvent"),
       });
     }
   });
@@ -183,7 +185,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `assetTransfers[${index}].occurredAt`,
-        message: translateDefault("policy.compat.futureAssetTransfer"),
+        message: t("policy.compat.futureAssetTransfer"),
       });
     }
   });
@@ -194,7 +196,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_FUTURE_FACT",
         path: `priceSnapshots[${index}].recordedAt`,
-        message: translateDefault("policy.compat.futurePrice"),
+        message: t("policy.compat.futurePrice"),
       });
     }
 
@@ -202,7 +204,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_LEGACY_API_PRICE_WITHOUT_PROVENANCE",
         path: `priceSnapshots[${index}].binanceProvenance`,
-        message: translateDefault(
+        message: t(
           "policy.compat.legacyApiPriceWithoutProvenance",
         ),
       });
@@ -223,7 +225,7 @@ export function collectLedgerCompatibilityWarnings(
       warnings.push({
         code: "LEDGER_DUPLICATE_DAILY_BINANCE_PRICE",
         path: `priceSnapshots[${index}]`,
-        message: `${translateDefault("policy.compat.duplicateDailyBinancePricePrefix")}${firstIndex}${translateDefault("policy.compat.duplicateDailyBinancePriceSuffix")}`,
+        message: `${t("policy.compat.duplicateDailyBinancePricePrefix")}${firstIndex}${t("policy.compat.duplicateDailyBinancePriceSuffix")}`,
       });
     } else {
       firstDailyBinanceIndex.set(key, index);
