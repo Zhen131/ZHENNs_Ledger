@@ -9,7 +9,8 @@ import type { TradeDraft } from "@/core/models";
 /**
  * 检查一笔买卖时可能报的错误代码，名字固定不变。
  * 界面、导入和测试都按代码判断，不按文字判断。
- * 为什么固定：文字只给人看，改了文字不该改程序走哪条路。这是猜的，日志里没写，要核。
+ * 为什么固定：文字会改，也会翻译；程序和测试按代码判断才稳。
+ * 2026-06-24 定（W2 06A Step 2）。
  */
 export const TRADE_VALIDATION_ERROR_CODES = {
   INVALID_INPUT: "INVALID_INPUT",

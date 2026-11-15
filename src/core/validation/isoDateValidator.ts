@@ -1,7 +1,8 @@
 /**
  * 这个文件管一件事：一个日期或日期时间的写法对不对。
  * 它不管这个日期是不是在未来，那在 ledgerDate.ts 和各检查函数里。
- * 不显然的决定：先自己逐段查日历，再交给 Date.parse。这是猜的，日志里没写，要核。
+ * 不显然的决定：先自己逐段查日历，再交给 Date.parse。
+ * 只靠 Date.parse 会收下错的日历日期；2026-07-16 定（W5 07B 复审补强）。
  */
 
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -15,7 +16,7 @@ const ISO_DATETIME_PATTERN =
  *
  * 为什么不直接用 Date.parse：它会把 2026-02-30 悄悄滚到 3 月 2 日。
  * 所以先逐段查日历和时间，最后才让 Date.parse 再确认一次。
- * （这个做法日志里没写来历，这是猜的，要核。）
+ * 2026-07-16 定（W5 07B 复审补强第 1 条）。
  * 不会抛错，不合法就答 false。
  */
 export function isValidISODateOrDateTime(value: unknown): value is string {

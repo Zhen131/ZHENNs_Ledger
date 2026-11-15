@@ -32,7 +32,7 @@ export type LedgerTimeSnapshot = Readonly<{
  * 举例：设备时间 2026-11-06 23:59:59 → 答这个时刻和 "2026-11-06"。
  *
  * 为什么要同一次看钟：跨午夜分两次看，时间和日期会对不上。
- * （这是猜的，日志里没写，要核。）
+ * 2026-07-26 定（W10 03B 第一节）。
  */
 export function captureLedgerTime(clock: LedgerClock): LedgerTimeSnapshot {
   const now = clock.now();

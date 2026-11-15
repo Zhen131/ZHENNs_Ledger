@@ -2,7 +2,10 @@
  * 这个文件管一笔买卖前后对不对得上。
  * 查三项：金额、币种、持仓够不够。
  * 它不管单个字段读得对不对，那在 tradeValidatorReaders.ts。
- * 不显然的决定：持仓够不够直接拿 replayPositions 算，不另写一套。这是猜的，日志里没写，要核。
+ * 不显然的决定：持仓够不够直接拿 replayPositions 算，不另写一套。
+ * 理由是从卖出规矩推的（W15 01A 第四节、W15 01B 第 1.2 节）。
+ * 卖出要看交易所那个地方够不够，得按顺序过一遍买卖和转移才知道。
+ * 另写一套，两边就可能算得不一样。
  */
 
 import type { Asset, AssetTransfer, DecimalString, Trade } from "@/core/models";
@@ -87,7 +90,7 @@ export function validateCurrencyConsistency(
  *
  * 为什么录入时间填成 9999 年：好让它排在同时刻的旧记录后面。
  * 真正保存时，tradeService 会用最终编号和时间再算一遍。
- * （这是猜的，日志里没写，要核。）
+ * 新这笔保存时会追加在最后，2026-07-13 提交 4027d05 的注释写下这条理由。
  * 不抛错，算不过时把原因放进错误列表。
  */
 export function validateHoldingsTimeline(

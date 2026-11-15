@@ -7,7 +7,12 @@
 
 import type { Asset } from "@/core/models";
 
-/** 自带资产统一用的录入时间，2026-07-13。为什么是这天：这是猜的，日志里没写，要核。 */
+/**
+ * 自带资产统一用的录入时间，2026-07-13。
+ * 为什么是这天：这天建了自带资产清单。
+ * 时间写死，每次新建账本都一样，不用当时的时间。
+ * 2026-07-13 定（W5 99 日志 Day 4）。
+ */
 const BUILT_IN_ASSET_TIMESTAMP = "2026-07-13T00:00:00Z";
 
 const BUILT_IN_ASSET_DEFINITIONS = [

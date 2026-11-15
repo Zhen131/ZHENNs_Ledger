@@ -3,7 +3,9 @@
  * 它量文件多大、每种记录多少条、每个文字多长。
  * 它不管内容对不对，那在 ledgerDataValidator.ts。
  * 不显然的决定：超了上限也不改写旧账本。
- * 由调用方决定只读还是拒绝新写入。这是猜的，日志里没写，要核。
+ * 由调用方决定只读还是拒绝新写入。
+ * 为什么：超限的旧账本只读打开，不得覆盖或清空。
+ * 2026-07-18 定（W7 02B 第二节 S-07）。
  */
 
 import type { LedgerData, Trade } from "@/core/models";
@@ -13,7 +15,10 @@ import { describeLedgerResourcePolicyError } from "./resourcePolicyMessage";
  * 账本的默认上限。文件 128 MiB，买卖、现金、转移各 25 万条。
  * 价格 5 万条，资产和手续费规则各 500 条。
  * 文字长度：编号 128、代码和币种 32、备注 4096、原文 16384。
- * 为什么是这些数：这是猜的，日志里没写，要核。
+ * 为什么文件和买卖、现金、转移、价格是这些数：按十万笔那一档留余量。
+ * 2026-08-29 定（W15 04A 第 1.2 节）。
+ * 资产、手续费规则各 500 和文字长度那几个数，日志只写了「已确认」。
+ * 这几个数为什么这样，这是猜的，要核。
  */
 export const DEFAULT_LEDGER_RESOURCE_LIMITS = {
   fileBytes: 128 * 1024 * 1024,
@@ -67,7 +72,8 @@ type LedgerResourcePolicyResult =
  * 举例：买卖 250001 笔 → 答超了，`LEDGER_RESOURCE_COLLECTION_LIMIT_EXCEEDED`。
  *
  * 为什么单独一层：它只量大小，不管内容对不对，也不改旧账本。
- * 调用方决定超了是只读打开还是拒绝新写入。（这是猜的，日志里没写，要核。）
+ * 调用方决定超了是只读打开还是拒绝新写入。
+ * 2026-07-18 定（W7 02B 第二节 S-07）。
  * 不抛错，返回 ok:false 和全部超限项。
  */
 export function evaluateLedgerResourcePolicy(
