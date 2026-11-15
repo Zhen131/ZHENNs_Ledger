@@ -47,6 +47,7 @@ import {
 } from "@/features/portfolio";
 import type { ChartRange, HoldingHistoryPoint } from "./chartDataService";
 import { getDefaultValuationCurrency } from "./chartDataServiceShared";
+import { translateDefault, type Translate } from "@/ui";
 
 /**
  * 这个函数回答：选定范围里，每天的总资产和剩余成本是多少？
@@ -56,6 +57,7 @@ import { getDefaultValuationCurrency } from "./chartDataServiceShared";
  * 「全部」从最早一笔记录那天开始。
  * 「1 天」只给今天，画成一头一尾两个点。
  * 缺价格那天不给总资产，成本算不准那天不给剩余成本。
+ * 计价标签用 `options.t` 查；不传时用中文。
  * 不会出错。
  */
 export function buildHoldingHistory(
@@ -64,8 +66,10 @@ export function buildHoldingHistory(
     todayKey: string;
     mode: ValuationPriceMode;
     range: ChartRange;
+    t?: Translate;
   },
 ): HoldingHistoryPoint[] {
+  const t = options.t ?? translateDefault;
   const startDate = getHistoryStartDate(
     [
       ...ledgerData.trades.map((trade) => trade.occurredAt),
@@ -141,6 +145,7 @@ export function buildHoldingHistory(
       ),
       cashBalance,
       defaultValuationCurrency,
+      t,
     );
   });
 
@@ -150,7 +155,7 @@ export function buildHoldingHistory(
 
   const point =
     points[0] ??
-    createEmptyHistoryPoint(options.todayKey, defaultValuationCurrency);
+    createEmptyHistoryPoint(options.todayKey, defaultValuationCurrency, t);
   return [
     {
       ...point,
@@ -169,18 +174,20 @@ export function buildHoldingHistory(
  * 这个函数回答：今天的账变了，能不能只换掉最后一个点？
  * 能就返回新的一串点。
  * 上一串最后一点不是今天，就返回 `null`，让调用的一方从头算。
+ * 计价标签用 `options.t` 查；不传时用中文。
  * 不会出错。
  */
 export function updateHoldingHistoryForCurrentDay(
   previous: readonly HoldingHistoryPoint[],
   ledgerData: LedgerData,
   projection: LedgerProjection,
-  options: Readonly<{ todayKey: string; range: ChartRange }>,
+  options: Readonly<{ todayKey: string; range: ChartRange; t?: Translate }>,
 ): HoldingHistoryPoint[] | null {
   const todayPoint = createHistoryPointFromProjection(
     options.todayKey,
     ledgerData,
     projection,
+    options.t ?? translateDefault,
   );
   if (options.range === "1d") {
     if (previous.length !== 2) return null;
@@ -205,6 +212,7 @@ function createHistoryPointFromProjection(
   date: string,
   ledgerData: LedgerData,
   projection: LedgerProjection,
+  t: Translate,
 ): HoldingHistoryPoint {
   let totalCostBasis: DecimalString = "0";
   let totalMarketValue: DecimalString = "0";
@@ -251,6 +259,7 @@ function createHistoryPointFromProjection(
     valuation: createValuationDisplay(
       valuationCurrencies,
       getDefaultValuationCurrency(ledgerData),
+      t,
     ),
   };
 }
@@ -260,6 +269,7 @@ function createHistoryPoint(
   valuedPositions: readonly HistoricalValuedPosition[],
   cashBalance: DecimalString,
   defaultValuationCurrency: "USD" | "USDT",
+  t: Translate,
 ): HoldingHistoryPoint {
   let totalCostBasis: DecimalString = "0";
   let totalMarketValue: DecimalString = "0";
@@ -312,6 +322,7 @@ function createHistoryPoint(
     valuation: createValuationDisplay(
       valuationCurrencies,
       defaultValuationCurrency,
+      t,
     ),
   };
 }
@@ -385,6 +396,7 @@ function valueHistoricalPositions(
 function createEmptyHistoryPoint(
   date: string,
   defaultValuationCurrency: "USD" | "USDT",
+  t: Translate,
 ): HoldingHistoryPoint {
   return {
     date,
@@ -397,7 +409,7 @@ function createEmptyHistoryPoint(
     excludedCurrencyAssets: [],
     unreliableFeeAssets: [],
     priceAsOfByAsset: {},
-    valuation: createValuationDisplay([], defaultValuationCurrency),
+    valuation: createValuationDisplay([], defaultValuationCurrency, t),
   };
 }
 

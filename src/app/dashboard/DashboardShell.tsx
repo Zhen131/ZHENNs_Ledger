@@ -34,6 +34,7 @@ import {
   systemLedgerClock,
   type LedgerClock,
 } from "@/core/shared";
+import { describeLedgerResourcePolicyError } from "@/core/validation";
 import { BackupControls } from "@/features/backup/ui";
 import { MarketDataControls } from "@/features/market-data/ui";
 import {
@@ -96,7 +97,7 @@ export function DashboardShell({
     drain: PersistentLedgerState["drainForSessionQuiesce"],
   ) => void;
 }>) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const repository = session.repository;
   const capabilities = session.capabilities;
   // 为什么传规范值：敲对之后，交给仓库的是它一直认的值。
@@ -243,6 +244,7 @@ export function DashboardShell({
       todayKey,
       valuationPriceMode,
       chartRange,
+      language,
     },
     ledgerEpoch,
   );
@@ -436,8 +438,8 @@ export function DashboardShell({
               className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
             >
               {isReadOnly
-                ? `${t("dashboard.resource.readOnlyPrefix")}${resourcePolicyError.message}`
-                : `${t("dashboard.resource.rejectedPrefix")}${resourcePolicyError.message}`}
+                ? `${t("dashboard.resource.readOnlyPrefix")}${describeLedgerResourcePolicyError(resourcePolicyError, t)}`
+                : `${t("dashboard.resource.rejectedPrefix")}${describeLedgerResourcePolicyError(resourcePolicyError, t)}`}
             </p>
           ) : null}
           {hydrationStatus === "ready" && persistenceError ? (

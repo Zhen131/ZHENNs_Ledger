@@ -21,12 +21,22 @@ import {
   updateLedgerPnlSummaryForAppendedTrade,
   type AppendedLedgerFact,
 } from "@/features/portfolio";
+import {
+  DEFAULT_LEDGER_LANGUAGE,
+  translate,
+  type LedgerLanguage,
+  type Translate,
+} from "@/ui";
 
-/** 算首页数要的条件：今天哪天，估值用哪种价，走势看多长。 */
+/**
+ * 算首页数要的条件：今天哪天，估值用哪种价，走势看多长。
+ * 还有界面语言，不传当中文；它决定原因、饼图块名、计价标签用哪种话。
+ */
 export type DashboardDerivationOptions = Readonly<{
   todayKey: string;
   valuationPriceMode: ValuationPriceMode;
   chartRange: ChartRange;
+  language?: LedgerLanguage;
 }>;
 
 /** 首页要的五样数：持仓和现金，盈亏，分布，走势，热力图。 */
@@ -78,6 +88,7 @@ export function buildDashboardDerivations(
   ledgerData: LedgerData,
   options: DashboardDerivationOptions,
 ): DashboardDerivations {
+  const t = derivationTranslator(options);
   const projection = buildLedgerProjection(ledgerData, {
     asOf: options.todayKey,
     mode: options.valuationPriceMode,
@@ -87,16 +98,19 @@ export function buildDashboardDerivations(
     pnlSummary: buildLedgerPnlSummary(ledgerData, {
       todayKey: options.todayKey,
       mode: options.valuationPriceMode,
+      t,
     }),
     allocation: buildHoldingAllocation(ledgerData, {
       todayKey: options.todayKey,
       mode: options.valuationPriceMode,
       projection,
+      t,
     }),
     history: buildHoldingHistory(ledgerData, {
       todayKey: options.todayKey,
       mode: options.valuationPriceMode,
       range: options.chartRange,
+      t,
     }),
     heatmap: buildTradeHeatmap(ledgerData, options.todayKey),
   };
@@ -213,6 +227,7 @@ export function updateDashboardDerivationsForAppend(
   }
 
   const projection = incrementalProjection.projection;
+  const t = derivationTranslator(options);
   const appendedTrade = appended.kind === "trade" ? appended.fact : null;
   const incrementalPnl = appendedTrade
     ? updateLedgerPnlSummaryForAppendedTrade(
@@ -229,7 +244,7 @@ export function updateDashboardDerivationsForAppend(
           previousValues.history,
           nextLedger,
           projection,
-          { todayKey: options.todayKey, range: options.chartRange },
+          { todayKey: options.todayKey, range: options.chartRange, t },
         )
       : null;
   return {
@@ -241,11 +256,13 @@ export function updateDashboardDerivationsForAppend(
           : incrementalPnl ?? buildLedgerPnlSummary(nextLedger, {
               todayKey: options.todayKey,
               mode: options.valuationPriceMode,
+              t,
             }),
       allocation: buildHoldingAllocation(nextLedger, {
         todayKey: options.todayKey,
         mode: options.valuationPriceMode,
         projection,
+        t,
       }),
       history:
         incrementalHistory ??
@@ -253,6 +270,7 @@ export function updateDashboardDerivationsForAppend(
           todayKey: options.todayKey,
           mode: options.valuationPriceMode,
           range: options.chartRange,
+          t,
         }),
       heatmap:
         appendedTrade
@@ -348,5 +366,13 @@ function dashboardDerivationOptionsKey(
     options.todayKey,
     options.valuationPriceMode,
     options.chartRange,
+    options.language ?? DEFAULT_LEDGER_LANGUAGE,
   ].join("\u0000");
+}
+
+// 为什么首页的话按条件里的语言现查：换语言后缓存键不同，不会拿到旧语言的字。
+// 不用一个全局的「当前语言」；2026-11-15 定（W26 04B 第三节第 1 条）。
+function derivationTranslator(options: DashboardDerivationOptions): Translate {
+  const language = options.language ?? DEFAULT_LEDGER_LANGUAGE;
+  return (key) => translate(language, key);
 }

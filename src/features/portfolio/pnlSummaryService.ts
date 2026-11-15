@@ -16,7 +16,7 @@ import {
   partitionLedgerFactsForToday,
 } from "@/core/policies";
 import { add, getLedgerDateKey, isZero } from "@/core/shared";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 import {
   createValuationDisplay,
   type ValuationDisplay,
@@ -59,12 +59,14 @@ export type LedgerPnlSummary = {
  * 剩余成本 3903，已实现 195，浮动盈亏 297。
  * 为什么算不全就不给数：缺项按 0 加会冒充完整；2026-08-09 定（W12 01A 第 7.4 节）。
  * 算不全有三种原因：不用 USDT 计价、手续费用别的币、缺价格。
+ * 原因和计价标签用 `options.t` 查；不传时用中文。
  * 不会出错。
  */
 export function buildLedgerPnlSummary(
   ledgerData: LedgerData,
-  options: { todayKey: string; mode: ValuationPriceMode },
+  options: { todayKey: string; mode: ValuationPriceMode; t?: Translate },
 ): LedgerPnlSummary {
+  const t = options.t ?? translateDefault;
   const partition = partitionLedgerFactsForToday(
     ledgerData,
     options.todayKey,
@@ -86,14 +88,14 @@ export function buildLedgerPnlSummary(
       buyOutflowByAsset.set(trade.assetSymbol, "0");
     }
     if (!isSupportedValuationCurrency(trade.currency)) {
-      const reason = trade.id + translateDefault("portfolio.issue.unsupportedCurrencyMiddle") + trade.currency;
+      const reason = trade.id + t("portfolio.issue.unsupportedCurrencyMiddle") + trade.currency;
       reasons.push(reason);
       assetReasons?.push(reason);
       continue;
     }
     const cashImpact = calculateTradeCashImpact(trade);
     if (!cashImpact.ok) {
-      const reason = trade.id + translateDefault("portfolio.issue.feeConversionMiddle") + trade.feeCurrency + translateDefault("portfolio.issue.feeConversionSuffix") + trade.currency;
+      const reason = trade.id + t("portfolio.issue.feeConversionMiddle") + trade.feeCurrency + t("portfolio.issue.feeConversionSuffix") + trade.currency;
       reasons.push(reason);
       assetReasons?.push(reason);
       continue;
@@ -123,7 +125,7 @@ export function buildLedgerPnlSummary(
   for (const position of positions) {
     if (!isSupportedValuationCurrency(position.currency)) {
       excludedCurrencyAssets.push(position.assetSymbol);
-      const reason = position.assetSymbol + translateDefault("portfolio.issue.unsupportedCurrencyMiddle") + position.currency;
+      const reason = position.assetSymbol + t("portfolio.issue.unsupportedCurrencyMiddle") + position.currency;
       costReasons.push(reason);
       realizedReasons.push(reason);
       if (!isZero(position.quantity)) {
@@ -133,7 +135,7 @@ export function buildLedgerPnlSummary(
     }
     if (position.feeAccountingIssues) {
       feeAccountingIssues.push(...position.feeAccountingIssues);
-      const reason = position.assetSymbol + translateDefault("portfolio.issue.unconvertibleFee");
+      const reason = position.assetSymbol + t("portfolio.issue.unconvertibleFee");
       costReasons.push(reason);
       realizedReasons.push(reason);
       if (!isZero(position.quantity)) {
@@ -149,7 +151,7 @@ export function buildLedgerPnlSummary(
     }
     if (position.unrealizedPnl === undefined) {
       missingPriceAssets.push(position.assetSymbol);
-      unrealizedReasons.push(position.assetSymbol + translateDefault("portfolio.issue.missingCurrentPrice"));
+      unrealizedReasons.push(position.assetSymbol + t("portfolio.issue.missingCurrentPrice"));
       continue;
     }
     unrealizedPnl = add(unrealizedPnl, position.unrealizedPnl);
@@ -158,7 +160,7 @@ export function buildLedgerPnlSummary(
   const valuation = createValuationDisplay([
     ...partition.activeTrades.map((trade) => trade.currency),
     ...positions.map((position) => position.currency),
-  ]);
+  ], undefined, t);
 
   return {
     buyOutflow: metric(buyOutflow, buyReasons),

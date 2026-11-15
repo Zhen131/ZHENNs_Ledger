@@ -23,7 +23,7 @@ import {
   createValuationDisplay,
   type LedgerProjection,
 } from "@/features/portfolio";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 import type {
   HoldingAllocationSlice,
   HoldingAllocation,
@@ -50,6 +50,7 @@ const MAX_VISIBLE_SLICES_WITH_GROUP = MAX_ALLOCATION_SLICES - 1;
  * 不到 2% 的并进「其他」，总共最多 8 块。
  * 分母为 0 时返回没有块，不造一个 100%。
  * 传了 `projection` 就直接用，省得再算一遍。
+ * 现金和「其他」两块的名字用 `options.t` 查；不传时用中文。
  * 不会出错。
  */
 export function buildHoldingAllocation(
@@ -58,8 +59,10 @@ export function buildHoldingAllocation(
     todayKey: string;
     mode: ValuationPriceMode;
     projection?: LedgerProjection;
+    t?: Translate;
   },
 ): HoldingAllocation {
+  const t = options.t ?? translateDefault;
   const projection =
     options.projection ??
     buildLedgerProjection(ledgerData, {
@@ -91,7 +94,7 @@ export function buildHoldingAllocation(
     : add(projection.valuation.pricedAssetMarketValue, cashBalance);
   if (!isNegative(cashBalance) && !isZero(cashBalance)) {
     valued.push({
-      assetSymbol: translateDefault("charts.series.cashUsdt"),
+      assetSymbol: t("charts.series.cashUsdt"),
       marketValue: cashBalance,
       source: "cash",
       asOf: options.todayKey,
@@ -110,6 +113,7 @@ export function buildHoldingAllocation(
         })),
         geometryTotal,
         options.todayKey,
+        t,
       );
 
   return {
@@ -125,6 +129,7 @@ export function buildHoldingAllocation(
     valuation: createValuationDisplay(
       ["USDT"],
       getDefaultValuationCurrency(ledgerData),
+      t,
     ),
   };
 }
@@ -146,6 +151,7 @@ function groupHoldingAllocationSlices(
   sortedSlices: readonly HoldingAllocationSlice[],
   geometryTotal: DecimalString,
   todayKey: string,
+  t: Translate,
 ): HoldingAllocationSlice[] {
   const standalone = sortedSlices.filter(
     (slice) => !isLessThan(slice.ratio, MIN_STANDALONE_ALLOCATION_RATIO),
@@ -163,7 +169,7 @@ function groupHoldingAllocationSlices(
   ) {
     return [
       ...standalone,
-      createGroupedAllocationSlice(belowThreshold, geometryTotal, todayKey),
+      createGroupedAllocationSlice(belowThreshold, geometryTotal, todayKey, t),
     ];
   }
 
@@ -171,7 +177,7 @@ function groupHoldingAllocationSlices(
   const grouped = sortedSlices.slice(MAX_VISIBLE_SLICES_WITH_GROUP);
   return [
     ...visible,
-    createGroupedAllocationSlice(grouped, geometryTotal, todayKey),
+    createGroupedAllocationSlice(grouped, geometryTotal, todayKey, t),
   ];
 }
 
@@ -179,13 +185,14 @@ function createGroupedAllocationSlice(
   members: readonly HoldingAllocationSlice[],
   geometryTotal: DecimalString,
   todayKey: string,
+  t: Translate,
 ): HoldingAllocationSlice {
   const marketValue = members.reduce<DecimalString>(
     (sum, member) => add(sum, member.marketValue),
     "0",
   );
   return {
-    assetSymbol: translateDefault("charts.series.other"),
+    assetSymbol: t("charts.series.other"),
     marketValue,
     ratio: toDecimalString(divide(marketValue, geometryTotal)),
     source: "grouped",
