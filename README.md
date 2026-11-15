@@ -90,6 +90,7 @@ no area may import its own entry point, and the dependency graph must stay acycl
 
 Requires Node.js and npm, and a Chromium-based browser — the ledger file is opened
 through the File System Access API, which other browsers do not implement.
+The checks are run on Node.js 24 (LTS); the version is recorded in `.nvmrc`.
 
 ```bash
 npm install
