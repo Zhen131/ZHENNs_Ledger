@@ -90,7 +90,7 @@ export function validateCurrencyConsistency(
  *
  * 为什么录入时间填成 9999 年：好让它排在同时刻的旧记录后面。
  * 真正保存时，tradeService 会用最终编号和时间再算一遍。
- * 新这笔保存时会追加在最后，2026-07-13 提交 4027d05 的注释写下这条理由。
+ * 新的这一笔保存时会追加在最后，2026-07-13 提交 4027d05 的注释写下这条理由。
  * 不抛错，算不过时把原因放进错误列表。
  */
 export function validateHoldingsTimeline(

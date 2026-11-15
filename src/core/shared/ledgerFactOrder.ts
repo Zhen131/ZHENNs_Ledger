@@ -31,7 +31,7 @@ type LedgerFactOrderInput = Readonly<{
 const FALLBACK_ORDER_TIME_ZONE = "UTC";
 /**
  * 当地零点不存在时，往后逐分钟找的范围：4 小时。
- * 这个找法是执行者提的，2026-09-07 产品负责人采纳（W16 03A 修订 A）。
+ * 这个找法是实现时提的，2026-09-07 产品负责人采纳（W16 03A 修订 A）。
  * 为什么是 4 小时：这是猜的，日志里没写，要核。
  */
 const MINUTES_SCANNED_FOR_A_MISSING_LOCAL_MIDNIGHT = 4 * 60;
