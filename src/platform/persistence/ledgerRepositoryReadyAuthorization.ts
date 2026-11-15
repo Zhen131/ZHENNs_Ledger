@@ -2,7 +2,9 @@
  * 这个文件管清空和导入这两件大事的授权。
  * 怎么做授权，怎么认它是真的。
  * 它不管真正清空和导入，那在 ledgerRepositoryReadyRuntime.ts 和 files 区。
- * 不显然的决定：执行凭证只能用一次，用过再用就不认。这是猜的，日志里没写，要核。
+ * 不显然的决定：执行凭证只能用一次，用过再用就不认。
+ * 理由是从 W11 02A 第 8.3 节的规矩推的：凭证绑着这一次确认和当时的账本版本。
+ * 一次确认只放行一次清空或导入。
  */
 
 import { READY_LEDGER_CLEAR_CONFIRMATION_TEXT } from "./ledgerRepository";

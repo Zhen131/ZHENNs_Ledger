@@ -70,7 +70,8 @@ export function retimeCanonicalLedgerPayloadV4(
  * 举例：旧账本 1000 笔，新记 1 笔 → 答 1001 笔的内容。
  * 这一笔查不过或超上限时答 null，调用方改走整本保存。
  *
- * 为什么只查新这一笔：整本重查太慢。这是猜的，日志里没写，要核。
+ * 为什么只查新这一笔：整本重查太慢，第一版每记一笔都整本重查。
+ * 查不过就回到整本的算法；2026-09-01 定（W15 06C「S-3 最终实现」）。
  */
 export function createCanonicalPayloadAfterBuyTrade(
   base: LedgerData,

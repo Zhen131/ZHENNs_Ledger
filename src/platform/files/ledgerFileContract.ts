@@ -13,7 +13,9 @@ import { DEFAULT_LEDGER_RESOURCE_LIMITS } from "@/core/validation";
  * PBKDF2 加 SHA-256 算 60 万轮，盐 16 字节。
  * AES-GCM 256 位钥匙，每次加密 12 字节随机数。
  * 文件格式 3 也沿用这组加密参数。
- * 为什么是这些数：这是猜的，日志里没写，要核。
+ * 为什么：60 万轮照 OWASP 的 PBKDF2-SHA-256 基线，12 字节照 NIST 对 AES-GCM 的建议。
+ * 256 位钥匙就是 AES-256；2026-07-24 定（W9 01A 末尾「参数依据」）。
+ * 盐为什么是 16 字节：这是猜的，日志里没写，要核。
  */
 export const LEDGER_FILE_OUTER_V2_CONSTANTS = {
   fileFormatVersion: 2,
@@ -40,7 +42,9 @@ export const SUPPORTED_LEDGER_SCHEMA_VERSION = 5 as const;
 
 /**
  * 一个账本文件最大多少字节：384 MiB。
- * 为什么是这个数：这是猜的，日志里没写，要核。
+ * 为什么是这个数：128 MiB 的账本存两代、转成文字，最坏约 341 MiB。
+ * 384 MiB 留约 12% 余量，又低于浏览器单条文字的上限。
+ * 这是按老格式推的，格式 3 也用它；2026-08-29 定（W15 04A 修订 C 第 C.2 节）。
  */
 export const MAX_LEDGER_FILE_V2_BYTES = 384 * 1024 * 1024;
 

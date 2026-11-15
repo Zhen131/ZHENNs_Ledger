@@ -17,6 +17,8 @@ import {
 /**
  * 文件格式 3 开头的 8 个识别字节。
  * 读出来是 "LFTL3" 加换行和一个 0。
+ * 读文件时先比这 8 个字节，对不上就不往下读（isLedgerFileV3Bytes）。
+ * 2026-09-01 提交 26e0c21 写下，日志只画了位置。
  * 为什么要有：不解密就能认出这是哪种文件。这是猜的，日志里没写，要核。
  */
 export const LEDGER_FILE_V3_MAGIC = new Uint8Array([

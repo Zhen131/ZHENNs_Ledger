@@ -3,7 +3,8 @@
  * 包括开始、存取、停止接新活、锁上或放开。
  * 它不管文件格式和加密，那在 files 区；也不管界面，那在 app 区。
  * 不显然的决定：一说停止接新活，对外的入口当场不再收活。
- * 这是猜的，日志里没写，要核。
+ * 为了立即锁定：先挡住新活，只等已经放进来的活做完。
+ * 2026-07-30 定（W11 02B 第 5.2 节）。
  */
 
 import { type LedgerBackupImportEvidence } from "@/features/backup";
@@ -43,7 +44,8 @@ import type { SessionRuntime } from "./ledgerRepositorySessionRuntime";
 
 /**
  * 清空当前账本前，用户必须一字不差打出来的那句话。
- * 为什么要打字确认：清空不能撤回。这是猜的，日志里没写，要核。
+ * 为什么要打字确认：清空会删掉全部记录，账本里撤不回来。
+ * 理由是从 W7 01A 第 5.1、7.1 节的规矩推的：清空用固定的确认句，不用一次点按钮。
  */
 export const READY_LEDGER_CLEAR_CONFIRMATION_TEXT =
   "清空当前账本";

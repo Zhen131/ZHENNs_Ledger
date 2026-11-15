@@ -15,14 +15,22 @@ import {
 import { LEDGER_FILE_V3_MAGIC } from "./ledgerFileContainerV3";
 import { PREFIX_BYTES } from "./ledgerFileSlotContainerV3Constants";
 
-/** 每个文件头槽的大小：256 KiB。为什么是这个数：这是猜的，日志里没写，要核。 */
+/**
+ * 每个文件头槽的大小：256 KiB。
+ * 为什么是这个数：装得下两代内容的说明信息，还留有余量。
+ * 2026-08-31 定（W15 06C R-2 F-1）。
+ */
 export const LEDGER_FILE_HEADER_SLOT_BYTES = 256 * 1024;
 /**
  * 内容槽有几个：3 个。
  * 为什么是 3：这一代、上一代各占一个，还要空一个给下次写。2026-09-01 定（W15 06C 第 R-15 节）。
  */
 export const LEDGER_FILE_BODY_SLOT_COUNT = 3 as const;
-/** 每个内容槽最少多大：64 KiB。为什么是这个数：这是猜的，日志里没写，要核。 */
+/**
+ * 每个内容槽最少多大：64 KiB。
+ * 槽大小按 64 KiB 取整，见 W15 06C 修订 E（2026-09-01）。
+ * 为什么是这个数：这是猜的，日志里没写，要核。
+ */
 export const LEDGER_FILE_BODY_SLOT_MIN_BYTES = 64 * 1024;
 /**
  * 内容槽大小向上取整到 64 KiB 的倍数。
