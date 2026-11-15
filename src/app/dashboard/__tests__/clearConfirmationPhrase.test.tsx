@@ -77,7 +77,6 @@ function renderSettingsIn(
     <LanguageProvider storage={memoryStorage(language)}>
       <SettingsWorkspace
         active
-        canClearHydrationError={false}
         canClearReadyLedger
         feePanel={null}
         hydrationStatus="ready"

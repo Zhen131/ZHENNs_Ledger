@@ -8,13 +8,11 @@ import type { LedgerSessionCapabilities } from "@/platform/persistence";
 
 /**
  * 账本权限全开的一份设置。
- * 能清空，能在读坏后清空，能导入备份。
- * 正式程序里没有哪个会话是这样全开的。
- * 测试要试读坏后清空、导入备份时，拿它绕开默认设置。
+ * 能清空，能导入备份。
+ * 测试要试导入备份时，拿它绕开默认设置。
  */
 export const ALL_ENABLED_TEST_LEDGER_CAPABILITIES: LedgerSessionCapabilities =
   Object.freeze({
     canClearReadyLedger: true,
-    canClearHydrationError: true,
     canImportBackup: true,
   });

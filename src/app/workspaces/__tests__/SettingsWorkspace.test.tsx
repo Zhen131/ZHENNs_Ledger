@@ -27,7 +27,6 @@ function settingsWorkspace(
   return (
     <SettingsWorkspace
       active
-      canClearHydrationError={false}
       canClearReadyLedger
       feePanel={<p>fee panel sentinel</p>}
       hydrationStatus="ready"

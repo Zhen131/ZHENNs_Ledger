@@ -50,7 +50,7 @@ export function DashboardShellSettingsPage({
   applyLedgerMutation: PersistentLedgerState["applyLedgerMutation"];
   capabilities: LedgerSessionCapabilities;
   clock: LedgerClock;
-  handleSettingsClear: (mode: "normal" | "recovery") => Promise<boolean>;
+  handleSettingsClear: () => Promise<boolean>;
   hydrationStatus: PersistentLedgerState["hydrationStatus"];
   isReadOnly: PersistentLedgerState["isReadOnly"];
   isWritable: boolean;
@@ -70,7 +70,6 @@ export function DashboardShellSettingsPage({
   return (
         <SettingsWorkspace
           active
-          canClearHydrationError={capabilities.canClearHydrationError}
           canClearReadyLedger={capabilities.canClearReadyLedger}
           feePanel={
             <FeeRuleManager

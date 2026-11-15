@@ -155,13 +155,12 @@ describe("DashboardShell data management", () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
-  it("offers controlled recovery after load failure and returns to writable state", async () => {
+  it("stops autosave and locks the write path after a load failure", async () => {
     const repository = createMemoryRepository();
     repository.load = vi.fn(async () => {
       throw new Error("read failed");
     });
     await renderDashboard(repository);
-    const user = userEvent.setup();
 
     expect(
       screen.getByText(
@@ -174,43 +173,6 @@ describe("DashboardShell data management", () => {
     expect(
       (screen.getByLabelText("金额") as HTMLInputElement).disabled,
     ).toBe(true);
-
-    await openSettingsClear();
-    expect(
-      screen.getByText(
-        "自定义资产、交易、价格和手续费规则都会清空；不会删除当前 .lftl 文件，也不会增加“删除账本文件”能力。",
-      ),
-    ).not.toBeNull();
-    await user.type(
-      screen.getByLabelText("输入清空确认文本"),
-      "清空账本",
-    );
-    await user.click(
-      screen.getByRole("button", { name: "确认清空账本内容" }),
-    );
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("当前账本内容已清空，.lftl 文件仍然存在"),
-      ).not.toBeNull();
-    });
-    // The recovered ledger is a new ledger epoch, so the settings page
-    // reopens on its first tab.
-    await user.click(screen.getByRole("tab", { name: "危险操作" }));
-    await waitFor(() => {
-      expect(
-        (screen.getByRole("button", {
-          name: "打开清空账本操作",
-        }) as HTMLButtonElement).disabled,
-      ).toBe(false);
-    });
-    await goToTradeForm();
-    expect(
-      (screen.getByLabelText("数量").closest("fieldset") as HTMLFieldSetElement)
-        .disabled,
-    ).toBe(false);
-    expect(repository.clear).toHaveBeenCalledOnce();
-    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it("keeps old UI data and shows only an error when clear fails", async () => {

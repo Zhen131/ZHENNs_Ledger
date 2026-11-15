@@ -230,7 +230,6 @@ function LanguageMechanismHarness() {
       />
       <SettingsWorkspace
         active
-        canClearHydrationError={false}
         canClearReadyLedger
         feePanel={null}
         hydrationStatus="ready"
@@ -297,7 +296,6 @@ describe("withdrawing the Hungarian option", () => {
       <LanguageProvider storage={createMemoryStorage()}>
         <SettingsWorkspace
           active
-          canClearHydrationError={false}
           canClearReadyLedger={false}
           feePanel={null}
           hydrationStatus="ready"
@@ -334,7 +332,6 @@ describe("withdrawing the Hungarian option", () => {
       <LanguageProvider storage={storage}>
         <SettingsWorkspace
           active
-          canClearHydrationError={false}
           canClearReadyLedger={false}
           feePanel={null}
           hydrationStatus="ready"

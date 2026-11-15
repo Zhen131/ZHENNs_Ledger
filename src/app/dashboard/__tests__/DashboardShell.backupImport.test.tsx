@@ -71,7 +71,6 @@ describe("DashboardShell data management", () => {
       storageKind: "ledger-file",
       capabilities: {
         canClearReadyLedger: false,
-        canClearHydrationError: false,
         canImportBackup: false,
       },
     });

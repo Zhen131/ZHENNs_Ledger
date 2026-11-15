@@ -320,9 +320,7 @@ export function DashboardShell({
     );
   }
 
-  async function handleSettingsClear(
-    mode: "normal" | "recovery",
-  ): Promise<boolean> {
+  async function handleSettingsClear(): Promise<boolean> {
     return doHandleSettingsClear(
       {
         clearConfirmationNonce,
@@ -332,7 +330,6 @@ export function DashboardShell({
         mountedRef,
         repository,
       },
-      mode,
     );
   }
 

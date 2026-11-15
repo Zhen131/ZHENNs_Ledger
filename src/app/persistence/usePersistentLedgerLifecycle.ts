@@ -558,7 +558,6 @@ import {
 type ClearLedgerDeps = {
   acceptingOperationsRef: { current: boolean };
   activeCapabilities: {
-    canClearHydrationError: boolean;
     canClearReadyLedger: boolean;
   };
   activeRepository: LedgerRepository;
@@ -602,7 +601,7 @@ type ClearLedgerDeps = {
 
 /**
  * 这个函数回答：把当前账本清空成一本空账，成没成？
- * 只有账读好了、或读失败了，且会话权限允许，才清。
+ * 只有账读好了，且会话权限允许，才清。
  * 账本文件要先拿到会话的批准，再交给会话去清。
  * 举例：一本 5 笔交易的账，清空成功 → 答 `ok: true`，页面显示空账。
  * 失败不抛错，返回 `ok: false` 和清空失败的代码，并留一句提示。
@@ -663,15 +662,11 @@ export function doClearLedger(
       hydrationStatus === "ready" &&
       hydratedRepositoryRef.current === activeRepository &&
       activeCapabilities.canClearReadyLedger;
-    const canRecoverHydrationError =
-      hydrationStatus === "error" &&
-      hydrationErrorRepositoryRef.current === activeRepository &&
-      activeCapabilities.canClearHydrationError;
 
     if (
       operationRef.current !== "idle" ||
       readOnlyRef.current ||
-      (!canClearReadyLedger && !canRecoverHydrationError)
+      !canClearReadyLedger
     ) {
       return Promise.resolve({
         ok: false,

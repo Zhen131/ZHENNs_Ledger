@@ -38,7 +38,7 @@ export const PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT = translateDefault(
 );
 
 type SettingsTab = "market" | "fees" | "danger";
-type ClearMode = "normal" | "recovery";
+type ClearMode = "normal";
 
 /**
  * 这个组件画设置页，上面一排分页：行情、手续费、危险操作。
@@ -56,7 +56,6 @@ export function SettingsWorkspace({
   repositorySwitchBlocked,
   isReadOnly,
   canClearReadyLedger,
-  canClearHydrationError,
   onClear,
 }: Readonly<{
   active: boolean;
@@ -68,7 +67,6 @@ export function SettingsWorkspace({
   repositorySwitchBlocked: boolean;
   isReadOnly: boolean;
   canClearReadyLedger: boolean;
-  canClearHydrationError: boolean;
   /**
    * 这个参数不起作用：账本文件已是唯一的存法，不再按它分支。
    * 正式代码没有传它，只有几份测试还传；备忘录 B0-32 等拆。
@@ -91,11 +89,7 @@ export function SettingsWorkspace({
   const restoreFocusFrameRef = useRef<number | null>(null);
 
   const clearMode: ClearMode | null =
-    hydrationStatus === "ready" && canClearReadyLedger
-      ? "normal"
-      : hydrationStatus === "error" && canClearHydrationError
-        ? "recovery"
-        : null;
+    hydrationStatus === "ready" && canClearReadyLedger ? "normal" : null;
   const clearDisabled =
     persistenceOperation !== "idle" ||
     repositorySwitchBlocked ||

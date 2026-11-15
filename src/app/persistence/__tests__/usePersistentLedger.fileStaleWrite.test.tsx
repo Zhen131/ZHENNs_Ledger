@@ -55,7 +55,6 @@ describe("usePersistentLedger file session capabilities", () => {
     const { result } = renderHook(() =>
       usePersistentLedger(repository, fixedClock, {
         canClearReadyLedger: false,
-        canClearHydrationError: false,
         canImportBackup: false,
       }),
     );
@@ -133,7 +132,6 @@ describe("usePersistentLedger file session capabilities", () => {
     const { result } = renderHook(() =>
       usePersistentLedger(repository, fixedClock, {
         canClearReadyLedger: false,
-        canClearHydrationError: false,
         canImportBackup: false,
       }),
     );
@@ -219,7 +217,6 @@ describe("usePersistentLedger file session capabilities", () => {
     const { result } = renderHook(() =>
       usePersistentLedger(repository, fixedClock, {
         canClearReadyLedger: false,
-        canClearHydrationError: false,
         canImportBackup: false,
       }),
     );
@@ -302,7 +299,6 @@ describe("usePersistentLedger file session capabilities", () => {
     const { result } = renderHook(() =>
       usePersistentLedger(staleRepository, fixedClock, {
         canClearReadyLedger: false,
-        canClearHydrationError: false,
         canImportBackup: false,
       }),
     );

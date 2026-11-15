@@ -199,14 +199,13 @@ type HandleSettingsClearDeps = {
 
 /**
  * 这个函数回答：设置页点了清空，清成没有？
- * 普通清空要账本读好；读坏后的清空要账本读失败。
+ * 清空要账本读好。
  * 清完时如果已经换了账本或页面关了，也算没清成。
  * 举例：账本读好、口令对、清空成功 → 答 true。
  * 不抛错，失败答 false。
  */
 export async function doHandleSettingsClear(
   deps: HandleSettingsClearDeps,
-  mode: "normal" | "recovery",
 ): Promise<boolean> {
   const {
     clearConfirmationNonce,
@@ -216,10 +215,7 @@ export async function doHandleSettingsClear(
     mountedRef,
     repository,
   } = deps;
-    if (
-      (mode === "normal" && hydrationStatus !== "ready") ||
-      (mode === "recovery" && hydrationStatus !== "error")
-    ) {
+    if (hydrationStatus !== "ready") {
       return false;
     }
     const operationRepository = repository;

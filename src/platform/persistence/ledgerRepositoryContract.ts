@@ -73,11 +73,10 @@ export type LedgerStorageKind = "ledger-file";
 
 /**
  * 这次打开的账本能做哪几件事。
- * 包括清空、出错时清空、导入备份。
+ * 包括清空、导入备份。
  */
 export type LedgerSessionCapabilities = {
   canClearReadyLedger: boolean;
-  canClearHydrationError: boolean;
   canImportBackup: boolean;
 };
 
@@ -278,11 +277,10 @@ export type CreateLedgerSessionOptions = {
 
 /**
  * 用账本文件时默认能做的事。
- * 能清空当前账本，不能清出错的，不能导入备份。
+ * 能清空当前账本，不能导入备份。
  */
 export const LEDGER_FILE_CAPABILITIES: LedgerSessionCapabilities = {
   canClearReadyLedger: true,
-  canClearHydrationError: false,
   canImportBackup: false,
 };
 

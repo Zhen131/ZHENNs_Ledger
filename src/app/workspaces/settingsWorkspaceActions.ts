@@ -13,9 +13,9 @@ import type { Translate } from "@/ui";
 type ConfirmClearDeps = {
   clearConfirmationPhrase: string;
   clearDisabled: boolean;
-  clearMode: "normal" | "recovery" | null;
+  clearMode: "normal" | null;
   confirmationValue: string;
-  onClear: (mode: "normal" | "recovery") => Promise<boolean>;
+  onClear: (mode: "normal") => Promise<boolean>;
   setConfirmationValue: Dispatch<SetStateAction<string>>;
   setDangerExpanded: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<string>>;

@@ -21,7 +21,6 @@ import { createInitialLedgerData } from "@/core/state";
 import { createUsdtSimpleTrade as createSimpleTrade } from "@/test-support";
 import { usePersistentLedger as usePersistentLedgerRuntime } from "../usePersistentLedger";
 import {
-  ALL_ENABLED_TEST_LEDGER_CAPABILITIES,
   addTrade,
   createCompleteLedger,
   createRepository,
@@ -31,60 +30,6 @@ import {
 import { createDeferred } from "@/test-support";
 
 describe("usePersistentLedger clear recovery and lifecycle", () => {
-  it("recovers a hydration error through controlled clear", async () => {
-    const repository = createRepository({
-      load: vi.fn(async () => {
-        throw new Error("read failed");
-      }),
-    });
-    const { result } = renderHook(() =>
-      usePersistentLedger(repository, ALL_ENABLED_TEST_LEDGER_CAPABILITIES),
-    );
-
-    await waitFor(() => {
-      expect(result.current.hydrationStatus).toBe("error");
-    });
-
-    await act(async () => {
-      await expect(result.current.clearLedger()).resolves.toEqual({ ok: true });
-    });
-
-    expect(repository.clear).toHaveBeenCalledOnce();
-    expect(result.current.hydrationStatus).toBe("ready");
-    expect(result.current.ledgerData).toEqual(createInitialLedgerData());
-    expect(result.current.persistenceError).toBeNull();
-    expect(repository.save).not.toHaveBeenCalled();
-  });
-
-  it("stays in hydration error when recovery clear fails", async () => {
-    const repository = createRepository({
-      load: vi.fn(async () => {
-        throw new Error("read failed");
-      }),
-      clear: vi.fn(async () => {
-        throw new Error("clear failed");
-      }),
-    });
-    const { result } = renderHook(() =>
-      usePersistentLedger(repository, ALL_ENABLED_TEST_LEDGER_CAPABILITIES),
-    );
-
-    await waitFor(() => {
-      expect(result.current.hydrationStatus).toBe("error");
-    });
-
-    await act(async () => {
-      await expect(result.current.clearLedger()).resolves.toEqual({
-        ok: false,
-        code: LEDGER_REPOSITORY_ERROR_CODES.CLEAR_FAILED,
-      });
-    });
-
-    expect(result.current.hydrationStatus).toBe("error");
-    expect(result.current.persistenceError).toMatch(/清空本地账本失败/);
-    expect(repository.save).not.toHaveBeenCalled();
-  });
-
   it("does not let an old repository clear replace a newly hydrated ledger", async () => {
     const oldClearDeferred = createDeferred<void>();
     const oldLedger = createCompleteLedger();

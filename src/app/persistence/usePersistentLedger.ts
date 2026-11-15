@@ -624,8 +624,6 @@ export function usePersistentLedger(
         {
           acceptingOperationsRef,
           activeCapabilities: {
-            canClearHydrationError:
-              activeCapabilities.canClearHydrationError,
             canClearReadyLedger: activeCapabilities.canClearReadyLedger,
           },
           activeRepository,
@@ -662,7 +660,6 @@ export function usePersistentLedger(
     [
     activeRepository,
     activeSession,
-    activeCapabilities.canClearHydrationError,
     activeCapabilities.canClearReadyLedger,
     hydrationStatus,
     publishPersistenceVersionState,

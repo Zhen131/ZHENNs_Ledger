@@ -34,7 +34,6 @@ describe("DefaultLedgerFileAccessController", () => {
       storageKind: "ledger-file",
       capabilities: {
         canClearReadyLedger: true,
-        canClearHydrationError: false,
         canImportBackup: true,
       },
     });
