@@ -7,7 +7,11 @@
  */
 import { isLedgerFileV3Bytes } from "@/platform/files";
 
-/** 小缓存最多记几份文件，8 份。为什么是 8：这是猜的，日志里没写，要核。 */
+/**
+ * 小缓存最多记几份文件，8 份，只给测试用。
+ * 2026-09-01 提交 9e69cc5 加了这个缓存。
+ * 为什么是 8：这是猜的，日志里没写，要核。
+ */
 const TEST_BINARY_STRING_CACHE_LIMIT = 8;
 const testBinaryStringBytes = new Map<string, Uint8Array>();
 
