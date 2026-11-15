@@ -18,12 +18,12 @@ import {
  * 几个假仓库可以共用一份。
  * 测试靠这个模拟「重开一次还是那本账」。
  */
-export type ValidatingMemoryLedgerStore = {
+type ValidatingMemoryLedgerStore = {
   serialized: string | null;
 };
 
 /** 测试能插进读、写、清空前的三个钩子。钩子抛错，那一步就失败。 */
-export type ValidatingMemoryLedgerStoreHooks = Readonly<{
+type ValidatingMemoryLedgerStoreHooks = Readonly<{
   /** 读出存着的文字之前调；抛错会让 `load` 失败。 */
   read?: () => Promise<void>;
   /** 新文字换掉旧文字之前调；抛错会让 `save` 失败，旧文字不变。 */

@@ -22,7 +22,7 @@ export type TradeType = "buy" | "sell";
 /** 价格从哪来：手动填的，或从行情接口取的。 */
 export type PriceSource = "manual" | "api";
 /** 手续费规则在不在用：在用或已停用。 */
-export type FeeRuleStatus = "active" | "inactive";
+type FeeRuleStatus = "active" | "inactive";
 /** 估值用哪种价格：自动取最新的，或用手动填的。 */
 export type ValuationPriceMode = "auto" | "manual";
 
@@ -195,7 +195,7 @@ export type CashEventType =
   | "balance-adjustment";
 
 /** 现金记录共有的部分：时间、地点、币种（只有 USDT）。 */
-export type CashEventBase = {
+type CashEventBase = {
   id: string;
   occurredAt: ISODateString | ISODateTimeString;
   occurredTimeZone?: string;

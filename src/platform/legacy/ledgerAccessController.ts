@@ -16,7 +16,7 @@ export const LEDGER_ACCESS_ERROR_CODES = {
 } as const;
 
 /** 上面那张表里任意一个错误代码。 */
-export type LedgerAccessErrorCode =
+type LedgerAccessErrorCode =
   (typeof LEDGER_ACCESS_ERROR_CODES)[keyof typeof LEDGER_ACCESS_ERROR_CODES];
 
 /** 查看的结果：要新建、要输密码，或者出错。 */

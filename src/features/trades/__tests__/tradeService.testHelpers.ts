@@ -33,19 +33,6 @@ export function createLedgerData(
   };
 }
 
-export function createSell(quantity: string, occurredAt: string): TradeDraft {
-  return {
-    occurredAt,
-    timePrecision: "day",
-    type: "sell",
-    assetSymbol: "ADA",
-    quantity,
-    price: "1",
-    totalValue: quantity,
-    currency: "USDT",
-  };
-}
-
 export function btcSell(quantity: string): TradeDraft {
   return {
     occurredAt: "2026-04-02",

@@ -11,7 +11,6 @@ import {
 } from "@/features/backup";
 import type { LedgerData } from "@/core/models";
 import { createInitialLedgerData } from "@/core/state";
-import { validateLedgerData } from "@/core/validation";
 import { sampleUsdtTrades } from "@/test-support";
 
 export function createLedger(): LedgerData {
@@ -19,14 +18,6 @@ export function createLedger(): LedgerData {
     ...createInitialLedgerData(),
     trades: structuredClone(sampleUsdtTrades),
   };
-}
-
-export function canonicalLedger(ledgerData: LedgerData): LedgerData {
-  const result = validateLedgerData(ledgerData);
-  if (!result.ok) {
-    throw new Error("Test ledger must be valid");
-  }
-  return result.value;
 }
 
 export async function createReadyImportEvidence(
