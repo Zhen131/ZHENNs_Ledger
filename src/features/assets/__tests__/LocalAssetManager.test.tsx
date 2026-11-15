@@ -11,8 +11,9 @@ import { createUsdtSimpleTrade } from "@/test-support";
 import { LocalAssetManager } from "../LocalAssetManager";
 
 const TIMESTAMP = "2026-08-18T08:00:00.000Z";
+const NOW = new Date(2026, 7, 18, 12, 0, 0);
 const clock: LedgerClock = {
-  now: () => new Date(TIMESTAMP),
+  now: () => new Date(NOW.getTime()),
 };
 
 beforeEach(() => {
@@ -42,8 +43,8 @@ describe("LocalAssetManager", () => {
         name: "SOL",
         quoteCurrency: "USDT",
         binanceMapping: null,
-        createdAt: TIMESTAMP,
-        updatedAt: TIMESTAMP,
+        createdAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
       },
       expect.objectContaining({ todayKey: "2026-08-18" }),
     );

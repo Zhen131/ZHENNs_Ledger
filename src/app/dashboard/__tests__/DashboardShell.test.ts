@@ -35,7 +35,7 @@ function staticSession() {
   });
 }
 const fixedClock: LedgerClock = {
-  now: () => new Date("2026-07-25T12:00:00Z"),
+  now: () => new Date(2026, 6, 25, 12, 0, 0),
 };
 
 const pricedPosition: Position = {

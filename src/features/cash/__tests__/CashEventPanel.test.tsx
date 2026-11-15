@@ -10,7 +10,7 @@ import { createInitialLedgerData } from "@/core/state";
 import { CashEventPanel } from "../CashEventPanel";
 
 const clock: LedgerClock = {
-  now: () => new Date("2026-08-18T08:00:00.000Z"),
+  now: () => new Date(2026, 7, 18, 12, 0, 0),
 };
 
 beforeEach(() => {
