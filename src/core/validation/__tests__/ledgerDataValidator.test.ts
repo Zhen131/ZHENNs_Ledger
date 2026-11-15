@@ -86,6 +86,51 @@ describe("validateLedgerData", () => {
     expect(validateLedgerData(consistent)).toEqual({ ok: true, value: consistent });
   });
 
+  it("rejects instead of throwing when the place's offset at that instant has seconds", () => {
+    const occurredAt = "1850-06-01T12:00:00-05:00";
+    const runtimeOffset = new Intl.DateTimeFormat("en", {
+      timeZone: "America/New_York",
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(new Date(occurredAt))
+      .find((part) => part.type === "timeZoneName")?.value;
+    expect(runtimeOffset).toMatch(/^GMT[+-]\d{2}:\d{2}:\d{2}$/);
+
+    const input = createInitialLedgerData();
+    input.trades = [
+      {
+        id: "trade-1850-new-york",
+        occurredAt,
+        occurredTimeZone: "America/New_York",
+        timePrecision: "minute",
+        type: "buy",
+        assetSymbol: "BTC",
+        quantity: "1",
+        price: "10",
+        totalValue: "10",
+        currency: "USDT",
+        fee: "0",
+        feeCurrency: "USDT",
+        createdAt: "2026-08-18T08:00:00.000Z",
+        updatedAt: "2026-08-18T08:00:00.000Z",
+      },
+    ];
+
+    let result: ReturnType<typeof validateLedgerData> | undefined;
+    expect(() => {
+      result = validateLedgerData(input);
+    }).not.toThrow();
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        expect.objectContaining({
+          code: LEDGER_DATA_VALIDATION_ERROR_CODES.INVALID_ENTITY,
+          path: "trades[0].occurredAt",
+        }),
+      ],
+    });
+  });
+
   it("preserves a non-zero fee paid in another local asset", () => {
     const input = createCompleteLedger();
     input.trades[0] = {

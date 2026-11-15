@@ -10,8 +10,8 @@
 import {
   isNegative,
   isPositive,
-  getTimeZoneOffsetAt,
   isSupportedTimeZone,
+  readTimeZoneOffsetAt,
 } from "@/core/shared";
 import { isValidISODateOrDateTime } from "./isoDateValidator";
 import type { LedgerDataValidationError } from "./ledgerDataValidatorSchema";
@@ -187,6 +187,8 @@ export function readOptionalOccurredTimeZone(
  *
  * 为什么要查：时差和地点必须对得上。2026-09-07 定（W16 02A 修订 A 第九节 D-6）。
  * 对不上时不抛错，记一条错。
+ * 地点那一刻的时差带秒时（例如纽约 1883 年以前），也算对不上。
+ * 记录写的时差只到分，不可能等于它。2026-11-15 定（W26 09B 第一节戊）。
  */
 export function validateOccurredTimeZoneOffset(
   timestamp: string | undefined,
@@ -195,7 +197,7 @@ export function validateOccurredTimeZoneOffset(
   errors: LedgerDataValidationError[],
 ): void {
   if (!timestamp || !timeZone || !/(Z|[+-]\d{2}:\d{2})$/.test(timestamp)) return;
-  const actualOffset = getTimeZoneOffsetAt(new Date(timestamp), timeZone);
+  const actualOffset = readTimeZoneOffsetAt(new Date(timestamp), timeZone);
   const statedOffset = timestamp.endsWith("Z") ? "+00:00" : timestamp.slice(-6);
   if (actualOffset !== statedOffset) {
     errors.push(createError(

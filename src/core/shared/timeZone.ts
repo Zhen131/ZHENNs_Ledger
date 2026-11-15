@@ -50,6 +50,28 @@ export function getTimeZoneOffsetAt(
 }
 
 /**
+ * 这个函数和 getTimeZoneOffsetAt 问同一件事，但答不出时不抛错。
+ * 举例：2026-01-10 上午在 Europe/Budapest → 答 "+01:00"。
+ * 举例：1850-06-01 中午在 America/New_York → 答 undefined。
+ * 那时纽约用当地太阳时，时差是 -04:56:02，带秒。
+ *
+ * 为什么另写一个不抛错的：查整本账本时，这种时刻要记成一条错。
+ * 不能让整本的检查直接抛错。2026-11-15 定（W26 09B 第一节戊）。
+ *
+ * 时刻无效、地点认不出、时差带秒，都答 undefined。
+ */
+export function readTimeZoneOffsetAt(
+  instant: Date,
+  timeZone: string,
+): string | undefined {
+  try {
+    return getTimeZoneOffsetAt(instant, timeZone);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * 这个函数回答：某一刻在某地的钟面上是几点。
  * 答案连同时差一起写出来。
  * 举例：2026-08-19T21:40:32Z 在 Asia/Shanghai → 答 "2026-08-20T05:40:32+08:00"。
