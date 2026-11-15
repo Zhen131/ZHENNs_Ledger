@@ -6,7 +6,6 @@
  */
 import type { ReactNode } from "react";
 
-import type { LedgerStorageKind } from "@/platform/persistence";
 import { SurfaceCard, useLanguage } from "@/ui";
 
 /**
@@ -21,11 +20,6 @@ export function TransferWorkspace({
 }: Readonly<{
   active: boolean;
   backupPanel: ReactNode;
-  /**
-   * 这个参数不起作用：账本文件已是唯一的存法，不再按它分支。
-   * 正式代码没有传它，只有几份测试还传；备忘录 B0-32 等拆。
-   */
-  storageKind?: LedgerStorageKind;
 }>) {
   const { t } = useLanguage();
 

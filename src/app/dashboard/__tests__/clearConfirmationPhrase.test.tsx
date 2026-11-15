@@ -86,7 +86,6 @@ function renderSettingsIn(
         onClear={onClear}
         persistenceOperation="idle"
         repositorySwitchBlocked={false}
-        storageKind="ledger-file"
       />
     </LanguageProvider>,
   );

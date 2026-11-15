@@ -239,7 +239,6 @@ function LanguageMechanismHarness() {
         onClear={async () => true}
         persistenceOperation="idle"
         repositorySwitchBlocked={false}
-        storageKind="ledger-file"
       />
     </LanguageProvider>
   );
@@ -305,7 +304,6 @@ describe("withdrawing the Hungarian option", () => {
           onClear={async () => false}
           persistenceOperation="idle"
           repositorySwitchBlocked={false}
-          storageKind="ledger-file"
         />
       </LanguageProvider>,
     );
@@ -341,7 +339,6 @@ describe("withdrawing the Hungarian option", () => {
           onClear={async () => false}
           persistenceOperation="idle"
           repositorySwitchBlocked={false}
-          storageKind="ledger-file"
         />
       </LanguageProvider>,
     );

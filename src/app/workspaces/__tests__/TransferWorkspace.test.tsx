@@ -14,7 +14,6 @@ describe("TransferWorkspace", () => {
       <TransferWorkspace
         active
         backupPanel={<button type="button">backup panel sentinel</button>}
-        storageKind="ledger-file"
       />,
     );
 
@@ -37,7 +36,6 @@ describe("TransferWorkspace", () => {
       <TransferWorkspace
         active
         backupPanel={<StatefulPanel />}
-        storageKind="ledger-file"
       />,
     );
 
@@ -45,7 +43,6 @@ describe("TransferWorkspace", () => {
       <TransferWorkspace
         active={false}
         backupPanel={<StatefulPanel />}
-        storageKind="ledger-file"
       />,
     );
     expect(onUnmount).toHaveBeenCalledOnce();

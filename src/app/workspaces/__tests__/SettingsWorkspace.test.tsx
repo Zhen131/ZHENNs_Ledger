@@ -36,7 +36,6 @@ function settingsWorkspace(
       onClear={onClear}
       persistenceOperation="idle"
       repositorySwitchBlocked={false}
-      storageKind="ledger-file"
       {...overrides}
     />
   );
