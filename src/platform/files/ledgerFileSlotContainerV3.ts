@@ -19,6 +19,7 @@ import { PREFIX_BYTES } from "./ledgerFileSlotContainerV3Constants";
  * 每个文件头槽的大小：256 KiB。
  * 为什么是这个数：装得下两代内容的说明信息，还留有余量。
  * 2026-08-31 定（W15 06C R-2 F-1）。
+ * 这个数是给分块布局定的，整块槽照用，见 2026-09-01 提交 e2040b1。
  */
 export const LEDGER_FILE_HEADER_SLOT_BYTES = 256 * 1024;
 /**
