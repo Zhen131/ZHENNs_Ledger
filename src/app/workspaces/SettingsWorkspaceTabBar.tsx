@@ -23,7 +23,7 @@ export function SettingsWorkspaceTabBar({
   t,
   tab,
 }: Readonly<{
-  closeDanger: ({ restoreFocus }?: { restoreFocus?: boolean; }) => void;
+  closeDanger: (options?: { restoreFocus?: boolean }) => void;
   setTab: Dispatch<SetStateAction<"market" | "fees" | "danger">>;
   t: Translate;
   tab: "market" | "fees" | "danger";

@@ -47,7 +47,7 @@ export function SettingsWorkspaceDangerPanel({
   clearConfirmationPhrase: string;
   clearDisabled: boolean;
   clearDisabledReason: string;
-  closeDanger: ({ restoreFocus }?: { restoreFocus?: boolean; }) => void;
+  closeDanger: (options?: { restoreFocus?: boolean }) => void;
   confirmClear: () => Promise<void>;
   confirmClearRef: RefObject<HTMLButtonElement | null>;
   confirmationInputRef: RefObject<HTMLInputElement | null>;
