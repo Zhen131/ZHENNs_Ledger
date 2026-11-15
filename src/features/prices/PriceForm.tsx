@@ -112,9 +112,9 @@ export function PriceForm({
     );
     // 只在币的清单变了时修一次表单。
     // 不把两个函数列进依赖，否则每次重画都会跑一遍。
-    // 照交易表单同样的写法，日志里没写理由。
-    // 这是猜的，要核。
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在币的清单变时才修表单，理由是猜的，见上方
+    // 理由是从交易表单同一处推的：两处同一天写成一样（2026-08-13 提交 aa0e022）。
+    // 交易表单那处的注释写明：币的清单是唯一该触发修表单的外部变化。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在币的清单变时才修表单，理由见上方
   }, [ledgerData.assets]);
 
   useEffect(() => {
@@ -130,11 +130,11 @@ export function PriceForm({
       },
     );
     // 只有换了一本账本，才清空表单的状态。
-    // 照交易表单同样的写法，日志里没写理由。
-    // 这是猜的，要核。
+    // 为什么：免得把旧账本的草稿带进新账本。
+    // 2026-08-13 定（W13 02B 第 6.1 节、第七节阶段 2）。
     // 照 lint 补上 ledgerData 等依赖，每存一笔都会清掉「已保存」提示。
     // 所以保留下面这条抑制。
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换账本时清空，理由是猜的，见上方
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在换账本时清空，理由见上方
   }, [ledgerEpoch]);
 
   useEffect(() => {

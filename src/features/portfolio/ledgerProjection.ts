@@ -146,7 +146,8 @@ export function buildLedgerProjection(
  * 插到中间，或那种币原来没有持仓，就从头算。
  * 举例：上一份现金 1000，再加一笔最晚的入金 500。
  * → 答现金 1500，现金一块标「appended」。
- * 为什么要补算：账本大了每次从头算会卡；这是猜的，要核。
+ * 为什么要补算：记一笔就从头算，实测写入要 7,652 毫秒。
+ * 只补算受这笔影响的部分；2026-08-29 定（W15 04A 第 2.1 节 P-2）。
  * 不会出错；补不了就自动从头算。
  */
 export function updateLedgerProjectionForAppendedFact(

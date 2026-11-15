@@ -20,7 +20,8 @@ const MAX_ASSET_ID_GENERATION_ATTEMPTS = 3;
 const MAX_ASSETS = 500;
 /**
  * 删不掉时，每类记录最多列出 5 个位置给人看。
- * 为什么是 5：日志里只写「前若干」，这是猜的，要核。
+ * 日志只写「前若干」（W14 01B 第 4.2 节），5 是 2026-08-19 提交 2bc122b 写下的。
+ * 为什么是 5：这是猜的，要核。
  */
 const MAX_REPORTED_PATHS = 5;
 /**

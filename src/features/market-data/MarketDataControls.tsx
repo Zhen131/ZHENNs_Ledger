@@ -281,9 +281,9 @@ export function MarketDataControls({
     // 进行中的操作记在 ref 里，只在存盘版本变化时往下走。
     // 每次重画都会新造的函数不列进依赖。
     // 免得白白再跑一遍。
-    // 原句 2026-08-19 提交 a4f26a5 写的，日志里没写理由。
-    // 这是猜的，要核。
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在存盘版本变化时推动操作，理由是猜的，见上方
+    // 为什么只看存盘版本：映射真存上盘才算数；2026-08-19 定（W14 01B 第 5.2 节）。
+    // 函数不列：2026-08-19 提交 a4f26a5 的注释写明，重画新造的函数不许再推它。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在存盘版本变化时推动操作，理由见上方
   }, [mappingSignature, mutationVersion, persistedVersion, persistenceStatus, t]);
 
   useEffect(() => {

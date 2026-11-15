@@ -259,9 +259,9 @@ export async function preflightBackupJson(
       ),
     );
   } else {
-    // 这两层在查外壳时已经跑过一次。
-    // 这里故意再明着调用，让预检看得出每一层都跑过。
-    // 为什么这样写：2026-07-31 提交 fd680c5 写的，日志里没写。
+    // 这两层在查外壳时已经跑过一次，这里的结果没有用上。
+    // 原来说是为了让预检看得出每一层都跑过，但哪里都没记下「跑过」。
+    // 2026-07-31 提交 fd680c5 写下这两行，日志里没写为什么。
     // 这是猜的，要核。
     evaluateLedgerResourcePolicy(ledgerResult.value);
     validateLedgerImportPolicy(ledgerResult.value, options.todayKey);

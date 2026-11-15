@@ -32,12 +32,16 @@ import { getDefaultValuationCurrency } from "./chartDataServiceShared";
 
 /**
  * 占比不到 2% 的币并进「其他」。
- * 为什么是 2%：日志里没写，这是猜的，要核。
+ * 为什么是 2%：比 2% 还小的扇区在图上看不清，也点不中。
+ * 2026-11-15 拟稿，产品负责人看过、未改字（W26 00A 追加节）。
+ * 不到 2% 并进「其他」，2026-08-27 定（W15 01A 第十七节 U-02）。
  */
 const MIN_STANDALONE_ALLOCATION_RATIO = "0.02";
 /**
  * 分配图最多 8 块，超了把小的并进「其他」。
- * 为什么是 8：日志里没写，这是猜的，要核。
+ * 为什么是 8：颜色有 10 种，8 块能保证每一块颜色都不一样。
+ * 2026-11-15 拟稿，产品负责人看过、未改字（W26 00A 追加节）。
+ * 最多 8 块、颜色至少 10 种，2026-08-27 定（W15 01A 第十七节 U-02）。
  */
 const MAX_ALLOCATION_SLICES = 8;
 const MAX_VISIBLE_SLICES_WITH_GROUP = MAX_ALLOCATION_SLICES - 1;

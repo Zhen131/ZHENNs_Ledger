@@ -174,11 +174,12 @@ export function BackupControls({
     // 只在存盘结果变化时往前推配对。
     // 正在进行的那次配对记在 ref 里，不需要列进依赖。
     // 为什么只看存盘：映射真存上后才去取价格；2026-08-19 定（W14 01B 第 5.3 节）。
-    // 函数不列进依赖这一点，日志里没写，这是猜的，要核。
+    // 函数不列：理由是从提交注释推的（2026-08-19 提交 978a36c），配对只跟着存盘结果走。
     // 照 lint 补上 t 和三个函数，这段每次重画都会重跑。
-    // 重跑会不会多推一次配对，没查清，这是猜的，要核。
-    // 所以先保留下面这条抑制。
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在存盘结果变化时推动配对，理由部分是猜的，见上方
+    // 读代码看，重跑不会多推一步：每推一步前先清空要等的版本号，重跑会在开头返回。
+    // 见 backupControlsPairing.ts 的 runPairingPersistenceEffect。
+    // 保留下面这条抑制，是为了照上面的意思只看存盘结果。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在存盘结果变化时推动配对，理由见上方
   }, [mutationVersion, persistedVersion, persistenceStatus]);
 
   const showExport = hydrationStatus === "ready";
