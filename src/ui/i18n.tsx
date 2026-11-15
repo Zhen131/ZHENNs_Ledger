@@ -86,7 +86,8 @@ export function translate(
 
 /**
  * 这个函数用默认语言（中文）查一句话。
- * 给拿不到界面语言的地方用，比如 `core` 里写错误说明。
+ * 它主要当可选参数 `t` 不传时的默认值。
+ * 直接调用只剩两处，名单在守卫 `translateDefaultCallSites.test.ts`。
  * 举例：查 `shared.confirmDelete.confirm` → 答「再次点击确认」。不会出错。
  */
 export function translateDefault(key: TranslationKey): string {
