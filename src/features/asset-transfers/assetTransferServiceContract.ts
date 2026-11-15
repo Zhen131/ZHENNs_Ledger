@@ -9,6 +9,7 @@ import type {
   AssetTransferReason,
   ISODateTimeString,
 } from "@/core/models";
+import type { Translate } from "@/ui";
 
 /**
  * 每种转账分类能配哪些原因。
@@ -73,11 +74,13 @@ export type AssetTransferServiceError = Readonly<{
 /**
  * 新建转账要用的外部东西：生成编号、读时刻、读今天。
  * 测试时可以换成固定的。
+ * 还可以带一个查句子用的 `t`；不带时报错说明用中文。
  */
 export type AssetTransferServiceDependencies = Readonly<{
   generateId: () => string;
   now: () => ISODateTimeString;
   todayKey: () => string;
+  t?: Translate;
 }>;
 
 /** 能不能删一笔转账的答案：能删，或者不能删和原因。 */

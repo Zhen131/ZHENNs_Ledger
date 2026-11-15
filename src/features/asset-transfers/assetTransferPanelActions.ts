@@ -215,6 +215,7 @@ export function doHandleSubmit(
       generateId: () => globalThis.crypto.randomUUID(),
       now: () => timeSnapshot.now.toISOString(),
       todayKey: () => timeSnapshot.todayKey,
+      t,
     });
     if (!result.ok) {
       setError(result.error);
@@ -312,6 +313,7 @@ export function doRequestDelete(
     const removal = validateAssetTransferRemoval(
       assetTransferId,
       ledgerData,
+      t,
     );
     if (!removal.ok) {
       setArmedDelete(null);

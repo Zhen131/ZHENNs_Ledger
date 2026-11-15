@@ -22,7 +22,7 @@ import {
   isValidISODateOrDateTime,
   validateLedgerData,
 } from "@/core/validation";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 import {
   projectLedgerCashMutation,
   type CashMutationProjection,
@@ -60,11 +60,13 @@ type CashEventServiceError = Readonly<{
 /**
  * 新建时要用的三样外部东西：生成编号、读时刻、读今天。
  * 测试时可以换成固定的。
+ * 还可以带一个查句子用的 `t`；不带时报错说明用中文。
  */
 export type CashEventServiceDependencies = Readonly<{
   generateId: () => string;
   now: () => ISODateTimeString;
   todayKey: () => string;
+  t?: Translate;
 }>;
 
 type CreateCashEventResult =
@@ -84,23 +86,25 @@ type CreateCashEventResult =
  * 什么时候出错：不返回抛错，返回 `ok:false` 和错误代码。
  * 比如日期在今天以后、金额写法不对、备注太长。
  * 界面拿到后把说明文字显示在对应的输入框旁。
+ * 说明文字用依赖里的 `t` 查；不带时用中文。
  */
 export function createValidatedCashEvent(
   input: unknown,
   ledgerData: LedgerData,
   providedDependencies?: CashEventServiceDependencies,
 ): CreateCashEventResult {
+  const t = providedDependencies?.t ?? translateDefault;
   if (!isRecord(input)) {
-    return failure("INVALID_INPUT", "form", translateDefault("cash.validation.invalidInput"));
+    return failure("INVALID_INPUT", "form", t("cash.validation.invalidInput"));
   }
   if (!isCashEventType(input.type)) {
-    return failure("INVALID_TYPE", "type", translateDefault("cash.validation.invalidType"));
+    return failure("INVALID_TYPE", "type", t("cash.validation.invalidType"));
   }
   if (
     typeof input.occurredAt !== "string" ||
     !isValidISODateOrDateTime(input.occurredAt)
   ) {
-    return failure("INVALID_DATE", "occurredAt", translateDefault("cash.validation.invalidDate"));
+    return failure("INVALID_DATE", "occurredAt", t("cash.validation.invalidDate"));
   }
 
   const defaultSnapshot = providedDependencies
@@ -119,11 +123,11 @@ export function createValidatedCashEvent(
     return failure(
       "DEPENDENCY_FAILURE",
       "form",
-      translateDefault("cash.validation.readTodayFailed"),
+      t("cash.validation.readTodayFailed"),
     );
   }
   if (input.occurredAt.slice(0, 10) > todayKey) {
-    return failure("FUTURE_FACT", "occurredAt", translateDefault("cash.validation.futureFact"));
+    return failure("FUTURE_FACT", "occurredAt", t("cash.validation.futureFact"));
   }
   const occurredTimeZone = input.occurredTimeZone;
   if (
@@ -131,11 +135,11 @@ export function createValidatedCashEvent(
     (typeof occurredTimeZone !== "string" ||
       !isSupportedTimeZone(occurredTimeZone))
   ) {
-    return failure("INVALID_DATE", "occurredAt", translateDefault("cash.validation.invalidTimeZone"));
+    return failure("INVALID_DATE", "occurredAt", t("cash.validation.invalidTimeZone"));
   }
   const timePrecision = input.timePrecision;
   if (timePrecision !== undefined && !isTimePrecision(timePrecision)) {
-    return failure("INVALID_DATE", "occurredAt", translateDefault("cash.validation.invalidTimePrecision"));
+    return failure("INVALID_DATE", "occurredAt", t("cash.validation.invalidTimePrecision"));
   }
 
   if (
@@ -145,7 +149,7 @@ export function createValidatedCashEvent(
     return failure(
       "INVALID_AMOUNT",
       "amountOrTarget",
-      translateDefault("cash.validation.invalidDecimal"),
+      t("cash.validation.invalidDecimal"),
     );
   }
   if (
@@ -155,7 +159,7 @@ export function createValidatedCashEvent(
     return failure(
       "INVALID_AMOUNT",
       "amountOrTarget",
-      translateDefault("cash.validation.positiveAmount"),
+      t("cash.validation.positiveAmount"),
     );
   }
   const note =
@@ -163,7 +167,7 @@ export function createValidatedCashEvent(
       ? input.note.trim()
       : undefined;
   if (note !== undefined && note.length > 4_096) {
-    return failure("NOTE_TOO_LONG", "note", translateDefault("cash.validation.noteTooLong"));
+    return failure("NOTE_TOO_LONG", "note", t("cash.validation.noteTooLong"));
   }
 
   const existingIds = collectLedgerIds(ledgerData);
@@ -173,7 +177,7 @@ export function createValidatedCashEvent(
     try {
       candidate = dependencies.generateId();
     } catch {
-      return failure("DEPENDENCY_FAILURE", "form", translateDefault("cash.validation.generateIdFailed"));
+      return failure("DEPENDENCY_FAILURE", "form", t("cash.validation.generateIdFailed"));
     }
     if (isTechnicalId(candidate) && !existingIds.has(candidate)) {
       id = candidate;
@@ -184,7 +188,7 @@ export function createValidatedCashEvent(
     return failure(
       "ID_GENERATION_EXHAUSTED",
       "form",
-      translateDefault("cash.validation.generateIdExhausted"),
+      t("cash.validation.generateIdExhausted"),
     );
   }
 
@@ -192,7 +196,7 @@ export function createValidatedCashEvent(
   try {
     timestamp = dependencies.now();
   } catch {
-    return failure("DEPENDENCY_FAILURE", "form", translateDefault("cash.validation.readSaveTimeFailed"));
+    return failure("DEPENDENCY_FAILURE", "form", t("cash.validation.readSaveTimeFailed"));
   }
 
   const currentBalance = projectLedgerCashMutation(
@@ -237,7 +241,7 @@ export function createValidatedCashEvent(
     return failure(
       "LEDGER_VALIDATION_FAILED",
       "form",
-      validation.errors[0]?.message ?? translateDefault("cash.validation.ledgerInvalid"),
+      validation.errors[0]?.message ?? t("cash.validation.ledgerInvalid"),
     );
   }
 

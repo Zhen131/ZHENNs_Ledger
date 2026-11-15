@@ -136,7 +136,7 @@ export function doHandleDeleteFutureAssetTransfer(
       return "rejected";
     }
 
-    const result = validateAssetTransferRemoval(assetTransferId, ledgerData);
+    const result = validateAssetTransferRemoval(assetTransferId, ledgerData, t);
     if (!result.ok) {
       setFutureCorrectionError(result.error.message);
       return "rejected";

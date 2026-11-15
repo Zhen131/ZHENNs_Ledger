@@ -24,7 +24,7 @@ import {
   isValidISODateOrDateTime,
   validateLedgerData,
 } from "@/core/validation";
-import { translateDefault } from "@/ui";
+import { translateDefault, type Translate } from "@/ui";
 import type {
   AssetTransferServiceError,
   AssetTransferServiceDependencies,
@@ -56,6 +56,7 @@ type AssetTransferFailure = {
  * 外部转出：只填从哪，不许填单价。
  * 举例：交易所转 0.05 BTC 到冷钱包，网络费 0.0001 → 答合规。
  * 举例：手里 0.01 BTC，转出 0.05 → 答不合规，说持仓不够。
+ * 说明文字用依赖里的 `t` 查；不带时用中文。
  * 什么时候出错：不抛错，返回 `ok:false` 和错误代码，挂在对应的栏上。
  */
 export function createValidatedAssetTransfer(
@@ -63,28 +64,29 @@ export function createValidatedAssetTransfer(
   ledgerData: LedgerData,
   providedDependencies?: AssetTransferServiceDependencies,
 ): CreateAssetTransferResult {
+  const t = providedDependencies?.t ?? translateDefault;
   if (!isRecord(input)) {
-    return failure("INVALID_INPUT", "form", translateDefault("assetTransfer.validation.invalidInput"));
+    return failure("INVALID_INPUT", "form", t("assetTransfer.validation.invalidInput"));
   }
   if (!isAssetTransferCategory(input.category)) {
-    return failure("INVALID_CATEGORY", "category", translateDefault("assetTransfer.validation.invalidCategory"));
+    return failure("INVALID_CATEGORY", "category", t("assetTransfer.validation.invalidCategory"));
   }
   const category = input.category;
   if (
     typeof input.assetSymbol !== "string" ||
     !ledgerData.assets.some((asset) => asset.symbol === input.assetSymbol)
   ) {
-    return failure("INVALID_ASSET", "assetSymbol", translateDefault("assetTransfer.validation.invalidAsset"));
+    return failure("INVALID_ASSET", "assetSymbol", t("assetTransfer.validation.invalidAsset"));
   }
   if (!isAssetTransferReason(input.reason)) {
-    return failure("INVALID_REASON", "reason", translateDefault("assetTransfer.validation.invalidReason"));
+    return failure("INVALID_REASON", "reason", t("assetTransfer.validation.invalidReason"));
   }
   if (
     !ASSET_TRANSFER_REASONS_BY_CATEGORY[category].some(
       (reason) => reason === input.reason,
     )
   ) {
-    return failure("INVALID_REASON", "reason", translateDefault("assetTransfer.validation.reasonCategoryMismatch"));
+    return failure("INVALID_REASON", "reason", t("assetTransfer.validation.reasonCategoryMismatch"));
   }
   if (
     typeof input.quantity !== "string" ||
@@ -94,14 +96,14 @@ export function createValidatedAssetTransfer(
     return failure(
       "INVALID_QUANTITY",
       "quantity",
-      translateDefault("assetTransfer.validation.invalidQuantity"),
+      t("assetTransfer.validation.invalidQuantity"),
     );
   }
   if (
     typeof input.occurredAt !== "string" ||
     !isValidISODateOrDateTime(input.occurredAt)
   ) {
-    return failure("INVALID_DATE", "occurredAt", translateDefault("assetTransfer.validation.invalidDate"));
+    return failure("INVALID_DATE", "occurredAt", t("assetTransfer.validation.invalidDate"));
   }
 
   const defaultSnapshot = providedDependencies
@@ -116,10 +118,10 @@ export function createValidatedAssetTransfer(
   try {
     todayKey = dependencies.todayKey();
   } catch {
-    return failure("DEPENDENCY_FAILURE", "form", translateDefault("assetTransfer.validation.readTodayFailed"));
+    return failure("DEPENDENCY_FAILURE", "form", t("assetTransfer.validation.readTodayFailed"));
   }
   if (input.occurredAt.slice(0, 10) > todayKey) {
-    return failure("FUTURE_FACT", "occurredAt", translateDefault("assetTransfer.validation.futureFact"));
+    return failure("FUTURE_FACT", "occurredAt", t("assetTransfer.validation.futureFact"));
   }
   const occurredTimeZone = input.occurredTimeZone;
   if (
@@ -127,33 +129,35 @@ export function createValidatedAssetTransfer(
     (typeof occurredTimeZone !== "string" ||
       !isSupportedTimeZone(occurredTimeZone))
   ) {
-    return failure("INVALID_DATE", "occurredAt", translateDefault("assetTransfer.validation.invalidTimeZone"));
+    return failure("INVALID_DATE", "occurredAt", t("assetTransfer.validation.invalidTimeZone"));
   }
   const timePrecision = input.timePrecision;
   if (timePrecision !== undefined && !isTimePrecision(timePrecision)) {
-    return failure("INVALID_DATE", "occurredAt", translateDefault("assetTransfer.validation.invalidTimePrecision"));
+    return failure("INVALID_DATE", "occurredAt", t("assetTransfer.validation.invalidTimePrecision"));
   }
 
 
   const unitPriceResult = readOptionalPositiveDecimal(
     input.unitPrice,
     "unitPrice",
-    translateDefault("assetTransfer.validation.unitPrice"),
+    t("assetTransfer.validation.unitPrice"),
+    t,
   );
   if (!unitPriceResult.ok) return unitPriceResult.result;
   const networkFeeResult = readOptionalPositiveDecimal(
     input.networkFee,
     "networkFee",
-    translateDefault("assetTransfer.validation.networkFee"),
+    t("assetTransfer.validation.networkFee"),
+    t,
   );
   if (!networkFeeResult.ok) return networkFeeResult.result;
   const fromLocation = readOptionalLocation(input.fromLocation);
   if (fromLocation === "invalid") {
-    return failure("INVALID_FROM_LOCATION", "fromLocation", translateDefault("assetTransfer.validation.invalidFromLocation"));
+    return failure("INVALID_FROM_LOCATION", "fromLocation", t("assetTransfer.validation.invalidFromLocation"));
   }
   const toLocation = readOptionalLocation(input.toLocation);
   if (toLocation === "invalid") {
-    return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.invalidToLocation"));
+    return failure("INVALID_TO_LOCATION", "toLocation", t("assetTransfer.validation.invalidToLocation"));
   }
 
   const combinationError = validateCombination({
@@ -162,18 +166,18 @@ export function createValidatedAssetTransfer(
     networkFee: networkFeeResult.value,
     fromLocation,
     toLocation,
-  });
+  }, t);
   if (combinationError) return combinationError;
 
   if (input.note !== undefined && typeof input.note !== "string") {
-    return failure("INVALID_NOTE", "note", translateDefault("assetTransfer.validation.invalidNote"));
+    return failure("INVALID_NOTE", "note", t("assetTransfer.validation.invalidNote"));
   }
   const note =
     typeof input.note === "string" && input.note.trim() !== ""
       ? input.note.trim()
       : undefined;
   if (note !== undefined && note.length > 4_096) {
-    return failure("NOTE_TOO_LONG", "note", translateDefault("assetTransfer.validation.noteTooLong"));
+    return failure("NOTE_TOO_LONG", "note", t("assetTransfer.validation.noteTooLong"));
   }
 
   const existingIds = collectLedgerIds(ledgerData);
@@ -183,7 +187,7 @@ export function createValidatedAssetTransfer(
     try {
       candidate = dependencies.generateId();
     } catch {
-      return failure("DEPENDENCY_FAILURE", "form", translateDefault("assetTransfer.validation.generateIdFailed"));
+      return failure("DEPENDENCY_FAILURE", "form", t("assetTransfer.validation.generateIdFailed"));
     }
     if (isTechnicalId(candidate) && !existingIds.has(candidate)) {
       id = candidate;
@@ -194,7 +198,7 @@ export function createValidatedAssetTransfer(
     return failure(
       "ID_GENERATION_EXHAUSTED",
       "form",
-      translateDefault("assetTransfer.validation.generateIdExhausted"),
+      t("assetTransfer.validation.generateIdExhausted"),
     );
   }
 
@@ -202,7 +206,7 @@ export function createValidatedAssetTransfer(
   try {
     timestamp = dependencies.now();
   } catch {
-    return failure("DEPENDENCY_FAILURE", "form", translateDefault("assetTransfer.validation.readSaveTimeFailed"));
+    return failure("DEPENDENCY_FAILURE", "form", t("assetTransfer.validation.readSaveTimeFailed"));
   }
 
   const common = {
@@ -261,7 +265,7 @@ export function createValidatedAssetTransfer(
     return failure(
       "INSUFFICIENT_HOLDING",
       "quantity",
-      translateDefault("assetTransfer.validation.insufficientHolding"),
+      t("assetTransfer.validation.insufficientHolding"),
     );
   }
 
@@ -270,7 +274,7 @@ export function createValidatedAssetTransfer(
     return failure(
       "LEDGER_VALIDATION_FAILED",
       "form",
-      validation.errors[0]?.message ?? translateDefault("assetTransfer.validation.ledgerInvalid"),
+      validation.errors[0]?.message ?? t("assetTransfer.validation.ledgerInvalid"),
     );
   }
 
@@ -282,17 +286,16 @@ export function createValidatedAssetTransfer(
  * 把它拿掉后，从第一笔到最后一笔按顺序过一遍买卖和转账。
  * 举例：先转入 0.1 BTC，后来卖了 0.1 BTC。
  * 想删那笔转入 → 答不能删，后面的卖出就卖空了。
+ * 原因文字用 `t` 查；不传时用中文。
  * 什么时候出错：不抛错，返回 `ok:false` 和原因。
  */
 export function validateAssetTransferRemoval(
   assetTransferId: string,
   ledgerData: LedgerData,
+  t: Translate = translateDefault,
 ): ValidateAssetTransferRemovalResult {
   if (!ledgerData.assetTransfers.some(({ id }) => id === assetTransferId)) {
-    return removalFailure(
-      "TRANSFER_NOT_FOUND",
-      translateDefault("assetTransfer.validation.notFound"),
-    );
+    return removalFailure("TRANSFER_NOT_FOUND", t("assetTransfer.validation.notFound"));
   }
   const nextLedger: LedgerData = {
     ...ledgerData,
@@ -303,16 +306,13 @@ export function validateAssetTransferRemoval(
   try {
     replayPositions(nextLedger.trades, nextLedger.assetTransfers);
   } catch {
-    return removalFailure(
-      "REMOVAL_BREAKS_TIMELINE",
-      translateDefault("assetTransfer.validation.removalBreaksTimeline"),
-    );
+    return removalFailure("REMOVAL_BREAKS_TIMELINE", t("assetTransfer.validation.removalBreaksTimeline"));
   }
   const validation = validateLedgerData(nextLedger);
   if (!validation.ok) {
     return removalFailure(
       "LEDGER_VALIDATION_FAILED",
-      validation.errors[0]?.message ?? translateDefault("assetTransfer.validation.removalLedgerInvalid"),
+      validation.errors[0]?.message ?? t("assetTransfer.validation.removalLedgerInvalid"),
     );
   }
   return { ok: true, assetTransferId };
@@ -330,45 +330,45 @@ function validateCombination({
   networkFee?: string;
   fromLocation?: CustodyLocation;
   toLocation?: CustodyLocation;
-}>): CreateAssetTransferResult | undefined {
+}>, t: Translate): CreateAssetTransferResult | undefined {
   if (category === "internal") {
     if (fromLocation === undefined) {
-      return failure("INVALID_FROM_LOCATION", "fromLocation", translateDefault("assetTransfer.validation.internalFromRequired"));
+      return failure("INVALID_FROM_LOCATION", "fromLocation", t("assetTransfer.validation.internalFromRequired"));
     }
     if (toLocation === undefined) {
-      return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.internalToRequired"));
+      return failure("INVALID_TO_LOCATION", "toLocation", t("assetTransfer.validation.internalToRequired"));
     }
     if (fromLocation === toLocation) {
-      return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.locationsMustDiffer"));
+      return failure("INVALID_TO_LOCATION", "toLocation", t("assetTransfer.validation.locationsMustDiffer"));
     }
     if (unitPrice !== undefined) {
-      return failure("INVALID_COMBINATION", "unitPrice", translateDefault("assetTransfer.validation.internalUnitPriceForbidden"));
+      return failure("INVALID_COMBINATION", "unitPrice", t("assetTransfer.validation.internalUnitPriceForbidden"));
     }
     return undefined;
   }
   if (category === "external-in" || category === "gain") {
     if (fromLocation !== undefined) {
-      return failure("INVALID_COMBINATION", "fromLocation", translateDefault("assetTransfer.validation.categoryFromForbidden"));
+      return failure("INVALID_COMBINATION", "fromLocation", t("assetTransfer.validation.categoryFromForbidden"));
     }
     if (toLocation === undefined) {
-      return failure("INVALID_TO_LOCATION", "toLocation", translateDefault("assetTransfer.validation.categoryToRequired"));
+      return failure("INVALID_TO_LOCATION", "toLocation", t("assetTransfer.validation.categoryToRequired"));
     }
     if (unitPrice === undefined) {
-      return failure("INVALID_UNIT_PRICE", "unitPrice", translateDefault("assetTransfer.validation.categoryUnitPriceRequired"));
+      return failure("INVALID_UNIT_PRICE", "unitPrice", t("assetTransfer.validation.categoryUnitPriceRequired"));
     }
     if (networkFee !== undefined) {
-      return failure("INVALID_COMBINATION", "networkFee", translateDefault("assetTransfer.validation.categoryNetworkFeeForbidden"));
+      return failure("INVALID_COMBINATION", "networkFee", t("assetTransfer.validation.categoryNetworkFeeForbidden"));
     }
     return undefined;
   }
   if (fromLocation === undefined) {
-    return failure("INVALID_FROM_LOCATION", "fromLocation", translateDefault("assetTransfer.validation.externalOutFromRequired"));
+    return failure("INVALID_FROM_LOCATION", "fromLocation", t("assetTransfer.validation.externalOutFromRequired"));
   }
   if (toLocation !== undefined) {
-    return failure("INVALID_COMBINATION", "toLocation", translateDefault("assetTransfer.validation.externalOutToForbidden"));
+    return failure("INVALID_COMBINATION", "toLocation", t("assetTransfer.validation.externalOutToForbidden"));
   }
   if (unitPrice !== undefined) {
-    return failure("INVALID_COMBINATION", "unitPrice", translateDefault("assetTransfer.validation.externalOutUnitPriceForbidden"));
+    return failure("INVALID_COMBINATION", "unitPrice", t("assetTransfer.validation.externalOutUnitPriceForbidden"));
   }
   return undefined;
 }
@@ -377,6 +377,7 @@ function readOptionalPositiveDecimal(
   value: unknown,
   field: "unitPrice" | "networkFee",
   label: string,
+  t: Translate,
 ):
   | { ok: true; value?: string }
   | { ok: false; result: CreateAssetTransferResult } {
@@ -391,7 +392,7 @@ function readOptionalPositiveDecimal(
       result: failure(
         field === "unitPrice" ? "INVALID_UNIT_PRICE" : "INVALID_NETWORK_FEE",
         field,
-        `${label}${translateDefault("assetTransfer.validation.positiveDecimalSuffix")}`,
+        `${label}${t("assetTransfer.validation.positiveDecimalSuffix")}`,
       ),
     };
   }
