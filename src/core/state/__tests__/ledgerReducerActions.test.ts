@@ -235,28 +235,6 @@ describe("ledgerReducer asset actions", () => {
     expect(run(state, { type: "asset/add", asset })).toBe(state);
   });
 
-  test("asset/update swaps only the asset with the same id", () => {
-    const state = filledLedger();
-    const asset = { ...state.assets[1], name: "Renamed" };
-    const next = run(state, { type: "asset/update", asset });
-
-    expectOnlyChanged(state, next, ["assets"]);
-    expect(next.assets).toHaveLength(state.assets.length);
-    state.assets.forEach((item, index) => {
-      if (index === 1) {
-        expect(next.assets[index]).toBe(asset);
-      } else {
-        expect(next.assets[index]).toBe(item);
-      }
-    });
-  });
-
-  test("asset/update returns the same ledger when the asset id is missing", () => {
-    const state = filledLedger();
-    const asset = createAsset("DOGE", "Dogecoin");
-    expect(run(state, { type: "asset/update", asset })).toBe(state);
-  });
-
   test("asset/remove removes the asset with the given symbol", () => {
     const state = filledLedger();
     const symbol = state.assets[0].symbol;
@@ -574,19 +552,5 @@ describe("ledgerReducer whole-ledger actions", () => {
 
     expect(next).toBe(ledgerData);
     expect(next).not.toBe(state);
-  });
-
-  test("ledger/reset returns a brand new initial ledger", () => {
-    const state = filledLedger();
-    const next = run(state, { type: "ledger/reset" });
-
-    expect(next).toEqual(createInitialLedgerData());
-    expect(next).not.toBe(state);
-    for (const key of ARRAY_KEYS) {
-      expect(next[key]).not.toBe(state[key]);
-    }
-    next.assets.forEach((asset, index) => {
-      expect(asset).not.toBe(state.assets[index]);
-    });
   });
 });

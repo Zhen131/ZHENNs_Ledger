@@ -14,7 +14,6 @@ import type {
   PriceSnapshot,
   Trade,
 } from "@/core/models";
-import { createInitialLedgerData } from "./initialLedgerData";
 
 /** 这张单子在账本最后加一笔买卖。 */
 type AddTradeAction = { type: "trade/add"; trade: Trade };
@@ -42,9 +41,6 @@ type DeleteAssetTransferAction = {
 
 /** 这张单子加一个资产；编号或代码已经有了，账本就不变。 */
 type AddAssetAction = { type: "asset/add"; asset: Asset };
-
-/** 这张单子按编号换掉一个资产；找不到这个编号，账本就不变。 */
-type UpdateAssetAction = { type: "asset/update"; asset: Asset };
 
 /** 这张单子按代码（例如 BTC）删资产，代码相同的都删掉。 */
 type RemoveAssetAction = { type: "asset/remove"; assetSymbol: string };
@@ -88,11 +84,8 @@ type DeleteAllFutureFactsAction = {
 /** 这张单子换掉整本账本：直接用单子里带来的那一本，不复制。 */
 type ReplaceLedgerAction = { type: "ledger/replace"; ledgerData: LedgerData };
 
-/** 这张单子清空整本账本，回到新建时的样子。 */
-type ResetLedgerAction = { type: "ledger/reset" };
-
 /**
- * 改账本的一张单子，是下面 17 种之一。
+ * 改账本的一张单子，是下面 15 种之一。
  * 界面增删改记录、打开或导入账本时，都造一张单子递给 `ledgerReducer`。
  */
 export type LedgerAction =
@@ -103,7 +96,6 @@ export type LedgerAction =
   | AddAssetTransferAction
   | DeleteAssetTransferAction
   | AddAssetAction
-  | UpdateAssetAction
   | RemoveAssetAction
   | AddPriceSnapshotAction
   | DeletePriceSnapshotAction
@@ -111,8 +103,7 @@ export type LedgerAction =
   | DeactivateFeeRuleAction
   | ReplaceFeeRuleAction
   | DeleteAllFutureFactsAction
-  | ReplaceLedgerAction
-  | ResetLedgerAction;
+  | ReplaceLedgerAction;
 
 /** 能按条件删的那几类记录。买卖、现金记录、资产转移、资产、价格都在里面。 */
 type RemovableListKey =
@@ -170,7 +161,7 @@ function deactivateRule(rule: FeeRule, deactivatedAt: string): FeeRule {
  *
  * 为什么删未来记录只看日期前 10 位：哪一天按当地日期算，2026-09-07 定（W16 03A 第二节 D-3a）。
  *
- * 不会抛错。TypeScript 编译时只让这 17 种单子进来。
+ * 不会抛错。TypeScript 编译时只让这 15 种单子进来。
  * 万一运行时递进来别的单子，它返回 `undefined`，这是沿用的旧行为。
  * 现在没有调用方靠这一点。
  */
@@ -221,17 +212,6 @@ export function ledgerReducer(
         return state;
       }
       return { ...state, assets: [...state.assets, action.asset] };
-    }
-    case "asset/update": {
-      const index = state.assets.findIndex(
-        ({ id }) => id === action.asset.id,
-      );
-      if (index < 0) {
-        return state;
-      }
-      const nextAssets = state.assets.slice();
-      nextAssets[index] = action.asset;
-      return { ...state, assets: nextAssets };
     }
     case "asset/remove":
       return removeMatching(
@@ -326,7 +306,5 @@ export function ledgerReducer(
     }
     case "ledger/replace":
       return action.ledgerData;
-    case "ledger/reset":
-      return createInitialLedgerData();
   }
 }

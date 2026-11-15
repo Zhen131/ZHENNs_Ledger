@@ -249,7 +249,7 @@ test("atomically replaces the complete ledger after external validation", () => 
   expect(previousLedger).toEqual(createInitialLedgerData());
 });
 
-test("resets user data and restores independent built-in assets", () => {
+test("createInitialLedgerData gives a fresh ledger that shares nothing with an earlier one", () => {
   const existingTrade = createSimpleTrade("trade-existing", "buy", "BTC", "1");
   const existingPrice = createPriceSnapshot(
     "price-existing",
@@ -283,9 +283,7 @@ test("resets user data and restores independent built-in assets", () => {
     ],
   };
 
-  const nextLedger = ledgerReducer(previousLedger, {
-    type: "ledger/reset",
-  });
+  const nextLedger = createInitialLedgerData();
 
   expect(nextLedger).toEqual(createInitialLedgerData());
   expect(nextLedger).not.toBe(previousLedger);
@@ -315,13 +313,9 @@ function createTransfer(id: string, occurredAt: string): AssetTransfer {
   };
 }
 
-test("creates independent built-in assets across consecutive resets", () => {
-  const firstReset = ledgerReducer(createInitialLedgerData(), {
-    type: "ledger/reset",
-  });
-  const secondReset = ledgerReducer(firstReset, {
-    type: "ledger/reset",
-  });
+test("creates independent built-in assets across consecutive createInitialLedgerData calls", () => {
+  const firstReset = createInitialLedgerData();
+  const secondReset = createInitialLedgerData();
 
   expect(firstReset.assets).toEqual(secondReset.assets);
   expect(firstReset.assets).not.toBe(secondReset.assets);
