@@ -12,10 +12,10 @@ import type { Translate } from "@/ui";
 
 type ConfirmClearDeps = {
   clearConfirmationPhrase: string;
+  canClear: boolean;
   clearDisabled: boolean;
-  clearMode: "normal" | null;
   confirmationValue: string;
-  onClear: (mode: "normal") => Promise<boolean>;
+  onClear: () => Promise<boolean>;
   setConfirmationValue: Dispatch<SetStateAction<string>>;
   setDangerExpanded: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<string>>;
@@ -33,9 +33,9 @@ export async function doConfirmClear(
   deps: ConfirmClearDeps,
 ) {
   const {
+    canClear,
     clearConfirmationPhrase,
     clearDisabled,
-    clearMode,
     confirmationValue,
     onClear,
     setConfirmationValue,
@@ -44,7 +44,7 @@ export async function doConfirmClear(
     setSuccess,
     t,
   } = deps;
-    if (!clearMode || clearDisabled) return;
+    if (!canClear || clearDisabled) return;
     // 为什么只认一种：另一种语言的口令和敲错字一样算错。
     // 界面显示哪种口令就只收哪种，不许两种都收。
     // 2026-09-08 定（W16 04A 修订 C 第二节 D-16a、D-16c）。
@@ -56,7 +56,7 @@ export async function doConfirmClear(
     }
     setError("");
     setSuccess("");
-    const cleared = await onClear(clearMode);
+    const cleared = await onClear();
     if (!cleared) {
       setError(t("settings.clear.error.failed"));
       return;

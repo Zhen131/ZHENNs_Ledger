@@ -89,7 +89,7 @@ describe("SettingsWorkspace", () => {
       screen.getByRole("button", { name: "确认清空账本内容" }),
     );
     expect(onClear).toHaveBeenCalledOnce();
-    expect(onClear).toHaveBeenCalledWith("normal");
+    expect(onClear).toHaveBeenCalledWith();
     expect(
       await screen.findByText("当前账本内容已清空，.lftl 文件仍然存在"),
     ).not.toBeNull();

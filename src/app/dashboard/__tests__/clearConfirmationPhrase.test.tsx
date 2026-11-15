@@ -143,7 +143,7 @@ describe("the settings panel's typed clear phrase", () => {
     await user.type(input, CHINESE_SETTINGS_PHRASE);
     await confirm();
 
-    expect(onClear).toHaveBeenCalledWith("normal");
+    expect(onClear).toHaveBeenCalledWith();
   });
 
   it("rejects a typo on the Chinese interface", async () => {
@@ -177,7 +177,7 @@ describe("the settings panel's typed clear phrase", () => {
     await user.type(input, ENGLISH_SETTINGS_PHRASE);
     await confirm();
 
-    expect(onClear).toHaveBeenCalledWith("normal");
+    expect(onClear).toHaveBeenCalledWith();
   });
 
   it("rejects a typo on the English interface", async () => {

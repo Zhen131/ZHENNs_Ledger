@@ -37,7 +37,6 @@ export const PUBLIC_CLEAR_LEDGER_CONFIRMATION_TEXT = translateDefault(
 );
 
 type SettingsTab = "market" | "fees" | "danger";
-type ClearMode = "normal";
 
 /**
  * 这个组件画设置页，上面一排分页：行情、手续费、危险操作。
@@ -66,7 +65,7 @@ export function SettingsWorkspace({
   repositorySwitchBlocked: boolean;
   isReadOnly: boolean;
   canClearReadyLedger: boolean;
-  onClear: (mode: ClearMode) => Promise<boolean>;
+  onClear: () => Promise<boolean>;
 }>) {
   const { language, setLanguage, t } = useLanguage();
   const clearConfirmationPhrase = t("settings.clear.confirmation.phrase");
@@ -82,8 +81,7 @@ export function SettingsWorkspace({
   const cancelClearRef = useRef<HTMLButtonElement>(null);
   const restoreFocusFrameRef = useRef<number | null>(null);
 
-  const clearMode: ClearMode | null =
-    hydrationStatus === "ready" && canClearReadyLedger ? "normal" : null;
+  const canClear = hydrationStatus === "ready" && canClearReadyLedger;
   const clearDisabled =
     persistenceOperation !== "idle" ||
     repositorySwitchBlocked ||
@@ -159,7 +157,7 @@ export function SettingsWorkspace({
       {
         clearConfirmationPhrase,
         clearDisabled,
-        clearMode,
+        canClear,
         confirmationValue,
         onClear,
         setConfirmationValue,
@@ -171,7 +169,7 @@ export function SettingsWorkspace({
     );
   }
 
-  const clearDisabledReason = !clearMode
+  const clearDisabledReason = !canClear
     ? t("settings.clear.disabled.notAllowed")
     : isReadOnly
       ? t("settings.clear.disabled.readOnly")
@@ -250,7 +248,7 @@ export function SettingsWorkspace({
           clearConfirmationPhrase={clearConfirmationPhrase}
           clearDisabled={clearDisabled}
           clearDisabledReason={clearDisabledReason}
-          clearMode={clearMode}
+          canClear={canClear}
           closeDanger={closeDanger}
           confirmClear={confirmClear}
           confirmClearRef={confirmClearRef}

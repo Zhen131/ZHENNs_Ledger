@@ -21,11 +21,11 @@ import type { Translate } from "@/ui";
  * 正在清时提示别关页面。
  */
 export function SettingsWorkspaceDangerPanel({
+  canClear,
   cancelClearRef,
   clearConfirmationPhrase,
   clearDisabled,
   clearDisabledReason,
-  clearMode,
   closeDanger,
   confirmClear,
   confirmClearRef,
@@ -42,11 +42,11 @@ export function SettingsWorkspaceDangerPanel({
   setSuccess,
   t,
 }: Readonly<{
+  canClear: boolean;
   cancelClearRef: RefObject<HTMLButtonElement | null>;
   clearConfirmationPhrase: string;
   clearDisabled: boolean;
   clearDisabledReason: string;
-  clearMode: "normal" | null;
   closeDanger: ({ restoreFocus }?: { restoreFocus?: boolean; }) => void;
   confirmClear: () => Promise<void>;
   confirmClearRef: RefObject<HTMLButtonElement | null>;
@@ -80,7 +80,7 @@ export function SettingsWorkspaceDangerPanel({
                 }
                 aria-expanded="false"
                 className="rounded-md border border-red-200 bg-red-50 px-4 py-2 font-semibold text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!clearMode || clearDisabled}
+                disabled={!canClear || clearDisabled}
                 onClick={() => {
                   setDangerExpanded(true);
                   setError("");
