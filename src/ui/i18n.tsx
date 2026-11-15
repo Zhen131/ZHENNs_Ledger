@@ -155,6 +155,7 @@ const LanguageContext = createContext<LanguageContextValue>(
  * 这个组件把界面语言提供给它里面的整棵页面。
  * 开机先用中文，读到浏览器里的偏好后再换过去。
  * 用户在设置页换语言时，它换掉显示并记进浏览器。
+ * 语言变了，它也把网页最外层 `<html lang>` 改成同一种。
  * 测试可以传一个假的存储进来。
  */
 export function LanguageProvider({
@@ -171,6 +172,12 @@ export function LanguageProvider({
   useEffect(() => {
     setLanguageState(readLanguagePreference(storage));
   }, [storage]);
+
+  // 为什么改 `<html lang>`：外壳写死中文，切到英文后浏览器会问要不要翻译。
+  // 2026-11-15 定（W26 04B 复审后修订第 8 条）。
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   const setLanguage = useCallback(
     (nextLanguage: LedgerLanguage) => {

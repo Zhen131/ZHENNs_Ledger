@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 /**
  * 这个组件画整站最外层的 html 和 body，把页面内容放进去。
- * html 的语言标成简体中文。
+ * html 的语言开机标成简体中文；界面语言变了，`ui/i18n.tsx` 会改它。
  */
 export default function RootLayout({
   children,
