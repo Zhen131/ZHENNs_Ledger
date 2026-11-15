@@ -2,9 +2,7 @@
  * 这个文件管首页的持仓概览表。
  * 完整的持仓明细不在这里，在 `HoldingsDetails.tsx`。
  * 不显然的决定：首页的持仓概览表只放市值前 5 的币。
- * 为什么是 5：前 3 个放不全你常拿的币，5 个刚好一屏看完。
- * 2026-11-15 拟稿，产品负责人看过、未改字（W26 00A 追加节）。
- * 上限由 3 改为 5，2026-08-27 定（W15 01A 第十五节）。
+ * 为什么是 5：上限由 3 改为 5，2026-08-27 定（W15 01A 第十五节）。
  */
 import type { DecimalString, Position } from "@/core/models";
 import { compare, divide, isZero, subtract } from "@/core/shared";
