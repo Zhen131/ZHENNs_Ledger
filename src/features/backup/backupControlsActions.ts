@@ -14,7 +14,6 @@ import type {
 import type {
   CopyState,
   ImportState,
-  PostImportPairingOperation,
   PostImportPairingState,
 } from "./backupControlsTypes";
 import type { preflightBackupJson } from "./backupImportPreflight";
@@ -50,15 +49,10 @@ import { downloadBackupJson } from "./backupDownload";
 import { formatBackupImportReportMarkdown } from "./backupImportReport";
 import { hasCurrentSuspicionConfirmation } from "./backupControlsHelpers";
 import { listAssetsMissingBinanceMapping } from "@/features/market-data";
-
-type BackupControlsMountEffectDeps = {
-  importAbortControllerRef: RefObject<AbortController | null>;
-  mountedRef: RefObject<boolean>;
-  pairingOperationRef: RefObject<PostImportPairingOperation | null>;
-  selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
-  selectionGenerationRef: RefObject<number>;
-  suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
-};
+import type {
+  BackupControlsMountEffectDeps,
+  ResetFileSelectionDeps,
+} from "./backupControlsActionTypes";
 
 /**
  * 这个函数在备份区出现时记下「在了」。
@@ -93,18 +87,6 @@ export function runBackupControlsMountEffect(
       suspicionConfirmationRef.current = null;
     };
 }
-
-type ResetFileSelectionDeps = {
-  fileInputRef: RefObject<HTMLInputElement | null>;
-  importAbortControllerRef: RefObject<AbortController | null>;
-  selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
-  selectionGenerationRef: RefObject<number>;
-  setCopyState: Dispatch<SetStateAction<CopyState>>;
-  setImportErrors: Dispatch<SetStateAction<BackupEnvelopeError[]>>;
-  setMessage: Dispatch<SetStateAction<string>>;
-  setPreflightResult: Dispatch<SetStateAction<BackupImportPreflightResult | null>>;
-  suspicionConfirmationRef: RefObject<BackupSuspicionConfirmationReceipt | null>;
-};
 
 /**
  * 这个函数清掉已选的 B 文件和它的预检结果。
@@ -338,6 +320,7 @@ export function doHandleFileChange(
           // 只有明确选了「历史导入」入口，才逐笔要原句。
           // 这条 2026-07-31 定（W11 03A 第 4.3 节第 5 条）。
           requireHistoricalRawText: requiresHistoricalRawText,
+          t,
         });
       } catch {
         if (isCurrentSelection(selectionGeneration)) {
@@ -439,12 +422,14 @@ type CopyPreflightReportDeps = {
   selectedPreflightRef: RefObject<BackupImportPreflightResult | null>;
   selectionGenerationRef: RefObject<number>;
   setCopyState: Dispatch<SetStateAction<CopyState>>;
+  t: Translate;
 };
 
 /**
  * 这个函数把预检报告复制到剪贴板。
  * 复制失败就显示失败，不假装复制好了。
  * 复制期间换了文件，结果不再显示。
+ * 报告文字用当前界面语言的 `t` 写。
  */
 export async function doCopyPreflightReport(
   deps: CopyPreflightReportDeps,
@@ -454,6 +439,7 @@ export async function doCopyPreflightReport(
     selectedPreflightRef,
     selectionGenerationRef,
     setCopyState,
+    t,
   } = deps;
     const result = selectedPreflightRef.current;
     if (
@@ -468,7 +454,7 @@ export async function doCopyPreflightReport(
     setCopyState("copying");
     try {
       await navigator.clipboard.writeText(
-        formatBackupImportReportMarkdown(result),
+        formatBackupImportReportMarkdown(result, t),
       );
     } catch {
       if (isSamePreflight(generation, contentIdentity)) {

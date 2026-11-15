@@ -34,23 +34,7 @@ import type {
 import type { Translate } from "@/ui";
 import { createValidatedCashEvent } from "./cashEventService";
 import { projectLedgerCashMutation } from "./cashProjection";
-
-type CashFormEpochResetEffectDeps = {
-  clock: LedgerClock;
-  setAmountOrTarget: Dispatch<SetStateAction<string>>;
-  setArmedDelete: Dispatch<SetStateAction<ArmedDelete | null>>;
-  setCurrentPage: Dispatch<SetStateAction<number>>;
-  setError: Dispatch<SetStateAction<string>>;
-  setFeedback: Dispatch<SetStateAction<string>>;
-  setNote: Dispatch<SetStateAction<string>>;
-  setOccurredAt: Dispatch<SetStateAction<string>>;
-  setOccurredTime: Dispatch<SetStateAction<string>>;
-  setOccurredTimeZone: Dispatch<SetStateAction<string>>;
-  setPendingMutationVersion: Dispatch<SetStateAction<number | null>>;
-  setPendingOperation: Dispatch<SetStateAction<"add" | "delete" | null>>;
-  setPendingRisk: Dispatch<SetStateAction<PendingRisk | null>>;
-  setType: Dispatch<SetStateAction<CashEventType>>;
-};
+import type { CashFormEpochResetEffectDeps } from "./cashEventPanelActionTypes";
 
 /**
  * 这个函数把现金表单清回初始样子。
@@ -281,6 +265,7 @@ export function doHandleSubmit(
         generateId: () => globalThis.crypto.randomUUID(),
         now: () => timeSnapshot.now.toISOString(),
         todayKey: () => timeSnapshot.todayKey,
+        t,
       },
     );
     if (!result.ok) {

@@ -19,22 +19,12 @@ import { preflightBackupJson } from "./backupImportPreflight";
 import {
   type BackupImportPreflightResult,
   type BackupSuspicionConfirmationReceipt,
-  type LedgerBackupImportEvidence,
 } from "./backupImportPreflightResult";
-import type {
-  ApplyLedgerActionResult,
-  PersistenceOperation,
-} from "@/app";
-import type { LedgerData } from "@/core/models";
-import type { HydrationStatus } from "@/app";
 import {
   systemLedgerClock,
-  type LedgerClock,
-  type LedgerTimeSnapshot,
 } from "@/core/shared";
 import {
   createBinanceMarketDataClient,
-  type BinanceMarketDataClient,
 } from "@/platform/integrations";
 import { useLanguage } from "@/ui";
 import {
@@ -67,49 +57,10 @@ import {
 } from "./backupControlsActions";
 import { BackupControlsActionRow } from "./BackupControlsActionRow";
 import { BackupControlsPairingPanel } from "./BackupControlsPairingPanel";
+import type { BackupControlsProps } from "./backupControlsPropsType";
+import { describeLedgerResourcePolicyError } from "@/core/validation";
 
 const defaultMarketDataClient = createBinanceMarketDataClient();
-
-type BackupControlsProps = {
-  clock?: LedgerClock;
-  ledgerData: LedgerData;
-  hydrationStatus: HydrationStatus;
-  persistenceOperation: PersistenceOperation;
-  persistenceStatus: "idle" | "saving" | "saved" | "error";
-  isReadOnly: boolean;
-  isDirty: boolean;
-  /**
-   * 只管最后那一步写进账本。
-   * 它为假时，读好的账本照样能做预检。
-   * 这条 2026-07-31 定（W11 03A 第 4.6 节）。
-   */
-  canImportBackup?: boolean;
-  canPreflightBackup?: boolean;
-  requiresHistoricalRawText?: boolean;
-  ledgerEpoch?: number;
-  sessionGeneration?: number;
-  mutationVersion?: number;
-  persistedVersion?: number;
-  isWritable?: boolean;
-  applyLedgerMutation?: (
-    mutation: (current: LedgerData) => LedgerData,
-    timeSnapshot?: LedgerTimeSnapshot,
-  ) => ApplyLedgerActionResult;
-  marketDataClient?: BinanceMarketDataClient;
-  generateId?: () => string;
-  preflight?: typeof preflightBackupJson;
-  onImport: (
-    candidate: LedgerData,
-    timeSnapshot?: LedgerTimeSnapshot,
-    evidence?: LedgerBackupImportEvidence,
-    signal?: AbortSignal,
-  ) => Promise<{
-    ok: boolean;
-    code?: string;
-    errors?: BackupEnvelopeError[];
-  }>;
-  showPlaintextWarning?: boolean;
-};
 
 /**
  * 这个组件画设置页的备份区。
@@ -414,6 +365,7 @@ export function BackupControls({
         selectedPreflightRef,
         selectionGenerationRef,
         setCopyState,
+        t,
       },
     );
   }
@@ -626,7 +578,7 @@ export function BackupControls({
             {importErrors.slice(0, 5).map((error, index) => (
               <li key={`${error.code}-${error.path}-${index}`}>
                 <code>{error.code}</code> · <code>{error.path}</code> ·{" "}
-                {error.message}
+                {"limit" in error ? describeLedgerResourcePolicyError(error, t) : error.message}
                 {"limit" in error
                   ? `${t("backup.errors.limitPrefix")}${error.limit}${t("backup.errors.limitMiddle")}${error.actual}${t("backup.errors.limitSuffix")}`
                   : ""}
